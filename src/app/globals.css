@@ -1,0 +1,65 @@
+/*
+ * Design tokens.
+ *
+ * Colour, type and spacing are named here and used by name everywhere else, so
+ * a change lands in one place. This is the smallest thing that deserves to be
+ * called a design system: enough that no component hardcodes a hex value, not
+ * so much that it has opinions nobody has needed yet.
+ */
+:root {
+  --bib-bg: #fbfbfa;
+  --bib-surface: #ffffff;
+  --bib-border: #e4e2dd;
+  --bib-ink: #1c1b19;
+  --bib-ink-muted: #6b6862;
+  --bib-accent: #1f5f4f;
+  --bib-accent-ink: #ffffff;
+  --bib-danger: #9b2c2c;
+  --bib-danger-bg: #fdf2f2;
+
+  --bib-radius: 6px;
+  --bib-gap-1: 8px;
+  --bib-gap-2: 16px;
+  --bib-gap-3: 24px;
+  --bib-gap-4: 40px;
+
+  --bib-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bib-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bib-bg);
+  color: var(--bib-ink);
+  font-family: var(--bib-font);
+  line-height: 1.5;
+}
+
+.bib-shell { max-width: 880px; margin: 0 auto; padding: var(--bib-gap-4) var(--bib-gap-2); }
+.bib-card {
+  background: var(--bib-surface);
+  border: 1px solid var(--bib-border);
+  border-radius: var(--bib-radius);
+  padding: var(--bib-gap-3);
+}
+.bib-label { display: block; font-size: 13px; color: var(--bib-ink-muted); margin-bottom: 4px; }
+.bib-input {
+  width: 100%; padding: 10px 12px; font: inherit;
+  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
+  background: var(--bib-surface); color: var(--bib-ink);
+}
+.bib-button {
+  padding: 10px 18px; font: inherit; font-weight: 550; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--bib-radius);
+  background: var(--bib-accent); color: var(--bib-accent-ink);
+}
+.bib-button[disabled] { opacity: 0.6; cursor: progress; }
+.bib-error {
+  background: var(--bib-danger-bg); color: var(--bib-danger);
+  border: 1px solid currentColor; border-radius: var(--bib-radius);
+  padding: var(--bib-gap-1) var(--bib-gap-2); font-size: 14px;
+}
+.bib-muted { color: var(--bib-ink-muted); }
+.bib-mono { font-family: var(--bib-mono); font-size: 13px; }

@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local environment. .env.example is committed and is the canonical key list.
+.env
+.env.local
+
+.DS_Store

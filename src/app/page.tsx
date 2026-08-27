@@ -1,0 +1,98 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, apiError } from "@/lib/api/client";
+import type { Membership, Principal } from "@/lib/api/client";
+
+/**
+ * The workspace home, and T1.8's acceptance in one screen: the app boots,
+ * authenticates, and makes a real authenticated call through the generated
+ * client.
+ *
+ * It reads /auth/me and /tenancy/me/memberships — the org switcher's data.
+ * Both go out with the session cookie; a 401 means the session is gone or was
+ * revoked (the API re-checks the membership on EVERY request, so being removed
+ * from a firm ends access here on the next call, not at expiry).
+ */
+export default function HomePage() {
+  const router = useRouter();
+  const [principal, setPrincipal] = useState<Principal | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+
+    void (async () => {
+      const me = await api.GET("/api/v1/auth/me", {});
+      if (!live) return;
+      if (me.error) {
+        // Not signed in is an ordinary state, not a failure to report.
+        router.push("/login");
+        return;
+      }
+      setPrincipal(me.data);
+
+      const mine = await api.GET("/api/v1/tenancy/me/memberships", {});
+      if (!live) return;
+      if (mine.error) {
+        setError(apiError(mine.error).message);
+        return;
+      }
+      setMemberships(mine.data.memberships);
+    })();
+
+    return () => {
+      live = false;
+    };
+  }, [router]);
+
+  async function signOut(): Promise<void> {
+    await api.POST("/api/v1/auth/logout", {});
+    router.push("/login");
+  }
+
+  if (!principal) return <p className="bib-muted">Loading…</p>;
+
+  return (
+    <main>
+      <h1>10X Workspace</h1>
+
+      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Session</h2>
+        <p className="bib-mono bib-muted" style={{ margin: 0 }}>
+          user {principal.userId}
+        </p>
+        <p className="bib-mono bib-muted" style={{ margin: 0 }}>
+          {principal.tenantId === null
+            ? "no org selected — this session belongs to more than one firm"
+            : `acting for ${principal.tenantId} as ${principal.audience ?? "?"}`}
+        </p>
+      </div>
+
+      <div className="bib-card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Memberships</h2>
+        {error !== null && <p className="bib-error">{error}</p>}
+        {memberships.length === 0 && error === null && (
+          <p className="bib-muted" style={{ margin: 0 }}>No active memberships.</p>
+        )}
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {memberships.map((m) => (
+            <li key={m.id} className="bib-mono">
+              {m.role} · {m.audience} · <span className="bib-muted">{m.tenantId}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <button
+        className="bib-button"
+        style={{ marginTop: "var(--bib-gap-3)" }}
+        onClick={() => void signOut()}
+      >
+        Sign out
+      </button>
+    </main>
+  );
+}
