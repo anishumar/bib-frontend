@@ -141,6 +141,11 @@ export default function ProposalPage() {
     <main>
       <nav className="bib-nav">
         <Link href="/proposals">← Proposals</Link>
+        {/* There is no history table: the ledger IS this proposal's timeline —
+            drafted, approved, sent, viewed, decided, each naming its actor. */}
+        {permissions.includes("ledger:read") && (
+          <Link href={`/audit?type=proposal&id=${proposalId}`}>History</Link>
+        )}
       </nav>
 
       <h1 style={{ marginBottom: 4 }}>{proposal.title}</h1>

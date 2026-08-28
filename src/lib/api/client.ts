@@ -228,6 +228,12 @@ export function formatCount(value: string): string {
   return value.includes(".") ? value.replace(/\.?0+$/, "") : value;
 }
 
+/** An event with whoever caused it. The stored row keeps only an actor id —
+ *  personal data stays out of a log erasure cannot mutate — and the name is a
+ *  read-time join, so an erased account stops resolving and the event survives. */
+export type EventRecord =
+  paths["/api/v1/events"]["get"]["responses"][200]["content"]["application/json"]["events"][number];
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;

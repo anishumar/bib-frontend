@@ -72,6 +72,8 @@ not before.
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
+| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
+| `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
 The two admin screens are one subject deliberately split: the API needs `tenant:admin` for
 both, because between them they decide what every role can do **and** who holds it.
@@ -126,6 +128,21 @@ renders a uuid is telling you about the API, not about itself.
 So: when a screen wants something the API does not return, the default is to fix the API.
 Joining, formatting or looking things up per row in this app hides the problem from the next
 consumer.
+
+`/audit` found the fourth one: the trail named its actor by uuid and nothing a `ledger:read`
+holder could call resolved it. The backend joins the account at read time now — the stored
+row still keeps only the id, so erasure still works and `actor: null` is a real state this
+app has to render, not a bug.
+
+## Two screens that show the registry rather than hiding it
+
+`/catalogue` offers "new version" and never "edit", because publishing FREEZES a config
+version — that is what makes a proposal's pinned price still resolve next year. A draft is
+shown as "draft only" rather than omitted, because a draft that was never published is a real
+state a firm needs to see and fix, and the proposal screen correctly refuses to quote one.
+
+`/audit` shows payloads raw. An audit trail is read when something has gone wrong, and a
+friendlier rendering is one more thing between the reader and what was actually recorded.
 
 ## Commands
 

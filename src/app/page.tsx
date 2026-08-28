@@ -104,6 +104,26 @@ export default function HomePage() {
             <Link href="/clients">Clients →</Link>
             <Link href="/leads">Pipeline →</Link>
             <Link href="/proposals">Proposals →</Link>
+            {/* Reading the catalogue is config:read — an associate quotes from
+                it, so it is not an admin screen. Changing it is tenant:admin,
+                and that half of the page appears only for somebody who holds it. */}
+            {principal.permissions.includes("config:read") && (
+              <Link href="/catalogue">Catalogue →</Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* The whole trail names every client the firm has, which is why it is a
+          ledger:read screen and not a general one. */}
+      {principal.permissions.includes("ledger:read") && (
+        <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Audit trail</h2>
+          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Every state transition the firm has made. Append-only.
+          </p>
+          <div className="bib-nav" style={{ marginBottom: 0 }}>
+            <Link href="/audit">Open the log →</Link>
           </div>
         </div>
       )}

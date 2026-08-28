@@ -3271,8 +3271,18 @@ export interface components {
             occurredAt: string;
             recordedAt: string;
         };
+        EventRecord: {
+            event: components["schemas"]["Event"];
+            actor: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+        };
         EventList: {
-            events: components["schemas"]["Event"][];
+            events: components["schemas"]["EventRecord"][];
         };
         PermissionVocabulary: {
             permissions: {
