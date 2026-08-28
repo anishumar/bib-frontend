@@ -1,40 +1,54 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError, formatMoney, readServiceBody } from "@/lib/api/client";
+import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
+import { Fact, Facts, NotStated, Prose } from "@/lib/ui/record";
 
 /**
- * What the firm sells, and the one rule it sells under.
+ * What the firm sells, the terms it sells under, and the one rule it sells by.
  *
  * This is the configuration registry with its commercial hat on — the same
- * machinery as `/admin/roles`, a different kind. Two things about it decide how
- * this screen behaves and neither is presentation:
+ * machinery as `/admin/roles`, different kinds. Three things about it decide how
+ * this screen behaves and none of them is presentation:
  *
  * PUBLISHING FREEZES. A published version's body can never change; an edit is a
  * NEW version, and the one it replaces is archived and stays readable forever.
  * That is what makes a proposal's pin meaningful — a quote sent in March still
  * resolves March's price after the catalogue moved on. So this screen offers
- * "new version", never "edit".
+ * "new version", never "edit", and it never lets a draft and a published version
+ * look like the same thing.
+ *
+ * A BODY IS STORED VERBATIM AND READ BACK BY NAME, which is why the API refuses
+ * an unknown key outright instead of ignoring it: a misspelt field would save
+ * and then do nothing. Every write here therefore sends only fields it has a
+ * value for — a blank input is sent as NOTHING, never as "" — and shows the
+ * API's refusal word for word when one comes back. Those refusals are the most
+ * useful text on this screen: they name the field, the value they got and the
+ * form they wanted.
  *
  * READING IS BROAD, WRITING IS `tenant:admin`. An associate quotes from the
- * catalogue, so the list is theirs to see; changing what the firm sells is not.
- * The controls are offered on that basis and the API refuses regardless.
+ * catalogue, so the record is theirs to read; changing what the firm sells is
+ * not. The controls are offered on that basis and the API refuses regardless.
  */
 export default function CataloguePage() {
   const router = useRouter();
   const [services, setServices] = useState<ConfigEntry[]>([]);
+  const [history, setHistory] = useState<Record<string, ConfigVersion[]>>({});
+  const [clauses, setClauses] = useState<ConfigEntry[]>([]);
   const [policies, setPolicies] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [catalogue, policy, me] = await Promise.all([
+    const [catalogue, library, policy, me] = await Promise.all([
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
+      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
       api.GET("/api/v1/auth/me", {}),
     ]);
@@ -43,15 +57,21 @@ export default function CataloguePage() {
       return;
     }
     if (catalogue.error) {
-      setError(apiError(catalogue.error).message);
+      setFailure(failureOf("load", catalogue.error));
       setLoaded(true);
       return;
     }
     setServices(catalogue.data.entries);
+    setClauses(library.data?.entries ?? []);
     setPolicies(policy.data?.entries ?? []);
     setPermissions(me.data?.permissions ?? []);
-    setError(null);
+    setFailure(null);
+    // Painted from the list first, then filled in: the list is one call and has
+    // everything that is IN FORCE, which is most of the screen. The pending
+    // drafts cost a call per service (see loadHistory) and nobody should wait on
+    // them to read what the firm sells.
     setLoaded(true);
+    setHistory(await loadHistory(catalogue.data.entries));
   }, [router]);
 
   useEffect(() => {
@@ -60,12 +80,16 @@ export default function CataloguePage() {
     })();
   }, [load]);
 
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
-    setBusy(key);
-    setError(null);
+  async function act(at: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+    setBusy(at);
+    setFailure(null);
     const result = await call();
     if (result.error) {
-      setError(apiError(result.error).message);
+      // Verbatim, and shown where the attempt was made. The config validator's
+      // message is the whole explanation — "frc" beside "FRC" silently splits a
+      // revenue report in two — and a local "something went wrong" would throw
+      // away the only sentence that tells somebody how to fix it.
+      setFailure(failureOf(at, result.error));
       setBusy(null);
       return;
     }
@@ -73,17 +97,8 @@ export default function CataloguePage() {
     setBusy(null);
   }
 
-  /** A service body, from the form. A list price is OPTIONAL: an hourly or
-   *  retainer service often has none until an engagement is scoped, and the API
-   *  reads null as "we quote it", never as zero. */
-  function serviceBody(form: FormData): Record<string, unknown> {
-    const amount = String(form.get("amount") ?? "").trim();
-    const currency = String(form.get("currency") ?? "").trim().toUpperCase();
-    return {
-      name: String(form.get("name")).trim(),
-      billingBasis: String(form.get("billingBasis")),
-      listPrice: amount === "" ? null : { amount, currency },
-    };
+  function noteFor(at: string): ReactNode {
+    return failure !== null && failure.at === at ? <FailureNote failure={failure} /> : null;
   }
 
   function define(form: FormData): void {
@@ -96,7 +111,7 @@ export default function CataloguePage() {
   }
 
   function newVersion(key: string, form: FormData): void {
-    void act(key, () =>
+    void act(`version:${key}`, () =>
       api.POST("/api/v1/config/{kind}/{key}/versions", {
         params: { path: { kind: "service", key } },
         body: { body: serviceBody(form) },
@@ -104,9 +119,19 @@ export default function CataloguePage() {
     );
   }
 
+  function publish(key: string, version: number): void {
+    void act(`publish:${key}`, () =>
+      api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
+        params: { path: { kind: "service", key, version } },
+      }),
+    );
+  }
+
   if (!loaded) return <p className="bib-muted">Loading…</p>;
 
   const canWrite = permissions.includes("tenant:admin");
+  const rows = services.map((entry) => serviceRow(entry, history[entry.entry.key]));
+  const groups = byModule(rows);
   const discount = policies.find((p) => p.entry.key === "discount");
   const discountLimit =
     discount?.published === null || discount === undefined
@@ -118,89 +143,120 @@ export default function CataloguePage() {
       <nav className="bib-nav">
         <Link href="/">← Workspace</Link>
         <Link href="/proposals">Proposals</Link>
+        <Link href="/engagement-letters">Engagement letters</Link>
       </nav>
       <h1>Catalogue</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+      <p className="bib-muted" style={{ marginTop: 0 }}>
+        The firm&apos;s own record of what it sells. A published version is frozen — every
+        proposal and letter quoted from it resolves that exact version forever — so a change
+        is a new version, never an edit.
+      </p>
+      {noteFor("load")}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        {services.length === 0 ? (
+      {rows.length > 0 && <Axes rows={rows} />}
+
+      {rows.length === 0 ? (
+        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
           <p className="bib-muted" style={{ margin: 0 }}>
             Nothing in the catalogue yet.
           </p>
+        </div>
+      ) : (
+        groups.map((group) => (
+          <section key={group.module ?? ""}>
+            <h2 className="bib-group-head">
+              {group.module === null ? (
+                // A service filed under no Dept is not an error and must not be
+                // dropped off the bottom of a grouped list: it is a row whose
+                // revenue lands in no column of the firm's own dashboard.
+                <NotStated>filed under no Dept</NotStated>
+              ) : (
+                <span>{group.module}</span>
+              )}
+              <span className="bib-muted" style={{ fontWeight: 400, letterSpacing: 0 }}>
+                · {group.rows.length} {group.rows.length === 1 ? "service" : "services"}
+              </span>
+            </h2>
+            {group.rows.map((row) => (
+              <ServiceCard
+                key={row.key}
+                row={row}
+                canWrite={canWrite}
+                busy={busy}
+                note={noteFor}
+                onPublish={publish}
+                onNewVersion={newVersion}
+              />
+            ))}
+          </section>
+        ))
+      )}
+
+      {canWrite && (
+        <div className="bib-card" style={{ margin: "var(--bib-gap-3) 0" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Add a service</h2>
+          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Everything but the name, the handle and how it is charged is optional, and blank
+            means the firm has not stated it — which is a real answer the record will show as
+            such. Nothing blank is sent.
+          </p>
+          <form
+            action={(form) => {
+              define(form);
+            }}
+          >
+            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+              <div style={{ flex: "2 1 220px" }}>
+                <label className="bib-label" htmlFor="define-key">
+                  Handle
+                </label>
+                {/* The key is a HANDLE, not a title, and not the firm's service
+                    code either: pins are written against it, so it never moves.
+                    Lower case by rule — the code that prints on a proposal is
+                    `ref` below. */}
+                <input
+                  className="bib-input"
+                  id="define-key"
+                  name="key"
+                  placeholder="gst-filing"
+                  required
+                />
+                <p className="bib-hint">
+                  Lower case, url-safe, permanent. Every issued document resolves through it.
+                </p>
+              </div>
+            </div>
+            <ServiceFields id="define" defaults={null} />
+            {noteFor("define")}
+            <button className="bib-button" type="submit" disabled={busy !== null}>
+              Add as a draft
+            </button>
+            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              Defining does not put it in force. Publish it, and from then on the version it
+              was quoted at is frozen — which is what lets a proposal reopened next year still
+              show the price it was sent at.
+            </p>
+          </form>
+        </div>
+      )}
+
+      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Standard terms</h2>
+        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+          The clause library an engagement letter is assembled from. Each clause carries where
+          it may be USED (its jurisdictions) and, separately, what it SAYS — whose law governs
+          and which courts hear a dispute. Those are not the same fact: a clause applicable in
+          India and naming Indian law is entirely correct until it goes out on a letter issued
+          by the firm&apos;s US entity.
+        </p>
+        {clauses.length === 0 ? (
+          <p className="bib-muted" style={{ margin: 0 }}>No clauses defined yet.</p>
         ) : (
-          <table className="bib-table">
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Charged</th>
-                <th style={{ textAlign: "right" }}>List price</th>
-                <th>In force</th>
-                {canWrite && <th />}
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((entry) => {
-                const body = readServiceBody(entry.published?.body);
-                const basis = entry.published?.body["billingBasis"];
-                return (
-                  <tr key={entry.entry.id}>
-                    <td>
-                      <div>{body.name || entry.entry.key}</div>
-                      <div className="bib-muted bib-mono">{entry.entry.key}</div>
-                    </td>
-                    <td className="bib-muted">
-                      {typeof basis === "string" ? basis.replace("_", " ") : "—"}
-                    </td>
-                    <td style={{ textAlign: "right" }} className="bib-mono">
-                      {/* Null is "we quote it", not free — so a dash, never a zero. */}
-                      {body.listPrice === null
-                        ? "—"
-                        : formatMoney(body.listPrice.amount, body.listPrice.currency)}
-                    </td>
-                    <td>
-                      {entry.published === null ? (
-                        // A draft was never in force, so it cannot be quoted —
-                        // the proposal screen will not offer it either.
-                        <span className="bib-pill" data-tone="revoked">
-                          draft only
-                        </span>
-                      ) : (
-                        <span className="bib-muted bib-mono">v{entry.published.version}</span>
-                      )}
-                    </td>
-                    {canWrite && (
-                      <td style={{ textAlign: "right" }}>
-                        {entry.published === null && (
-                          <button
-                            className="bib-button-quiet"
-                            disabled={busy !== null}
-                            onClick={() => {
-                              void act(entry.entry.key, () =>
-                                api.POST(
-                                  "/api/v1/config/{kind}/{key}/versions/{version}/publish",
-                                  {
-                                    params: {
-                                      path: { kind: "service", key: entry.entry.key, version: 1 },
-                                    },
-                                  },
-                                ),
-                              );
-                            }}
-                          >
-                            Publish v1
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          clauses.map((entry) => <ClauseCard key={entry.entry.id} entry={entry} />)
         )}
       </div>
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+      <div className="bib-card">
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Discount limit</h2>
         <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
           {discountLimit === null || discountLimit === ""
@@ -245,6 +301,7 @@ export default function CataloguePage() {
                 </button>
               </div>
             </div>
+            {noteFor("policy")}
             {discount !== undefined && (
               <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
                 A new version is a draft until it is published — the limit in force does not
@@ -254,85 +311,995 @@ export default function CataloguePage() {
           </form>
         )}
       </div>
+    </main>
+  );
+}
 
-      {canWrite && (
-        <div className="bib-card">
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Add a service</h2>
-          <form
-            action={(form) => {
-              define(form);
-            }}
-          >
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-              <div style={{ flex: "2 1 200px" }}>
-                <label className="bib-label" htmlFor="name">
-                  Name
-                </label>
-                <input className="bib-input" id="name" name="name" required />
+// ── One service ──────────────────────────────────────────────────────────────
+
+function ServiceCard({
+  row,
+  canWrite,
+  busy,
+  note,
+  onPublish,
+  onNewVersion,
+}: {
+  row: ServiceRow;
+  canWrite: boolean;
+  busy: string | null;
+  note: (at: string) => ReactNode;
+  onPublish: (key: string, version: number) => void;
+  onNewVersion: (key: string, form: FormData) => void;
+}) {
+  const { body, published, draft } = row;
+  const draftBody = draft === null ? null : readServiceRecord(draft.body);
+  return (
+    <article className="bib-card bib-record">
+      <div className="bib-record-head">
+        {/* The firm's OWN code, printed as the firm writes it. It is on the body
+            and not on the handle because a services-master renumber is an
+            ordinary Tuesday and the handle is what every issued document pins
+            through. */}
+        {body.ref === null ? (
+          <NotStated>no code</NotStated>
+        ) : (
+          <span className="bib-pill" data-tone="code">
+            {body.ref}
+          </span>
+        )}
+        <h3>{body.name === "" ? row.key : body.name}</h3>
+        <span className="bib-muted bib-mono">{row.key}</span>
+        <span style={{ marginLeft: "auto" }}>
+          {published === null ? (
+            // A draft was never in force, so it cannot be quoted — the proposal
+            // screen will not offer it either.
+            <span className="bib-pill" data-tone="revoked">
+              draft only — never in force
+            </span>
+          ) : (
+            <span className="bib-pill" data-tone="live">
+              in force · v{published.version}
+            </span>
+          )}
+        </span>
+      </div>
+
+      {published === null && draft === null ? (
+        // An entry always has at least one version, so both being null means
+        // this screen has not read them — not that the service says nothing. A
+        // record of "not stated" everywhere would be that lie in full.
+        <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+          {row.versionsKnown
+            ? "Its versions could not be read, so what this service says is unknown here."
+            : "Reading its draft…"}
+        </p>
+      ) : (
+        <>
+          <ServiceFacts body={body} />
+          <ServiceProse body={body} />
+        </>
+      )}
+
+      {draft !== null && (
+        <div style={{ marginTop: "var(--bib-gap-3)" }}>
+          <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+            {published === null
+              ? `Draft v${draft.version} is what would go in force. Nothing is quoting this service until it is published.`
+              : `A draft v${draft.version} is waiting. It changes nothing until it is published — v${published.version} above is what proposals still resolve.`}
+          </p>
+          {published !== null && draftBody !== null && (
+            // Side by side, never merged: what is in force is above, and this is
+            // what would replace it. Blurring the two is the one thing this
+            // screen must not do.
+            <details style={{ marginTop: "var(--bib-gap-1)" }}>
+              <summary>What the pending draft v{draft.version} says</summary>
+              <div style={{ marginTop: "var(--bib-gap-2)" }}>
+                <ServiceFacts body={draftBody} />
+                <ServiceProse body={draftBody} />
               </div>
-              <div>
-                <label className="bib-label" htmlFor="key">
-                  Handle
-                </label>
-                {/* The key is a HANDLE, not a title: pins and references are
-                    written against it, so it never changes. The label above can. */}
-                <input
-                  className="bib-input"
-                  id="key"
-                  name="key"
-                  placeholder="gst-filing"
-                  required
-                />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="billingBasis">
-                  Charged
-                </label>
-                <select
-                  className="bib-select"
-                  id="billingBasis"
-                  name="billingBasis"
-                  style={{ width: "100%" }}
-                >
-                  {["fixed", "hourly", "retainer", "per_unit"].map((b) => (
-                    <option key={b} value={b}>
-                      {b.replace("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-              <div>
-                <label className="bib-label" htmlFor="amount">
-                  List price (optional)
-                </label>
-                <input className="bib-input" id="amount" name="amount" placeholder="25000.00" />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="currency">
-                  Currency
-                </label>
-                <input
-                  className="bib-input"
-                  id="currency"
-                  name="currency"
-                  defaultValue="INR"
-                  maxLength={3}
-                />
-              </div>
-            </div>
-            <button className="bib-button" type="submit" disabled={busy !== null}>
-              Add as a draft
-            </button>
-            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
-              Defining does not put it in force. Publish it, and from then on the version it
-              was quoted at is frozen — which is what lets a proposal reopened next year still
-              show the price it was sent at.
-            </p>
-          </form>
+            </details>
+          )}
+          {canWrite && (
+            <>
+              {note(`publish:${row.key}`)}
+              <button
+                className="bib-button-quiet"
+                style={{ marginTop: "var(--bib-gap-1)" }}
+                disabled={busy !== null}
+                onClick={() => {
+                  onPublish(row.key, draft.version);
+                }}
+              >
+                Publish v{draft.version} — put it in force
+              </button>
+            </>
+          )}
         </div>
       )}
-    </main>
+
+      {canWrite && draft === null && published !== null && (
+        <details style={{ marginTop: "var(--bib-gap-3)" }}>
+          <summary>Draft a new version</summary>
+          <form
+            style={{ marginTop: "var(--bib-gap-2)" }}
+            action={(form) => {
+              onNewVersion(row.key, form);
+            }}
+          >
+            <p className="bib-muted" style={{ fontSize: 13, marginTop: 0 }}>
+              A new version is a WHOLE new body, so this starts as a copy of what is in force.
+              Clearing a field here means the new version does not state it — which is a
+              change, not a blank.
+            </p>
+            <ServiceFields id={`v-${row.key}`} defaults={body} />
+            {note(`version:${row.key}`)}
+            <button className="bib-button" type="submit" disabled={busy !== null}>
+              Draft it
+            </button>
+          </form>
+        </details>
+      )}
+    </article>
+  );
+}
+
+/** The short facts: how it is filed, how it is sold, what it promises. */
+function ServiceFacts({ body }: { body: ServiceRecord }) {
+  return (
+    <Facts>
+      {/* Two axes, never a tree — see Axes below. */}
+      <Fact label="Dept (module)">
+        {body.module === null ? <NotStated>filed under no Dept</NotStated> : body.module}
+      </Fact>
+      <Fact label="Delivery team (group)">
+        {body.group === null ? <NotStated>no team</NotStated> : body.group}
+      </Fact>
+      <Fact label="Charged">
+        {body.billingBasis === null ? (
+          <NotStated />
+        ) : (
+          body.billingBasis.replace("_", " ")
+        )}
+      </Fact>
+      <Fact label="Recurs">
+        {/* Null is not one_time. A consumer that defaulted it would put a billing
+            frequency on an engagement letter that nobody chose. */}
+        {body.recurrence === null ? (
+          <NotStated>not stated — not the same as one-off</NotStated>
+        ) : (
+          body.recurrence.replace("_", " ")
+        )}
+      </Fact>
+      <Fact label="Turnaround (SLA)">{slaSentence(body.slaDays)}</Fact>
+      <Fact label="List price">
+        {/* Null is "we quote it", never zero and never free. */}
+        {body.listPrice === null ? (
+          <NotStated>no list price — quoted per engagement</NotStated>
+        ) : (
+          <span className="bib-mono">
+            {formatMoney(body.listPrice.amount, body.listPrice.currency)}
+          </span>
+        )}
+      </Fact>
+      <Fact label="Pricing note">
+        {/* Allowed beside a price too: "plus statutory fees at actuals" belongs
+            next to the money, not buried in the description. */}
+        {body.pricingNote === null ? <NotStated /> : body.pricingNote}
+      </Fact>
+      <Fact label="Offered in">
+        {body.jurisdictions.length === 0 ? (
+          <span className="bib-muted">everywhere</span>
+        ) : (
+          <span className="bib-mono">{body.jurisdictions.join(", ")}</span>
+        )}
+      </Fact>
+      <Fact label="Category">{body.category === null ? <NotStated /> : body.category}</Fact>
+      <Fact label="Description">
+        {body.description === null ? <NotStated /> : body.description}
+      </Fact>
+    </Facts>
+  );
+}
+
+/**
+ * The four blocks that protect the firm in a dispute.
+ *
+ * The firm's own words, in the firm's own order, never parsed into typed
+ * limits: nothing here is metered, and past a ceiling the firm RE-ASSESSES the
+ * engagement rather than auto-charging. A letter copies these and may override
+ * them per document, so this is the DEFAULT wording and never the record of
+ * what was agreed.
+ */
+function ServiceProse({ body }: { body: ServiceRecord }) {
+  return (
+    <div className="bib-prose-grid">
+      <Prose heading="What the firm will do" field="scope" text={body.scope} />
+      <Prose
+        heading="What the client must do"
+        field="clientObligations"
+        text={body.clientObligations}
+      />
+      <Prose
+        heading="What the price assumes"
+        field="volumeLimits"
+        text={body.volumeLimits}
+      />
+      <Prose heading="What is not included" field="exclusions" text={body.exclusions} />
+    </div>
+  );
+}
+
+/**
+ * The reporting axes, side by side and deliberately NOT nested.
+ *
+ * `module` is what the firm's own dashboard splits revenue by; `group` is who
+ * delivers. FINCOMPLIANCE delivers under both FRC and TRC, so rendering group as
+ * a child of module would make that service unfileable and force a duplicate
+ * catalogue row per Dept — a second row somebody has to keep in step, and a
+ * revenue figure counted twice.
+ */
+function Axes({ rows }: { rows: ServiceRow[] }) {
+  return (
+    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+      <Facts>
+        <Fact label="By Dept — what revenue is reported by">
+          <AxisChips counts={countBy(rows, (b) => b.module)} />
+        </Fact>
+        <Fact label="By delivery team — who does the work">
+          <AxisChips counts={countBy(rows, (b) => b.group)} />
+        </Fact>
+      </Facts>
+      <p className="bib-muted" style={{ fontSize: 13, margin: 0 }}>
+        Two independent dimensions, not a hierarchy: one delivery team works under more than
+        one Dept, so a service has each of these separately.
+      </p>
+    </div>
+  );
+}
+
+function AxisChips({ counts }: { counts: AxisCount[] }) {
+  if (counts.length === 0) return <NotStated>nothing filed</NotStated>;
+  return (
+    <span className="bib-chips">
+      {counts.map((c) => (
+        <span key={c.label ?? ""} className="bib-pill" data-tone={c.label === null ? "" : "code"}>
+          {c.label ?? "not filed"} · {c.count}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// ── One clause ───────────────────────────────────────────────────────────────
+
+function ClauseCard({ entry }: { entry: ConfigEntry }) {
+  const body = readClauseRecord(entry.published?.body);
+  return (
+    <article
+      className="bib-record"
+      style={{
+        borderTop: "1px solid var(--bib-border)",
+        paddingTop: "var(--bib-gap-2)",
+        marginTop: "var(--bib-gap-2)",
+      }}
+    >
+      <div className="bib-record-head">
+        <h3>{body.title === "" ? entry.entry.key : body.title}</h3>
+        <span className="bib-muted bib-mono">{entry.entry.key}</span>
+        <span style={{ marginLeft: "auto" }}>
+          {entry.published === null ? (
+            <span className="bib-pill" data-tone="revoked">
+              draft only — never in force
+            </span>
+          ) : (
+            <span className="bib-pill" data-tone="live">
+              in force · v{entry.published.version}
+            </span>
+          )}
+        </span>
+      </div>
+      {entry.published === null ? (
+        // The list carries the PUBLISHED version and nothing else, so a clause
+        // that has only ever been a draft has no body here. Saying that is the
+        // honest render; a record of "not stated" everywhere would read as a
+        // clause that names no law, which is a different and much worse claim.
+        <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+          Never published, so what it says is not on this list. No letter can pin it.
+        </p>
+      ) : (
+        <>
+          <Facts>
+            <Fact label="Applicable in">
+              {/* Where it may be USED. Not the same fact as what it SAYS — the
+                  two below are that, and the gap between them is how a US
+                  entity's letter went out naming Indian law. */}
+              {body.jurisdictions.length === 0 ? (
+                <span className="bib-muted">everywhere</span>
+              ) : (
+                <span className="bib-mono">{body.jurisdictions.join(", ")}</span>
+              )}
+            </Fact>
+            <Fact label="Governing law">
+              <Term term={body.governingLaw} absent="this clause names no law" />
+            </Fact>
+            <Fact label="Courts">
+              <Term term={body.courts} absent="this clause names no forum" />
+            </Fact>
+          </Facts>
+          <Prose
+            heading="The clause"
+            field="text"
+            text={body.text === "" ? null : body.text}
+          />
+        </>
+      )}
+    </article>
+  );
+}
+
+/**
+ * A jurisdictional term, BOTH halves.
+ *
+ * The code is what a mismatch check compares; the words are what the letter
+ * prints, and neither does the other's job — "the laws of the State of Delaware"
+ * does not follow from "US", because US law is state law. Showing only the code
+ * would hide what the document actually says; showing only the words would hide
+ * the half that is machine-checkable. So: both, always.
+ */
+function Term({ term, absent }: { term: JurisdictionalTerm | null; absent: string }) {
+  // Null is the ordinary case, not an omission — confidentiality and fee clauses
+  // name no law at all.
+  if (term === null) return <NotStated>{absent}</NotStated>;
+  return (
+    <span>
+      <span className="bib-pill" data-tone="code">
+        {term.jurisdiction}
+      </span>{" "}
+      {term.text}
+    </span>
+  );
+}
+
+// ── The form ─────────────────────────────────────────────────────────────────
+
+/**
+ * Every field a service body has, on both the DEFINE form and the NEW VERSION
+ * form, because a field a screen cannot set is a field a firm cannot use.
+ *
+ * `id` prefixes every control, because this page renders one of these per
+ * service plus one to define with, and a duplicated `id` breaks every label on
+ * the page after the first.
+ */
+function ServiceFields({ id, defaults }: { id: string; defaults: ServiceRecord | null }) {
+  return (
+    <>
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div style={{ flex: "3 1 240px" }}>
+          <label className="bib-label" htmlFor={`${id}-name`}>
+            Name
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-name`}
+            name="name"
+            defaultValue={defaults?.name ?? ""}
+            required
+          />
+        </div>
+        <div style={{ flex: "0 1 120px" }}>
+          <label className="bib-label" htmlFor={`${id}-ref`}>
+            Service code
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-ref`}
+            name="ref"
+            placeholder="A1"
+            maxLength={32}
+            defaultValue={defaults?.ref ?? ""}
+          />
+          <p className="bib-hint">The firm&apos;s own code. Printed on proposals.</p>
+        </div>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-billingBasis`}>
+            Charged
+          </label>
+          <select
+            className="bib-select"
+            id={`${id}-billingBasis`}
+            name="billingBasis"
+            defaultValue={defaults?.billingBasis ?? "fixed"}
+            style={{ width: "100%" }}
+          >
+            {BILLING_BASES.map((b) => (
+              <option key={b} value={b}>
+                {b.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+          <p className="bib-hint">What the price is a price OF.</p>
+        </div>
+      </div>
+
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-module`}>
+            Dept (module)
+          </label>
+          {/* Sent VERBATIM. The API demands the canonical form at the WRITE
+              rather than normalising at the read — a body is stored as written,
+              and this axis is GROUPED BY in SQL — so upper-casing it here would
+              hide a rule the firm needs to know about behind a silent fix. */}
+          <input
+            className="bib-input"
+            id={`${id}-module`}
+            name="module"
+            placeholder="FRC"
+            defaultValue={defaults?.module ?? ""}
+          />
+          <p className="bib-hint">
+            Upper case: FRC, TRC, RAA. The API refuses &quot;frc&quot; — beside &quot;FRC&quot;
+            it splits one Dept into two half-sized ones on the revenue report.
+          </p>
+        </div>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-group`}>
+            Delivery team (group)
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-group`}
+            name="group"
+            placeholder="FINCOMPLIANCE"
+            defaultValue={defaults?.group ?? ""}
+          />
+          <p className="bib-hint">
+            Upper case, spaces allowed. Independent of the Dept, not nested under it.
+          </p>
+        </div>
+      </div>
+
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-recurrence`}>
+            Recurs
+          </label>
+          <select
+            className="bib-select"
+            id={`${id}-recurrence`}
+            name="recurrence"
+            defaultValue={defaults?.recurrence ?? ""}
+            style={{ width: "100%" }}
+          >
+            <option value="">not stated</option>
+            {RECURRENCES.map((r) => (
+              <option key={r} value={r}>
+                {r.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+          <p className="bib-hint">How often the work comes round. Not how it is billed.</p>
+        </div>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-slaDays`}>
+            SLA, days from signing
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-slaDays`}
+            name="slaDays"
+            type="number"
+            min={0}
+            max={3650}
+            step={1}
+            placeholder="30"
+            defaultValue={defaults?.slaDays ?? ""}
+          />
+          <p className="bib-hint">
+            Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing.
+          </p>
+        </div>
+      </div>
+
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div style={{ flex: "0 1 160px" }}>
+          <label className="bib-label" htmlFor={`${id}-amount`}>
+            List price
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-amount`}
+            name="amount"
+            placeholder="25000.00"
+            defaultValue={defaults?.listPrice?.amount ?? ""}
+          />
+        </div>
+        <div style={{ flex: "0 1 100px" }}>
+          <label className="bib-label" htmlFor={`${id}-currency`}>
+            Currency
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-currency`}
+            name="currency"
+            maxLength={3}
+            defaultValue={defaults?.listPrice?.currency ?? "INR"}
+          />
+        </div>
+        <div style={{ flex: "2 1 240px" }}>
+          <label className="bib-label" htmlFor={`${id}-pricingNote`}>
+            Pricing note
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-pricingNote`}
+            name="pricingNote"
+            placeholder="As mutually agreed"
+            defaultValue={defaults?.pricingNote ?? ""}
+          />
+          <p className="bib-hint">
+            Why there is no list price — and allowed beside one, for &quot;plus statutory fees
+            at actuals&quot;.
+          </p>
+        </div>
+      </div>
+
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-category`}>
+            Category
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-category`}
+            name="category"
+            defaultValue={defaults?.category ?? ""}
+          />
+        </div>
+        <div>
+          <label className="bib-label" htmlFor={`${id}-jurisdictions`}>
+            Offered in
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-jurisdictions`}
+            name="jurisdictions"
+            placeholder="IN, AE"
+            defaultValue={defaults?.jurisdictions.join(", ") ?? ""}
+          />
+          <p className="bib-hint">ISO codes, comma separated. Blank means everywhere.</p>
+        </div>
+        <div style={{ flex: "3 1 260px" }}>
+          <label className="bib-label" htmlFor={`${id}-description`}>
+            Description
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-description`}
+            name="description"
+            defaultValue={defaults?.description ?? ""}
+          />
+        </div>
+      </div>
+
+      <div className="bib-prose-grid" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        {SCOPE_BLOCKS.map((block) => (
+          <div key={block.field}>
+            <label className="bib-label" htmlFor={`${id}-${block.field}`}>
+              {block.heading} <span className="bib-mono">{block.field}</span>
+            </label>
+            <textarea
+              className="bib-textarea"
+              id={`${id}-${block.field}`}
+              name={block.field}
+              rows={3}
+              placeholder={block.placeholder}
+              defaultValue={defaults?.[block.field] ?? ""}
+            />
+          </div>
+        ))}
+      </div>
+      <p className="bib-hint" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        The firm&apos;s own words, as the firm states them — &quot;under 1,000 entries; under 8
+        bank accounts&quot;. Nothing is metered against them: past a ceiling the firm
+        re-assesses the engagement.
+      </p>
+    </>
+  );
+}
+
+/** The four blocks, in the order a letter reads them. One list, because they are
+ *  written identically and they fail identically. */
+const SCOPE_BLOCKS = [
+  {
+    field: "scope",
+    heading: "What the firm will do",
+    placeholder: "Monthly management accounts; board pack.",
+  },
+  {
+    field: "clientObligations",
+    heading: "What the client must do",
+    placeholder: "Bank statements by the 5th.",
+  },
+  {
+    field: "volumeLimits",
+    heading: "What the price assumes",
+    placeholder: "Under 1,000 entries per month.",
+  },
+  {
+    field: "exclusions",
+    heading: "What is not included",
+    placeholder: "Statutory audit. Litigation support.",
+  },
+] as const satisfies readonly { field: ScopeBlockField; heading: string; placeholder: string }[];
+
+type ScopeBlockField = "scope" | "clientObligations" | "volumeLimits" | "exclusions";
+
+/**
+ * A service body, from the form.
+ *
+ * ONLY FIELDS WITH A VALUE. The API refuses an unknown key outright and refuses
+ * an EMPTY prose block by name — "use null for a block this service does not
+ * state: an empty string prints on an engagement letter as a heading with
+ * nothing under it" — so a blank input is sent as nothing at all. That also
+ * makes clearing a field on a new version mean what it looks like: the new
+ * version does not state it.
+ *
+ * `module`, `group` and `ref` go through VERBATIM. The API demands their
+ * canonical form at the write rather than normalising at the read, deliberately:
+ * a body is stored as written and `module` is grouped by in SQL. Quietly
+ * upper-casing here would make this app the only place that rule is enforced,
+ * and the person who typed "frc" would never learn it.
+ */
+function serviceBody(form: FormData): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    name: String(form.get("name") ?? "").trim(),
+    billingBasis: String(form.get("billingBasis") ?? ""),
+  };
+
+  put(body, "ref", verbatim(form, "ref"));
+  put(body, "module", verbatim(form, "module"));
+  put(body, "group", verbatim(form, "group"));
+  put(body, "description", trimmed(form, "description"));
+  put(body, "category", trimmed(form, "category"));
+  put(body, "pricingNote", trimmed(form, "pricingNote"));
+  put(body, "recurrence", verbatim(form, "recurrence"));
+  for (const block of SCOPE_BLOCKS) put(body, block.field, trimmed(form, block.field));
+
+  const jurisdictions = (trimmed(form, "jurisdictions") ?? "")
+    .split(",")
+    .map((j) => j.trim().toUpperCase())
+    .filter((j) => j !== "");
+  if (jurisdictions.length > 0) body["jurisdictions"] = jurisdictions;
+
+  // A day count is a NUMBER here, unlike money — it counts days, and 30 is
+  // exactly 30 in a float. Anything that is not a whole number goes through as
+  // the string the user typed, so the API refuses it by name instead of this
+  // app turning a typo into NaN and then into "no SLA stated".
+  const sla = trimmed(form, "slaDays");
+  if (sla !== null) body["slaDays"] = /^\d+$/.test(sla) ? Number(sla) : sla;
+
+  // A list price is optional — an hourly or retainer service often has none
+  // until an engagement is scoped — and null means "we quote it", never zero.
+  // Half a price is refused, so the currency travels with the amount.
+  const amount = trimmed(form, "amount");
+  if (amount !== null) {
+    body["listPrice"] = {
+      amount,
+      currency: (trimmed(form, "currency") ?? "").toUpperCase(),
+    };
+  }
+  return body;
+}
+
+function put(body: Record<string, unknown>, field: string, value: string | null): void {
+  if (value !== null) body[field] = value;
+}
+
+/** What the user typed, untouched — for the fields whose exact form the API
+ *  judges. Empty is absent. */
+function verbatim(form: FormData, field: string): string | null {
+  const value = String(form.get(field) ?? "");
+  return value === "" ? null : value;
+}
+
+/** Trimmed, for the fields where surrounding whitespace is only ever a typo — a
+ *  textarea's trailing newline included. Empty after trimming is absent. */
+function trimmed(form: FormData, field: string): string | null {
+  const value = String(form.get(field) ?? "").trim();
+  return value === "" ? null : value;
+}
+
+// ── Reading the registry back ────────────────────────────────────────────────
+
+/** One version row. Derived from the generated schema through `ConfigEntry`
+ *  rather than retyped — the history endpoint returns the same component. */
+type ConfigVersion = NonNullable<ConfigEntry["published"]>;
+
+interface ServiceRow {
+  readonly key: string;
+  readonly published: ConfigVersion | null;
+  readonly draft: ConfigVersion | null;
+  /** The body the record shows: what is in force, or the draft when nothing is. */
+  readonly body: ServiceRecord;
+  /** Whether this entry's versions have been read yet. It separates "this
+   *  service states no scope" from "this screen has not read it", which are the
+   *  same empty record and very different facts. */
+  readonly versionsKnown: boolean;
+}
+
+/**
+ * THE PENDING DRAFT COSTS ONE CALL PER SERVICE, and that is worth saying out
+ * loud rather than hiding.
+ *
+ * `GET /config/service` returns each entry's PUBLISHED version and nothing else
+ * — it is the list of what is in force, which is the right list for quoting. So
+ * a draft, including one just created through this screen, is not in it: it is
+ * invisible, and before this change there was no way to publish it either
+ * (the old screen offered "Publish v1" only when nothing was published at all).
+ * The history endpoint has every version, one entry at a time.
+ *
+ * Looking things up per row is what this app's rules tell you not to do, and the
+ * gap is a real one: there is no endpoint that lists a kind's DRAFTS. It is the
+ * right call here only because the alternative is a screen that cannot show a
+ * firm the version it is about to put in force.
+ */
+async function loadHistory(entries: ConfigEntry[]): Promise<Record<string, ConfigVersion[]>> {
+  const results = await Promise.all(
+    entries.map(async (e) => {
+      const result = await api.GET("/api/v1/config/{kind}/{key}", {
+        params: { path: { kind: "service", key: e.entry.key } },
+      });
+      const versions = (result.data?.versions ?? []).filter(
+        (v): v is ConfigVersion => v !== null,
+      );
+      return [e.entry.key, versions] as const;
+    }),
+  );
+  return Object.fromEntries(results);
+}
+
+function serviceRow(entry: ConfigEntry, versions: ConfigVersion[] | undefined): ServiceRow {
+  const known = versions ?? [];
+  const published = known.find((v) => v.status === "published") ?? entry.published;
+  const draft = known.find((v) => v.status === "draft") ?? null;
+  const source = published ?? draft;
+  return {
+    key: entry.entry.key,
+    published,
+    draft,
+    body: readServiceRecord(source?.body),
+    versionsKnown: versions !== undefined,
+  };
+}
+
+interface AxisCount {
+  readonly label: string | null;
+  readonly count: number;
+}
+
+/** How many services sit on each value of one axis, with the unfiled ones
+ *  counted as their own bucket rather than dropped. */
+function countBy(rows: ServiceRow[], pick: (b: ServiceRecord) => string | null): AxisCount[] {
+  const counts = new Map<string, number>();
+  let unfiled = 0;
+  for (const row of rows) {
+    const value = pick(row.body);
+    if (value === null) {
+      unfiled += 1;
+      continue;
+    }
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  const filed: AxisCount[] = [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, count]) => ({ label, count }));
+  return unfiled > 0 ? [...filed, { label: null, count: unfiled }] : filed;
+}
+
+/** The list, grouped by the axis the firm reports revenue by. Services filed
+ *  under no Dept go last and are never dropped: that bucket needs a home. */
+function byModule(rows: ServiceRow[]): { module: string | null; rows: ServiceRow[] }[] {
+  const buckets = new Map<string, ServiceRow[]>();
+  const unfiled: ServiceRow[] = [];
+  for (const row of rows) {
+    const dept = row.body.module;
+    if (dept === null) {
+      unfiled.push(row);
+      continue;
+    }
+    const bucket = buckets.get(dept);
+    if (bucket === undefined) buckets.set(dept, [row]);
+    else bucket.push(row);
+  }
+  const groups = [...buckets.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([module, list]) => ({ module: module as string | null, rows: list }));
+  return unfiled.length > 0 ? [...groups, { module: null, rows: unfiled }] : groups;
+}
+
+const BILLING_BASES = ["fixed", "hourly", "retainer", "per_unit"] as const;
+const RECURRENCES = ["one_time", "monthly", "quarterly", "annually", "custom"] as const;
+
+/**
+ * A service body as this screen reads it — every one of the sixteen fields.
+ *
+ * WHY IT IS READ BY HAND AND WHY THAT IS THE ONE PLACE THIS APP HAS NO COMPILE
+ * CHECK. The registry stores a body as free-form JSON, because each kind has its
+ * own shape and they grow as their consumers land, so the OpenAPI document types
+ * it as `{ [key: string]: unknown }`. None of these field names exists in
+ * `schema.d.ts`, and `npm run typecheck` therefore cannot catch a misspelt one.
+ * The API is the check instead: it refuses an unknown key outright rather than
+ * storing it, and this screen shows that refusal verbatim.
+ *
+ * Every field but the name falls back to null rather than to a value — mirroring
+ * the backend's own reader — because null is a REAL answer here: "the firm has
+ * not stated this". `slaDays: null` is not zero and `recurrence: null` is not
+ * one_time, and a screen that rendered either as a default would be inventing a
+ * commitment out of silence.
+ *
+ * `client.ts` has a `readServiceBody` that reads the name and the price, which
+ * is all the proposal and letter screens need. This is the full record, and it
+ * lives beside the only screen that shows one.
+ */
+interface ServiceRecord {
+  readonly name: string;
+  readonly ref: string | null;
+  readonly description: string | null;
+  readonly category: string | null;
+  readonly module: string | null;
+  readonly group: string | null;
+  readonly jurisdictions: readonly string[];
+  readonly billingBasis: string | null;
+  readonly recurrence: string | null;
+  readonly slaDays: number | null;
+  readonly listPrice: { readonly amount: string; readonly currency: string } | null;
+  readonly pricingNote: string | null;
+  readonly scope: string | null;
+  readonly clientObligations: string | null;
+  readonly volumeLimits: string | null;
+  readonly exclusions: string | null;
+}
+
+function readServiceRecord(body: Record<string, unknown> | undefined): ServiceRecord {
+  const jurisdictions = body?.["jurisdictions"];
+  const slaDays = body?.["slaDays"];
+  return {
+    name: readText(body?.["name"]) ?? "",
+    ref: readText(body?.["ref"]),
+    description: readText(body?.["description"]),
+    category: readText(body?.["category"]),
+    module: readText(body?.["module"]),
+    group: readText(body?.["group"]),
+    jurisdictions: Array.isArray(jurisdictions)
+      ? jurisdictions.filter((j): j is string => typeof j === "string")
+      : [],
+    billingBasis: readOneOf(body?.["billingBasis"], BILLING_BASES),
+    recurrence: readOneOf(body?.["recurrence"], RECURRENCES),
+    slaDays:
+      typeof slaDays === "number" && Number.isInteger(slaDays) && slaDays >= 0 ? slaDays : null,
+    listPrice: readListPrice(body?.["listPrice"]),
+    pricingNote: readText(body?.["pricingNote"]),
+    scope: readText(body?.["scope"]),
+    clientObligations: readText(body?.["clientObligations"]),
+    volumeLimits: readText(body?.["volumeLimits"]),
+    exclusions: readText(body?.["exclusions"]),
+  };
+}
+
+interface JurisdictionalTerm {
+  readonly jurisdiction: string;
+  readonly text: string;
+}
+
+interface ClauseRecord {
+  readonly title: string;
+  readonly text: string;
+  readonly jurisdictions: readonly string[];
+  readonly governingLaw: JurisdictionalTerm | null;
+  readonly courts: JurisdictionalTerm | null;
+}
+
+function readClauseRecord(body: Record<string, unknown> | undefined): ClauseRecord {
+  const jurisdictions = body?.["jurisdictions"];
+  return {
+    title: readText(body?.["title"]) ?? "",
+    text: readText(body?.["text"]) ?? "",
+    jurisdictions: Array.isArray(jurisdictions)
+      ? jurisdictions.filter((j): j is string => typeof j === "string")
+      : [],
+    governingLaw: readTerm(body?.["governingLaw"]),
+    courts: readTerm(body?.["courts"]),
+  };
+}
+
+/**
+ * A jurisdictional term out of a stored body. Absent, malformed and HALF-STATED
+ * all read as null, because neither half is a statement on its own: a code
+ * nobody can print, or a sentence nobody can compare.
+ *
+ * The code is normalised for display, like a currency and unlike the words — it
+ * is the comparable half, and "us" and "US" are the same country beyond any
+ * doubt. The words are shown exactly as the firm wrote them: they go on a signed
+ * document, and this is not the place to re-render that.
+ */
+function readTerm(raw: unknown): JurisdictionalTerm | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const term = raw as Record<string, unknown>;
+  const jurisdiction = readText(term["jurisdiction"]);
+  const text = readText(term["text"]);
+  if (jurisdiction === null || text === null) return null;
+  const code = jurisdiction.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? { jurisdiction: code, text } : null;
+}
+
+function readListPrice(raw: unknown): { amount: string; currency: string } | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const price = raw as Record<string, unknown>;
+  const amount = price["amount"];
+  const currency = price["currency"];
+  return typeof amount === "string" && typeof currency === "string"
+    ? { amount, currency: currency.toUpperCase() }
+    : null;
+}
+
+/** A stored string, or null when there is nothing to print. Blank collapses to
+ *  null on purpose: absent and "" are the same fact to every reader here, and
+ *  keeping them as two states means every caller writes the same test and one
+ *  of them eventually forgets. */
+function readText(v: unknown): string | null {
+  return typeof v === "string" && v.trim() !== "" ? v : null;
+}
+
+/** A stored value narrowed to one of a closed set, or null. A value outside the
+ *  set is not rendered as itself: these sets are branched on downstream, so a
+ *  hand-edited body naming something else has said nothing this app can read. */
+function readOneOf(v: unknown, allowed: readonly string[]): string | null {
+  return typeof v === "string" && allowed.includes(v) ? v : null;
+}
+
+/** Whole days from signing of the engagement letter, or the fact that nobody
+ *  committed to any. Null is NOT zero: zero is a commitment to the day of
+ *  signing, and "0 days" where nobody committed would be a lie on a screen. */
+function slaSentence(days: number | null): ReactNode {
+  if (days === null) return <NotStated>no SLA stated — not the same as none</NotStated>;
+  if (days === 0) return "Due on the day the letter is signed";
+  return `${days} ${days === 1 ? "day" : "days"} from signing`;
+}
+
+// ── Failures ─────────────────────────────────────────────────────────────────
+
+interface Failure {
+  readonly at: string;
+  readonly message: string;
+  readonly reason: string | null;
+}
+
+function failureOf(at: string, error: unknown): Failure {
+  const envelope = apiError(error);
+  return { at, message: envelope.message, reason: envelope.reason ?? null };
+}
+
+/**
+ * What the API said, where it was said.
+ *
+ * Rendered next to the form that caused it rather than only at the top of the
+ * page: this screen has one form per service plus one to define with, and an
+ * error that appears three screens above the button somebody pressed is an error
+ * nobody reads. The message is the API's own — several of these are the only
+ * place a firm learns a rule, and none of them is improved by a local rewrite.
+ */
+function FailureNote({ failure }: { failure: Failure }) {
+  return (
+    <p className="bib-error">
+      {failure.message}
+      {failure.reason !== null && (
+        <>
+          {" "}
+          <span className="bib-mono">({failure.reason})</span>
+        </>
+      )}
+    </p>
   );
 }

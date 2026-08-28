@@ -112,3 +112,57 @@ body {
 .bib-field-row > * { flex: 1 1 160px; }
 .bib-check { display: flex; gap: var(--bib-gap-1); align-items: flex-start; font-size: 14px; }
 .bib-check input { margin-top: 3px; }
+
+/*
+ * Added for the catalogue's RECORD layout. A service is a dozen short facts and
+ * four blocks of the firm's own prose, and prose in a table cell is prose
+ * nobody reads — so a definition grid for the facts and a real paragraph for
+ * the blocks. Same spirit as everything above: grown because a screen needed it.
+ */
+.bib-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--bib-gap-2); margin: 0 0 var(--bib-gap-3);
+}
+.bib-fact dd { margin: 0; font-size: 14px; }
+/* Absent is absent. Italic muted, never an empty cell and never a zero. */
+.bib-unstated { color: var(--bib-ink-muted); font-style: italic; }
+
+.bib-prose-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--bib-gap-2) var(--bib-gap-3);
+}
+.bib-prose h4 {
+  margin: 0 0 4px; font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--bib-ink-muted);
+}
+.bib-prose h4 .bib-mono { text-transform: none; letter-spacing: 0; font-size: 12px; }
+/* pre-wrap keeps the line breaks the firm typed: these blocks are
+   semicolon-separated lists as often as sentences. */
+.bib-prose p { margin: 0; font-size: 14px; white-space: pre-wrap; }
+
+.bib-textarea {
+  width: 100%; padding: 10px 12px; font: inherit; font-size: 14px;
+  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
+  background: var(--bib-surface); color: var(--bib-ink); resize: vertical;
+}
+
+.bib-record { margin-bottom: var(--bib-gap-2); }
+.bib-record-head {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: var(--bib-gap-1) var(--bib-gap-2); margin-bottom: var(--bib-gap-2);
+}
+.bib-record-head h3 { margin: 0; font-size: 16px; }
+.bib-group-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--bib-gap-1);
+  margin: var(--bib-gap-3) 0 var(--bib-gap-1); font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.bib-chips { display: flex; flex-wrap: wrap; gap: var(--bib-gap-1); }
+.bib-pill[data-tone="live"] { color: var(--bib-accent); border-color: var(--bib-accent); }
+.bib-pill[data-tone="code"] { font-family: var(--bib-mono); color: var(--bib-ink); }
+
+/* An API refusal is a paragraph, not a word — the config validator names the
+   field, the value it got and the form it wanted. It has to be able to wrap. */
+.bib-error { white-space: pre-wrap; margin: var(--bib-gap-2) 0; }
+.bib-hint { font-size: 12px; color: var(--bib-ink-muted); margin: 4px 0 0; }
+summary { cursor: pointer; font-size: 14px; }
