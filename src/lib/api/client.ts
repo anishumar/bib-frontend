@@ -93,9 +93,59 @@ export type ProposalLine = ProposalRecord["lines"][number];
 export type SharedProposal =
   paths["/api/v1/proposals/shared"]["post"]["responses"][200]["content"]["application/json"];
 
-/** A party, for the client picker on a new proposal. */
+/** A party, for a list or the client picker on a new proposal. */
 export type PartySummary =
   paths["/api/v1/parties"]["get"]["responses"][200]["content"]["application/json"]["parties"][number];
+
+/** Party 360: the party, its identifiers, and its effective-dated
+ *  relationships. */
+export type PartyProfile =
+  paths["/api/v1/parties/{partyId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type PartyIdentifier = PartyProfile["identifiers"][number];
+export type PartyRelationship = PartyProfile["relationships"][number];
+
+/** One row of the pipeline: the opportunity, the prospect it is about, and
+ *  whose desk it is on. */
+export type LeadRecord =
+  paths["/api/v1/leads"]["get"]["responses"][200]["content"]["application/json"]["leads"][number];
+
+export type LeadStage = LeadRecord["lead"]["stage"];
+export type LeadSource = LeadRecord["lead"]["source"];
+
+/**
+ * The closed sets, read off the generated schema rather than retyped.
+ *
+ * The API owns these — they are domain rules, not presentation — and a
+ * hardcoded copy here would drift the day a stage is added. `satisfies` makes a
+ * value that is not one of them a compile error.
+ */
+export const LEAD_STAGES = [
+  "new",
+  "contacted",
+  "qualified",
+  "converted",
+  "lost",
+] as const satisfies readonly LeadStage[];
+
+export const LEAD_SOURCES = [
+  "referral",
+  "inbound",
+  "outbound",
+  "event",
+  "partner",
+  "other",
+] as const satisfies readonly LeadSource[];
+
+/** Stages a lead never leaves. Reaching one closes the opportunity; a prospect
+ *  who comes back is a NEW lead, which is what the API's one-open-lead-per-party
+ *  rule leaves room for. */
+export const TERMINAL_STAGES: readonly LeadStage[] = ["converted", "lost"];
+
+export type IdentifierType =
+  NonNullable<
+    paths["/api/v1/parties/{partyId}/identifiers"]["post"]["requestBody"]
+  >["content"]["application/json"]["type"];
 
 /**
  * A service's body, as the catalogue stores it.

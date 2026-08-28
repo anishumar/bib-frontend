@@ -66,6 +66,9 @@ not before.
 | `/` | the workspace home: who you are, which firms you belong to |
 | `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
+| `/clients` | the firm's book — every counterparty, and adding one |
+| `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
+| `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
@@ -111,6 +114,18 @@ client's answer, and the page says so rather than showing a button that does not
 
 The share link is shown **once**, on the send response. Only its fingerprint is stored, so
 there is nothing to re-fetch — sending again issues a new one.
+
+## Screens are how API gaps get found
+
+`/clients` and `/leads` were built after their APIs shipped, and building them found three
+things no backend test had: `registerLegalEntity` was a write with no read, party 360 omitted
+the organization/person detail the create form captured, and relationships came back as
+uuids. All three were fixed in the backend rather than worked around here — a screen that
+renders a uuid is telling you about the API, not about itself.
+
+So: when a screen wants something the API does not return, the default is to fix the API.
+Joining, formatting or looking things up per row in this app hides the problem from the next
+consumer.
 
 ## Commands
 

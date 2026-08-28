@@ -98,9 +98,11 @@ export default function HomePage() {
         <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Commercial</h2>
           <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-            What the firm has quoted, and where each one stands.
+            The book, the pipeline, and what the firm has quoted.
           </p>
           <div className="bib-nav" style={{ marginBottom: 0 }}>
+            <Link href="/clients">Clients →</Link>
+            <Link href="/leads">Pipeline →</Link>
             <Link href="/proposals">Proposals →</Link>
           </div>
         </div>

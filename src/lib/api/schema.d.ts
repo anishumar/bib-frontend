@@ -3232,10 +3232,25 @@ export interface components {
         PartyList: {
             parties: components["schemas"]["Party"][];
         };
+        PartyRelationshipRecord: {
+            relationship: components["schemas"]["PartyRelationship"];
+            counterparty: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "organization" | "person";
+                displayName: string;
+            };
+            /** @enum {string} */
+            direction: "outgoing" | "incoming";
+        };
         PartyProfile: {
             party: components["schemas"]["Party"];
+            organization: components["schemas"]["Organization"] & unknown;
+            person: components["schemas"]["Person"] & unknown;
+            legalEntities: components["schemas"]["LegalEntity"][];
             identifiers: components["schemas"]["PartyIdentifier"][];
-            relationships: components["schemas"]["PartyRelationship"][];
+            relationships: components["schemas"]["PartyRelationshipRecord"][];
         };
         Event: {
             /** Format: uuid */
