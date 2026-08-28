@@ -68,8 +68,13 @@ export default function HomePage() {
         <p className="bib-mono bib-muted" style={{ margin: 0 }}>
           {principal.tenantId === null
             ? "no org selected — this session belongs to more than one firm"
-            : `acting for ${principal.tenantId} as ${principal.audience ?? "?"}`}
+            : `acting for ${principal.tenantId} as ${principal.role ?? "?"}`}
         </p>
+        {principal.permissions.length > 0 && (
+          <p className="bib-mono bib-muted" style={{ margin: 0 }}>
+            may {principal.permissions.join(", ")}
+          </p>
+        )}
       </div>
 
       <div className="bib-card">
@@ -87,22 +92,22 @@ export default function HomePage() {
         </ul>
       </div>
 
-      <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Administration</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-          Who works here, and what their roles mean.
-        </p>
-        <div className="bib-nav" style={{ marginBottom: 0 }}>
-          <Link href="/admin/people">People →</Link>
-          <Link href="/admin/roles">Roles →</Link>
+      {/* Offered only to somebody who can actually use it. /auth/me now says
+          what the session may DO, not only who it is, so this app no longer has
+          to show everything and let the API refuse — which was accurate but is
+          not the same as not offering it. */}
+      {principal.permissions.includes("tenant:admin") && (
+        <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Administration</h2>
+          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            Who works here, and what their roles mean.
+          </p>
+          <div className="bib-nav" style={{ marginBottom: 0 }}>
+            <Link href="/admin/people">People →</Link>
+            <Link href="/admin/roles">Roles →</Link>
+          </div>
         </div>
-      </div>
-
-      {/* Shown to everyone: this app cannot yet tell what the session may do,
-          because /auth/me returns the role but not the permissions it carries.
-          Somebody without them sees the API's own refusal on the screen, which
-          is accurate but is not the same as not offering it. Recorded on the
-          backend board as a follow-up. */}
+      )}
 
       <button
         className="bib-button"

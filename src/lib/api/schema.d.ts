@@ -2101,13 +2101,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The lead */
+                /** @description The lead, with the prospect and the owner */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Lead"];
+                        "application/json": components["schemas"]["LeadRecord"];
                     };
                 };
                 /** @description No authenticated session */
@@ -2325,6 +2325,9 @@ export interface components {
             tenantId: string | null;
             /** @enum {string|null} */
             audience: "STAFF" | "CLIENT_PORTAL" | null;
+            role: string | null;
+            commercialVisibility: boolean | null;
+            permissions: string[];
         };
         MembershipSummary: {
             /** Format: uuid */
@@ -2699,8 +2702,25 @@ export interface components {
             ownerUserId?: string;
             notes?: string;
         };
+        LeadRecord: {
+            lead: components["schemas"]["Lead"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "organization" | "person";
+                displayName: string;
+            };
+            owner: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+        };
         LeadList: {
-            leads: components["schemas"]["Lead"][];
+            leads: components["schemas"]["LeadRecord"][];
         };
         MoveLeadStageRequest: {
             /** @enum {string} */
