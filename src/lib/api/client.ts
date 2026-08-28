@@ -228,6 +228,55 @@ export function formatCount(value: string): string {
   return value.includes(".") ? value.replace(/\.?0+$/, "") : value;
 }
 
+/** An engagement letter as a LIST shows it. */
+export type LetterSummary =
+  paths["/api/v1/engagement-letters"]["get"]["responses"][200]["content"]["application/json"]["letters"][number];
+
+/** One letter in full: its lines, its PINNED clauses, and the engagements it
+ *  created at signature. */
+export type LetterRecord =
+  paths["/api/v1/engagement-letters/{letterId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type LetterClause = LetterRecord["clauses"][number];
+export type EngagementRecord = LetterRecord["engagements"][number];
+
+/**
+ * A clause body, as the library stores it.
+ *
+ * Read defensively for the same reason role and service bodies are: the
+ * registry keeps bodies as free-form JSON because each kind has its own shape,
+ * so the generated schema types this as an object of unknowns.
+ */
+export interface ClauseBody {
+  readonly title: string;
+  readonly text: string;
+  readonly jurisdictions: readonly string[];
+}
+
+export function readClauseBody(body: Record<string, unknown> | undefined): ClauseBody {
+  const title = body?.["title"];
+  const text = body?.["text"];
+  const jurisdictions = body?.["jurisdictions"];
+  return {
+    title: typeof title === "string" ? title : "",
+    text: typeof text === "string" ? text : "",
+    jurisdictions: Array.isArray(jurisdictions)
+      ? jurisdictions.filter((j): j is string => typeof j === "string")
+      : [],
+  };
+}
+
+/**
+ * Whether a clause may go on a letter written for this jurisdiction.
+ *
+ * The API refuses a mismatch — a term drafted elsewhere may be unenforceable
+ * here — and this is the same rule, used only to decide what to OFFER. An empty
+ * list means everywhere, which is how the API reads it too.
+ */
+export function clauseApplies(clause: ClauseBody, jurisdiction: string): boolean {
+  return clause.jurisdictions.length === 0 || clause.jurisdictions.includes(jurisdiction);
+}
+
 /** An event with whoever caused it. The stored row keeps only an actor id —
  *  personal data stays out of a log erasure cannot mutate — and the name is a
  *  read-time join, so an erased account stops resolving and the event survives. */

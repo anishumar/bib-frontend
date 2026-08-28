@@ -72,6 +72,8 @@ not before.
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
+| `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
+| `/engagement-letters/[letterId]` | one letter: its terms, its signature, and the engagements it created |
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
@@ -133,6 +135,19 @@ consumer.
 holder could call resolved it. The backend joins the account at read time now — the stored
 row still keeps only the id, so erasure still works and `actor: null` is a real state this
 app has to render, not a bug.
+
+## A signed letter is a different kind of screen
+
+`/engagement-letters/[letterId]` stops offering edits once the letter is signed, because the
+DATABASE refuses them — not this app. It shows the signature, its method and the content hash
+instead, and says plainly that a change is a new letter. The clause picker offers only clauses
+that apply to the letter's jurisdiction and are not already on it: the API refuses the rest,
+and offering what will fail is not honesty, it is just a slower error.
+
+The signature form says out loud that it records a colleague's **attestation**, not a
+cryptographic signature. The audit trail says the same thing (`signatureMethod: attested`), and
+a screen that implied more than the data supports would be the interface lying about the
+record.
 
 ## Two screens that show the registry rather than hiding it
 

@@ -98,12 +98,13 @@ export default function HomePage() {
         <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Commercial</h2>
           <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-            The book, the pipeline, and what the firm has quoted.
+            The book, the pipeline, what the firm has quoted, and what it has agreed.
           </p>
           <div className="bib-nav" style={{ marginBottom: 0 }}>
             <Link href="/clients">Clients →</Link>
             <Link href="/leads">Pipeline →</Link>
             <Link href="/proposals">Proposals →</Link>
+            <Link href="/engagement-letters">Engagement letters →</Link>
             {/* Reading the catalogue is config:read — an associate quotes from
                 it, so it is not an admin screen. Changing it is tenant:admin,
                 and that half of the page appears only for somebody who holds it. */}

@@ -1622,7 +1622,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy";
+                    kind: "service" | "role" | "policy" | "clause";
                 };
                 cookie?: never;
             };
@@ -1664,7 +1664,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy";
+                    kind: "service" | "role" | "policy" | "clause";
                 };
                 cookie?: never;
             };
@@ -1740,7 +1740,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy";
+                    kind: "service" | "role" | "policy" | "clause";
                     key: string;
                 };
                 cookie?: never;
@@ -1808,7 +1808,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy";
+                    kind: "service" | "role" | "policy" | "clause";
                     key: string;
                 };
                 cookie?: never;
@@ -1887,7 +1887,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy";
+                    kind: "service" | "role" | "policy" | "clause";
                     key: string;
                     version: number;
                 };
@@ -2971,6 +2971,748 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagement-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List engagement letters */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "draft" | "sent" | "signed" | "withdrawn";
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Letters */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLettersResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Draft an engagement letter
+         * @description The document that creates obligations. Lines come from the catalogue and clauses from the firm's library; both are pinned to the version in force when they are added.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DraftEngagementLetterRequest"];
+                };
+            };
+            responses: {
+                /** @description Drafted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetter"];
+                    };
+                };
+                /** @description Validation, or an advance required with no amount */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one engagement letter
+         * @description The clauses come back with the wording that was PINNED, so a signed letter reads as what was agreed rather than as what the library says today.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Letter */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agree a service on the letter */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddEngagementLetterLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Line added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterLine"];
+                    };
+                };
+                /** @description An amount that is not one, or a version that is not a published service */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull a line from a draft */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/clauses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a term on the letter
+         * @description Pinned to the clause version in force now. A clause drafted for another jurisdiction is refused rather than quietly included — it may be unenforceable where this letter is written.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddEngagementLetterClauseRequest"];
+                };
+            };
+            responses: {
+                /** @description Clause added */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not a published clause, or one for another jurisdiction */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or clause at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send it for signature */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetter"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, no lines, or no clauses */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pull it before signature */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Withdrawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetter"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A signed letter is superseded, never withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the client's signature
+         * @description Freezes the letter — the database refuses any later change — and creates one engagement per line. Engagements start `pending_advance` when the letter requires an advance, and no `contract.activated` is emitted until it is recorded.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignEngagementLetterRequest"];
+                };
+            };
+            responses: {
+                /** @description Signed, with the engagements it created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedEngagementLetter"];
+                    };
+                };
+                /** @description A signature missing a signatory */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not in a signable state, or missing lines or clauses */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the advance as received
+         * @description Releases every engagement waiting on it. HONEST LIMIT: a person asserts the money arrived — payments (T3.5) do not exist yet. The gate is real; its confirmation is an attestation until they do.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Recorded, with the engagements released */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedEngagementLetter"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No advance is required, or it was already recorded */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3296,7 +4038,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy";
+            kind: "service" | "role" | "policy" | "clause";
             key: string;
         };
         ConfigVersion: {
@@ -3552,6 +4294,141 @@ export interface components {
         ProposalDecisionRequest: {
             /** @enum {string} */
             decision: "accepted" | "rejected";
+        };
+        EngagementLetter: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            proposalId: string | null;
+            jurisdiction: string;
+            title: string;
+            /** @enum {string} */
+            status: "draft" | "sent" | "signed" | "withdrawn";
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            advanceRequired: boolean;
+            advanceAmount: string | null;
+            advanceRecordedAt: string | null;
+            sentAt: string | null;
+            signedAt: string | null;
+            signedByName: string | null;
+            signatureMethod: string | null;
+            signatureReference: string | null;
+            signedContentHash: string | null;
+            withdrawnAt: string | null;
+        };
+        DraftEngagementLetterRequest: {
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            proposalId?: string;
+            jurisdiction: string;
+            title: string;
+            currency: string;
+            fxRate: string;
+            fxRateDate: string;
+            /** @default false */
+            advanceRequired: boolean;
+            advanceAmount?: string;
+        };
+        EngagementLetterTotals: {
+            gross: string | null;
+            discount: string | null;
+            net: string | null;
+            currency: string;
+        };
+        EngagementLetterSummary: {
+            letter: components["schemas"]["EngagementLetter"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            totals: components["schemas"]["EngagementLetterTotals"];
+            lineCount: number;
+        };
+        EngagementLettersResponse: {
+            letters: components["schemas"]["EngagementLetterSummary"][];
+        };
+        EngagementLetterLine: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            serviceVersionId: string;
+            service: {
+                key: string;
+                version: number;
+                name: string;
+            } | null;
+            description: string;
+            position: number;
+            quantity: string;
+            unitAmount: string | null;
+            currency: string;
+            discountPercent: string | null;
+            net: string | null;
+        };
+        EngagementLetterClause: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            clauseVersionId: string;
+            key: string;
+            version: number;
+            position: number;
+            title: string;
+            text: string;
+        };
+        Engagement: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            engagementLetterId: string;
+            /** Format: uuid */
+            engagementLetterLineId: string;
+            /** Format: uuid */
+            partyId: string;
+            /** @enum {string} */
+            status: "pending_advance" | "active" | "paused" | "completed" | "cancelled";
+            activatedAt: string | null;
+            endsOn: string | null;
+        };
+        EngagementLetterRecord: {
+            letter: components["schemas"]["EngagementLetter"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            lines: components["schemas"]["EngagementLetterLine"][];
+            clauses: components["schemas"]["EngagementLetterClause"][];
+            totals: components["schemas"]["EngagementLetterTotals"];
+            engagements: components["schemas"]["Engagement"][];
+        };
+        AddEngagementLetterLineRequest: {
+            /** Format: uuid */
+            serviceVersionId: string;
+            description: string;
+            /** @default 1 */
+            quantity: string;
+            unitAmount: string;
+            /** @default 0 */
+            discountPercent: string;
+        };
+        AddEngagementLetterClauseRequest: {
+            /** Format: uuid */
+            clauseVersionId: string;
+        };
+        SignedEngagementLetter: {
+            letter: components["schemas"]["EngagementLetter"];
+            engagements: components["schemas"]["Engagement"][];
+        };
+        SignEngagementLetterRequest: {
+            signedByName: string;
+            reference?: string;
         };
     };
     responses: never;
