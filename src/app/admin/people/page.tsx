@@ -232,6 +232,25 @@ function AddMember({
 
   const chosenRole = role || roles[0]?.entry.key || "";
 
+  // What a client-portal login would actually be able to use: nothing.
+  //
+  // Gate 2 (audience) runs before gate 3 (role) and admits a portal session
+  // only to the handful of session routes, none of which needs a permission.
+  // So a portal membership carrying `manager` is not a hole — every staff route
+  // answers 403 — but it is a decision an admin can make believing it did
+  // something, and the roster would then show them as a Manager.
+  //
+  // The API does not refuse it, deliberately: which roles are portal roles is
+  // not a fact the system records yet, and inventing that rule here would put
+  // it in the one place a firm cannot change. So this SAYS so rather than
+  // silently filtering the dropdown, which would hide a real state from an
+  // admin looking at it. The real fix is a role that declares its audience, and
+  // it lands with the client portal.
+  const strandedPermissions =
+    audience === "CLIENT_PORTAL"
+      ? readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body).permissions
+      : [];
+
   async function submit(): Promise<void> {
     setBusy(true);
     const result = await api.POST("/api/v1/tenancy/members", {
@@ -303,6 +322,17 @@ function AddMember({
             </select>
           </div>
         </div>
+
+        {strandedPermissions.length > 0 && (
+          <p className="bib-muted" style={{ fontSize: 13, marginTop: "var(--bib-gap-2)", marginBottom: 0 }}>
+            <strong>This role carries {strandedPermissions.length} permission
+            {strandedPermissions.length === 1 ? "" : "s"} a client-portal login cannot use.</strong>{" "}
+            A portal session reaches only its own sign-in and org-switch routes, so{" "}
+            {strandedPermissions.join(", ")} will not apply. They will still be listed as
+            “{readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body).label ||
+              chosenRole}” on the roster.
+          </p>
+        )}
 
         <label className="bib-check" style={{ marginTop: "var(--bib-gap-2)" }}>
           <input
