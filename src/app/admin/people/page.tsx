@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
-import type { ConfigEntry, Member } from "@/lib/api/client";
+import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
 
 /**
  * The firm's roster.
@@ -17,19 +17,26 @@ import type { ConfigEntry, Member } from "@/lib/api/client";
  * The role dropdown is fed from the firm's OWN published roles, not a hardcoded
  * list: a firm that invents "rm" sees it here without a deploy, and a role that
  * exists only as a draft is correctly absent.
+ *
+ * The grade dropdown works the same way and is a SEPARATE axis: the role says
+ * what somebody may reach, the grade says how senior they are, and it is the
+ * grade the firm's review rule ("Manager or above") compares. The ladder itself
+ * is edited on /admin/grades; this screen only says who is on which rung.
  */
 export default function PeoplePage() {
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<ConfigEntry[]>([]);
+  const [grades, setGrades] = useState<StaffGrade[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [roster, published] = await Promise.all([
+    const [roster, published, ladder] = await Promise.all([
       api.GET("/api/v1/tenancy/members", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "role" } } }),
+      api.GET("/api/v1/tenancy/grades", {}),
     ]);
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
@@ -44,6 +51,7 @@ export default function PeoplePage() {
     }
     setMembers(roster.data.members);
     if (published.data) setRoles(published.data.entries.filter((e) => e.published !== null));
+    if (ladder.data) setGrades(ladder.data.grades);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -81,6 +89,18 @@ export default function PeoplePage() {
     );
   }
 
+  /** `null` takes somebody off the ladder, which is a real answer rather than a
+   *  missing one — a client contact has no rung, and neither does somebody whose
+   *  designation the firm has never ranked. */
+  function changeGrade(membershipId: string, gradeId: string | null): void {
+    void act(membershipId, () =>
+      api.PUT("/api/v1/tenancy/members/{membershipId}/grade", {
+        params: { path: { membershipId } },
+        body: { gradeId },
+      }),
+    );
+  }
+
   function setActive(membershipId: string, isActive: boolean): void {
     void act(membershipId, () =>
       api.PUT("/api/v1/tenancy/members/{membershipId}/active", {
@@ -103,6 +123,7 @@ export default function PeoplePage() {
             <tr>
               <th>Person</th>
               <th>Role</th>
+              <th>Grade</th>
               <th>Access</th>
               <th>Fees</th>
               <th />
@@ -140,6 +161,30 @@ export default function PeoplePage() {
                   </select>
                 </td>
                 <td>
+                  <select
+                    className="bib-select"
+                    value={m.grade?.id ?? ""}
+                    disabled={busy === m.membership.id}
+                    onChange={(e) => { changeGrade(m.membership.id, e.target.value || null); }}
+                  >
+                    {/* Ungraded is offered as a choice, not shown as an empty
+                        cell: taking somebody off the ladder is a decision, and a
+                        portal contact belongs on no rung at all. */}
+                    <option value="">— not graded —</option>
+                    {/* A retired rung is offered only to the person already on
+                        it. The API refuses it for anybody else, and offering
+                        what will fail is just a slower error. */}
+                    {grades
+                      .filter((g) => g.isActive || g.id === m.grade?.id)
+                      .map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                          {g.isActive ? "" : " (retired)"}
+                        </option>
+                      ))}
+                  </select>
+                </td>
+                <td>
                   <span className="bib-pill" data-tone={m.membership.isActive ? "active" : "revoked"}>
                     {m.membership.isActive ? m.membership.audience : "revoked"}
                   </span>
@@ -159,7 +204,8 @@ export default function PeoplePage() {
           </tbody>
         </table>
         <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0, marginTop: "var(--bib-gap-2)" }}>
-          Revoking takes effect on their next request, not at their next sign-in.
+          Revoking takes effect on their next request, not at their next sign-in. A grade is
+          seniority only — it grants nothing, and it is what review rules compare.
         </p>
       </div>
 

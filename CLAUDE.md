@@ -66,6 +66,7 @@ not before.
 | `/` | the workspace home: who you are, which firms you belong to |
 | `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
+| `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/clients` | the firm's book — every counterparty, and adding one |
 | `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
@@ -77,8 +78,25 @@ not before.
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
-The two admin screens are one subject deliberately split: the API needs `tenant:admin` for
-both, because between them they decide what every role can do **and** who holds it.
+The three admin screens are one subject deliberately split: the API needs `tenant:admin` for
+all of them, because between them they decide what every role can do, who holds it, and who is
+senior enough to sign off somebody else's work.
+
+**Roles and grades are not the same screen, and must not become one.** A role is what somebody
+may REACH and it grants permissions; a grade is how SENIOR they are and it grants nothing —
+it exists for one comparison, the firm's "Manager or above" review rule. Merging them would
+imply a promotion changes what you can open.
+
+`/admin/grades` offers **Retire**, never Delete, because there is no delete endpoint and no
+DELETE grant behind it: a rung somebody held is part of why they could approve something. A
+retired rung still renders on the person who holds it, marked retired, and the grade picker on
+`/admin/people` offers it only to them — the API refuses it for anybody else, and offering
+what will fail is just a slower error. The picker also offers "not graded" as a real choice,
+because a portal contact belongs on no rung and taking somebody off the ladder is a decision.
+
+The name and rank editors commit on **blur or Enter**, not per keystroke: every commit writes
+an audit event, and per-keystroke saving turns one rename into twelve rows nobody can read
+past.
 
 Two things they get from the API rather than deciding locally, and both matter:
 

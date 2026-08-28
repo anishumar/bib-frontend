@@ -36,9 +36,21 @@ export type Principal = paths["/api/v1/auth/me"]["get"]["responses"][200]["conte
 export type Membership =
   paths["/api/v1/tenancy/me/memberships"]["get"]["responses"][200]["content"]["application/json"]["memberships"][number];
 
-/** One row of the firm's roster — a membership with the person behind it. */
+/** One row of the firm's roster — a membership with the person behind it, and
+ *  the rung they sit on. */
 export type Member =
   paths["/api/v1/tenancy/members"]["get"]["responses"][200]["content"]["application/json"]["members"][number];
+
+/**
+ * A rung of the firm's own hierarchy.
+ *
+ * A THIRD axis, independent of role and of fee visibility: the role says what
+ * somebody may REACH, the grade says how SENIOR they are. It exists for one
+ * comparison — the firm's review rule is "Manager or above" — which is why
+ * `rank` is a plain integer and why nothing in this app interprets it.
+ */
+export type StaffGrade =
+  paths["/api/v1/tenancy/grades"]["get"]["responses"][200]["content"]["application/json"]["grades"][number];
 
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */

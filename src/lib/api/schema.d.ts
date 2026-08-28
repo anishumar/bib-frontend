@@ -883,6 +883,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/members/{membershipId}/grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put a member on a rung of the firm's hierarchy, or take them off it
+         * @description Seniority is a SEPARATE axis from role: the role decides what somebody may reach, the grade decides how senior they are, and it is the grade a review threshold compares. Unlike a role change this can strand nobody, so there is no last-administrator guard.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeMemberGradeRequest"];
+                };
+            };
+            responses: {
+                /** @description Grade changed. Idempotent — setting the rung they hold records nothing. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Membership"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership, or no such grade at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The firm no longer promotes through that rung */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/me/memberships": {
         parameters: {
             query?: never;
@@ -921,6 +1002,279 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/grades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's seniority ladder, most senior first
+         * @description Retired rungs are included — an admin needs to see them and be able to restore one.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The ladder */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffGradesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a rung the starting ladder did not have
+         * @description The firm has real designations its own hierarchy never ranked — Article, Intern, Trainee, Head and others. They arrive here, ranked by the firm, rather than being guessed by the product.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateGradeRequest"];
+                };
+            };
+            responses: {
+                /** @description Grade created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffGrade"];
+                    };
+                };
+                /** @description The code is not a lowercase handle, or the rank is not a positive whole number */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This firm already has a grade with that code */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/grades/{gradeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a rung, re-rank it, or both
+         * @description Re-ranking is the half that matters: inserting a rung below an existing one means moving the ranks above it, and a firm that could not do that from this screen would have to ask an engineer to run SQL against its own hierarchy.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gradeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateGradeRequest"];
+                };
+            };
+            responses: {
+                /** @description Grade updated. Idempotent — a patch that changes nothing records nothing. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffGrade"];
+                    };
+                };
+                /** @description The rank is not a positive whole number */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such grade at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/grades/{gradeId}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Retire a rung, or bring it back
+         * @description Never a delete. A rung somebody held is part of why they were allowed to approve something, so it stays readable forever.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gradeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetGradeActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Grade retired or restored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffGrade"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such grade at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -3808,6 +4162,11 @@ export interface components {
             audience: "STAFF" | "CLIENT_PORTAL";
             role: string;
             commercialVisibility: boolean;
+            /**
+             * Format: uuid
+             * @description Which rung of the firm's hierarchy this person is on — a separate axis from role. Null is ordinary: a portal contact has no grade, and neither does somebody whose designation the firm has never ranked. The roster read returns the rung itself.
+             */
+            gradeId: string | null;
             isActive: boolean;
         };
         AddMemberRequest: {
@@ -3820,12 +4179,23 @@ export interface components {
             /** @default false */
             commercialVisibility: boolean;
         };
+        /** @description The rung this person sits on, or null when they are not on the ladder. */
+        MemberGrade: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            rank: number;
+            /** @description False means the firm no longer promotes through this rung. The person really is on it, so it is shown rather than hidden — it simply is not offered to anybody new. */
+            isActive: boolean;
+        } | null;
         Member: {
             membership: components["schemas"]["Membership"];
             /** Format: email */
             email: string;
             /** @description Null when nobody has named the account — show the email instead. */
             displayName: string | null;
+            grade: components["schemas"]["MemberGrade"];
         };
         MembersResponse: {
             members: components["schemas"]["Member"][];
@@ -3847,8 +4217,42 @@ export interface components {
             /** @description False revokes access — the person's next request is refused, not their next login. */
             isActive: boolean;
         };
+        ChangeMemberGradeRequest: {
+            /**
+             * Format: uuid
+             * @description The rung to put them on, or null to take them off the ladder.
+             */
+            gradeId: string | null;
+        };
         MembershipsResponse: {
             memberships: components["schemas"]["Membership"][];
+        };
+        StaffGrade: {
+            /** Format: uuid */
+            id: string;
+            /** @description The firm's stable handle for the rung. Unique within the firm, never reused. */
+            code: string;
+            name: string;
+            /** @description 1 is the most junior. This is what a review threshold compares — 'Manager or above' is one comparison against it. Ranks need not be unique or consecutive. */
+            rank: number;
+            /** @description Whether the firm still promotes through this rung. A retired rung is never deleted: people who hold it keep it, and it stays readable so an old approval still explains itself. It simply stops being offered to anybody new. */
+            isActive: boolean;
+        };
+        StaffGradesResponse: {
+            grades: components["schemas"]["StaffGrade"][];
+        };
+        CreateGradeRequest: {
+            code: string;
+            name: string;
+            rank: number;
+        };
+        UpdateGradeRequest: {
+            name?: string;
+            rank?: number;
+        };
+        SetGradeActiveRequest: {
+            /** @description False retires the rung: it stops being offered for new assignments, and everybody already on it stays on it. */
+            isActive: boolean;
         };
         Organization: {
             /** Format: uuid */
