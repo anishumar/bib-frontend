@@ -63,3 +63,52 @@ body {
 }
 .bib-muted { color: var(--bib-ink-muted); }
 .bib-mono { font-family: var(--bib-mono); font-size: 13px; }
+
+/*
+ * Added for the admin screens. A roster is a table and there was not one yet;
+ * these are the smallest additions that carry it, in the same spirit as the
+ * rest of this file — grown because a real screen needed them.
+ */
+.bib-nav { display: flex; gap: var(--bib-gap-2); margin-bottom: var(--bib-gap-3); }
+.bib-nav a { color: var(--bib-ink-muted); text-decoration: none; font-size: 14px; }
+.bib-nav a:hover { color: var(--bib-ink); }
+.bib-nav a[aria-current="page"] { color: var(--bib-ink); font-weight: 600; }
+
+.bib-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bib-table th {
+  text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--bib-ink-muted);
+  padding: 0 var(--bib-gap-2) var(--bib-gap-1) 0; border-bottom: 1px solid var(--bib-border);
+}
+.bib-table td {
+  padding: var(--bib-gap-1) var(--bib-gap-2) var(--bib-gap-1) 0;
+  border-bottom: 1px solid var(--bib-border); vertical-align: middle;
+}
+.bib-table tr:last-child td { border-bottom: none; }
+.bib-table tr[data-inactive="true"] td { opacity: 0.55; }
+
+.bib-select {
+  padding: 6px 8px; font: inherit; font-size: 14px;
+  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
+  background: var(--bib-surface); color: var(--bib-ink);
+}
+.bib-button-quiet {
+  padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer;
+  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
+  background: var(--bib-surface); color: var(--bib-ink);
+}
+.bib-button-quiet:hover { border-color: var(--bib-ink-muted); }
+.bib-button-quiet[disabled] { opacity: 0.6; cursor: progress; }
+.bib-button-danger { color: var(--bib-danger); border-color: var(--bib-danger); }
+
+.bib-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; border: 1px solid var(--bib-border); color: var(--bib-ink-muted);
+}
+.bib-pill[data-tone="revoked"] {
+  color: var(--bib-danger); border-color: var(--bib-danger); background: var(--bib-danger-bg);
+}
+.bib-field-row { display: flex; gap: var(--bib-gap-2); flex-wrap: wrap; align-items: flex-end; }
+.bib-field-row > * { flex: 1 1 160px; }
+.bib-check { display: flex; gap: var(--bib-gap-1); align-items: flex-start; font-size: 14px; }
+.bib-check input { margin-top: 3px; }

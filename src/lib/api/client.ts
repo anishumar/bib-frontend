@@ -36,6 +36,47 @@ export type Principal = paths["/api/v1/auth/me"]["get"]["responses"][200]["conte
 export type Membership =
   paths["/api/v1/tenancy/me/memberships"]["get"]["responses"][200]["content"]["application/json"]["memberships"][number];
 
+/** One row of the firm's roster — a membership with the person behind it. */
+export type Member =
+  paths["/api/v1/tenancy/members"]["get"]["responses"][200]["content"]["application/json"]["members"][number];
+
+/** A configured thing and whatever it currently says. `published` is null when
+ *  only drafts exist, which is a state the screens have to show. */
+export type ConfigEntry =
+  paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];
+
+/** The product's closed permission set, with what each one means. Fetched
+ *  rather than retyped: a hardcoded copy would drift from what the API actually
+ *  checks, and on this screen that means offering a permission that grants
+ *  nothing or hiding one that grants everything. */
+export type PermissionInfo =
+  paths["/api/v1/config/permissions"]["get"]["responses"][200]["content"]["application/json"]["permissions"][number];
+
+/**
+ * A role's body, as the registry stores it.
+ *
+ * The registry keeps bodies as free-form JSON on purpose — each kind has its own
+ * shape and they grow as their consumers land — so the generated schema types
+ * this as an object of unknowns and the shape for ONE kind is read here. Narrow
+ * defensively: this is data the API validated on the way in, but the type system
+ * cannot know that.
+ */
+export interface RoleBody {
+  readonly label: string;
+  readonly permissions: readonly string[];
+}
+
+export function readRoleBody(body: Record<string, unknown> | undefined): RoleBody {
+  const label = body?.["label"];
+  const permissions = body?.["permissions"];
+  return {
+    label: typeof label === "string" ? label : "",
+    permissions: Array.isArray(permissions)
+      ? permissions.filter((p): p is string => typeof p === "string")
+      : [],
+  };
+}
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;
