@@ -3,6 +3,12 @@
     "target": "ES2022",
     "lib": [
       "ES2022",
+      // Intl.NumberFormat.format(string). Money crosses the API as a decimal
+      // STRING because a JavaScript number cannot hold 1499.50, and formatting
+      // it through Number() would undo that at the last possible moment. The
+      // runtime has had exact string formatting since ES2023; only the ES2022
+      // type declarations do not describe it.
+      "ES2023.Intl",
       "DOM",
       "DOM.Iterable"
     ],

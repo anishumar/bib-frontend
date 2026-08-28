@@ -66,6 +66,9 @@ not before.
 | `/` | the workspace home: who you are, which firms you belong to |
 | `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
+| `/proposals` | what the firm has quoted, and drafting a new one |
+| `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
+| `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
 
 The two admin screens are one subject deliberately split: the API needs `tenant:admin` for
 both, because between them they decide what every role can do **and** who holds it.
@@ -80,10 +83,34 @@ Two things they get from the API rather than deciding locally, and both matter:
   access-control screen that means offering a permission that grants nothing or hiding one
   that grants everything.
 
-**Known gap:** this app cannot yet tell what the session may DO — `/auth/me` returns the role
-but not the permissions it carries — so the admin links are shown to everyone and somebody
-without `tenant:admin` meets the API's refusal on the screen. Accurate, but not the same as
-not offering it. Recorded on the backend board.
+**A permission check in this app decides what to OFFER, never what is allowed.** `/auth/me`
+returns the permissions the session's role carries, so a link is shown only to somebody who
+can use it — but every screen still shows the API's refusal verbatim when one arrives, because
+the API is the only place the answer actually lives.
+
+## Money never becomes a number
+
+The API sends amounts as decimal **strings**, because a JavaScript number cannot hold 1499.50
+exactly, and this app keeps them strings all the way to the screen. `formatMoney` in
+`client.ts` hands the string to `Intl.NumberFormat`, which formats a decimal string exactly;
+`format(Number(amount))` would undo the whole arrangement at the last possible moment. That
+is why `tsconfig.json` pulls in `ES2023.Intl` — the runtime has had exact string formatting
+for years, only the ES2022 type declarations do not describe it.
+
+A `null` amount is not zero and not an error: it is the fee axis. Somebody without commercial
+visibility gets the proposal with its money removed rather than a refusal, so these screens
+render an em dash and show everything else.
+
+## The proposal screens, and the one that has no session
+
+`/p/[token]` is public. The person opening it has no login and will not get one — that is
+what a proposal is. The token is in the URL because a link has to be sendable, and the page
+immediately moves it into a request **body**, so it does not travel onward into the API's
+access logs or a Referer header. The page cannot accept the proposal; the firm records the
+client's answer, and the page says so rather than showing a button that does not exist.
+
+The share link is shown **once**, on the send response. Only its fingerprint is stored, so
+there is nothing to re-fetch — sending again issues a new one.
 
 ## Commands
 

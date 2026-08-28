@@ -1622,7 +1622,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role";
+                    kind: "service" | "role" | "policy";
                 };
                 cookie?: never;
             };
@@ -1664,7 +1664,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role";
+                    kind: "service" | "role" | "policy";
                 };
                 cookie?: never;
             };
@@ -1740,7 +1740,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role";
+                    kind: "service" | "role" | "policy";
                     key: string;
                 };
                 cookie?: never;
@@ -1808,7 +1808,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role";
+                    kind: "service" | "role" | "policy";
                     key: string;
                 };
                 cookie?: never;
@@ -1887,7 +1887,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role";
+                    kind: "service" | "role" | "policy";
                     key: string;
                     version: number;
                 };
@@ -2312,6 +2312,665 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List proposals
+         * @description Totals only — opening one is what fetches its lines. Money is null for a caller without commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "draft" | "sent" | "accepted" | "rejected" | "expired";
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Proposals */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalsResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Draft a proposal
+         * @description Starts a quote for a party, in one currency, at one exchange rate. Lines are added separately, each pinned to the catalogue version it was quoted from.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DraftProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Drafted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description Request failed validation, or a currency or rate that is not one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one proposal */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Proposal */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote a service on a proposal
+         * @description The line is pinned to a published catalogue version, so what the list price was at the time survives the catalogue moving on. Draft proposals only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddProposalLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Line added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalLine"];
+                    };
+                };
+                /** @description An amount that is not one, or a version that is not a published service */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Pull a line from a draft
+         * @description Soft: the line stops appearing on the document, and the record of it stays.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/discount-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign off a discount past the firm's limit
+         * @description Requires `proposal:approve`. Refused when the discount is already within the firm's published limit — an approval recorded for a decision nobody had to make would sit in an audit trail that cannot be corrected.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Approved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not carry proposal:approve */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, has no lines, or needed no approval */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the proposal
+         * @description The gate: a discount past the firm's published limit blocks here until somebody holding `proposal:approve` has signed it off.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sent, with the share link — returned once and never again */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SentProposal"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, empty, or an unapproved over-limit discount */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a proposal from its share link
+         * @description PUBLIC — no session. A proposal goes to somebody who has no login and will not get one, so the link is a bearer capability rather than a session. The token carries the tenant it belongs to, which is what keeps this an ordinary tenant-scoped read. Read-only: the recipient cannot accept from here.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ViewSharedProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description The proposal, as its recipient reads it */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SharedProposal"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a link we recognise — malformed, unknown and withdrawn are one answer */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal has expired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Too many attempts from this address */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the client's decision
+         * @description A proposal past its validity date is marked expired here rather than accepted late — nothing in this system runs on a timer, so expiry is written the first time somebody acts on it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProposalDecisionRequest"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already decided, still a draft, or now expired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2376,10 +3035,12 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: "active" | "suspended";
+            reportingCurrency: string;
         };
         CreateTenantRequest: {
             name: string;
             slug: string;
+            reportingCurrency: string;
         };
         UserAccount: {
             /** Format: uuid */
@@ -2610,7 +3271,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role";
+            kind: "service" | "role" | "policy";
             key: string;
         };
         ConfigVersion: {
@@ -2729,6 +3390,143 @@ export interface components {
         AssignLeadOwnerRequest: {
             /** Format: uuid */
             ownerUserId: string | null;
+        };
+        Proposal: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            leadId: string | null;
+            title: string;
+            /** @enum {string} */
+            status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            validUntil: string | null;
+            sentAt: string | null;
+            decidedAt: string | null;
+            /** Format: uuid */
+            discountApprovedBy: string | null;
+            discountApprovedAt: string | null;
+            firstViewedAt: string | null;
+            viewCount: number;
+        };
+        DraftProposalRequest: {
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            leadId?: string;
+            title: string;
+            currency: string;
+            fxRate: string;
+            fxRateDate: string;
+            validUntil?: string;
+        };
+        ProposalTotals: {
+            gross: string | null;
+            discount: string | null;
+            net: string | null;
+            currency: string;
+        };
+        ProposalSummary: {
+            proposal: components["schemas"]["Proposal"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            totals: components["schemas"]["ProposalTotals"];
+            lineCount: number;
+        };
+        ProposalsResponse: {
+            proposals: components["schemas"]["ProposalSummary"][];
+        };
+        ProposalLine: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            serviceVersionId: string;
+            service: {
+                key: string;
+                version: number;
+                name: string;
+                listPrice: {
+                    amount: string;
+                    currency: string;
+                } | null;
+            } | null;
+            description: string;
+            position: number;
+            quantity: string;
+            unitAmount: string | null;
+            currency: string;
+            discountPercent: string | null;
+            net: string | null;
+        };
+        ProposalRecord: {
+            proposal: components["schemas"]["Proposal"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            lines: components["schemas"]["ProposalLine"][];
+            totals: components["schemas"]["ProposalTotals"];
+            approvedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+        };
+        AddProposalLineRequest: {
+            /** Format: uuid */
+            serviceVersionId: string;
+            description: string;
+            /** @default 1 */
+            quantity: string;
+            unitAmount: string;
+            /** @default 0 */
+            discountPercent: string;
+        };
+        SentProposal: {
+            proposal: components["schemas"]["Proposal"];
+            shareToken: string;
+        };
+        SharedProposal: {
+            /** Format: uuid */
+            id: string;
+            firmName: string;
+            addressedTo: string;
+            title: string;
+            /** @enum {string} */
+            status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            currency: string;
+            validUntil: string | null;
+            sentAt: string | null;
+            lines: {
+                description: string;
+                quantity: string;
+                unitAmount: string;
+                discountPercent: string;
+                net: string;
+            }[];
+            totals: {
+                gross: string;
+                discount: string;
+                net: string;
+                currency: string;
+            };
+        };
+        ViewSharedProposalRequest: {
+            token: string;
+        };
+        ProposalDecisionRequest: {
+            /** @enum {string} */
+            decision: "accepted" | "rejected";
         };
     };
     responses: never;

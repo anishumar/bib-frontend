@@ -92,6 +92,20 @@ export default function HomePage() {
         </ul>
       </div>
 
+      {/* The commercial work. Offered to anyone who may read the firm's book,
+          which is the permission the API actually gates the list on. */}
+      {principal.permissions.includes("party:read") && (
+        <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Commercial</h2>
+          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            What the firm has quoted, and where each one stands.
+          </p>
+          <div className="bib-nav" style={{ marginBottom: 0 }}>
+            <Link href="/proposals">Proposals →</Link>
+          </div>
+        </div>
+      )}
+
       {/* Offered only to somebody who can actually use it. /auth/me now says
           what the session may DO, not only who it is, so this app no longer has
           to show everything and let the API refuse — which was accurate but is

@@ -77,6 +77,107 @@ export function readRoleBody(body: Record<string, unknown> | undefined): RoleBod
   };
 }
 
+/** A proposal as a LIST shows it: the money, the client, and how many lines. */
+export type ProposalSummary =
+  paths["/api/v1/proposals"]["get"]["responses"][200]["content"]["application/json"]["proposals"][number];
+
+/** One proposal in full: its lines, each with the catalogue version it was
+ *  PINNED to, and the totals the database computed. */
+export type ProposalRecord =
+  paths["/api/v1/proposals/{proposalId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ProposalLine = ProposalRecord["lines"][number];
+
+/** What the RECIPIENT of a share link reads. A different shape from the staff
+ *  one, deliberately — it carries none of the firm's insides. */
+export type SharedProposal =
+  paths["/api/v1/proposals/shared"]["post"]["responses"][200]["content"]["application/json"];
+
+/** A party, for the client picker on a new proposal. */
+export type PartySummary =
+  paths["/api/v1/parties"]["get"]["responses"][200]["content"]["application/json"]["parties"][number];
+
+/**
+ * A service's body, as the catalogue stores it.
+ *
+ * The registry keeps bodies as free-form JSON — each kind has its own shape and
+ * they grow as their consumers land — so the generated schema types this as an
+ * object of unknowns and the shape for ONE kind is read here, defensively. Same
+ * treatment as readRoleBody above, for the same reason.
+ */
+export interface ServiceBody {
+  readonly name: string;
+  readonly listPrice: { readonly amount: string; readonly currency: string } | null;
+}
+
+export function readServiceBody(body: Record<string, unknown> | undefined): ServiceBody {
+  const name = body?.["name"];
+  const raw = body?.["listPrice"];
+  const price = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
+  const amount = price?.["amount"];
+  const currency = price?.["currency"];
+  return {
+    name: typeof name === "string" ? name : "",
+    listPrice:
+      typeof amount === "string" && typeof currency === "string" ? { amount, currency } : null,
+  };
+}
+
+/**
+ * An amount, for a person to read.
+ *
+ * The API sends money as a decimal STRING and this app keeps it one all the way
+ * to the screen. `Intl.NumberFormat.format` accepts a decimal string and
+ * formats it EXACTLY; `format(Number(amount))` would route it through the one
+ * JavaScript type that cannot hold 1499.50, undoing at the last possible moment
+ * the thing the string exists for.
+ */
+export function formatMoney(amount: string | null, currency: string): string {
+  if (amount === null) return "—";
+  const formatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    // A quote is read to the minor unit; the extra places the API stores are
+    // for per-unit rates, not for a total on a page.
+    maximumFractionDigits: 2,
+  });
+  const exact = asNumericLiteral(amount);
+  // The fallback exists only for a value that is not a decimal at all, which
+  // the API's own schema already refuses. It goes through Number() so something
+  // still renders rather than the page throwing.
+  return exact === null ? formatter.format(Number(amount)) : formatter.format(exact);
+}
+
+/**
+ * The one assertion in this file, and the regex above it is why it is safe.
+ *
+ * `Intl.NumberFormat.format` takes a template-literal type (`${number}`) that a
+ * plain `string` cannot satisfy, so reaching the exact path needs a narrowing
+ * that TypeScript cannot do on its own. The test is the same shape the API's
+ * schema enforces on the way out, so this asserts something already true rather
+ * than hoping.
+ */
+type NumericLiteral = `${number}`;
+
+function asNumericLiteral(value: string): NumericLiteral | null {
+  return /^-?\d+(?:\.\d+)?$/.test(value) ? (value as NumericLiteral) : null;
+}
+
+/**
+ * A quantity or a percentage, for a person to read.
+ *
+ * `numeric(14,4)` comes back as "12.0000", which is the column being precise and
+ * not a person's idea of twelve. Trailing zeros are trimmed for display ONLY —
+ * the string that goes back to the API is never reformatted, because the API's
+ * precision is the API's business.
+ *
+ * Not used for money: an amount keeps its minor units even when they are zeros,
+ * and Intl already decides how many a currency has.
+ */
+export function formatCount(value: string): string {
+  return value.includes(".") ? value.replace(/\.?0+$/, "") : value;
+}
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;
