@@ -5051,6 +5051,7 @@ export interface components {
             discount: string | null;
             net: string | null;
             currency: string;
+            unpricedLineCount: number;
         };
         ProposalSummary: {
             proposal: components["schemas"]["Proposal"];
@@ -5070,6 +5071,41 @@ export interface components {
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
+        PinnedService: {
+            key: string;
+            version: number;
+            ref: string | null;
+            name: string;
+            module: string | null;
+            group: string | null;
+            billingBasis: string | null;
+            recurrence: string | null;
+            slaDays: number | null;
+            listPrice: {
+                amount: string;
+                currency: string;
+            } | null;
+            pricingNote: string | null;
+            scope: string | null;
+            clientObligations: string | null;
+            volumeLimits: string | null;
+            exclusions: string | null;
+        } | null;
+        ResolvedTerm: {
+            text: string | null;
+            tailored: boolean;
+        };
+        DocumentTerms: {
+            scope: components["schemas"]["ResolvedTerm"];
+            clientObligations: components["schemas"]["ResolvedTerm"];
+            volumeLimits: components["schemas"]["ResolvedTerm"];
+            exclusions: components["schemas"]["ResolvedTerm"];
+        };
+        OutOfPocketEstimate: {
+            min: string;
+            max: string;
+            currency: string;
+        } | null;
         ProposalLine: {
             /** Format: uuid */
             id: string;
@@ -5082,22 +5118,21 @@ export interface components {
             } | null;
             /** Format: uuid */
             serviceVersionId: string;
-            service: {
-                key: string;
-                version: number;
-                name: string;
-                listPrice: {
-                    amount: string;
-                    currency: string;
-                } | null;
-            } | null;
+            service: components["schemas"]["PinnedService"];
+            terms: components["schemas"]["DocumentTerms"];
             description: string;
             position: number;
             quantity: string;
             unitAmount: string | null;
+            priced: boolean;
             currency: string;
             discountPercent: string | null;
             net: string | null;
+            jurisdiction: string | null;
+            /** @enum {string|null} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            pricingNote: string | null;
+            oopEstimate: components["schemas"]["OutOfPocketEstimate"];
         };
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
@@ -5129,9 +5164,18 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
-            unitAmount: string;
+            unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
+            jurisdiction?: string;
+            /** @enum {string} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            scopeOverride?: string;
+            clientObligationsOverride?: string;
+            volumeLimitsOverride?: string;
+            exclusionsOverride?: string;
+            oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
+            pricingNote?: string;
         };
         SentProposal: {
             proposal: components["schemas"]["Proposal"];
@@ -5153,15 +5197,20 @@ export interface components {
             lines: {
                 description: string;
                 quantity: string;
-                unitAmount: string;
+                unitAmount: string | null;
                 discountPercent: string;
-                net: string;
+                net: string | null;
+                pricingNote: string | null;
+                /** @enum {string|null} */
+                billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+                oopEstimate: components["schemas"]["OutOfPocketEstimate"];
             }[];
             totals: {
                 gross: string;
                 discount: string;
                 net: string;
                 currency: string;
+                unpricedLineCount: number;
             };
         };
         ViewSharedProposalRequest: {
@@ -5246,6 +5295,7 @@ export interface components {
             discount: string | null;
             net: string | null;
             currency: string;
+            unpricedLineCount: number;
         };
         EngagementLetterSummary: {
             letter: components["schemas"]["EngagementLetter"];
@@ -5265,6 +5315,41 @@ export interface components {
         EngagementLettersResponse: {
             letters: components["schemas"]["EngagementLetterSummary"][];
         };
+        LetterPinnedService: {
+            key: string;
+            version: number;
+            ref: string | null;
+            name: string;
+            module: string | null;
+            group: string | null;
+            billingBasis: string | null;
+            recurrence: string | null;
+            slaDays: number | null;
+            listPrice: {
+                amount: string;
+                currency: string;
+            } | null;
+            pricingNote: string | null;
+            scope: string | null;
+            clientObligations: string | null;
+            volumeLimits: string | null;
+            exclusions: string | null;
+        } | null;
+        LetterResolvedTerm: {
+            text: string | null;
+            tailored: boolean;
+        };
+        LetterDocumentTerms: {
+            scope: components["schemas"]["LetterResolvedTerm"];
+            clientObligations: components["schemas"]["LetterResolvedTerm"];
+            volumeLimits: components["schemas"]["LetterResolvedTerm"];
+            exclusions: components["schemas"]["LetterResolvedTerm"];
+        };
+        LetterOutOfPocketEstimate: {
+            min: string;
+            max: string;
+            currency: string;
+        } | null;
         EngagementLetterLine: {
             /** Format: uuid */
             id: string;
@@ -5277,19 +5362,22 @@ export interface components {
             } | null;
             /** Format: uuid */
             serviceVersionId: string;
-            service: {
-                key: string;
-                version: number;
-                name: string;
-            } | null;
+            service: components["schemas"]["LetterPinnedService"];
+            terms: components["schemas"]["LetterDocumentTerms"];
             description: string;
             position: number;
             quantity: string;
             unitAmount: string | null;
+            priced: boolean;
             currency: string;
             discountPercent: string | null;
             net: string | null;
             effectiveFrom: string | null;
+            jurisdiction: string | null;
+            /** @enum {string|null} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            pricingNote: string | null;
+            oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
         };
         EngagementLetterClause: {
             /** Format: uuid */
@@ -5368,11 +5456,20 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
-            unitAmount: string;
+            unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
             /** @description When THIS line starts, if that is not the letter's date. Omit for the letter's. */
             effectiveFrom?: string;
+            jurisdiction?: string;
+            /** @enum {string} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            scopeOverride?: string;
+            clientObligationsOverride?: string;
+            volumeLimitsOverride?: string;
+            exclusionsOverride?: string;
+            oopEstimate?: components["schemas"]["LetterOutOfPocketEstimate"];
+            pricingNote?: string;
         };
         AddEngagementLetterClauseRequest: {
             /** Format: uuid */
