@@ -138,6 +138,11 @@ export const LEAD_STAGES = [
   "qualified",
   "converted",
   "lost",
+  // `abandoned` is a REAL stage, not a shade of `lost`, and the distinction is
+  // the whole reason it exists: went quiet is a FOLLOW-UP problem, chose a
+  // competitor is a PRICING problem, and a firm that files both as "lost"
+  // destroys the only signal that tells its two fixable failures apart.
+  "abandoned",
 ] as const satisfies readonly LeadStage[];
 
 export const LEAD_SOURCES = [
@@ -152,7 +157,23 @@ export const LEAD_SOURCES = [
 /** Stages a lead never leaves. Reaching one closes the opportunity; a prospect
  *  who comes back is a NEW lead, which is what the API's one-open-lead-per-party
  *  rule leaves room for. */
-export const TERMINAL_STAGES: readonly LeadStage[] = ["converted", "lost"];
+export const TERMINAL_STAGES: readonly LeadStage[] = ["converted", "lost", "abandoned"];
+
+/**
+ * The two ways an opportunity ends without a win, and the only two stages the
+ * API accepts a reason on.
+ *
+ * It REFUSES one anywhere else — a reason on a converted lead is a fact about
+ * nothing — so a control that offered the box on `qualified` would be offering
+ * a slower error. Required on both, symmetrically: making it optional on
+ * `abandoned` would put a friction gradient between them, and the cheapest way
+ * past a text box is to file a competitor loss as "went quiet".
+ */
+const CLOSED_UNWON_STAGES: readonly LeadStage[] = ["lost", "abandoned"];
+
+export function recordsLostReason(stage: LeadStage): boolean {
+  return CLOSED_UNWON_STAGES.includes(stage);
+}
 
 export type IdentifierType =
   NonNullable<

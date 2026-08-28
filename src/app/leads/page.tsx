@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError, LEAD_SOURCES, LEAD_STAGES, TERMINAL_STAGES } from "@/lib/api/client";
+import {
+  api,
+  apiError,
+  LEAD_SOURCES,
+  LEAD_STAGES,
+  recordsLostReason,
+  TERMINAL_STAGES,
+} from "@/lib/api/client";
 import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
 
 /**
@@ -19,6 +26,14 @@ import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
  * At most one open lead per party is a database constraint, not a convention.
  * Two live opportunities for one prospect means two people ringing them and two
  * forecasts counting it.
+ *
+ * CLOSING IS TWO STEPS, AND THAT IS THE POINT. `lost` and `abandoned` are not
+ * shades of each other — chose a competitor is a PRICING problem, went quiet is
+ * a FOLLOW-UP problem — and a firm that cannot tell them apart cannot tell
+ * which of its two fixable failures it has. Both take a reason, in the closer's
+ * own words, because a dropdown of five reasons produces five reasons and the
+ * useful one is always the sixth. The API REQUIRES one on those two stages and
+ * REFUSES one on every other, so the box appears on exactly those two.
  */
 export default function LeadsPage() {
   const router = useRouter();
@@ -28,6 +43,11 @@ export default function LeadsPage() {
   const [note, setNote] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The close in progress. Picking `lost` or `abandoned` does not post — it
+  // opens the reason box and posts BOTH in one call, because the API refuses a
+  // close without a reason and a screen that fired the request first would
+  // report an error the user could not have avoided.
+  const [closing, setClosing] = useState<{ leadId: string; stage: LeadStage } | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     const [pipeline, roster] = await Promise.all([
@@ -70,6 +90,23 @@ export default function LeadsPage() {
     }
     await load();
     setBusy(null);
+  }
+
+  /** Move a lead, with the reason when the stage is one that takes one. */
+  function move(leadId: string, stage: LeadStage, lostReason?: string): void {
+    void act(leadId, async () => {
+      const result = await api.POST("/api/v1/leads/{leadId}/stage", {
+        params: { path: { leadId } },
+        body: {
+          stage,
+          // Sent only for `lost` and `abandoned`. The API refuses it anywhere
+          // else, and an empty string is not a reason.
+          ...(lostReason === undefined || lostReason === "" ? {} : { lostReason }),
+        },
+      });
+      if (!result.error) setClosing(null);
+      return result;
+    });
   }
 
   async function capture(form: FormData): Promise<void> {
@@ -147,70 +184,143 @@ export default function LeadsPage() {
           <table className="bib-table">
             <thead>
               <tr>
-                <th>Prospect</th>
+                <th>Opportunity</th>
                 <th>Source</th>
                 <th>Stage</th>
                 <th>Owner</th>
               </tr>
             </thead>
             <tbody>
-              {open.map((l) => (
-                <tr key={l.lead.id}>
-                  <td>
-                    {/* By name, and it links to the party — because the lead IS
-                        the party, and everything else known about them is there. */}
-                    <Link href={`/clients/${l.party.id}`}>{l.party.displayName}</Link>
-                  </td>
-                  <td className="bib-muted">{l.lead.source}</td>
-                  <td>
-                    <select
-                      className="bib-select"
-                      value={l.lead.stage}
-                      disabled={busy !== null}
-                      onChange={(e) => {
-                        void act(l.lead.id, () =>
-                          api.POST("/api/v1/leads/{leadId}/stage", {
-                            params: { path: { leadId: l.lead.id } },
-                            body: { stage: e.target.value as LeadStage },
-                          }),
-                        );
-                      }}
-                    >
-                      {LEAD_STAGES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className="bib-select"
-                      value={l.owner?.userId ?? ""}
-                      disabled={busy !== null || staff.length === 0}
-                      onChange={(e) => {
-                        void act(l.lead.id, () =>
-                          api.PUT("/api/v1/leads/{leadId}/owner", {
-                            params: { path: { leadId: l.lead.id } },
-                            body: {
-                              ownerUserId: e.target.value === "" ? null : e.target.value,
-                            },
-                          }),
-                        );
-                      }}
-                    >
-                      {/* Unassigned is a real state — it is the queue somebody
-                          works from — so it is an option, not an absence. */}
-                      <option value="">unassigned</option>
-                      {staff.map((m) => (
-                        <option key={m.membership.id} value={m.membership.userId}>
-                          {m.displayName ?? m.email}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {open.map((l) => {
+                const closingThis = closing?.leadId === l.lead.id ? closing : null;
+                return (
+                  <Fragment key={l.lead.id}>
+                    <tr>
+                      <td>
+                        {/* What the opportunity IS, over who it is with. Two live
+                            opportunities for one client used to render as the same
+                            company twice, because the party was all a row had. */}
+                        <div>{l.lead.title}</div>
+                        {/* The party links, because the lead IS the party and
+                            everything else known about them is there. */}
+                        <Link className="bib-muted" href={`/clients/${l.party.id}`}
+                              style={{ fontSize: 13 }}>
+                          {l.party.displayName}
+                        </Link>
+                      </td>
+                      <td className="bib-muted">{l.lead.source}</td>
+                      <td>
+                        <select
+                          className="bib-select"
+                          // While a close is being written the select shows the
+                          // stage being moved TO, not the stored one — the
+                          // request has not gone yet and snapping back would
+                          // look like the choice was refused.
+                          value={closingThis?.stage ?? l.lead.stage}
+                          disabled={busy !== null}
+                          onChange={(e) => {
+                            const stage = e.target.value as LeadStage;
+                            if (recordsLostReason(stage)) {
+                              setClosing({ leadId: l.lead.id, stage });
+                              return;
+                            }
+                            setClosing(null);
+                            move(l.lead.id, stage);
+                          }}
+                        >
+                          {LEAD_STAGES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          className="bib-select"
+                          value={l.owner?.userId ?? ""}
+                          disabled={busy !== null || staff.length === 0}
+                          onChange={(e) => {
+                            void act(l.lead.id, () =>
+                              api.PUT("/api/v1/leads/{leadId}/owner", {
+                                params: { path: { leadId: l.lead.id } },
+                                body: {
+                                  ownerUserId: e.target.value === "" ? null : e.target.value,
+                                },
+                              }),
+                            );
+                          }}
+                        >
+                          {/* Unassigned is a real state — it is the queue somebody
+                              works from — so it is an option, not an absence. */}
+                          <option value="">unassigned</option>
+                          {staff.map((m) => (
+                            <option key={m.membership.id} value={m.membership.userId}>
+                              {m.displayName ?? m.email}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                    {closingThis !== null && (
+                      <tr>
+                        <td colSpan={4}>
+                          <form
+                            action={(form) => {
+                              move(
+                                l.lead.id,
+                                closingThis.stage,
+                                String(form.get("lostReason") ?? "").trim(),
+                              );
+                            }}
+                          >
+                            <label className="bib-label" htmlFor={`lostReason-${l.lead.id}`}>
+                              {closingThis.stage === "lost"
+                                ? "Why did it go elsewhere?"
+                                : "What happened to it?"}
+                            </label>
+                            <textarea
+                              className="bib-input"
+                              id={`lostReason-${l.lead.id}`}
+                              name="lostReason"
+                              rows={2}
+                              required
+                              autoFocus
+                              placeholder={
+                                closingThis.stage === "lost"
+                                  ? "Went with their existing auditor on price."
+                                  : "Three calls and two emails, no reply since June."
+                              }
+                            />
+                            <div className="bib-nav"
+                                 style={{ marginTop: "var(--bib-gap-1)", marginBottom: 0 }}>
+                              <button className="bib-button" type="submit"
+                                      disabled={busy !== null}>
+                                Close as {closingThis.stage}
+                              </button>
+                              <button
+                                className="bib-button-quiet"
+                                type="button"
+                                disabled={busy !== null}
+                                onClick={() => {
+                                  setClosing(null);
+                                }}
+                              >
+                                Keep it open
+                              </button>
+                            </div>
+                            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+                              In your own words, and required — the stage says only THAT it did
+                              not close won. Lost and abandoned are different findings and this
+                              is the half worth reading next quarter.
+                            </p>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -224,12 +334,33 @@ export default function LeadsPage() {
               {closed.map((l) => (
                 <tr key={l.lead.id} data-inactive="true">
                   <td>
-                    <Link href={`/clients/${l.party.id}`}>{l.party.displayName}</Link>
+                    <div>{l.lead.title}</div>
+                    <Link className="bib-muted" href={`/clients/${l.party.id}`}
+                          style={{ fontSize: 13 }}>
+                      {l.party.displayName}
+                    </Link>
                   </td>
                   <td>
-                    <span className="bib-pill" data-tone={l.lead.stage === "lost" ? "revoked" : ""}>
+                    {/* `lost` and `abandoned` render as themselves. Collapsing
+                        them into one word would throw away the only signal that
+                        separates a pricing problem from a follow-up one. */}
+                    <span
+                      className="bib-pill"
+                      data-tone={recordsLostReason(l.lead.stage) ? "revoked" : ""}
+                    >
                       {l.lead.stage}
                     </span>
+                  </td>
+                  {/* WHY, in the closer's own words. Null on a converted lead is
+                      right; null on a closed-unwon one means it was closed
+                      before anybody was asked, which is a different silence. */}
+                  <td style={{ fontSize: 13 }}>
+                    {l.lead.lostReason ??
+                      (recordsLostReason(l.lead.stage) ? (
+                        <span className="bib-muted">no reason recorded — nobody was asked</span>
+                      ) : (
+                        ""
+                      ))}
                   </td>
                   <td className="bib-muted">{l.lead.closedAt?.slice(0, 10) ?? ""}</td>
                 </tr>

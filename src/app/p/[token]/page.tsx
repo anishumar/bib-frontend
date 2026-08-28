@@ -74,7 +74,9 @@ export default function SharedProposalPage() {
       </p>
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>{shared.title}</h1>
       <p className="bib-muted" style={{ marginTop: 0 }}>
-        Prepared for {shared.addressedTo}
+        {/* The number the RECIPIENT quotes back down the phone. They have no
+            account and no other way to name this document. */}
+        <span className="bib-mono">{shared.ref}</span> · Prepared for {shared.addressedTo}
         {shared.validUntil !== null && ` · valid until ${shared.validUntil}`}
       </p>
 

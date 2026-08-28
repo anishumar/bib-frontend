@@ -100,6 +100,7 @@ export default function ProposalsPage() {
           <table className="bib-table">
             <thead>
               <tr>
+                <th>Ref</th>
                 <th>Proposal</th>
                 <th>Client</th>
                 <th>Status</th>
@@ -110,6 +111,11 @@ export default function ProposalsPage() {
             <tbody>
               {proposals.map((p) => (
                 <tr key={p.proposal.id}>
+                  {/* The firm's own number for the document, first: it is what
+                      a client quotes back and what an audit cites. */}
+                  <td className="bib-mono">
+                    <Link href={`/proposals/${p.proposal.id}`}>{p.proposal.ref}</Link>
+                  </td>
                   <td>
                     <Link href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</Link>
                     <div className="bib-muted" style={{ fontSize: 13 }}>

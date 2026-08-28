@@ -31,6 +31,10 @@ export default function ProposalPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // A decline in progress. The status already says a quote was lost; WHY is the
+  // half worth anything later, and asking for it after the fact means asking
+  // somebody who has moved on. So the button opens the box rather than posting.
+  const [declining, setDeclining] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     const [one, catalogue, me] = await Promise.all([
@@ -148,7 +152,15 @@ export default function ProposalPage() {
         )}
       </nav>
 
-      <h1 style={{ marginBottom: 4 }}>{proposal.title}</h1>
+      {/* The tab carries the reference for the same reason the header does: it
+          is how a person names this document to anybody else. */}
+      <title>{`${proposal.ref} — ${proposal.title}`}</title>
+      {/* The firm's own number for this quote. The uuid in the address bar is
+          the system's name for it; this is the one a client quotes back. */}
+      <p className="bib-mono bib-muted" style={{ margin: "0 0 4px", fontSize: 14 }}>
+        {proposal.ref}
+      </p>
+      <h1 style={{ marginTop: 0, marginBottom: 4 }}>{proposal.title}</h1>
       <p className="bib-muted" style={{ marginTop: 0 }}>
         {record.party.displayName} · <span className="bib-pill">{proposal.status}</span>
         {proposal.validUntil !== null && ` · valid until ${proposal.validUntil}`}
@@ -374,26 +386,33 @@ export default function ProposalPage() {
               {busy === "send" ? "Sending…" : "Send"}
             </button>
           )}
-          {proposal.status === "sent" &&
-            (["accepted", "rejected"] as const).map((decision) => (
+          {proposal.status === "sent" && !declining && (
+            <>
               <button
-                key={decision}
-                className={
-                  decision === "rejected" ? "bib-button-quiet bib-button-danger" : "bib-button"
-                }
+                className="bib-button"
                 disabled={busy !== null}
                 onClick={() => {
-                  void act(decision, () =>
+                  void act("accepted", () =>
                     api.POST("/api/v1/proposals/{proposalId}/decision", {
                       params: { path: { proposalId } },
-                      body: { decision },
+                      body: { decision: "accepted" },
                     }),
                   );
                 }}
               >
-                Client {decision === "accepted" ? "accepted" : "declined"}
+                Client accepted
               </button>
-            ))}
+              <button
+                className="bib-button-quiet bib-button-danger"
+                disabled={busy !== null}
+                onClick={() => {
+                  setDeclining(true);
+                }}
+              >
+                Client declined
+              </button>
+            </>
+          )}
           {!isDraft && proposal.status !== "sent" && (
             <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
               This proposal is {proposal.status}. A client who comes back is a new quote — which
@@ -401,6 +420,70 @@ export default function ProposalPage() {
             </p>
           )}
         </div>
+
+        {proposal.status === "sent" && declining && (
+          <form
+            style={{ marginTop: "var(--bib-gap-2)" }}
+            action={(form) => {
+              const declinedReason = String(form.get("declinedReason") ?? "").trim();
+              void act("rejected", () =>
+                api.POST("/api/v1/proposals/{proposalId}/decision", {
+                  params: { path: { proposalId } },
+                  body: {
+                    decision: "rejected",
+                    // Only when there is one. The API records a reason on a
+                    // rejection and nowhere else — a sentence about why they
+                    // declined has no meaning on a quote they signed, and the
+                    // schema refuses it there.
+                    ...(declinedReason === "" ? {} : { declinedReason }),
+                  },
+                }),
+              );
+            }}
+          >
+            <label className="bib-label" htmlFor="declinedReason">
+              Why did they say no?
+            </label>
+            <textarea className="bib-input" id="declinedReason" name="declinedReason" rows={2}
+                      autoFocus
+                      placeholder="Went with their existing auditor on price." />
+            <div className="bib-nav" style={{ marginTop: "var(--bib-gap-1)", marginBottom: 0 }}>
+              <button className="bib-button-quiet bib-button-danger" type="submit"
+                      disabled={busy !== null}>
+                Record the decline
+              </button>
+              <button
+                className="bib-button-quiet"
+                type="button"
+                disabled={busy !== null}
+                onClick={() => {
+                  setDeclining(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              In the firm&apos;s own words. The status already says the quote was lost; this is
+              the half worth anything next quarter, and it cannot be added later.
+            </p>
+          </form>
+        )}
+
+        {proposal.status === "rejected" && (
+          <>
+            <p className="bib-label" style={{ marginBottom: 2 }}>
+              Why they said no
+            </p>
+            <p style={{ marginTop: 0, marginBottom: 0, fontSize: 14 }}>
+              {proposal.declinedReason ?? (
+                // Null on a rejection means nobody wrote one down, which is a
+                // different silence from a quote that was never decided.
+                <span className="bib-muted">Not recorded — nobody was asked.</span>
+              )}
+            </p>
+          </>
+        )}
       </div>
     </main>
   );
