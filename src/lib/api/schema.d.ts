@@ -4894,6 +4894,7 @@ export interface components {
         PublishedConfigEntry: {
             entry: components["schemas"]["ConfigEntry"];
             published: components["schemas"]["ConfigVersion"];
+            pendingDraft: components["schemas"]["ConfigVersion"];
         };
         ConfigList: {
             entries: components["schemas"]["PublishedConfigEntry"][];

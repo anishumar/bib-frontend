@@ -37,7 +37,6 @@ import { Fact, Facts, NotStated, Prose } from "@/lib/ui/record";
 export default function CataloguePage() {
   const router = useRouter();
   const [services, setServices] = useState<ConfigEntry[]>([]);
-  const [history, setHistory] = useState<Record<string, ConfigVersion[]>>({});
   const [clauses, setClauses] = useState<ConfigEntry[]>([]);
   const [policies, setPolicies] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -66,12 +65,9 @@ export default function CataloguePage() {
     setPolicies(policy.data?.entries ?? []);
     setPermissions(me.data?.permissions ?? []);
     setFailure(null);
-    // Painted from the list first, then filled in: the list is one call and has
-    // everything that is IN FORCE, which is most of the screen. The pending
-    // drafts cost a call per service (see loadHistory) and nobody should wait on
-    // them to read what the firm sells.
+    // One call. What is in force AND what is waiting both come back on the list,
+    // so there is nothing to fill in afterwards and no half-painted state.
     setLoaded(true);
-    setHistory(await loadHistory(catalogue.data.entries));
   }, [router]);
 
   useEffect(() => {
@@ -130,7 +126,7 @@ export default function CataloguePage() {
   if (!loaded) return <p className="bib-muted">Loading…</p>;
 
   const canWrite = permissions.includes("tenant:admin");
-  const rows = services.map((entry) => serviceRow(entry, history[entry.entry.key]));
+  const rows = services.map(serviceRow);
   const groups = byModule(rows);
   const discount = policies.find((p) => p.entry.key === "discount");
   const discountLimit =
@@ -366,13 +362,13 @@ function ServiceCard({
       </div>
 
       {published === null && draft === null ? (
-        // An entry always has at least one version, so both being null means
-        // this screen has not read them — not that the service says nothing. A
-        // record of "not stated" everywhere would be that lie in full.
+        // An entry always has at least one version, and the list now carries
+        // both the published one and the pending draft — so both being null is
+        // not "still loading", it is a row the API could not resolve. Saying so
+        // beats rendering "not stated" against every field, which would be that
+        // lie in full.
         <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
-          {row.versionsKnown
-            ? "Its versions could not be read, so what this service says is unknown here."
-            : "Reading its draft…"}
+          Its versions could not be read, so what this service says is unknown here.
         </p>
       ) : (
         <>
@@ -1026,51 +1022,27 @@ interface ServiceRow {
   /** Whether this entry's versions have been read yet. It separates "this
    *  service states no scope" from "this screen has not read it", which are the
    *  same empty record and very different facts. */
-  readonly versionsKnown: boolean;
 }
 
 /**
- * THE PENDING DRAFT COSTS ONE CALL PER SERVICE, and that is worth saying out
- * loud rather than hiding.
+ * One row of the list, read straight from the list.
  *
- * `GET /config/service` returns each entry's PUBLISHED version and nothing else
- * — it is the list of what is in force, which is the right list for quoting. So
- * a draft, including one just created through this screen, is not in it: it is
- * invisible, and before this change there was no way to publish it either
- * (the old screen offered "Publish v1" only when nothing was published at all).
- * The history endpoint has every version, one entry at a time.
- *
- * Looking things up per row is what this app's rules tell you not to do, and the
- * gap is a real one: there is no endpoint that lists a kind's DRAFTS. It is the
- * right call here only because the alternative is a screen that cannot show a
- * firm the version it is about to put in force.
+ * This used to fetch every service again, one request each, because
+ * `GET /config/{kind}` returned only what was IN FORCE — so a pending draft was
+ * invisible, and once a service had a published version there was nowhere to
+ * publish its revision from. The list now carries `pendingDraft`, so the per-row
+ * lookup this app's own rules warn about is gone, and with it the interval where
+ * the screen showed "Reading its draft…".
  */
-async function loadHistory(entries: ConfigEntry[]): Promise<Record<string, ConfigVersion[]>> {
-  const results = await Promise.all(
-    entries.map(async (e) => {
-      const result = await api.GET("/api/v1/config/{kind}/{key}", {
-        params: { path: { kind: "service", key: e.entry.key } },
-      });
-      const versions = (result.data?.versions ?? []).filter(
-        (v): v is ConfigVersion => v !== null,
-      );
-      return [e.entry.key, versions] as const;
-    }),
-  );
-  return Object.fromEntries(results);
-}
-
-function serviceRow(entry: ConfigEntry, versions: ConfigVersion[] | undefined): ServiceRow {
-  const known = versions ?? [];
-  const published = known.find((v) => v.status === "published") ?? entry.published;
-  const draft = known.find((v) => v.status === "draft") ?? null;
+function serviceRow(entry: ConfigEntry): ServiceRow {
+  const published = entry.published;
+  const draft = entry.pendingDraft;
   const source = published ?? draft;
   return {
     key: entry.entry.key,
     published,
     draft,
     body: readServiceRecord(source?.body),
-    versionsKnown: versions !== undefined,
   };
 }
 
