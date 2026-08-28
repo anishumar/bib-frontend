@@ -87,6 +87,10 @@ export default function LeadsPage() {
         source: String(form.get("source")) as LeadRecord["lead"]["source"],
         kind: "organization",
         name: String(form.get("name")).trim(),
+        // What this opportunity is FOR. Required since G3.1, and the reason is
+        // this list: a client with two live opportunities used to render as the
+        // same company twice, because the party's name was all a row had.
+        title: String(form.get("title")).trim(),
         identifiers,
       },
     });
@@ -99,7 +103,13 @@ export default function LeadsPage() {
     // the whole point of capture answering two codes.
     setNote(
       result.data.merged
-        ? "We already had an open opportunity with them — this capture was added to it."
+        ? // The merge is right — a firm holds one live opportunity per client —
+          // but the title typed above was thrown away, and saying so is the
+          // whole point of the API returning it. Silence here would put the bug
+          // back on the screen after it was fixed underneath.
+          result.data.discardedTitle
+          ? `We already had an open opportunity with them, so this capture was added to it — and "${result.data.discardedTitle}" was not kept. It is still called "${result.data.lead.title}". Rename it, or close it before opening the next one.`
+          : "We already had an open opportunity with them — this capture was added to it."
         : result.data.matchedExistingParty
           ? "They were already in the book; a new opportunity was opened against that record."
           : "New prospect, new opportunity.",
@@ -246,6 +256,18 @@ export default function LeadsPage() {
                 Company
               </label>
               <input className="bib-input" id="name" name="name" required />
+            </div>
+            <div style={{ flex: "2 1 240px" }}>
+              <label className="bib-label" htmlFor="title">
+                Opportunity
+              </label>
+              <input
+                className="bib-input"
+                id="title"
+                name="title"
+                placeholder="FY26 statutory audit"
+                required
+              />
             </div>
             <div>
               <label className="bib-label" htmlFor="source">

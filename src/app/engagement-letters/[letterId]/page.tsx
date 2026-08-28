@@ -34,15 +34,21 @@ export default function LetterPage() {
   const [record, setRecord] = useState<LetterRecord | null>(null);
   const [services, setServices] = useState<ConfigEntry[]>([]);
   const [clauses, setClauses] = useState<ConfigEntry[]>([]);
+  // The entity a line is FOR (G0.1). An engagement is `service x ONE legal
+  // entity` — vCFO for a group of four companies is four engagements, not one
+  // — so a line has to name the company, and a dropdown of uuids would be
+  // exactly the read-model failure this codebase keeps re-learning.
+  const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, catalogue, library] = await Promise.all([
+    const [one, catalogue, library, book] = await Promise.all([
       api.GET("/api/v1/engagement-letters/{letterId}", { params: { path: { letterId } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
+      api.GET("/api/v1/parties"),
     ]);
     if (one.response.status === 401) {
       router.push("/login");
@@ -59,6 +65,9 @@ export default function LetterPage() {
     // only outcome is an error.
     if (catalogue.data) setServices(catalogue.data.entries.filter((e) => e.published !== null));
     if (library.data) setClauses(library.data.entries.filter((e) => e.published !== null));
+    if (book.data) {
+      setEntities(book.data.parties.map((p) => ({ id: p.id, displayName: p.displayName })));
+    }
     setError(null);
     setLoaded(true);
   }, [letterId, router]);
@@ -301,6 +310,7 @@ export default function LetterPage() {
                 api.POST("/api/v1/engagement-letters/{letterId}/lines", {
                   params: { path: { letterId } },
                   body: {
+                    entityPartyId: String(form.get("entityPartyId")),
                     serviceVersionId: String(form.get("serviceVersionId")),
                     description: String(form.get("description")),
                     quantity: String(form.get("quantity")),
@@ -312,6 +322,24 @@ export default function LetterPage() {
             }}
           >
             <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+              <div style={{ flex: "2 1 200px" }}>
+                <label className="bib-label" htmlFor="entityPartyId">
+                  Delivered to
+                </label>
+                <select
+                  className="bib-select"
+                  id="entityPartyId"
+                  name="entityPartyId"
+                  required
+                  style={{ width: "100%" }}
+                >
+                  {entities.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div style={{ flex: "2 1 200px" }}>
                 <label className="bib-label" htmlFor="serviceVersionId">
                   From the catalogue

@@ -964,6 +964,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/firm-signatory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who signs this firm's engagement letters
+         * @description Snapshotted onto each letter when it is SENT, so changing it here never restates a letter already issued. Null means the firm has not named anybody and its letters go out with no signature block.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The standing signatory, or null */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmSignatoryResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Name who binds the firm
+         * @description The person must have an active STAFF membership here: authority to bind the firm is the strongest thing anyone holds in this product, and `tenancy.user_account` is global, so no foreign key can say it. Letters already sent keep the block they went out with.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetFirmSignatoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Named */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmSignatory"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That person has no active staff membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/me/memberships": {
         parameters: {
             query?: never;
@@ -1657,6 +1777,172 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{partyId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a party — hide it from pickers and lists. Not a delete. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Party archived */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Party"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Party not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already archived, or something still refers to the party — a lead, a proposal, an engagement letter, a letter line's entity or an engagement. The message names them. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring an archived party back into pickers and lists */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Party restored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Party"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Party not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The party is not archived */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties": {
         parameters: {
             query?: never;
@@ -1667,7 +1953,9 @@ export interface paths {
         /** List the tenant's parties */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    includeArchived?: "true" | "false";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1718,7 +2006,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Party 360 — the party, its identifiers and relationships */
+        /**
+         * Party 360 — the party, its identifiers and relationships
+         * @description Always resolves, archived or not: a document pointing at this party has to render its counterparty.
+         */
         get: {
             parameters: {
                 query?: {
@@ -2313,7 +2604,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    stage?: "new" | "contacted" | "qualified" | "converted" | "lost";
+                    stage?: "new" | "contacted" | "qualified" | "converted" | "lost" | "abandoned";
                 };
                 header?: never;
                 path?: never;
@@ -2360,7 +2651,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** Capture a lead, deduplicating on phone, PAN and email first */
+        /**
+         * Capture a lead, deduplicating on phone, PAN and email first
+         * @description A capture that names no owner is assigned by the firm's assignment strategy — round robin over active staff. Send `ownerUserId: null` to keep it in the unassigned queue instead. A capture that MERGES onto an existing opportunity never reassigns or renames it: the owner and the title on a live lead were somebody's decision and a duplicate form submission is not grounds to undo either. The title the merged capture sent comes back on `discardedTitle` rather than being dropped in silence.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -2374,7 +2668,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description The prospect already had a live opportunity; this capture was appended to it and nothing was created */
+                /** @description The prospect already had a live opportunity; this capture was appended to it and nothing was created. The opportunity keeps its own title — read `discardedTitle` to see whether the one you sent was dropped. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2392,7 +2686,7 @@ export interface paths {
                         "application/json": components["schemas"]["LeadCaptureResult"];
                     };
                 };
-                /** @description Unknown source, no contact identifier, or an invalid identifier */
+                /** @description Unknown source, a blank title, no contact identifier, or an invalid identifier */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -2510,7 +2804,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Move a lead through the pipeline */
+        /** Move a lead through the pipeline; an unwon close says why */
         post: {
             parameters: {
                 query?: never;
@@ -2535,7 +2829,7 @@ export interface paths {
                         "application/json": components["schemas"]["Lead"];
                     };
                 };
-                /** @description Unknown stage */
+                /** @description Unknown stage, a close with no reason, or a reason on a stage that takes none */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -4067,6 +4361,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/firm-entities/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which of the firm's own entities issues to clients where
+         * @description The firm's rule as rows: one per country it has an opinion about, plus the `*` fallback that answers for every country it has no entity in. A document resolves through this when it is drafted and then stores the answer, so changing a row here never restates a document already issued.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntityPreferencesResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Say which entity serves clients in a country
+         * @description Upserts the row for that country — the schema allows exactly one answer per country. Use `*` to move the fallback.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetFirmEntityPreferenceRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntityPreference"];
+                    };
+                };
+                /** @description Not a country code or the wildcard */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such party at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4224,6 +4638,21 @@ export interface components {
              */
             gradeId: string | null;
         };
+        FirmSignatory: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Null when nobody has named the account — show the roster entry instead. */
+            displayName: string | null;
+            title: string;
+        } | null;
+        FirmSignatoryResponse: {
+            signatory: components["schemas"]["FirmSignatory"];
+        };
+        SetFirmSignatoryRequest: {
+            /** Format: uuid */
+            userId: string;
+            title: string;
+        };
         MembershipsResponse: {
             memberships: components["schemas"]["Membership"][];
         };
@@ -4374,6 +4803,7 @@ export interface components {
             /** @enum {string} */
             kind: "organization" | "person";
             displayName: string;
+            archivedAt: string | null;
         };
         PartyList: {
             parties: components["schemas"]["Party"][];
@@ -4495,15 +4925,19 @@ export interface components {
             id: string;
             /** Format: uuid */
             tenantId: string;
+            /** @description What this opportunity is called — the OPPORTUNITY's name, not the client's. A list already shows the party beside it, so this is what tells two live opportunities for the same client apart. */
+            title: string;
             /** Format: uuid */
             partyId: string;
             /** @enum {string} */
             source: "referral" | "inbound" | "outbound" | "event" | "partner" | "other";
             /** @enum {string} */
-            stage: "new" | "contacted" | "qualified" | "converted" | "lost";
+            stage: "new" | "contacted" | "qualified" | "converted" | "lost" | "abandoned";
             /** Format: uuid */
             ownerUserId: string | null;
             notes: string | null;
+            /** @description Why the opportunity did not close won, in the closer's own words. Set only on `lost` and `abandoned`; null on an open or converted lead, and null on one closed before the field existed, which means nobody was asked. */
+            lostReason: string | null;
             capturedAt: string;
             closedAt: string | null;
         };
@@ -4513,6 +4947,8 @@ export interface components {
             merged: boolean;
             /** @description True when the prospect was already in the firm's records. */
             matchedExistingParty: boolean;
+            /** @description The title THIS request sent, when the capture merged onto an existing opportunity and that opportunity keeps its own name. Null when nothing was discarded — a new opportunity was created, or the merge target already carries these exact words. A merge never renames a live opportunity: its title was somebody's decision and a duplicate submission is not grounds to undo it. If this is genuinely a second piece of work, the firm holds one live opportunity per client (`lead_one_open_per_party`), so close or convert the existing one first — or re-title it, if these words are the better name. */
+            discardedTitle: string | null;
         };
         CaptureLeadRequest: {
             /** @enum {string} */
@@ -4521,6 +4957,8 @@ export interface components {
             kind: "organization" | "person";
             /** @description The organization's legal name, or the person's full name. */
             name: string;
+            /** @description What this opportunity is called — "FY27 statutory audit", "GST registration for the Pune plant". Name the work, not the client: the list shows the client already. */
+            title: string;
             /** @description How to reach them. At least one email, phone or PAN. */
             identifiers: {
                 /** @enum {string} */
@@ -4530,8 +4968,11 @@ export interface components {
             tradeName?: string;
             industry?: string;
             website?: string;
-            /** Format: uuid */
-            ownerUserId?: string;
+            /**
+             * Format: uuid
+             * @description Whose desk to put it on. Omit the field to let the firm's assignment strategy choose (round robin over active staff today); send null to leave it in the unassigned queue deliberately; send a user id to assign it to that colleague, who must be active staff at this firm.
+             */
+            ownerUserId?: string | null;
             notes?: string;
         };
         LeadRecord: {
@@ -4556,7 +4997,9 @@ export interface components {
         };
         MoveLeadStageRequest: {
             /** @enum {string} */
-            stage: "new" | "contacted" | "qualified" | "converted" | "lost";
+            stage: "new" | "contacted" | "qualified" | "converted" | "lost" | "abandoned";
+            /** @description Why it did not close won. REQUIRED moving to `lost` or `abandoned`, refused on any other stage. Free text on purpose: a dropdown of five reasons produces five reasons, and the useful one is always the sixth. */
+            lostReason?: string;
         };
         AssignLeadOwnerRequest: {
             /** Format: uuid */
@@ -4565,8 +5008,11 @@ export interface components {
         Proposal: {
             /** Format: uuid */
             id: string;
+            ref: string;
             /** Format: uuid */
             partyId: string;
+            /** Format: uuid */
+            issuingEntityPartyId: string;
             /** Format: uuid */
             leadId: string | null;
             title: string;
@@ -4583,12 +5029,16 @@ export interface components {
             discountApprovedAt: string | null;
             firstViewedAt: string | null;
             viewCount: number;
+            declinedReason: string | null;
         };
         DraftProposalRequest: {
             /** Format: uuid */
             partyId: string;
             /** Format: uuid */
             leadId?: string;
+            /** Format: uuid */
+            issuingEntityPartyId?: string;
+            clientJurisdiction?: string;
             title: string;
             currency: string;
             fxRate: string;
@@ -4608,6 +5058,11 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuingEntity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
             totals: components["schemas"]["ProposalTotals"];
             lineCount: number;
         };
@@ -4617,6 +5072,13 @@ export interface components {
         ProposalLine: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            entityPartyId: string | null;
+            entity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            } | null;
             /** Format: uuid */
             serviceVersionId: string;
             service: {
@@ -4643,6 +5105,11 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuingEntity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
             lines: components["schemas"]["ProposalLine"][];
             totals: components["schemas"]["ProposalTotals"];
             approvedBy: {
@@ -4654,6 +5121,8 @@ export interface components {
             } | null;
         };
         AddProposalLineRequest: {
+            /** Format: uuid */
+            entityPartyId?: string;
             /** Format: uuid */
             serviceVersionId: string;
             description: string;
@@ -4670,7 +5139,9 @@ export interface components {
         SharedProposal: {
             /** Format: uuid */
             id: string;
+            ref: string;
             firmName: string;
+            issuedBy: string;
             addressedTo: string;
             title: string;
             /** @enum {string} */
@@ -4698,12 +5169,17 @@ export interface components {
         ProposalDecisionRequest: {
             /** @enum {string} */
             decision: "accepted" | "rejected";
+            /** @description Why they said no, in the firm's own words. Recorded only on a rejection — the status already says THAT a quote was lost, and this is the half worth anything later. */
+            declinedReason?: string;
         };
         EngagementLetter: {
             /** Format: uuid */
             id: string;
+            ref: string;
             /** Format: uuid */
             partyId: string;
+            /** Format: uuid */
+            issuingEntityPartyId: string;
             /** Format: uuid */
             proposalId: string | null;
             jurisdiction: string;
@@ -4721,14 +5197,28 @@ export interface components {
             signedByName: string | null;
             signatureMethod: string | null;
             signatureReference: string | null;
+            signedByTitle: string | null;
             signedContentHash: string | null;
             withdrawnAt: string | null;
+            background: string | null;
+            /** Format: uuid */
+            addressedToPartyId: string | null;
+            issuedOn: string | null;
+            /** Format: uuid */
+            supersedesId: string | null;
+            effectiveFrom: string | null;
+            /** Format: uuid */
+            firmSignatoryUserId: string | null;
+            firmSignatoryTitle: string | null;
+            firmSignedAt: string | null;
         };
         DraftEngagementLetterRequest: {
             /** Format: uuid */
             partyId: string;
             /** Format: uuid */
             proposalId?: string;
+            /** Format: uuid */
+            issuingEntityPartyId?: string;
             jurisdiction: string;
             title: string;
             currency: string;
@@ -4737,6 +5227,18 @@ export interface components {
             /** @default false */
             advanceRequired: boolean;
             advanceAmount?: string;
+            background?: string;
+            /** Format: uuid */
+            addressedToPartyId?: string;
+            /** @description The date printed on the document. Defaults to the day it is SENT. */
+            issuedOn?: string;
+            /**
+             * Format: uuid
+             * @description The SIGNED letter this one replaces. A draft is edited instead; a letter that went out and was never signed is withdrawn.
+             */
+            supersedesId?: string;
+            /** @description When the engagements this letter opens begin. Omit for the signature date, which is the ordinary case. A line may override it. */
+            effectiveFrom?: string;
         };
         EngagementLetterTotals: {
             gross: string | null;
@@ -4751,6 +5253,11 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuingEntity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
             totals: components["schemas"]["EngagementLetterTotals"];
             lineCount: number;
         };
@@ -4760,6 +5267,13 @@ export interface components {
         EngagementLetterLine: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            entity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            } | null;
             /** Format: uuid */
             serviceVersionId: string;
             service: {
@@ -4774,6 +5288,7 @@ export interface components {
             currency: string;
             discountPercent: string | null;
             net: string | null;
+            effectiveFrom: string | null;
         };
         EngagementLetterClause: {
             /** Format: uuid */
@@ -4795,9 +5310,14 @@ export interface components {
             engagementLetterLineId: string;
             /** Format: uuid */
             partyId: string;
+            /** Format: uuid */
+            entityPartyId: string;
             /** @enum {string} */
             status: "pending_advance" | "active" | "paused" | "completed" | "cancelled";
+            /** @enum {string} */
+            state: "pending_advance" | "active" | "paused" | "completed" | "cancelled" | "pending_start";
             activatedAt: string | null;
+            effectiveFrom: string;
             endsOn: string | null;
         };
         EngagementLetterRecord: {
@@ -4807,12 +5327,41 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuingEntity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            addressedTo: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            } | null;
+            firmSignatory: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                title: string;
+                signedAt: string;
+            } | null;
+            supersedes: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            } | null;
+            supersededBy: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            } | null;
             lines: components["schemas"]["EngagementLetterLine"][];
             clauses: components["schemas"]["EngagementLetterClause"][];
             totals: components["schemas"]["EngagementLetterTotals"];
             engagements: components["schemas"]["Engagement"][];
         };
         AddEngagementLetterLineRequest: {
+            /** Format: uuid */
+            entityPartyId: string;
             /** Format: uuid */
             serviceVersionId: string;
             description: string;
@@ -4821,6 +5370,8 @@ export interface components {
             unitAmount: string;
             /** @default 0 */
             discountPercent: string;
+            /** @description When THIS line starts, if that is not the letter's date. Omit for the letter's. */
+            effectiveFrom?: string;
         };
         AddEngagementLetterClauseRequest: {
             /** Format: uuid */
@@ -4832,7 +5383,30 @@ export interface components {
         };
         SignEngagementLetterRequest: {
             signedByName: string;
+            signedByTitle?: string;
             reference?: string;
+        };
+        FirmEntityPreference: {
+            /** Format: uuid */
+            id: string;
+            clientJurisdiction: string;
+            /** Format: uuid */
+            firmEntityPartyId: string;
+            firmEntity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            note: string | null;
+        };
+        FirmEntityPreferencesResponse: {
+            preferences: components["schemas"]["FirmEntityPreference"][];
+        };
+        SetFirmEntityPreferenceRequest: {
+            clientJurisdiction: string;
+            /** Format: uuid */
+            firmEntityPartyId: string;
+            note?: string;
         };
     };
     responses: never;
