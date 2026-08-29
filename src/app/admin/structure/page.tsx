@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis } from "@/lib/api/client";
 
@@ -128,12 +127,6 @@ export default function StructurePage() {
 
   return (
     <main>
-      <nav className="bib-subnav" style={{ marginBottom: "var(--bib-gap-2)" }}>
-        <Link href="/">← Workspace</Link>
-        <Link href="/catalogue">Catalogue</Link>
-        <Link href="/admin/grades">Grades</Link>
-      </nav>
-
       <h1>Firm structure</h1>
       <p className="bib-muted" style={{ maxWidth: "62ch" }}>
         Most firms have one of these layers, some have both, and plenty have neither. Fill in

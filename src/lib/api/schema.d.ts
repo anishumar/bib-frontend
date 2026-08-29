@@ -6506,7 +6506,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            receivables: components["schemas"]["InvoiceBalance"][];
+                            receivables: components["schemas"]["Receivable"][];
                         };
                     };
                 };
@@ -6565,7 +6565,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            actions: components["schemas"]["DunningAction"][];
+                            actions: components["schemas"]["PendingDunningAction"][];
                         };
                     };
                 };
@@ -7971,7 +7971,7 @@ export interface components {
             /** @enum {string} */
             status: "draft" | "issued" | "cancelled";
             currency: string;
-            fxRate: string;
+            fxRate: string | null;
             fxRateDate: string;
             issuedOn: string | null;
             dueOn: string | null;
@@ -7995,11 +7995,11 @@ export interface components {
         };
         InvoiceTotals: {
             lineCount: number;
-            gross: string;
-            discount: string;
-            net: string;
-            tax: string;
-            total: string;
+            gross: string | null;
+            discount: string | null;
+            net: string | null;
+            tax: string | null;
+            total: string | null;
             currency: string;
         };
         InvoiceSummary: {
@@ -8019,12 +8019,12 @@ export interface components {
             description: string;
             position: number;
             quantity: string;
-            unitAmount: string;
+            unitAmount: string | null;
             currency: string;
-            discountPercent: string;
+            discountPercent: string | null;
             taxPercent: string;
-            net: string;
-            tax: string;
+            net: string | null;
+            tax: string | null;
         };
         InvoiceRecord: {
             invoice: components["schemas"]["Invoice"];
@@ -8064,7 +8064,7 @@ export interface components {
             id: string;
             /** Format: uuid */
             invoiceId: string;
-            amount: string;
+            amount: string | null;
             currency: string;
             receivedOn: string;
             /** @enum {string} */
@@ -8091,7 +8091,7 @@ export interface components {
             number: string;
             financialYear: number;
             sequenceNumber: number;
-            amount: string;
+            amount: string | null;
             currency: string;
             issuedOn: string;
             /**
@@ -8117,10 +8117,19 @@ export interface components {
             status: "draft" | "issued" | "cancelled";
             currency: string;
             dueOn: string | null;
-            invoiced: string;
-            paid: string;
-            credited: string;
-            outstanding: string;
+            invoiced: string | null;
+            paid: string | null;
+            credited: string | null;
+            outstanding: string | null;
+        };
+        Receivable: {
+            balance: components["schemas"]["InvoiceBalance"];
+            number: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
         };
         DunningAction: {
             /** Format: uuid */
@@ -8137,6 +8146,18 @@ export interface components {
             approvedBy: string | null;
             decidedAt: string | null;
             note: string | null;
+        };
+        PendingDunningAction: {
+            action: components["schemas"]["DunningAction"];
+            invoiceNumber: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            outstanding: string | null;
+            currency: string;
+            dueOn: string | null;
         };
     };
     responses: never;

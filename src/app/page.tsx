@@ -105,6 +105,13 @@ export default function HomePage() {
             <Link href="/leads">Pipeline →</Link>
             <Link href="/proposals">Proposals →</Link>
             <Link href="/engagement-letters">Engagement letters →</Link>
+            {/* Billing sits with the rest of the commercial work rather than
+                under administration: raising an invoice and recording a payment
+                are `party:write`, the same permission drafting takes. Only
+                ISSUING and crediting need tenant:admin, and those gates live on
+                the invoice itself. */}
+            <Link href="/invoices">Invoices →</Link>
+            <Link href="/receivables">Receivables →</Link>
             {/* Reading the catalogue is config:read — an associate quotes from
                 it, so it is not an admin screen. Changing it is tenant:admin,
                 and that half of the page appears only for somebody who holds it. */}
@@ -137,11 +144,17 @@ export default function HomePage() {
         <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Administration</h2>
           <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-            Who works here, and what their roles mean.
+            Who works here, what their roles mean, and the rules documents and leads are
+            written by.
           </p>
           <div className="bib-nav" style={{ marginBottom: 0 }}>
             <Link href="/admin/people">People →</Link>
             <Link href="/admin/roles">Roles →</Link>
+            <Link href="/admin/grades">Grades →</Link>
+            {/* Two more things a firm decides for itself: the prose every new
+                document is written with, and whose desk covers which country. */}
+            <Link href="/admin/document-blocks">Standard prose →</Link>
+            <Link href="/admin/territories">Territories →</Link>
           </div>
         </div>
       )}

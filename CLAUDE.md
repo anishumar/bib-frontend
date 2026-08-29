@@ -77,6 +77,11 @@ not before.
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
 | `/engagement-letters/[letterId]` | one letter: its terms, its signature, and the engagements it created |
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
+| `/invoices` | what the firm has BILLED, and raising one |
+| `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
+| `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
+| `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
+| `/admin/territories` | whose desk covers which country |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
 The four admin screens are one subject deliberately split: the API needs `tenant:admin` for
@@ -183,6 +188,11 @@ So: when a screen wants something the API does not return, the default is to fix
 Joining, formatting or looking things up per row in this app hides the problem from the next
 consumer.
 
+`/receivables` found the fifth and sixth: the collections list returned a balance with a
+`partyId` and no name and no invoice number, and the dunning queue returned a rung with an
+`invoiceId` — asking a partner to approve putting a uuid on credit hold. Both are joined in the
+API now, and the backend's smoke walk asserts the client name so it cannot quietly go back.
+
 `/audit` found the fourth one: the trail named its actor by uuid and nothing a `ledger:read`
 holder could call resolved it. The backend joins the account at read time now — the stored
 row still keeps only the id, so erasure still works and `actor: null` is a real state this
@@ -200,6 +210,35 @@ The signature form says out loud that it records a colleague's **attestation**, 
 cryptographic signature. The audit trail says the same thing (`signatureMethod: attested`), and
 a screen that implied more than the data supports would be the interface lying about the
 record.
+
+## The billing screens, and the two numbers that behave differently
+
+An invoice number is not a document reference. `PR-2026-0007` may gap — somebody abandoned a
+quote — but a tax invoice series must be consecutive, so `/invoices` never lets anybody pick
+one: the API allocates it inside the write. A cancelled invoice therefore still appears, still
+numbered, and the screen says why. A replacement is a new invoice.
+
+**There is no "paid" badge anywhere, because there is no such column.** An invoice's status is
+about the DOCUMENT — drafted, sent, withdrawn — and what has been paid is arithmetic the
+database does over invoices, payments and credit notes. This app renders the four figures the
+API returns and adds nothing up: a badge would be a cache of a sum, and it would drift the
+first time a payment was corrected.
+
+**A negative payment is a real thing and the form says so.** A bounced cheque is a reversal
+with its own date, sitting beside the original — not the original edited away. Both rows show,
+because "it was paid and then it was not" is the fact.
+
+**A credit note asks for a reason from a dropdown, never a sentence.** Without the category the
+numbers always reconcile and *why* forty thousand came off does not; "how much did we write off
+to service failures" is a GROUP BY, which free text cannot answer. The particulars go in the
+note beside it.
+
+`/receivables` carries the DECISION QUEUE, and it is the point of the screen. A machine may
+chase a client; only a person may put one on credit hold or send a matter to lawyers. The
+worker climbs to those rungs and stops, and the queue shows the client, the invoice number and
+what is outstanding NOW — the API joins all three, because a queue of uuids would be asking
+somebody to approve something they cannot see. Rejecting is offered as prominently as
+approving: the firm looked and chose not to, which is a fact somebody wants later.
 
 ## Two screens that show the registry rather than hiding it
 
