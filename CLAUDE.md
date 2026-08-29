@@ -204,6 +204,28 @@ could look up. `GET /api/v1/jobs` carries the names now, joined once for the pag
 merged job's steps say nothing about whose work they are. That route also exists because the
 list is only what is RUNNABLE, so a finished job's page had no way to name itself at all.
 
+**A step a machine answered gets three buttons INSTEAD of Done (T2.8).** Accept · Correct ·
+Reject, and never the Done button beside them — the API refuses it there, because ticking
+"done" would record that a PERSON did the work and leave what the machine said undecided
+forever. Offering a control that will 409 is not honesty, it is a slower error.
+
+The proposal shows the confidence **with the bar it was judged against**. "0.82" alone means
+nothing to somebody at a desk; "0.82, and this firm acts alone only above 0.95" is the entire
+explanation of why they are being asked. And the two reasons for being asked are worded apart:
+a step the firm marked for approval always comes here whatever the machine scored, while one
+that merely fell short is a different fact — only the second says anything about the agent.
+
+Correcting opens the machine's own answer to edit rather than a blank box: a correction is a
+change to what it said, and the API refuses one that changed nothing (with a message that says
+"if it was right, accept it"). Rejecting asks what was wrong, because the schema insists — and
+rejecting does NOT finish the step, which the screen says, because throwing away an answer is
+not doing the work.
+
+**There is no screen for the thresholds themselves, deliberately.** They are a `confidence_tier`
+config entry and reachable through the generic config API. There are no agents yet, so there is
+nothing to auto-commit; a screen for a knob with no consumer is the "control that looks live and
+is inert" trap `/admin/structure` was careful about. It belongs with the first real agent.
+
 ## `/admin/workflows` — where a process stops living in somebody's head
 
 The engine could walk a process and the board could show one, and neither was worth anything

@@ -86,6 +86,18 @@ export type Job =
 export type JobStep =
   paths["/api/v1/jobs/{jobId}/steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
 
+/**
+ * What a machine produced for one step, and how sure it was (T2.8).
+ *
+ * `AgentProposal`, not `Proposal` — this product already has proposals, the
+ * priced document a firm sends a prospect, and a second meaning of the word
+ * would be a trap for whoever reads this file next.
+ *
+ * Null on a step where no machine answered, and null once one committed on its
+ * own: in that case the work is simply done and there is nothing to decide.
+ */
+export type AgentProposal = NonNullable<JobStep["proposal"]>;
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
 export type ConfigEntry =

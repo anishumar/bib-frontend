@@ -1847,6 +1847,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A person says whether what a machine proposed stands
+         * @description Records the verdict and, unless it is a rejection, finishes the step. A REJECTION leaves the step waiting: throwing away an answer is not doing the work, and whoever rejected it still has to do it and mark it done the ordinary way. What the machine proposed is kept forever alongside what a person applied. Keeping only the corrected value would throw away the entire accuracy record.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["DecideProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description The step */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStep"];
+                    };
+                };
+                /** @description The body is not a coherent decision */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job or step at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The step is not waiting, nothing proposed an answer to decide about, or somebody already decided it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps/{stepKey}/complete": {
         parameters: {
             query?: never;
@@ -2915,7 +3006,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
                 };
                 cookie?: never;
             };
@@ -2957,7 +3048,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
                 };
                 cookie?: never;
             };
@@ -3033,7 +3124,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
                     key: string;
                 };
                 cookie?: never;
@@ -3101,7 +3192,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
                     key: string;
                 };
                 cookie?: never;
@@ -3180,7 +3271,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
                     key: string;
                     version: number;
                 };
@@ -7207,6 +7298,28 @@ export interface components {
              */
             workSplitAxis: "none" | "dept" | "team";
         };
+        /** @description What a machine produced for this step, if it did and nobody has decided yet. Null for a human step, for a machine step nobody built an agent for, and for one that committed on its own — in that last case the work is simply done. */
+        AgentProposal: {
+            /** Format: uuid */
+            runId: string;
+            /** @description How sure the machine said it was, 0 to 1. */
+            confidence: number;
+            /**
+             * @description `queued` — the machine proposed an answer and wants it checked. `escalated` — it was not sure enough to propose, and what it found is offered as material rather than as an answer.
+             * @enum {string}
+             */
+            decision: "queued" | "escalated";
+            /** @description Whether the firm asked for a person on this step whatever the numbers said. "Unsure" and "always checked" are different reasons for the same queue, and only one of them is an argument for more training. */
+            approvalRequired: boolean;
+            autoCommitAt: number;
+            reviewAt: number;
+            /** @description What the machine produced, verbatim, in whatever shape its work has. */
+            proposed: {
+                [key: string]: unknown;
+            };
+            model: string;
+            promptVersion: string;
+        } | null;
         JobStep: {
             /** Format: uuid */
             id: string;
@@ -7234,9 +7347,23 @@ export interface components {
              * @description The person who did it. Null for a step nobody has touched, for one an agent did, and for a skip — nobody performs a skip.
              */
             performedBy: string | null;
+            proposal: components["schemas"]["AgentProposal"];
         };
         JobStepsResponse: {
             steps: components["schemas"]["JobStep"][];
+        };
+        DecideProposalRequest: {
+            /**
+             * @description Accepted and corrected are kept apart because the difference between them IS the accuracy signal — the only evidence that could ever justify moving a threshold.
+             * @enum {string}
+             */
+            outcome: "accepted" | "corrected" | "rejected";
+            /** @description What actually stands, for a correction. Ignored on an acceptance (the proposal itself is applied, taken from the run so it cannot quietly differ) and refused on a rejection. A correction that changed nothing is refused by the schema. */
+            applied: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Required on a rejection, forbidden otherwise. */
+            rejectedReason: string | null;
         };
         Job: {
             /** Format: uuid */
@@ -7475,7 +7602,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier";
             key: string;
         };
         ConfigVersion: {
