@@ -67,6 +67,7 @@ not before.
 | `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
+| `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/clients` | the firm's book — every counterparty, and adding one |
 | `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
@@ -78,7 +79,7 @@ not before.
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
-The three admin screens are one subject deliberately split: the API needs `tenant:admin` for
+The four admin screens are one subject deliberately split: the API needs `tenant:admin` for
 all of them, because between them they decide what every role can do, who holds it, and who is
 senior enough to sign off somebody else's work.
 
@@ -112,6 +113,39 @@ Two things they get from the API rather than deciding locally, and both matter:
 returns the permissions the session's role carries, so a link is shown only to somebody who
 can use it — but every screen still shows the API's refusal verbatim when one arrives, because
 the API is the only place the answer actually lives.
+
+## `/admin/structure` — and the one control that says it is not live yet
+
+Two lists side by side, never a tree: a **Dept** (FRC / TRC / RAA) is the revenue axis and a
+**delivery team** (FINCOMPLIANCE, VCFO CONSOLE, PAYROLL) is who does the work, and one team
+commonly delivers under several Depts. Rendering them nested would say something about the
+firm that is not true.
+
+Neither is required. Most firms have one layer, some have both, plenty have neither, and the
+screen leads with that so an empty list reads as an answer rather than an unfinished form.
+
+The split chooser — how a client's work is cut into jobs — **disables an option whose list is
+empty and puts the reason beside it**. Hiding it strands somebody looking for a setting they
+were told exists; offering it produces the API's refusal, which is a worse way to learn the
+same thing.
+
+**And it says out loud that it is not in effect yet.** The setting is stored and audited
+today; the orchestrator that reads it is T2.7. A control that looks live and is inert is the
+"feature that looks finished" the backend has been caught by before, and the screen is the
+only place a user would ever find out. When T2.7 lands, that paragraph comes out.
+
+There is no delete and no way to edit a code, because there is no endpoint for either.
+Retiring is not deleting — a Dept that existed in 2026 is part of why a service was filed
+where it was filed — and a code cannot move because every published service body names it and
+those bodies are frozen.
+
+**`/catalogue`'s two axis fields are pickers only when the firm has a list**, and stay text
+boxes when it does not. That is the API's actual rule rendered honestly: a firm with no Depts
+is checked against nothing, so a disabled empty dropdown would claim the service cannot be
+filed when the truth is that it can be filed anywhere until the firm decides. A service naming
+a code that has since been retired, or one typed before the list existed, is offered marked
+"no longer on this firm's list" rather than silently blanked — the submit rewrites the whole
+body, so blanking it is how a Dept disappears from a service nobody meant to refile.
 
 ## Money never becomes a number
 

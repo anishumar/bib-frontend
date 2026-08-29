@@ -1402,6 +1402,440 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's Depts and delivery teams, and how it splits work
+         * @description BOTH lists in one response, retired rows included — a screen renders two pickers and an admin needs to see what was retired and be able to restore it. The chosen split axis comes back with them because it is meaningless without the list it names.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The firm's structure */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmStructureResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/structure/axes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a Dept or a delivery team */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateServiceAxisRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ServiceAxis"];
+                    };
+                };
+                /** @description The code is not in canonical form, or the name is empty */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This firm already has a row with that code on that list */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/structure/axes/{axisId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename a Dept or delivery team, or reorder it
+         * @description The CODE cannot be changed: every published service body joins on it and those bodies are frozen. Retire the row and add a new one instead — which leaves the history readable.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    axisId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateServiceAxisRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ServiceAxis"];
+                    };
+                };
+                /** @description The name is empty or too long */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such Dept or delivery team at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/structure/axes/{axisId}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Retire a Dept or delivery team, or bring it back */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    axisId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetServiceAxisActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ServiceAxis"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such Dept or delivery team at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Retiring it would empty the axis this firm splits work by */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/structure/work-split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose how this firm cuts one client's work into separate jobs
+         * @description Changing this restates nothing: jobs already created keep the rows they have, and the next engagement is split the new way. Refused when the chosen list has nothing active on it, because that setting would take effect and do nothing.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetWorkSplitRequest"];
+                };
+            };
+            responses: {
+                /** @description The axis now in force */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * @description How this firm cuts ONE client's work into separate jobs. 'none' keeps it all in one job — the default, and what most firms want. 'dept' or 'team' groups an engagement's service lines by that axis and gives each group its own job and its own step graph.
+                             * @enum {string}
+                             */
+                            workSplitAxis: "none" | "dept" | "team";
+                        };
+                    };
+                };
+                /** @description Not one of none / dept / team */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That list has nothing active on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's jobs that are ready to run
+         * @description What the engine currently has in hand: jobs whose window has opened and that have not reached a terminal state. A job waiting on a future date is deliberately absent — the calendar is materialised ahead of time, and showing a year of it as 'ready' would bury the work that actually is.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Runnable jobs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobsResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/organizations": {
         parameters: {
             query?: never;
@@ -2267,7 +2701,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning";
                 };
                 cookie?: never;
             };
@@ -2309,7 +2743,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning";
                 };
                 cookie?: never;
             };
@@ -2385,7 +2819,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning";
                     key: string;
                 };
                 cookie?: never;
@@ -2453,7 +2887,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning";
                     key: string;
                 };
                 cookie?: never;
@@ -2532,7 +2966,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning";
                     key: string;
                     version: number;
                 };
@@ -2954,6 +3388,126 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/territory-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whose desk covers leads from where
+         * @description A country with no rule is not a gap: the assignment rotation covers it, which is why there is no wildcard row.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The firm's territory rules */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TerritoryRulesResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Say whose desk covers a country
+         * @description Upserts the row for that country — the schema allows exactly one desk per country, because two rules for one country is an ambiguity a strategy would have to break arbitrarily. The owner must be active staff.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetTerritoryRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TerritoryRule"];
+                    };
+                };
+                /** @description Not an ISO 3166-1 alpha-2 code in upper case */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That user is not active staff at this firm */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -4481,6 +5035,1710 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/document-blocks/standard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's standard prose — exclusions, commercial notes, the team block
+         * @description The set COPIED onto each new proposal and engagement letter. Editing it changes the next document and never one already issued. Retired lines are included: a document issued while one was live copied it, and 'where did this line come from' has to resolve.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The standard set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StandardDocumentBlocksResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add a line to the firm's standard prose */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddStandardDocumentBlockRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StandardDocumentBlock"];
+                    };
+                };
+                /** @description Not a block kind, a blank body, or a bad sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-blocks/standard/{blockId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit or retire a line of the firm's standard prose
+         * @description Retiring is `isActive: false`, never a delete — the same distinction the grade ladder draws. Editing changes what the NEXT document says and nothing already issued.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    blockId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditStandardDocumentBlockRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StandardDocumentBlock"];
+                    };
+                };
+                /** @description A blank body or a bad sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such standard block at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/document-blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a line of prose onto one document
+         * @description A line this client negotiated that is not in the firm's standard set. `sourceId` comes back null, which is what lets a screen mark it as the document's own.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddDocumentBlockRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentBlock"];
+                    };
+                };
+                /** @description Not a block kind, a blank body, or a bad sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is signed — its prose is frozen with its terms */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-blocks/{blockId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Strike a line off a document
+         * @description `removed_at`, not a delete — `bib_app` holds no DELETE grant on any table in this database.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    blockId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Struck off */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such block on any document at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is signed — its prose is frozen with its terms */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit one line of a document's prose */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    blockId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditDocumentBlockRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentBlock"];
+                    };
+                };
+                /** @description A blank body or a bad sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such block on any document at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is signed — its prose is frozen with its terms */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The firm's invoices */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "draft" | "issued" | "cancelled";
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Invoices */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            invoices: components["schemas"]["InvoiceSummary"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Raise an invoice — the number is allocated by the write itself
+         * @description The number comes from a gapless per-entity, per-financial-year series, taken under a row lock inside the same transaction as the insert. A failure releases it, because the counter never moved — which is the difference between this and a document reference.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaiseInvoiceRequest"];
+                };
+            };
+            responses: {
+                /** @description Raised */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Bad currency, rate, or date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One invoice, with its lines and its totals */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The invoice */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InvoiceRecord"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a line to a draft invoice */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddInvoiceLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad quantity, amount, discount or tax rate */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice has been issued — its lines are fixed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Strike a line off a draft invoice */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Struck off */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice has been issued — its lines are fixed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue it
+         * @description Refuses an invoice with no lines: it would ask the client for nothing.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Issued */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or it has no lines */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw it
+         * @description The number is NOT released and the row is not removed — that is what makes the series consecutive. A cancelled invoice stays in the sequence saying it was cancelled, which is exactly what an auditor needs to see where a number went.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cancelled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already cancelled */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/irn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the e-invoice registry's identifier
+         * @description Nothing here talks to the IRP. This records an answer obtained elsewhere — the same shape as the advance-fee attestation. The real connector is T7.1.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        irn: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already registered — the registry's identifier cannot be replaced */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The firm's invoice series, and where each has reached */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Series */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            series: components["schemas"]["InvoiceSeries"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-series/{entityPartyId}/prefix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name what one entity's invoice numbers read as
+         * @description Changes FUTURE numbers only. Every issued invoice keeps the number it was issued with, because the freeze trigger refuses to move one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        prefix: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Set */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not a valid series prefix */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What has been received against this invoice */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Payments */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            payments: components["schemas"]["Payment"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Record that money arrived
+         * @description Only against an ISSUED invoice. The amount is SIGNED: a bounced cheque is a negative payment with its own date, not the original row edited away. Overpayment is allowed — a client settling two invoices with one transfer is a real thing, and the balance simply goes negative.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordPaymentRequest"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Payment"];
+                    };
+                };
+                /** @description Bad amount, method or date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is not issued — a draft owes nothing, a cancelled one is a refund */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What has been credited against this invoice */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Credit notes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            creditNotes: components["schemas"]["CreditNote"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Take money off an invoice, with a reason
+         * @description Its own document with its own gapless series. The reason is mandatory and closed — without it revenue leakage is invisible, because the numbers always reconcile and why does not. A firm cannot credit more than it billed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["IssueCreditNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Issued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CreditNote"];
+                    };
+                };
+                /** @description Bad amount, or not one of the credit reasons */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is not issued, or this would credit more than was billed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What this invoice still owes */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The balance */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InvoiceBalance"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receivables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who owes the firm money
+         * @description Issued invoices with something still outstanding. Drafts owe nothing because nobody has been asked; cancelled ones were withdrawn.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Receivables */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            receivables: components["schemas"]["InvoiceBalance"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dunning/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Terminal dunning steps waiting for a partner
+         * @description Credit hold and legal action are the two rungs a machine may REACH and may not APPLY — they are the things a firm cannot take back with an apology. The worker climbs to them and stops; this is the queue somebody works.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Waiting for a decision */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            actions: components["schemas"]["DunningAction"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/dunning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How far this receivable has been chased */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The ladder as climbed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            actions: components["schemas"]["DunningAction"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dunning/{actionId}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or reject a terminal dunning step
+         * @description BOTH outcomes are recorded. 'We considered legal action and decided against it' is a fact somebody wants three months later, and a rejection that vanished would leave the ladder looking as though it never got there. A decision is final.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    actionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        approve: boolean;
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Decided */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DunningAction"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such dunning action at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not awaiting approval, or already decided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4683,6 +6941,89 @@ export interface components {
             /** @description False retires the rung: it stops being offered for new assignments, and everybody already on it stays on it. */
             isActive: boolean;
         };
+        ServiceAxis: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Which of the firm's two lists. 'dept' is the revenue axis — the firm's own dashboard splits income by it and a client gets a SPOC per Dept. 'team' is who actually delivers the work. They are INDEPENDENT, not a hierarchy: one delivery team commonly works under several Depts, which is why nesting them would force a duplicate catalogue row per Dept.
+             * @enum {string}
+             */
+            axis: "dept" | "team";
+            /** @description The value a service's Dept/team field holds, and the one field that never changes. Every published service body joins on it, and those bodies are frozen — so a firm that wants a different code adds a row and retires the old one. */
+            code: string;
+            /** @description What people read. Freely editable, unlike the code. */
+            name: string;
+            /** @description The order the firm reads its own list in. Not unique, not consecutive. */
+            sortOrder: number;
+            /** @description Whether the firm still files new work here. A retired row is never deleted: services already naming it keep it and still read, so an old filing still explains itself. */
+            isActive: boolean;
+        };
+        FirmStructureResponse: {
+            axes: components["schemas"]["ServiceAxis"][];
+            /**
+             * @description How this firm cuts ONE client's work into separate jobs. 'none' keeps it all in one job — the default, and what most firms want. 'dept' or 'team' groups an engagement's service lines by that axis and gives each group its own job and its own step graph.
+             * @enum {string}
+             */
+            workSplitAxis: "none" | "dept" | "team";
+        };
+        CreateServiceAxisRequest: {
+            /**
+             * @description Which of the firm's two lists. 'dept' is the revenue axis — the firm's own dashboard splits income by it and a client gets a SPOC per Dept. 'team' is who actually delivers the work. They are INDEPENDENT, not a hierarchy: one delivery team commonly works under several Depts, which is why nesting them would force a duplicate catalogue row per Dept.
+             * @enum {string}
+             */
+            axis: "dept" | "team";
+            /** @description Upper case, single separators — 'FRC', 'VCFO CONSOLE'. Normalised before it is stored, so 'frc' becomes 'FRC' rather than a second Dept. */
+            code: string;
+            name: string;
+            /** @default 0 */
+            sortOrder: number;
+        };
+        UpdateServiceAxisRequest: {
+            name?: string;
+            sortOrder?: number;
+        };
+        SetServiceAxisActiveRequest: {
+            /** @description False retires it: nothing new may be filed under it, and everything already filed there stays. Refused if it would leave the axis the firm splits work by with nothing active on it — that state looks identical to 'none' and would silently behave as it. */
+            isActive: boolean;
+        };
+        SetWorkSplitRequest: {
+            /**
+             * @description How this firm cuts ONE client's work into separate jobs. 'none' keeps it all in one job — the default, and what most firms want. 'dept' or 'team' groups an engagement's service lines by that axis and gives each group its own job and its own step graph.
+             * @enum {string}
+             */
+            workSplitAxis: "none" | "dept" | "team";
+        };
+        Job: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description What caused this job to exist.
+             * @enum {string}
+             */
+            sourceKind: "engagement" | "obligation";
+            /**
+             * Format: uuid
+             * @description The id of that cause — an engagement, later an obligation instance. One job per cause per firm, so this is what makes a redelivered trigger a no-op.
+             */
+            sourceRef: string;
+            /**
+             * @description The ENGINE's own mechanics, not the firm's vocabulary — identical at every firm, unlike a work item's states, which a firm names for itself.
+             * @enum {string}
+             */
+            status: "pending" | "running" | "blocked" | "done" | "cancelled";
+            /**
+             * Format: uuid
+             * @description The pinned workflow version this job walks. Null until T2.7 exists — a job created today records that work is owed and waits.
+             */
+            templateVersionId: string | null;
+            /** @description When the work may begin. For an obligation this is T–X: the calendar is materialised a year ahead so it can be seen, and each job opens only when its own window does. */
+            runnableAt: string;
+            startedAt: string | null;
+            finishedAt: string | null;
+        };
+        JobsResponse: {
+            jobs: components["schemas"]["Job"][];
+        };
         Organization: {
             /** Format: uuid */
             partyId: string;
@@ -4872,7 +7213,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause";
+            kind: "service" | "role" | "policy" | "clause" | "dunning";
             key: string;
         };
         ConfigVersion: {
@@ -4939,6 +7280,8 @@ export interface components {
             notes: string | null;
             /** @description Why the opportunity did not close won, in the closer's own words. Set only on `lost` and `abandoned`; null on an open or converted lead, and null on one closed before the field existed, which means nobody was asked. */
             lostReason: string | null;
+            /** @description Where the PROSPECT is, ISO 3166-1 alpha-2. Null is ordinary — often nobody knows at capture — and an unknown country matches no territory rule, so the assignment rotation covers it. It is also the answer a proposal drafted from this lead needs for `clientJurisdiction`, which decides which of the firm's entities contracts. */
+            jurisdiction: string | null;
             capturedAt: string;
             closedAt: string | null;
         };
@@ -4975,6 +7318,8 @@ export interface components {
              */
             ownerUserId?: string | null;
             notes?: string;
+            /** @description Where the PROSPECT is, ISO 3166-1 alpha-2 in UPPER CASE. Optional — often nobody knows at capture, and a capture is never refused for it. Demanded in canonical case rather than normalised, because it is compared against the firm's territory rules. */
+            jurisdiction?: string;
         };
         LeadRecord: {
             lead: components["schemas"]["Lead"];
@@ -5005,6 +7350,23 @@ export interface components {
         AssignLeadOwnerRequest: {
             /** Format: uuid */
             ownerUserId: string | null;
+        };
+        TerritoryRule: {
+            /** Format: uuid */
+            id: string;
+            jurisdiction: string;
+            /** Format: uuid */
+            ownerUserId: string;
+            note: string | null;
+        };
+        TerritoryRulesResponse: {
+            rules: components["schemas"]["TerritoryRule"][];
+        };
+        SetTerritoryRuleRequest: {
+            jurisdiction: string;
+            /** Format: uuid */
+            ownerUserId: string;
+            note?: string;
         };
         Proposal: {
             /** Format: uuid */
@@ -5134,6 +7496,17 @@ export interface components {
             pricingNote: string | null;
             oopEstimate: components["schemas"]["OutOfPocketEstimate"];
         };
+        ProposalBlock: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading: boolean;
+            sortOrder: number;
+            /** Format: uuid */
+            sourceId: string | null;
+        };
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
             party: {
@@ -5147,6 +7520,7 @@ export interface components {
                 displayName: string;
             };
             lines: components["schemas"]["ProposalLine"][];
+            blocks: components["schemas"]["ProposalBlock"][];
             totals: components["schemas"]["ProposalTotals"];
             approvedBy: {
                 /** Format: uuid */
@@ -5379,6 +7753,10 @@ export interface components {
             pricingNote: string | null;
             oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
         };
+        JurisdictionalTerm: {
+            jurisdiction: string;
+            text: string;
+        } | null;
         EngagementLetterClause: {
             /** Format: uuid */
             id: string;
@@ -5389,6 +7767,19 @@ export interface components {
             position: number;
             title: string;
             text: string;
+            governingLaw: components["schemas"]["JurisdictionalTerm"];
+            courts: components["schemas"]["JurisdictionalTerm"];
+        };
+        EngagementLetterBlock: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading: boolean;
+            sortOrder: number;
+            /** Format: uuid */
+            sourceId: string | null;
         };
         Engagement: {
             /** Format: uuid */
@@ -5445,6 +7836,7 @@ export interface components {
             } | null;
             lines: components["schemas"]["EngagementLetterLine"][];
             clauses: components["schemas"]["EngagementLetterClause"][];
+            blocks: components["schemas"]["EngagementLetterBlock"][];
             totals: components["schemas"]["EngagementLetterTotals"];
             engagements: components["schemas"]["Engagement"][];
         };
@@ -5494,6 +7886,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 displayName: string;
+                jurisdiction: string | null;
             };
             note: string | null;
         };
@@ -5505,6 +7898,245 @@ export interface components {
             /** Format: uuid */
             firmEntityPartyId: string;
             note?: string;
+        };
+        StandardDocumentBlock: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading: boolean;
+            sortOrder: number;
+            jurisdiction: string | null;
+            isActive: boolean;
+        };
+        StandardDocumentBlocksResponse: {
+            blocks: components["schemas"]["StandardDocumentBlock"][];
+        };
+        AddStandardDocumentBlockRequest: {
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading?: boolean;
+            sortOrder: number;
+            jurisdiction?: string | null;
+        };
+        EditStandardDocumentBlockRequest: {
+            body?: string;
+            isHeading?: boolean;
+            sortOrder?: number;
+            jurisdiction?: string | null;
+            isActive?: boolean;
+        };
+        DocumentBlock: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading: boolean;
+            sortOrder: number;
+            /** Format: uuid */
+            sourceId: string | null;
+        };
+        AddDocumentBlockRequest: {
+            /** Format: uuid */
+            proposalId?: string;
+            /** Format: uuid */
+            engagementLetterId?: string;
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading?: boolean;
+            sortOrder: number;
+        };
+        EditDocumentBlockRequest: {
+            body?: string;
+            isHeading?: boolean;
+            sortOrder?: number;
+        };
+        Invoice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            /** @description `INV/2026-27/0001`. Allocated by the write itself from a gapless per-entity series and frozen by a trigger — an invoice number is never edited. A wrong invoice is cancelled and a new one issued, and both stay readable. */
+            number: string;
+            financialYear: number;
+            sequenceNumber: number;
+            /** @enum {string} */
+            status: "draft" | "issued" | "cancelled";
+            currency: string;
+            fxRate: string;
+            fxRateDate: string;
+            issuedOn: string | null;
+            dueOn: string | null;
+            /** @description India's e-invoice reference, as returned by the registry. Null until registered, and unchangeable afterwards — it is the registry's identifier for this document, not ours. */
+            irn: string | null;
+            irnRegisteredAt: string | null;
+            notes: string | null;
+        };
+        RaiseInvoiceRequest: {
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            currency: string;
+            fxRate: string;
+            fxRateDate: string;
+            dueOn?: string;
+            notes?: string;
+            /** @description Which financial year's series this belongs to. Defaults to today; a firm raising an invoice on 2 April for March's work sets it deliberately. */
+            seriesDate?: string;
+        };
+        InvoiceTotals: {
+            lineCount: number;
+            gross: string;
+            discount: string;
+            net: string;
+            tax: string;
+            total: string;
+            currency: string;
+        };
+        InvoiceSummary: {
+            invoice: components["schemas"]["Invoice"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            totals: components["schemas"]["InvoiceTotals"];
+        };
+        InvoiceLine: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            engagementId: string | null;
+            description: string;
+            position: number;
+            quantity: string;
+            unitAmount: string;
+            currency: string;
+            discountPercent: string;
+            taxPercent: string;
+            net: string;
+            tax: string;
+        };
+        InvoiceRecord: {
+            invoice: components["schemas"]["Invoice"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            entity: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            lines: components["schemas"]["InvoiceLine"][];
+            totals: components["schemas"]["InvoiceTotals"];
+        };
+        AddInvoiceLineRequest: {
+            /** Format: uuid */
+            engagementId?: string;
+            description: string;
+            quantity: string;
+            unitAmount: string;
+            discountPercent?: string;
+            taxPercent?: string;
+        };
+        InvoiceSeries: {
+            /** Format: uuid */
+            entityPartyId: string;
+            entityName: string;
+            financialYear: number;
+            documentType: string;
+            prefix: string;
+            lastNumber: number;
+        };
+        Payment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            amount: string;
+            currency: string;
+            receivedOn: string;
+            /** @enum {string} */
+            method: "bank_transfer" | "cheque" | "cash" | "card" | "upi" | "other";
+            reference: string | null;
+            note: string | null;
+        };
+        RecordPaymentRequest: {
+            amount: string;
+            receivedOn: string;
+            /** @enum {string} */
+            method: "bank_transfer" | "cheque" | "cash" | "card" | "upi" | "other";
+            reference?: string;
+            note?: string;
+        };
+        CreditNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            /** @description `CN/2026-27/0001`. Its OWN consecutive series, keyed separately from the invoice one — a credit note is a distinct legal document, and interleaving the two series is worse than a gap. */
+            number: string;
+            financialYear: number;
+            sequenceNumber: number;
+            amount: string;
+            currency: string;
+            issuedOn: string;
+            /**
+             * @description WHY money came off. Mandatory and closed, because without it the numbers always reconcile and why forty thousand came off does not — and 'how much did we write off to service failures' is a GROUP BY, which free text cannot answer.
+             * @enum {string}
+             */
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            note: string | null;
+        };
+        IssueCreditNoteRequest: {
+            amount: string;
+            /** @enum {string} */
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            note?: string;
+            issuedOn?: string;
+        };
+        InvoiceBalance: {
+            /** Format: uuid */
+            invoiceId: string;
+            /** Format: uuid */
+            partyId: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "cancelled";
+            currency: string;
+            dueOn: string | null;
+            invoiced: string;
+            paid: string;
+            credited: string;
+            outstanding: string;
+        };
+        DunningAction: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            step: string;
+            afterDays: number;
+            /** @enum {string} */
+            action: "reminder" | "call" | "credit_hold" | "legal";
+            /** @enum {string} */
+            state: "taken" | "pending_approval" | "approved" | "rejected";
+            /** Format: uuid */
+            approvedBy: string | null;
+            decidedAt: string | null;
+            note: string | null;
         };
     };
     responses: never;

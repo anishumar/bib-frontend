@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
+import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
 import { Fact, Facts, NotStated, Prose } from "@/lib/ui/record";
 
@@ -40,16 +41,26 @@ export default function CataloguePage() {
   const [clauses, setClauses] = useState<ConfigEntry[]>([]);
   const [policies, setPolicies] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  // The firm's own Dept/team lists, for the two pickers. Only an admin can read
+  // them (the route is `tenant:admin`, like the form itself), so a reader who
+  // cannot write simply gets no lists and sees the codes as stored — which is
+  // exactly what the field holds anyway.
+  const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [catalogue, library, policy, me] = await Promise.all([
+    const [catalogue, library, policy, me, structure] = await Promise.all([
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
       api.GET("/api/v1/auth/me", {}),
+      // 403 for a reader without `tenant:admin`, and that is not an error here:
+      // the lists feed a form only an admin is shown. `?? []` is the whole
+      // handling, deliberately — a failure note about a list nobody was going
+      // to use would be noise on a screen that reads fine without it.
+      api.GET("/api/v1/tenancy/structure", {}),
     ]);
     if (catalogue.response.status === 401) {
       router.push("/login");
@@ -64,6 +75,7 @@ export default function CataloguePage() {
     setClauses(library.data?.entries ?? []);
     setPolicies(policy.data?.entries ?? []);
     setPermissions(me.data?.permissions ?? []);
+    setAxes(structure.data?.axes ?? []);
     setFailure(null);
     // One call. What is in force AND what is waiting both come back on the list,
     // so there is nothing to fill in afterwards and no half-painted state.
@@ -182,6 +194,7 @@ export default function CataloguePage() {
                 note={noteFor}
                 onPublish={publish}
                 onNewVersion={newVersion}
+                axes={axes}
               />
             ))}
           </section>
@@ -222,7 +235,7 @@ export default function CataloguePage() {
                 </p>
               </div>
             </div>
-            <ServiceFields id="define" defaults={null} />
+            <ServiceFields id="define" defaults={null} axes={axes} />
             {noteFor("define")}
             <button className="bib-button" type="submit" disabled={busy !== null}>
               Add as a draft
@@ -320,6 +333,7 @@ function ServiceCard({
   note,
   onPublish,
   onNewVersion,
+  axes,
 }: {
   row: ServiceRow;
   canWrite: boolean;
@@ -327,6 +341,7 @@ function ServiceCard({
   note: (at: string) => ReactNode;
   onPublish: (key: string, version: number) => void;
   onNewVersion: (key: string, form: FormData) => void;
+  axes: readonly ServiceAxis[];
 }) {
   const { body, published, draft } = row;
   const draftBody = draft === null ? null : readServiceRecord(draft.body);
@@ -428,7 +443,7 @@ function ServiceCard({
               Clearing a field here means the new version does not state it — which is a
               change, not a blank.
             </p>
-            <ServiceFields id={`v-${row.key}`} defaults={body} />
+            <ServiceFields id={`v-${row.key}`} defaults={body} axes={axes} />
             {note(`version:${row.key}`)}
             <button className="bib-button" type="submit" disabled={busy !== null}>
               Draft it
@@ -667,7 +682,15 @@ function Term({ term, absent }: { term: JurisdictionalTerm | null; absent: strin
  * service plus one to define with, and a duplicated `id` breaks every label on
  * the page after the first.
  */
-function ServiceFields({ id, defaults }: { id: string; defaults: ServiceRecord | null }) {
+function ServiceFields({
+  id,
+  defaults,
+  axes,
+}: {
+  id: string;
+  defaults: ServiceRecord | null;
+  axes: readonly ServiceAxis[];
+}) {
   return (
     <>
       <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
@@ -720,39 +743,26 @@ function ServiceFields({ id, defaults }: { id: string; defaults: ServiceRecord |
 
       <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
         <div>
-          <label className="bib-label" htmlFor={`${id}-module`}>
-            Dept (module)
-          </label>
-          {/* Sent VERBATIM. The API demands the canonical form at the WRITE
-              rather than normalising at the read — a body is stored as written,
-              and this axis is GROUPED BY in SQL — so upper-casing it here would
-              hide a rule the firm needs to know about behind a silent fix. */}
-          <input
-            className="bib-input"
-            id={`${id}-module`}
-            name="module"
+          <AxisPicker
+            id={id}
+            field="module"
+            label="Dept (module)"
+            rows={axes.filter((a) => a.axis === "dept")}
+            current={defaults?.module ?? null}
             placeholder="FRC"
-            defaultValue={defaults?.module ?? ""}
+            hint="The revenue axis. Independent of the delivery team, not above it."
           />
-          <p className="bib-hint">
-            Upper case: FRC, TRC, RAA. The API refuses &quot;frc&quot; — beside &quot;FRC&quot;
-            it splits one Dept into two half-sized ones on the revenue report.
-          </p>
         </div>
         <div>
-          <label className="bib-label" htmlFor={`${id}-group`}>
-            Delivery team (group)
-          </label>
-          <input
-            className="bib-input"
-            id={`${id}-group`}
-            name="group"
+          <AxisPicker
+            id={id}
+            field="group"
+            label="Delivery team (group)"
+            rows={axes.filter((a) => a.axis === "team")}
+            current={defaults?.group ?? null}
             placeholder="FINCOMPLIANCE"
-            defaultValue={defaults?.group ?? ""}
+            hint="Who does the work. One team commonly delivers under several Depts."
           />
-          <p className="bib-hint">
-            Upper case, spaces allowed. Independent of the Dept, not nested under it.
-          </p>
         </div>
       </div>
 
@@ -1273,5 +1283,102 @@ function FailureNote({ failure }: { failure: Failure }) {
         </>
       )}
     </p>
+  );
+}
+
+/**
+ * One of the two axis fields — a picker when the firm has written that list, a
+ * free text box when it has not.
+ *
+ * BOTH halves are the API's own rule rendered honestly, not a convenience:
+ *
+ *   A firm with no Depts is checked against nothing, and its `module` field
+ *   behaves exactly as it did before the lists existed. Rendering a disabled,
+ *   empty dropdown there would say "you cannot file this service" when the truth
+ *   is "you can file it anywhere until you decide what your Depts are".
+ *
+ *   Once the list exists it is CLOSED, so a text box would be an invitation to
+ *   type something the API will refuse.
+ *
+ * The awkward case is a service already naming a code that is retired, or one
+ * typed before the list was written. It is offered as a disabled-looking option
+ * marked as such rather than dropped: silently blanking a field on a form whose
+ * submit rewrites the whole body is how a Dept disappears from a service nobody
+ * meant to refile. The firm sees what it says and chooses.
+ */
+function AxisPicker({
+  id,
+  field,
+  label,
+  rows,
+  current,
+  placeholder,
+  hint,
+}: {
+  id: string;
+  field: "module" | "group";
+  label: string;
+  rows: readonly ServiceAxis[];
+  current: string | null;
+  placeholder: string;
+  hint: string;
+}) {
+  const known = rows.some((r) => r.code === current);
+  const stale = current !== null && current !== "" && !known;
+
+  if (rows.length === 0) {
+    return (
+      <>
+        <label className="bib-label" htmlFor={`${id}-${field}`}>
+          {label}
+        </label>
+        {/* Sent VERBATIM. The API demands the canonical form at the WRITE rather
+            than normalising at the read — a body is stored as written, and this
+            axis is GROUPED BY in SQL — so upper-casing it here would hide a rule
+            the firm needs to know about behind a silent fix. */}
+        <input
+          className="bib-input"
+          id={`${id}-${field}`}
+          name={field}
+          placeholder={placeholder}
+          defaultValue={current ?? ""}
+        />
+        <p className="bib-hint">
+          {hint} This firm has not defined its list yet, so anything upper-case is accepted —
+          define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
+          picker.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <label className="bib-label" htmlFor={`${id}-${field}`}>
+        {label}
+      </label>
+      <select
+        className="bib-select"
+        id={`${id}-${field}`}
+        name={field}
+        defaultValue={current ?? ""}
+        style={{ width: "100%" }}
+      >
+        <option value="">not stated</option>
+        {rows.map((r) => (
+          <option key={r.id} value={r.code}>
+            {r.name === r.code ? r.code : `${r.code} — ${r.name}`}
+            {r.isActive ? "" : " (retired)"}
+          </option>
+        ))}
+        {stale && (
+          <option value={current}>{current} — no longer on this firm&apos;s list</option>
+        )}
+      </select>
+      <p className="bib-hint">
+        {hint}
+        {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
+      </p>
+    </>
   );
 }

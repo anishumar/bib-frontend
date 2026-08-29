@@ -1,0 +1,550 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { api, apiError } from "@/lib/api/client";
+import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis } from "@/lib/api/client";
+
+/**
+ * The firm's own delivery structure — its Depts, its delivery teams, and how it
+ * cuts one client's work into separate jobs (G2.4).
+ *
+ * ── Why two lists and not one ───────────────────────────────────────────────
+ *
+ * A **Dept** answers "whose revenue is this" — the firm's dashboard splits
+ * income by it and a client gets a SPOC per Dept. A **delivery team** answers
+ * "who actually does the work". They CROSS: one team commonly delivers under
+ * several Depts, which is why this screen shows them side by side rather than
+ * as a tree. Nesting them would force a duplicate catalogue row per Dept and
+ * count that service's revenue twice.
+ *
+ * ── Why the split axis is on this screen and not in the catalogue ───────────
+ *
+ * It is the one setting here that changes what the ENGINE does: it decides how
+ * many jobs a signed engagement becomes. Putting it beside the lists it names is
+ * the only place it can be understood, and the API refuses to select a list with
+ * nothing on it precisely so that this screen cannot offer a setting that would
+ * silently do nothing.
+ *
+ * ── What this screen does not offer ─────────────────────────────────────────
+ *
+ * There is no delete, and no way to edit a code. Retiring is not deleting: a
+ * Dept that existed in 2026 is part of why a service was filed where it was
+ * filed, so it stays readable forever and only stops being offered for anything
+ * new. A code cannot move because every published service body names it and
+ * those bodies are frozen — a firm that wants a different code adds a row and
+ * retires the old one, which leaves the history intact.
+ */
+export default function StructurePage() {
+  const router = useRouter();
+  const [axes, setAxes] = useState<ServiceAxis[]>([]);
+  const [split, setSplit] = useState<WorkSplitAxis>("none");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async (): Promise<void> => {
+    const structure = await api.GET("/api/v1/tenancy/structure", {});
+    // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
+    // membership was revoked — the API re-checks it on every request.
+    if (structure.response.status === 401) {
+      router.push("/login");
+      return;
+    }
+    if (structure.error) {
+      setError(apiError(structure.error).message);
+      setLoaded(true);
+      return;
+    }
+    setAxes(structure.data.axes);
+    setSplit(structure.data.workSplitAxis);
+    setError(null);
+    setLoaded(true);
+  }, [router]);
+
+  useEffect(() => {
+    void (async () => {
+      await load();
+    })();
+  }, [load]);
+
+  /** Every mutation funnels through here so one place owns the busy flag, the
+   *  error message and the reload. */
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+    setBusy(key);
+    setError(null);
+    const result = await call();
+    if (result.error) {
+      // Verbatim. The API's refusal is the whole explanation — "that list has
+      // nothing active on it, and every job would land in the same unfiled
+      // group" — and a local "something went wrong" would throw away the only
+      // sentence that says how to fix it.
+      setError(apiError(result.error).message);
+      setBusy(null);
+      return;
+    }
+    await load();
+    setBusy(null);
+  }
+
+  function rename(axisId: string, name: string): void {
+    void act(axisId, () =>
+      api.PUT("/api/v1/tenancy/structure/axes/{axisId}", {
+        params: { path: { axisId } },
+        body: { name },
+      }),
+    );
+  }
+
+  function reorder(axisId: string, sortOrder: number): void {
+    void act(axisId, () =>
+      api.PUT("/api/v1/tenancy/structure/axes/{axisId}", {
+        params: { path: { axisId } },
+        body: { sortOrder },
+      }),
+    );
+  }
+
+  function setActive(axisId: string, isActive: boolean): void {
+    void act(axisId, () =>
+      api.PUT("/api/v1/tenancy/structure/axes/{axisId}/active", {
+        params: { path: { axisId } },
+        body: { isActive },
+      }),
+    );
+  }
+
+  function chooseSplit(workSplitAxis: WorkSplitAxis): void {
+    void act("split", () =>
+      api.PUT("/api/v1/tenancy/structure/work-split", { body: { workSplitAxis } }),
+    );
+  }
+
+  if (!loaded) return <p className="bib-muted">Loading…</p>;
+
+  const depts = axes.filter((a) => a.axis === "dept");
+  const teams = axes.filter((a) => a.axis === "team");
+
+  return (
+    <main>
+      <nav className="bib-subnav" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <Link href="/">← Workspace</Link>
+        <Link href="/catalogue">Catalogue</Link>
+        <Link href="/admin/grades">Grades</Link>
+      </nav>
+
+      <h1>Firm structure</h1>
+      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+        Most firms have one of these layers, some have both, and plenty have neither. Fill in
+        what your firm actually uses and leave the rest empty — nothing here is required.
+      </p>
+      {error !== null && <p className="bib-error">{error}</p>}
+
+      <WorkSplitChooser
+        chosen={split}
+        deptCount={depts.filter((d) => d.isActive).length}
+        teamCount={teams.filter((t) => t.isActive).length}
+        busy={busy === "split"}
+        onChoose={chooseSplit}
+      />
+
+      <AxisList
+        axis="dept"
+        title="Depts"
+        blurb="The revenue axis — what the dashboard splits income by, and what a SPOC covers. FRC, TRC, RAA."
+        rows={depts}
+        busy={busy}
+        onRename={rename}
+        onReorder={reorder}
+        onSetActive={setActive}
+        onAdded={() => void load()}
+        onError={setError}
+      />
+
+      <AxisList
+        axis="team"
+        title="Delivery teams"
+        blurb="Who actually does the work. FINCOMPLIANCE, VCFO CONSOLE, PAYROLL. Independent of the Depts, never nested under them — one team commonly delivers under several."
+        rows={teams}
+        busy={busy}
+        onRename={rename}
+        onReorder={reorder}
+        onSetActive={setActive}
+        onAdded={() => void load()}
+        onError={setError}
+      />
+    </main>
+  );
+}
+
+// ── How work is split ────────────────────────────────────────────────────────
+
+/**
+ * The one control here that changes what the engine does.
+ *
+ * An option whose list is empty is DISABLED rather than hidden, with the reason
+ * beside it. Hiding it would leave somebody looking for a setting they were told
+ * exists; offering it would produce the API's refusal, which is a worse way to
+ * learn the same thing.
+ */
+function WorkSplitChooser({
+  chosen,
+  deptCount,
+  teamCount,
+  busy,
+  onChoose,
+}: {
+  chosen: WorkSplitAxis;
+  deptCount: number;
+  teamCount: number;
+  busy: boolean;
+  onChoose: (axis: WorkSplitAxis) => void;
+}) {
+  const options: {
+    value: WorkSplitAxis;
+    label: string;
+    hint: string;
+    disabledBecause: string | null;
+  }[] = [
+    {
+      value: "none",
+      label: "Keep it all together",
+      hint: "One client, one job, whatever they bought. What most firms want.",
+      disabledBecause: null,
+    },
+    {
+      value: "dept",
+      label: "Split by Dept",
+      hint: "A client buying work in two Depts gets two jobs — one per Dept.",
+      disabledBecause: deptCount === 0 ? "no Depts defined yet" : null,
+    },
+    {
+      value: "team",
+      label: "Split by delivery team",
+      hint: "A client's services are grouped by the team that delivers them.",
+      disabledBecause: teamCount === 0 ? "no delivery teams defined yet" : null,
+    },
+  ];
+
+  return (
+    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+      <h2 style={{ marginTop: 0 }}>When a client signs, how is the work split up?</h2>
+      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+        A client signs one engagement letter for several services. This decides whether that
+        becomes one job with everything in it, or several — one per group.
+      </p>
+      <div style={{ display: "grid", gap: "var(--bib-gap-1)" }}>
+        {options.map((o) => (
+          <label
+            key={o.value}
+            style={{
+              display: "flex",
+              gap: "var(--bib-gap-1)",
+              alignItems: "flex-start",
+              opacity: o.disabledBecause === null ? 1 : 0.55,
+            }}
+          >
+            <input
+              type="radio"
+              name="work-split"
+              value={o.value}
+              checked={chosen === o.value}
+              disabled={busy || o.disabledBecause !== null}
+              onChange={() => { onChoose(o.value); }}
+              style={{ marginTop: 4 }}
+            />
+            <span>
+              <strong>{o.label}</strong>
+              <br />
+              <span className="bib-muted" style={{ fontSize: 13 }}>
+                {o.hint}
+                {o.disabledBecause !== null && ` — ${o.disabledBecause}.`}
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="bib-muted" style={{ fontSize: 13, marginTop: "var(--bib-gap-2)" }}>
+        Changing this restates nothing. Work already under way keeps the shape it started
+        with; the next engagement is split the new way.
+      </p>
+      {/* Said out loud rather than left for somebody to discover. The setting is
+          stored and audited today; the orchestrator that reads it is T2.7. A
+          control that looks live and is not is exactly the "feature that looks
+          finished" this codebase has been caught by before — a registered event
+          verb with no writer — so the screen says which half exists. */}
+      <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+        <strong>Not in effect yet.</strong> Your answer is saved and will be used the moment
+        delivery scheduling goes live. Until then every signed engagement produces one job,
+        whatever is chosen here.
+      </p>
+    </div>
+  );
+}
+
+// ── One list ─────────────────────────────────────────────────────────────────
+
+function AxisList({
+  axis,
+  title,
+  blurb,
+  rows,
+  busy,
+  onRename,
+  onReorder,
+  onSetActive,
+  onAdded,
+  onError,
+}: {
+  axis: ServiceAxisKind;
+  title: string;
+  blurb: string;
+  rows: ServiceAxis[];
+  busy: string | null;
+  onRename: (axisId: string, name: string) => void;
+  onReorder: (axisId: string, sortOrder: number) => void;
+  onSetActive: (axisId: string, isActive: boolean) => void;
+  onAdded: () => void;
+  onError: (message: string) => void;
+}) {
+  return (
+    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+      <h2 style={{ marginTop: 0 }}>{title}</h2>
+      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+        {blurb}
+      </p>
+
+      {rows.length === 0 ? (
+        <p className="bib-muted">
+          None defined. While this list is empty a service&apos;s {title.toLowerCase()} field
+          takes any code the firm types — the moment there is one row, the list is closed and
+          only these codes are accepted.
+        </p>
+      ) : (
+        <table className="bib-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th style={{ width: 110 }}>Order</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} data-inactive={!r.isActive}>
+                <td>
+                  <CommittedText
+                    key={`${r.id}:${r.name}`}
+                    value={r.name}
+                    disabled={busy === r.id}
+                    onCommit={(name) => { onRename(r.id, name); }}
+                  />
+                </td>
+                {/* The code never changes — every published service body names
+                    it and those bodies are frozen. Shown, not editable. */}
+                <td className="bib-muted bib-mono">{r.code}</td>
+                <td>
+                  <CommittedNumber
+                    key={`${r.id}:${String(r.sortOrder)}`}
+                    value={r.sortOrder}
+                    disabled={busy === r.id}
+                    onCommit={(sortOrder) => { onReorder(r.id, sortOrder); }}
+                  />
+                </td>
+                <td>
+                  <span className="bib-pill" data-tone={r.isActive ? "active" : "revoked"}>
+                    {r.isActive ? "in use" : "retired"}
+                  </span>
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    className={`bib-button-quiet${r.isActive ? " bib-button-danger" : ""}`}
+                    disabled={busy === r.id}
+                    onClick={() => { onSetActive(r.id, !r.isActive); }}
+                  >
+                    {r.isActive ? "Retire" : "Bring back"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <AddAxis axis={axis} onAdded={onAdded} onError={onError} />
+    </div>
+  );
+}
+
+function AddAxis({
+  axis,
+  onAdded,
+  onError,
+}: {
+  axis: ServiceAxisKind;
+  onAdded: () => void;
+  onError: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function add(form: FormData): Promise<void> {
+    setBusy(true);
+    const result = await api.POST("/api/v1/tenancy/structure/axes", {
+      body: {
+        axis,
+        // Sent VERBATIM, lower case and all. The API normalises it and answers
+        // with what it stored — upper-casing here would hide the rule behind a
+        // silent fix, and the rule is one the firm needs to know about.
+        code: String(form.get("code")).trim(),
+        name: String(form.get("name")).trim(),
+        sortOrder: Number(form.get("sortOrder") ?? 0),
+      },
+    });
+    setBusy(false);
+    if (result.error) {
+      onError(apiError(result.error).message);
+      return;
+    }
+    onAdded();
+  }
+
+  return (
+    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+      <summary>Add one</summary>
+      <form
+        style={{ marginTop: "var(--bib-gap-2)" }}
+        action={(form) => {
+          void add(form);
+        }}
+      >
+        <div className="bib-field-row">
+          <div style={{ flex: "1 1 160px" }}>
+            <label className="bib-label" htmlFor={`add-${axis}-code`}>
+              Code
+            </label>
+            <input
+              className="bib-input"
+              id={`add-${axis}-code`}
+              name="code"
+              placeholder={axis === "dept" ? "FRC" : "FINCOMPLIANCE"}
+              required
+            />
+            <p className="bib-hint">
+              Permanent. Upper case, spaces allowed. Every service filed here names it.
+            </p>
+          </div>
+          <div style={{ flex: "2 1 220px" }}>
+            <label className="bib-label" htmlFor={`add-${axis}-name`}>
+              Name
+            </label>
+            <input
+              className="bib-input"
+              id={`add-${axis}-name`}
+              name="name"
+              placeholder={axis === "dept" ? "Financial Reporting & Compliance" : "FinCompliance"}
+              required
+            />
+            <p className="bib-hint">What people read. Changeable later.</p>
+          </div>
+          <div style={{ flex: "0 1 100px" }}>
+            <label className="bib-label" htmlFor={`add-${axis}-order`}>
+              Order
+            </label>
+            <input
+              className="bib-input"
+              id={`add-${axis}-order`}
+              name="sortOrder"
+              type="number"
+              defaultValue={0}
+            />
+          </div>
+        </div>
+        <button className="bib-button" type="submit" disabled={busy}>
+          Add
+        </button>
+      </form>
+    </details>
+  );
+}
+
+// ── Two inputs that commit on blur or Enter, not per keystroke ───────────────
+//
+// Per-keystroke saving would write a row per letter into an append-only ledger,
+// which is how a rename becomes twelve audit events nobody can read past. Both
+// are seeded ONCE: the caller gives them a `key` derived from the committed
+// value, so a successful write remounts them with the new text rather than
+// syncing it back through an effect that would fight the user's typing.
+
+function CommittedText({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: string;
+  disabled: boolean;
+  onCommit: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  function commit(): void {
+    const next = draft.trim();
+    if (next === "" || next === value) {
+      setDraft(value);
+      return;
+    }
+    onCommit(next);
+  }
+
+  return (
+    <input
+      className="bib-input"
+      value={draft}
+      disabled={disabled}
+      onChange={(e) => { setDraft(e.target.value); }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setDraft(value);
+      }}
+    />
+  );
+}
+
+function CommittedNumber({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: number;
+  disabled: boolean;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  function commit(): void {
+    const next = Number(draft);
+    if (!Number.isInteger(next) || next === value) {
+      setDraft(String(value));
+      return;
+    }
+    onCommit(next);
+  }
+
+  return (
+    <input
+      className="bib-input"
+      type="number"
+      value={draft}
+      disabled={disabled}
+      onChange={(e) => { setDraft(e.target.value); }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setDraft(String(value));
+      }}
+    />
+  );
+}

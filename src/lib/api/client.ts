@@ -52,6 +52,25 @@ export type Member =
 export type StaffGrade =
   paths["/api/v1/tenancy/grades"]["get"]["responses"][200]["content"]["application/json"]["grades"][number];
 
+/**
+ * One entry on a firm's own Dept or delivery-team list (G2.4).
+ *
+ * `code` is the join and never moves — every published service body names it,
+ * and those bodies are frozen. `name` is what people read and is freely
+ * editable. The two axes are INDEPENDENT, never nested: one delivery team
+ * commonly works under several Depts.
+ */
+export type ServiceAxis =
+  paths["/api/v1/tenancy/structure"]["get"]["responses"][200]["content"]["application/json"]["axes"][number];
+
+/** Which of the firm's two lists a row is on. */
+export type ServiceAxisKind = ServiceAxis["axis"];
+
+/** How a firm cuts ONE client's work into separate jobs — `none` by default,
+ *  which keeps it all in one job and is what most firms want. */
+export type WorkSplitAxis =
+  paths["/api/v1/tenancy/structure"]["get"]["responses"][200]["content"]["application/json"]["workSplitAxis"];
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
 export type ConfigEntry =
