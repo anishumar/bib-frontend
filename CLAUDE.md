@@ -68,6 +68,7 @@ not before.
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
+| `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
 | `/clients` | the firm's book — every counterparty, and adding one |
 | `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
@@ -182,9 +183,29 @@ looking untouched.
 not show work whose window has not opened: the calendar is materialised a year ahead and showing
 all of it as "ready" would bury what actually is.
 
-**Not built: a screen to WRITE a workflow template.** A firm's process is published through the
-API today, and `/catalogue` is the precedent for what that screen should be — drafts, versions,
-publish. It is on the board as an honest gap, not an oversight.
+## `/admin/workflows` — where a process stops living in somebody's head
+
+The engine could walk a process and the board could show one, and neither was worth anything
+while the only way to WRITE a process was a curl command. This is that screen.
+
+**Draft and publish are separate here, unlike `/admin/roles`.** A role is one intent and
+saves in one press. A process is not: publishing changes the path every job started from now
+on will walk, and a partner may write one over several sittings. So it follows `/catalogue` —
+a draft sits visibly unpublished, and the screen says "no job is following it".
+
+**It is deliberately not a diagram editor.** The graph is expressed as "this step waits for
+these steps", which is how somebody describes a process out loud and is exactly what the
+engine reads. A cycle is typeable and the API refuses it by NAMING the loop — a better error
+than any drag-and-drop would produce, and it is shown verbatim.
+
+Removing a step also removes it from every other step's "waits for". Without that the API
+refuses the whole process for naming a step that does not exist — correct, and a confusing way
+to find out what you deleted.
+
+**`/catalogue` gained the field that connects the two**: a picker over PUBLISHED processes
+only. A draft is not in force, and offering one would point a service at something no job will
+ever follow. Blank is a real answer and the hint says what it means — the work is created and
+waits, visibly, rather than running a process nobody wrote.
 
 ## Money never becomes a number
 

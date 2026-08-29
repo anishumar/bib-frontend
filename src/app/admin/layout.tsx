@@ -11,7 +11,9 @@ import type { ReactNode } from "react";
  * what every role can do, who holds it, and who is senior enough to sign off
  * somebody else's work.
  *
- * The last three are not about people at all: STRUCTURE is the firm's own Depts
+ * The last four are not about people at all: PROCESSES is how the firm does its
+ * work — the steps a job walks, which is the thing that used to live only in a
+ * partner's head. STRUCTURE is the firm's own Depts
  * and delivery teams and which of them splits a client's work, the STANDARD PROSE
  * is what every new document is written with, and TERRITORIES decide whose desk a
  * lead lands on. They are here because the API gates all of them on
@@ -32,6 +34,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Link href="/admin/roles">Roles</Link>
         <Link href="/admin/grades">Grades</Link>
         <Link href="/admin/structure">Structure</Link>
+        <Link href="/admin/workflows">Processes</Link>
         <Link href="/admin/document-blocks">Standard prose</Link>
         <Link href="/admin/territories">Territories</Link>
       </nav>

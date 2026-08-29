@@ -1,0 +1,674 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { api, apiError } from "@/lib/api/client";
+import type { ConfigEntry } from "@/lib/api/client";
+
+/**
+ * Where a firm writes down how it does its work (T2.7).
+ *
+ * ── WHY THIS SCREEN IS THE POINT OF THE TASK ────────────────────────────────
+ *
+ * The orchestrator can walk a process and a work board can show it, and neither
+ * is worth anything while the only way to WRITE a process is a curl command.
+ * "How we do a GST filing" lives in a partner's head; this is where it stops
+ * living there.
+ *
+ * ── DRAFT AND PUBLISH ARE SEPARATE, UNLIKE /admin/roles ─────────────────────
+ *
+ * Roles draft-and-publish in one press, because an admin editing a role has one
+ * intent. A process is not that: publishing changes the path every job started
+ * from now on will walk, and a partner may well write one over several sittings.
+ * So this follows /catalogue — a draft sits visibly unpublished until somebody
+ * decides, and the screen says plainly that nothing is running it yet.
+ *
+ * ── WHAT IT DOES NOT TRY TO BE ──────────────────────────────────────────────
+ *
+ * Not a diagram editor. The graph is expressed as "this step waits for these
+ * steps", which is how a person describes a process out loud, and it is exactly
+ * what the engine reads. A cycle is possible to type and the API refuses it by
+ * NAMING the loop — a better error than any drag-and-drop would give, and the
+ * screen shows it verbatim.
+ */
+
+type Executor = "human" | "agent" | "agent_with_approval";
+type Fact = "recurrence" | "jurisdiction";
+
+interface StepDraft {
+  key: string;
+  label: string;
+  executor: Executor;
+  dependsOn: string[];
+  conditionFact: Fact | "";
+  conditionEquals: string;
+}
+
+const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
+  {
+    value: "human",
+    label: "A person",
+    hint: "Somebody does it and ticks it off. The ordinary answer.",
+  },
+  {
+    value: "agent",
+    label: "Automatically",
+    hint: "If no agent is built for it yet, it waits for a person instead — the process still runs.",
+  },
+  {
+    value: "agent_with_approval",
+    label: "Automatically, then a person approves",
+    hint: "The machine produces the work and somebody decides whether it stands.",
+  },
+];
+
+const FACTS: { value: Fact; label: string; example: string }[] = [
+  { value: "recurrence", label: "How often the service recurs", example: "monthly, annually" },
+  { value: "jurisdiction", label: "Where the entity is registered", example: "IN, AE, US" },
+];
+
+/** A step as the API wants it. `condition` is null unless both halves are given —
+ *  half a condition is not a condition, and sending one would be refused. */
+function toBody(label: string, steps: readonly StepDraft[]): Record<string, unknown> {
+  return {
+    label: label.trim(),
+    steps: steps.map((s) => ({
+      key: s.key.trim(),
+      label: s.label.trim(),
+      executor: s.executor,
+      dependsOn: s.dependsOn,
+      condition:
+        s.conditionFact === "" || s.conditionEquals.trim() === ""
+          ? null
+          : { fact: s.conditionFact, equals: s.conditionEquals.trim() },
+    })),
+  };
+}
+
+/** A stored body back into the editor's shape, so "draft a new version" starts
+ *  from what is actually in force rather than from an empty form. */
+function fromBody(body: Record<string, unknown>): { label: string; steps: StepDraft[] } {
+  const raw = Array.isArray(body["steps"]) ? (body["steps"] as Record<string, unknown>[]) : [];
+  return {
+    label: typeof body["label"] === "string" ? body["label"] : "",
+    steps: raw.map((s) => {
+      const condition = s["condition"] as Record<string, unknown> | null | undefined;
+      return {
+        key: typeof s["key"] === "string" ? s["key"] : "",
+        label: typeof s["label"] === "string" ? s["label"] : "",
+        executor: (typeof s["executor"] === "string" ? s["executor"] : "human") as Executor,
+        dependsOn: Array.isArray(s["dependsOn"]) ? (s["dependsOn"] as string[]) : [],
+        conditionFact: (condition?.["fact"] ?? "") as Fact | "",
+        conditionEquals: typeof condition?.["equals"] === "string" ? condition["equals"] : "",
+      };
+    }),
+  };
+}
+
+export default function WorkflowsPage() {
+  const router = useRouter();
+  const [templates, setTemplates] = useState<ConfigEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async (): Promise<void> => {
+    const result = await api.GET("/api/v1/config/{kind}", {
+      params: { path: { kind: "workflow_template" } },
+    });
+    if (result.response.status === 401) {
+      router.push("/login");
+      return;
+    }
+    if (result.error) {
+      setError(apiError(result.error).message);
+      setLoaded(true);
+      return;
+    }
+    setTemplates(result.data.entries);
+    setError(null);
+    setLoaded(true);
+  }, [router]);
+
+  useEffect(() => {
+    void (async () => {
+      await load();
+    })();
+  }, [load]);
+
+  async function publish(key: string, version: number): Promise<void> {
+    setBusy(`publish:${key}`);
+    setError(null);
+    const result = await api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
+      params: { path: { kind: "workflow_template", key, version } },
+    });
+    setBusy(null);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
+
+  if (!loaded) return <p className="bib-muted">Loading…</p>;
+
+  return (
+    <main>
+      <h1>How the firm works</h1>
+      <p className="bib-muted" style={{ maxWidth: "64ch" }}>
+        A process is the steps a piece of work goes through, in the order they have to happen.
+        Write it once and every job for that service follows it — and every step can be a
+        person&apos;s, so this works today with nothing automated at all.
+      </p>
+      {error !== null && <p className="bib-error">{error}</p>}
+
+      {templates.length === 0 ? (
+        <p className="bib-muted" style={{ maxWidth: "64ch" }}>
+          No process written yet. Until one is, a signed engagement creates work that WAITS —
+          visibly, on the work board — rather than running a process nobody wrote.
+        </p>
+      ) : (
+        templates.map((t) => (
+          <TemplateCard
+            key={t.entry.key}
+            entry={t}
+            busy={busy}
+            onPublish={publish}
+            onSaved={() => void load()}
+            onError={setError}
+          />
+        ))
+      )}
+
+      <NewTemplate onSaved={() => void load()} onError={setError} />
+
+      <p className="bib-muted" style={{ fontSize: 13, maxWidth: "64ch" }}>
+        A published process is <strong>frozen</strong>, and that is what makes it trustworthy: a
+        job records which version it started on and keeps walking that one. Editing a process
+        never changes work already under way — it changes what happens next time.
+      </p>
+    </main>
+  );
+}
+
+// ── One process ──────────────────────────────────────────────────────────────
+
+function TemplateCard({
+  entry,
+  busy,
+  onPublish,
+  onSaved,
+  onError,
+}: {
+  entry: ConfigEntry;
+  busy: string | null;
+  onPublish: (key: string, version: number) => void;
+  onSaved: () => void;
+  onError: (message: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const inForce = entry.published;
+  const draft = entry.pendingDraft;
+  const shown = fromBody((draft ?? inForce)?.body ?? {});
+
+  return (
+    <article className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>
+          {shown.label || entry.entry.key}{" "}
+          <span className="bib-muted bib-mono" style={{ fontSize: 12 }}>
+            {entry.entry.key}
+          </span>
+        </h2>
+        <span className="bib-muted" style={{ fontSize: 13 }}>
+          {inForce === null ? "not in use yet" : `v${String(inForce.version)} in force`}
+        </span>
+      </div>
+
+      {/* A draft is shown rather than hidden, and the sentence says what it
+          means. A process somebody wrote and never published is a real state,
+          and a job will not touch it — which is worth saying out loud, because
+          it looks finished on this screen otherwise. */}
+      {draft !== null && (
+        <p className="bib-muted" style={{ fontSize: 13 }}>
+          Draft v{draft.version} is written but <strong>not in force</strong>. No job is
+          following it.
+        </p>
+      )}
+
+      <StepList steps={shown.steps} />
+
+      <div style={{ display: "flex", gap: "var(--bib-gap-1)", marginTop: "var(--bib-gap-2)" }}>
+        {draft !== null && (
+          <button
+            className="bib-button"
+            disabled={busy === `publish:${entry.entry.key}`}
+            onClick={() => {
+              onPublish(entry.entry.key, draft.version);
+            }}
+          >
+            Put v{draft.version} in force
+          </button>
+        )}
+        <button
+          className="bib-button-quiet"
+          onClick={() => {
+            setEditing((e) => !e);
+          }}
+        >
+          {editing ? "Cancel" : draft === null ? "Change it" : "Edit the draft"}
+        </button>
+      </div>
+
+      {editing && (
+        <StepEditor
+          templateKey={entry.entry.key}
+          initialLabel={shown.label}
+          initialSteps={shown.steps}
+          note="A change is a NEW version. What is in force keeps running until you put the new one in force."
+          onDone={() => {
+            setEditing(false);
+            onSaved();
+          }}
+          onError={onError}
+        />
+      )}
+    </article>
+  );
+}
+
+/** The process as a person reads it: each step, who does it, and what it waits
+ *  for. Read-only — editing is a deliberate act behind a button. */
+function StepList({ steps }: { steps: readonly StepDraft[] }) {
+  if (steps.length === 0) return <p className="bib-muted">No steps.</p>;
+  return (
+    <ol style={{ margin: "var(--bib-gap-1) 0 0", paddingLeft: "1.2rem" }}>
+      {steps.map((s) => (
+        <li key={s.key} style={{ marginBottom: 6 }}>
+          <strong>{s.label || s.key}</strong>{" "}
+          <span className="bib-muted" style={{ fontSize: 13 }}>
+            · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
+            {s.dependsOn.length > 0 && <> · after {s.dependsOn.join(", ")}</>}
+            {s.conditionFact !== "" && (
+              <>
+                {" "}
+                · only when {s.conditionFact} is {s.conditionEquals}
+              </>
+            )}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ── Writing one ──────────────────────────────────────────────────────────────
+
+function NewTemplate({
+  onSaved,
+  onError,
+}: {
+  onSaved: () => void;
+  onError: (message: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button
+        className="bib-button"
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        Write a new process
+      </button>
+    );
+  }
+  return (
+    <div className="bib-card">
+      <h2 style={{ marginTop: 0, fontSize: 16 }}>A new process</h2>
+      <StepEditor
+        templateKey={null}
+        initialLabel=""
+        initialSteps={[
+          {
+            key: "collect",
+            label: "Collect what we need from the client",
+            executor: "human",
+            dependsOn: [],
+            conditionFact: "",
+            conditionEquals: "",
+          },
+        ]}
+        note="Saved as a draft. Nothing follows it until you put it in force."
+        onDone={() => {
+          setOpen(false);
+          onSaved();
+        }}
+        onError={onError}
+      />
+      <button
+        className="bib-button-quiet"
+        onClick={() => {
+          setOpen(false);
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The editor.
+ *
+ * `templateKey` null means this is a NEW process and needs a handle; otherwise
+ * it is a new version of an existing one and the handle cannot move — every job
+ * that ever ran resolves through it.
+ */
+function StepEditor({
+  templateKey,
+  initialLabel,
+  initialSteps,
+  note,
+  onDone,
+  onError,
+}: {
+  templateKey: string | null;
+  initialLabel: string;
+  initialSteps: readonly StepDraft[];
+  note: string;
+  onDone: () => void;
+  onError: (message: string) => void;
+}) {
+  const [key, setKey] = useState(templateKey ?? "");
+  const [label, setLabel] = useState(initialLabel);
+  const [steps, setSteps] = useState<StepDraft[]>([...initialSteps]);
+  const [busy, setBusy] = useState(false);
+
+  function patch(index: number, change: Partial<StepDraft>): void {
+    setSteps((current) => current.map((s, i) => (i === index ? { ...s, ...change } : s)));
+  }
+
+  function addStep(): void {
+    setSteps((current) => [
+      ...current,
+      {
+        key: "",
+        label: "",
+        executor: "human",
+        dependsOn: [],
+        conditionFact: "",
+        conditionEquals: "",
+      },
+    ]);
+  }
+
+  function removeStep(index: number): void {
+    setSteps((current) => {
+      const gone = current[index];
+      return current
+        .filter((_, i) => i !== index)
+        // A step that waited on the removed one must stop waiting, or the API
+        // refuses the whole process for naming a step that does not exist —
+        // which is correct, and a confusing way to learn you deleted something.
+        .map((s) => ({ ...s, dependsOn: s.dependsOn.filter((d) => d !== gone?.key) }));
+    });
+  }
+
+  async function save(): Promise<void> {
+    setBusy(true);
+    const body = toBody(label, steps);
+    const result =
+      templateKey === null
+        ? await api.POST("/api/v1/config/{kind}", {
+            params: { path: { kind: "workflow_template" } },
+            body: { key: key.trim(), body },
+          })
+        : await api.POST("/api/v1/config/{kind}/{key}/versions", {
+            params: { path: { kind: "workflow_template", key: templateKey } },
+            body: { body },
+          });
+    setBusy(false);
+    if (result.error) {
+      // Verbatim. The validator's messages are the whole explanation — it names
+      // the cycle, or the step a dependency points at that does not exist — and
+      // a local "invalid process" would throw away the only sentence that says
+      // how to fix it.
+      onError(apiError(result.error).message);
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <div style={{ marginTop: "var(--bib-gap-2)" }}>
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        {templateKey === null && (
+          <div style={{ flex: "1 1 200px" }}>
+            <label className="bib-label" htmlFor="wf-key">
+              Handle
+            </label>
+            <input
+              className="bib-input"
+              id="wf-key"
+              value={key}
+              placeholder="gst-monthly"
+              onChange={(e) => {
+                setKey(e.target.value);
+              }}
+            />
+            <p className="bib-hint">
+              Lower case, permanent. A service points at this, and every job that ever ran
+              resolves through it.
+            </p>
+          </div>
+        )}
+        <div style={{ flex: "2 1 260px" }}>
+          <label className="bib-label" htmlFor="wf-label">
+            Name
+          </label>
+          <input
+            className="bib-input"
+            id="wf-label"
+            value={label}
+            placeholder="GST monthly filing"
+            onChange={(e) => {
+              setLabel(e.target.value);
+            }}
+          />
+          <p className="bib-hint">What a partner picks this process by.</p>
+        </div>
+      </div>
+
+      {steps.map((step, index) => (
+        <StepFields
+          key={index}
+          index={index}
+          step={step}
+          others={steps.filter((_, i) => i !== index).map((s) => s.key).filter((k) => k !== "")}
+          onChange={(change) => {
+            patch(index, change);
+          }}
+          onRemove={() => {
+            removeStep(index);
+          }}
+        />
+      ))}
+
+      <div style={{ display: "flex", gap: "var(--bib-gap-1)", marginTop: "var(--bib-gap-2)" }}>
+        <button className="bib-button-quiet" onClick={addStep}>
+          Add a step
+        </button>
+        <button
+          className="bib-button"
+          disabled={busy}
+          onClick={() => {
+            void save();
+          }}
+        >
+          Save as a draft
+        </button>
+      </div>
+      <p className="bib-muted" style={{ fontSize: 13 }}>
+        {note}
+      </p>
+    </div>
+  );
+}
+
+function StepFields({
+  index,
+  step,
+  others,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  step: StepDraft;
+  others: readonly string[];
+  onChange: (change: Partial<StepDraft>) => void;
+  onRemove: () => void;
+}) {
+  const id = `step-${String(index)}`;
+  return (
+    <div
+      className="bib-card"
+      style={{ marginBottom: "var(--bib-gap-1)", background: "var(--bib-surface-2, transparent)" }}
+    >
+      <div className="bib-field-row">
+        <div style={{ flex: "3 1 240px" }}>
+          <label className="bib-label" htmlFor={`${id}-label`}>
+            Step
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-label`}
+            value={step.label}
+            placeholder="Reconcile against the books"
+            onChange={(e) => {
+              onChange({ label: e.target.value });
+            }}
+          />
+        </div>
+        <div style={{ flex: "1 1 150px" }}>
+          <label className="bib-label" htmlFor={`${id}-key`}>
+            Handle
+          </label>
+          <input
+            className="bib-input"
+            id={`${id}-key`}
+            value={step.key}
+            placeholder="reconcile"
+            onChange={(e) => {
+              onChange({ key: e.target.value });
+            }}
+          />
+          <p className="bib-hint">Lower case. Never changes once work has run.</p>
+        </div>
+        <div style={{ flex: "1 1 200px" }}>
+          <label className="bib-label" htmlFor={`${id}-executor`}>
+            Who does it
+          </label>
+          <select
+            className="bib-select"
+            id={`${id}-executor`}
+            value={step.executor}
+            style={{ width: "100%" }}
+            onChange={(e) => {
+              onChange({ executor: e.target.value as StepDraft["executor"] });
+            }}
+          >
+            {EXECUTORS.map((x) => (
+              <option key={x.value} value={x.value}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+          <p className="bib-hint">
+            {EXECUTORS.find((x) => x.value === step.executor)?.hint}
+          </p>
+        </div>
+      </div>
+
+      {others.length > 0 && (
+        <div style={{ marginTop: "var(--bib-gap-1)" }}>
+          <span className="bib-label">Waits for</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--bib-gap-1)" }}>
+            {others.map((other) => (
+              <label key={other} style={{ fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={step.dependsOn.includes(other)}
+                  onChange={(e) => {
+                    onChange({
+                      dependsOn: e.target.checked
+                        ? [...step.dependsOn, other]
+                        : step.dependsOn.filter((d) => d !== other),
+                    });
+                  }}
+                />{" "}
+                {other}
+              </label>
+            ))}
+          </div>
+          <p className="bib-hint">
+            Nothing ticked means it starts as soon as the work does. Two steps waiting for the
+            same thing both start together.
+          </p>
+        </div>
+      )}
+
+      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-1)" }}>
+        <div style={{ flex: "2 1 240px" }}>
+          <label className="bib-label" htmlFor={`${id}-fact`}>
+            Only do this step when…
+          </label>
+          <select
+            className="bib-select"
+            id={`${id}-fact`}
+            value={step.conditionFact}
+            style={{ width: "100%" }}
+            onChange={(e) => {
+              onChange({ conditionFact: e.target.value as StepDraft["conditionFact"] });
+            }}
+          >
+            <option value="">always do it</option>
+            {FACTS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {step.conditionFact !== "" && (
+          <div style={{ flex: "1 1 160px" }}>
+            <label className="bib-label" htmlFor={`${id}-equals`}>
+              …is
+            </label>
+            <input
+              className="bib-input"
+              id={`${id}-equals`}
+              value={step.conditionEquals}
+              placeholder={FACTS.find((f) => f.value === step.conditionFact)?.example}
+              onChange={(e) => {
+                onChange({ conditionEquals: e.target.value });
+              }}
+            />
+            {/* The rule that is least obvious and most consequential, said where
+                somebody is choosing it. */}
+            <p className="bib-hint">
+              If the service does not state this at all, the step is KEPT — a blank field must
+              not quietly remove a step from a process.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <button className="bib-button-quiet bib-button-danger" onClick={onRemove}>
+        Remove this step
+      </button>
+    </div>
+  );
+}

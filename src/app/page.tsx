@@ -168,6 +168,10 @@ export default function HomePage() {
             <Link href="/admin/people">People →</Link>
             <Link href="/admin/roles">Roles →</Link>
             <Link href="/admin/grades">Grades →</Link>
+            {/* How the firm does its work — the steps a job walks. Without this
+                screen the engine has no way in, which is what T2.7 shipped
+                without and this closes. */}
+            <Link href="/admin/workflows">Processes →</Link>
             {/* Two more things a firm decides for itself: the prose every new
                 document is written with, and whose desk covers which country. */}
             <Link href="/admin/document-blocks">Standard prose →</Link>

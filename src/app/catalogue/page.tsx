@@ -46,12 +46,15 @@ export default function CataloguePage() {
   // cannot write simply gets no lists and sees the codes as stored — which is
   // exactly what the field holds anyway.
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
+  // The firm's published processes, for the picker. `config:read`, like the
+  // catalogue itself — an associate reading a service should see how it is done.
+  const [workflows, setWorkflows] = useState<ConfigEntry[]>([]);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [catalogue, library, policy, me, structure] = await Promise.all([
+    const [catalogue, library, policy, me, structure, processes] = await Promise.all([
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
@@ -61,6 +64,7 @@ export default function CataloguePage() {
       // handling, deliberately — a failure note about a list nobody was going
       // to use would be noise on a screen that reads fine without it.
       api.GET("/api/v1/tenancy/structure", {}),
+      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "workflow_template" } } }),
     ]);
     if (catalogue.response.status === 401) {
       router.push("/login");
@@ -76,6 +80,7 @@ export default function CataloguePage() {
     setPolicies(policy.data?.entries ?? []);
     setPermissions(me.data?.permissions ?? []);
     setAxes(structure.data?.axes ?? []);
+    setWorkflows(processes.data?.entries ?? []);
     setFailure(null);
     // One call. What is in force AND what is waiting both come back on the list,
     // so there is nothing to fill in afterwards and no half-painted state.
@@ -195,6 +200,7 @@ export default function CataloguePage() {
                 onPublish={publish}
                 onNewVersion={newVersion}
                 axes={axes}
+                workflows={workflows}
               />
             ))}
           </section>
@@ -235,7 +241,7 @@ export default function CataloguePage() {
                 </p>
               </div>
             </div>
-            <ServiceFields id="define" defaults={null} axes={axes} />
+            <ServiceFields id="define" defaults={null} axes={axes} workflows={workflows} />
             {noteFor("define")}
             <button className="bib-button" type="submit" disabled={busy !== null}>
               Add as a draft
@@ -334,6 +340,7 @@ function ServiceCard({
   onPublish,
   onNewVersion,
   axes,
+  workflows,
 }: {
   row: ServiceRow;
   canWrite: boolean;
@@ -342,6 +349,7 @@ function ServiceCard({
   onPublish: (key: string, version: number) => void;
   onNewVersion: (key: string, form: FormData) => void;
   axes: readonly ServiceAxis[];
+  workflows: readonly ConfigEntry[];
 }) {
   const { body, published, draft } = row;
   const draftBody = draft === null ? null : readServiceRecord(draft.body);
@@ -443,7 +451,7 @@ function ServiceCard({
               Clearing a field here means the new version does not state it — which is a
               change, not a blank.
             </p>
-            <ServiceFields id={`v-${row.key}`} defaults={body} axes={axes} />
+            <ServiceFields id={`v-${row.key}`} defaults={body} axes={axes} workflows={workflows} />
             {note(`version:${row.key}`)}
             <button className="bib-button" type="submit" disabled={busy !== null}>
               Draft it
@@ -686,10 +694,12 @@ function ServiceFields({
   id,
   defaults,
   axes,
+  workflows,
 }: {
   id: string;
   defaults: ServiceRecord | null;
   axes: readonly ServiceAxis[];
+  workflows: readonly ConfigEntry[];
 }) {
   return (
     <>
@@ -763,6 +773,43 @@ function ServiceFields({
             placeholder="FINCOMPLIANCE"
             hint="Who does the work. One team commonly delivers under several Depts."
           />
+        </div>
+      </div>
+
+      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+        <div style={{ flex: "1 1 100%" }}>
+          <label className="bib-label" htmlFor={`${id}-workflowTemplateKey`}>
+            How it is delivered
+          </label>
+          {/* A PICKER of the firm's published processes, and only published
+              ones: a draft is not in force, and offering it would point a
+              service at something no job will ever follow. Free text was never
+              an option here — the key resolves against config.entry and a typo
+              would leave every job for this service waiting forever. */}
+          <select
+            className="bib-select"
+            id={`${id}-workflowTemplateKey`}
+            name="workflowTemplateKey"
+            defaultValue={defaults?.workflowTemplateKey ?? ""}
+            style={{ width: "100%" }}
+          >
+            <option value="">not stated — work for this service will wait</option>
+            {workflows
+              .filter((w) => w.published !== null)
+              .map((w) => (
+                <option key={w.entry.key} value={w.entry.key}>
+                  {typeof w.published?.body["label"] === "string"
+                    ? String(w.published.body["label"])
+                    : w.entry.key}
+                </option>
+              ))}
+          </select>
+          <p className="bib-hint">
+            The process every job for this service follows.{" "}
+            <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
+            real answer — the work is created and waits, visibly, rather than running a
+            process nobody wrote.
+          </p>
         </div>
       </div>
 
@@ -971,6 +1018,7 @@ function serviceBody(form: FormData): Record<string, unknown> {
   put(body, "category", trimmed(form, "category"));
   put(body, "pricingNote", trimmed(form, "pricingNote"));
   put(body, "recurrence", verbatim(form, "recurrence"));
+  put(body, "workflowTemplateKey", verbatim(form, "workflowTemplateKey"));
   for (const block of SCOPE_BLOCKS) put(body, block.field, trimmed(form, block.field));
 
   const jurisdictions = (trimmed(form, "jurisdictions") ?? "")
@@ -1142,6 +1190,10 @@ interface ServiceRecord {
   readonly clientObligations: string | null;
   readonly volumeLimits: string | null;
   readonly exclusions: string | null;
+  /** The process that says HOW this service is delivered (T2.7). A key, not a
+   *  version: the catalogue points at the firm's CURRENT process and the job is
+   *  what pins the version it started on. */
+  readonly workflowTemplateKey: string | null;
 }
 
 function readServiceRecord(body: Record<string, unknown> | undefined): ServiceRecord {
@@ -1167,6 +1219,7 @@ function readServiceRecord(body: Record<string, unknown> | undefined): ServiceRe
     clientObligations: readText(body?.["clientObligations"]),
     volumeLimits: readText(body?.["volumeLimits"]),
     exclusions: readText(body?.["exclusions"]),
+    workflowTemplateKey: readText(body?.["workflowTemplateKey"]),
   };
 }
 
