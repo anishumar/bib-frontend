@@ -284,6 +284,32 @@ export interface ClauseBody {
   readonly title: string;
   readonly text: string;
   readonly jurisdictions: readonly string[];
+  /**
+   * WHOSE LAW governs, and WHERE a dispute is heard — each a country code AND
+   * the words the document prints.
+   *
+   * Both halves, because neither does the other's job: "the laws of the State
+   * of Delaware" does not follow from `US`, and a screen cannot compare prose.
+   * Null on almost every clause, which is correct — confidentiality and fee
+   * terms name no law — so this app renders nothing rather than inventing one.
+   */
+  readonly governingLaw: JurisdictionalTerm | null;
+  readonly courts: JurisdictionalTerm | null;
+}
+
+export interface JurisdictionalTerm {
+  readonly jurisdiction: string;
+  readonly text: string;
+}
+
+function readTerm(raw: unknown): JurisdictionalTerm | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const term = raw as Record<string, unknown>;
+  const jurisdiction = term["jurisdiction"];
+  const text = term["text"];
+  return typeof jurisdiction === "string" && typeof text === "string"
+    ? { jurisdiction, text }
+    : null;
 }
 
 export function readClauseBody(body: Record<string, unknown> | undefined): ClauseBody {
@@ -296,6 +322,8 @@ export function readClauseBody(body: Record<string, unknown> | undefined): Claus
     jurisdictions: Array.isArray(jurisdictions)
       ? jurisdictions.filter((j): j is string => typeof j === "string")
       : [],
+    governingLaw: readTerm(body?.["governingLaw"]),
+    courts: readTerm(body?.["courts"]),
   };
 }
 
@@ -309,6 +337,124 @@ export function readClauseBody(body: Record<string, unknown> | undefined): Claus
 export function clauseApplies(clause: ClauseBody, jurisdiction: string): boolean {
   return clause.jurisdictions.length === 0 || clause.jurisdictions.includes(jurisdiction);
 }
+
+/** An invoice as a LIST shows it: the money, the client, and what it is for. */
+export type InvoiceSummary =
+  paths["/api/v1/invoices"]["get"]["responses"][200]["content"]["application/json"]["invoices"][number];
+
+/** One invoice in full: its lines and the totals the database computed. */
+export type InvoiceRecord =
+  paths["/api/v1/invoices/{invoiceId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type InvoiceLine = InvoiceRecord["lines"][number];
+export type InvoiceStatus = InvoiceRecord["invoice"]["status"];
+
+/**
+ * What an invoice still owes: invoiced − paid − credited.
+ *
+ * There is no `paid` flag anywhere in this app because there is none in the
+ * API. Both would be caches of an addition, and both drift the first time a
+ * payment is corrected — leaving an invoice that says "paid" beside arithmetic
+ * that says otherwise. The database computes this; nothing here adds money up.
+ */
+export type InvoiceBalance =
+  paths["/api/v1/invoices/{invoiceId}/balance"]["get"]["responses"][200]["content"]["application/json"];
+
+/** A debt with the two facts a person needs to act on it: WHOSE and WHICH.
+ *  The API joins them — building the collections screen is what found that a
+ *  bare balance is a row of uuids. */
+export type Receivable =
+  paths["/api/v1/receivables"]["get"]["responses"][200]["content"]["application/json"]["receivables"][number];
+
+export type Payment =
+  paths["/api/v1/invoices/{invoiceId}/payments"]["get"]["responses"][200]["content"]["application/json"]["payments"][number];
+
+export type CreditNote =
+  paths["/api/v1/invoices/{invoiceId}/credit-notes"]["get"]["responses"][200]["content"]["application/json"]["creditNotes"][number];
+
+/** One rung of the ladder, as climbed against one receivable. */
+export type DunningAction =
+  paths["/api/v1/invoices/{invoiceId}/dunning"]["get"]["responses"][200]["content"]["application/json"]["actions"][number];
+
+/** A terminal rung waiting for a partner, WITH what the decision turns on: the
+ *  client, the invoice number, and what is actually still owed. A queue of
+ *  uuids would be asking somebody to approve something they cannot see. */
+export type PendingDunning =
+  paths["/api/v1/dunning/pending"]["get"]["responses"][200]["content"]["application/json"]["actions"][number];
+
+/**
+ * The closed sets, read off the generated schema rather than retyped — the same
+ * treatment LEAD_STAGES gets, for the same reason: these are domain rules the
+ * API owns, and a hardcoded copy here drifts the day one is added.
+ */
+export type PaymentMethod = Payment["method"];
+export type CreditReason = CreditNote["reason"];
+
+export const PAYMENT_METHODS = [
+  "bank_transfer",
+  "cheque",
+  "cash",
+  "card",
+  "upi",
+  "other",
+] as const satisfies readonly PaymentMethod[];
+
+/**
+ * WHY money came off an invoice.
+ *
+ * A closed set on purpose, and the reason is the whole value of the field:
+ * without it the numbers always reconcile and why forty thousand came off does
+ * not. The labels are this app's — a person picks from a dropdown — but the
+ * VALUES are the API's, so a reason it does not accept is a compile error here.
+ */
+export const CREDIT_REASONS = [
+  "service_failure",
+  "billing_error",
+  "goodwill",
+  "scope_change",
+  "duplicate_invoice",
+  "bad_debt",
+] as const satisfies readonly CreditReason[];
+
+export const CREDIT_REASON_LABELS: Readonly<Record<CreditReason, string>> = {
+  service_failure: "Service failure — ours",
+  billing_error: "Billing error",
+  goodwill: "Goodwill",
+  scope_change: "Scope changed",
+  duplicate_invoice: "Duplicate invoice",
+  bad_debt: "Bad debt",
+};
+
+export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
+  bank_transfer: "Bank transfer",
+  cheque: "Cheque",
+  cash: "Cash",
+  card: "Card",
+  upi: "UPI",
+  other: "Other",
+};
+
+/** The firm's standard prose — the exclusions, commercial notes and team block
+ *  COPIED onto each new document. */
+export type StandardBlock =
+  paths["/api/v1/document-blocks/standard"]["get"]["responses"][200]["content"]["application/json"]["blocks"][number];
+
+export type BlockKind = StandardBlock["kind"];
+
+export const BLOCK_KINDS = ["exclusion", "commercial", "team"] as const satisfies readonly BlockKind[];
+
+export const BLOCK_KIND_LABELS: Readonly<Record<BlockKind, string>> = {
+  exclusion: "Exclusions",
+  commercial: "Commercial notes",
+  team: "Team",
+};
+
+/** One line of prose a DOCUMENT says — its own copy, editable per document. */
+export type DocumentBlock = LetterRecord["blocks"][number];
+
+/** Whose desk covers leads from a country. */
+export type TerritoryRule =
+  paths["/api/v1/territory-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];
 
 /** An event with whoever caused it. The stored row keeps only an actor id —
  *  personal data stays out of a log erasure cannot mutate — and the name is a

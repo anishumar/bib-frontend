@@ -6129,7 +6129,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            receivables: components["schemas"]["InvoiceBalance"][];
+                            receivables: components["schemas"]["Receivable"][];
                         };
                     };
                 };
@@ -6188,7 +6188,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            actions: components["schemas"]["DunningAction"][];
+                            actions: components["schemas"]["PendingDunningAction"][];
                         };
                     };
                 };
@@ -7693,6 +7693,15 @@ export interface components {
             credited: string;
             outstanding: string;
         };
+        Receivable: {
+            balance: components["schemas"]["InvoiceBalance"];
+            number: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+        };
         DunningAction: {
             /** Format: uuid */
             id: string;
@@ -7708,6 +7717,18 @@ export interface components {
             approvedBy: string | null;
             decidedAt: string | null;
             note: string | null;
+        };
+        PendingDunningAction: {
+            action: components["schemas"]["DunningAction"];
+            invoiceNumber: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            outstanding: string;
+            currency: string;
+            dueOn: string | null;
         };
     };
     responses: never;

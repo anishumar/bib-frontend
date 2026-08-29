@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError, formatCount, formatMoney, readServiceBody } from "@/lib/api/client";
+import {
+  BLOCK_KIND_LABELS,
+  api,
+  apiError,
+  formatCount,
+  formatMoney,
+  readServiceBody,
+} from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
 
 /**
@@ -277,6 +284,46 @@ export default function ProposalPage() {
           </div>
         </div>
       </div>
+
+      {/* ── The proposal's own prose ────────────────────────────────────
+          The exclusions and commercial notes this document carries, COPIED from
+          the firm's standard set at drafting. A UAE proposal correctly has no
+          Indian tax note: the copy filters by the client's country, so what is
+          missing here is a decision rather than an omission. */}
+      {record.blocks.length > 0 && (
+        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Exclusions and notes</h2>
+          {(["exclusion", "commercial", "team"] as const).map((kind) => {
+            const mine = record.blocks.filter((b) => b.kind === kind);
+            if (mine.length === 0) return null;
+            return (
+              <div key={kind} style={{ marginBottom: "var(--bib-gap-2)" }}>
+                <div className="bib-label">{BLOCK_KIND_LABELS[kind]}</div>
+                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                  {mine.map((b) => (
+                    <li
+                      key={b.id}
+                      style={{
+                        fontSize: 14,
+                        listStyle: b.isHeading ? "none" : undefined,
+                        marginLeft: b.isHeading ? -18 : 0,
+                      }}
+                    >
+                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
+                      {b.sourceId === null && (
+                        <span className="bib-muted" style={{ fontSize: 12 }}>
+                          {" "}
+                          · this proposal&apos;s own
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {isDraft && (
         <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>

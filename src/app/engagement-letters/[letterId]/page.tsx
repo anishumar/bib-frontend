@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  BLOCK_KIND_LABELS,
   api,
   apiError,
   clauseApplies,
@@ -469,6 +470,39 @@ export default function LetterPage() {
         </div>
       </div>
 
+      {/* ── The letter's own prose ─────────────────────────────────────
+          Not clauses. A clause is a term of the contract, drawn from a versioned
+          library and pinned; these are the document's own exclusions, commercial
+          notes and team block — COPIED from the firm's standard set when the
+          letter was drafted, and this letter's from then on. Editing the
+          standard set changes the next letter and never this one. */}
+      {record.blocks.length > 0 && (
+        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Exclusions, notes and team</h2>
+          {(["exclusion", "commercial", "team"] as const).map((kind) => {
+            const mine = record.blocks.filter((b) => b.kind === kind);
+            if (mine.length === 0) return null;
+            return (
+              <div key={kind} style={{ marginBottom: "var(--bib-gap-2)" }}>
+                <div className="bib-label">{BLOCK_KIND_LABELS[kind]}</div>
+                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                  {mine.map((b) => (
+                    <li key={b.id} style={{ fontSize: 14, listStyle: b.isHeading ? "none" : undefined, marginLeft: b.isHeading ? -18 : 0 }}>
+                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
+                      {/* Written on this document rather than copied from the
+                          firm's standard set — what this client negotiated. */}
+                      {b.sourceId === null && (
+                        <span className="bib-muted" style={{ fontSize: 12 }}> · this letter&apos;s own</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
         <h2 style={{ marginTop: 0, fontSize: 16 }}>Terms</h2>
         {record.clauses.length === 0 ? (
@@ -488,6 +522,29 @@ export default function LetterPage() {
                 </span>
               </div>
               <div style={{ fontSize: 14 }}>{c.text}</div>
+              {/* WHOSE LAW, structured. The prose above prints it; these are the
+                  comparable halves, and the API refuses a clause whose law is
+                  not the ISSUING ENTITY's — the exact mistake the firm caught
+                  when a US-issued letter named Indian law and Delhi courts.
+                  Shown so a reader can see the letter is internally consistent,
+                  rather than trusting that it is. */}
+              {(c.governingLaw !== null || c.courts !== null) && (
+                <div className="bib-muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  {c.governingLaw !== null && (
+                    <span>
+                      Governed by {c.governingLaw.text}{" "}
+                      <span className="bib-pill" data-tone="code">{c.governingLaw.jurisdiction}</span>
+                    </span>
+                  )}
+                  {c.governingLaw !== null && c.courts !== null && " · "}
+                  {c.courts !== null && (
+                    <span>
+                      Heard by {c.courts.text}{" "}
+                      <span className="bib-pill" data-tone="code">{c.courts.jurisdiction}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}
