@@ -64,11 +64,12 @@ not before.
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | the workspace home: who you are, which firms you belong to |
-| `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
+| `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
+| `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
 | `/clients` | the firm's book — every counterparty, and adding one |
 | `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
@@ -84,10 +85,10 @@ not before.
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
 | `/admin/territories` | whose desk covers which country |
 | `/work` | the delivery board — what a signed engagement turned into |
-| `/work/[jobId]` | one job's process: its steps, who each is waiting on, and the Done button |
+| `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
-The four admin screens are one subject deliberately split: the API needs `tenant:admin` for
+The admin screens are one subject deliberately split: the API needs `tenant:admin` for
 all of them, because between them they decide what every role can do, who holds it, and who is
 senior enough to sign off somebody else's work.
 
@@ -256,6 +257,54 @@ to find out what you deleted.
 only. A draft is not in force, and offering one would point a service at something no job will
 ever follow. Blank is a real answer and the hint says what it means — the work is created and
 waits, visibly, rather than running a process nobody wrote.
+
+## `/admin/verification` and the To check tab — where work goes to somebody's desk
+
+Before T2.9 an escalation and a queued proposal landed in the same place — a blocked step on a
+job page — and went to nobody. You found them by opening a job and looking.
+
+**`/work` has a second tab, and it shows the WHOLE FIRM's queue.** Not "mine": under a rank
+threshold there is no "mine", any Manager may take any of it, and a list filtered to what the
+viewer can act on hides the queue's most useful fact — that six filings have been waiting a week
+because nobody senior enough has looked. So every row carries `viewer.eligible` and, when it is
+false, `viewer.reason`, and the screen SAYS the reason rather than greying a button out.
+
+**Ordered oldest-first, and there is deliberately no due date anywhere on the screen.** The firm
+has not given its internal turnaround times or confirmed its escalation matrix, and a deadline
+this product invented would be a priority the firm never set.
+
+**`/admin/verification` is where the firm picks its rule**, and the thing to understand about
+the page is the banner at the top: **maker ≠ checker is NOT a setting on it.** Whoever did the
+work can never approve it, the database refuses it, and the screen says so where somebody would
+otherwise go looking for the switch. What the page configures is who *else* may check.
+
+Three rules, and **each option carries its own trade-off in the option itself**, not in help
+text somebody has to find: "the maker's own manager" says out loud that it stops the morning
+that person is on leave. This is the choice that decides who may sign off a statutory filing.
+
+The grade picker appears only for the two rules that READ a grade — the API refuses a
+`reporting_line` body carrying a threshold, on the ground that a number nothing compares is a
+setting that looks live, so offering the field would be offering a 400. And choosing the
+reporting-line rule says, before it is saved, that it reads who reports to whom on
+`/admin/people` and that anybody without a manager recorded there has nobody who may check
+their work.
+
+**Draft and publish are separate, for a stronger reason than `/admin/workflows` has.** A check
+PINS the rule in force when it opened, so raising the bar this afternoon leaves this morning's
+open checks approvable by the people already looking at them.
+
+`/admin/workflows` gains a per-step **"who checks it"** picker over PUBLISHED rules only — a
+draft governs nothing — and "nobody" is the default, because that is what every process written
+before this field existed meant. A rule a step names but the firm has since withdrawn stays
+selectable, marked, rather than silently blanked: the submit rewrites the whole body, so
+blanking it is how a review disappears from a process nobody meant to change.
+
+`/work/[jobId]` shows a checked step as **"finished — waiting to be checked"** and offers
+Approve / Send back INSTEAD of Done. To the person who did the work it shows the sentence
+instead of the buttons — the API answers 403 there, and a greyed-out button says nothing about
+why. Decided checks stay on the page with their notes: a step sent back twice and then approved
+reads as one that sailed through if only the open check is drawn, and "this took two goes" is
+the only signal anywhere that explains where a week went.
 
 ## Money never becomes a number
 

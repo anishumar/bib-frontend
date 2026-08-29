@@ -3,8 +3,8 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
-import type { AgentProposal, Job, JobStep } from "@/lib/api/client";
+import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
+import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -37,19 +37,24 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const router = useRouter();
   const [job, setJob] = useState<Job | null>(null);
   const [steps, setSteps] = useState<JobStep[]>([]);
+  const [checks, setChecks] = useState<StepCheck[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [result, header, me] = await Promise.all([
+    const [result, header, me, checkList] = await Promise.all([
       api.GET("/api/v1/jobs/{jobId}/steps", { params: { path: { jobId } } }),
       // The job itself, not just its steps. A merged job's steps say nothing
       // about WHOSE work they are, and after the merge that is a real question:
       // one checklist can hold three services for one of a client's companies.
       api.GET("/api/v1/jobs/{jobId}", { params: { path: { jobId } } }),
       api.GET("/api/v1/auth/me", {}),
+      // Every check this job has ever had, decided ones included (T2.9). The
+      // rejections are the point: a step sent back twice and then approved
+      // reads as a step that sailed through if only the open one is shown.
+      api.GET("/api/v1/jobs/{jobId}/checks", { params: { path: { jobId } } }),
     ]);
     if (result.response.status === 401) {
       router.push("/login");
@@ -61,6 +66,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       return;
     }
     setSteps(result.data.steps);
+    setChecks(checkList.data?.checks ?? []);
     setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
     setError(null);
@@ -121,6 +127,45 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     const reason = window.prompt("What was wrong with it?");
     if (reason === null || reason.trim() === "") return;
     await decide(stepKey, "rejected", null, reason.trim());
+  }
+
+  /**
+   * Approve somebody else's work, or send it back (T2.9).
+   *
+   * Reloads afterwards for `complete`'s reason and one more: approving FINISHES
+   * the step and opens whatever was waiting on it, in the same call, so patching
+   * the clicked row would leave the next step looking untouched.
+   */
+  async function decideCheck(
+    approvalId: string,
+    decision: "approved" | "rejected",
+    notes: string | null,
+  ): Promise<void> {
+    setBusy(approvalId);
+    setError(null);
+    const result = await api.POST("/api/v1/checks/{approvalId}/decide", {
+      params: { path: { approvalId } },
+      body: { decision, notes },
+    });
+    if (result.error) {
+      // Verbatim, and this is the family where it matters most. "You did this
+      // work, so you cannot be the one who checks it" is the whole explanation,
+      // and a local "not allowed" would leave somebody looking for a permission
+      // to change when there is none — the database refuses it.
+      setError(apiError(result.error).message);
+      setBusy(null);
+      return;
+    }
+    await load();
+    setBusy(null);
+  }
+
+  /** Sending work back has to say what was wrong. The API insists and so does
+   *  the database — that note is the only thing that ever explains rework. */
+  async function sendBack(approvalId: string): Promise<void> {
+    const reason = window.prompt("What needs fixing?");
+    if (reason === null || reason.trim() === "") return;
+    await decideCheck(approvalId, "rejected", reason.trim());
   }
 
   async function complete(stepKey: string): Promise<void> {
@@ -202,7 +247,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     {s.stepKey}
                   </span>
                   <br />
-                  <StepState step={s} />
+                  <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
                   {s.outcomeNote !== null && (
                     <p className="bib-muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
                       {s.outcomeNote}
@@ -211,6 +256,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   {s.proposal !== null && s.proposal !== undefined && (
                     <Proposal proposal={s.proposal} />
                   )}
+                  <CheckHistory checks={checks.filter((c) => c.stepKey === s.stepKey)} />
                 </div>
                 <div style={{ flex: "0 0 auto", display: "grid", gap: 6 }}>
                   {/* A step with an undecided proposal gets the three verdicts
@@ -219,7 +265,21 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                       machine said undecided forever — which is the accuracy
                       signal the whole guardrail exists to keep, so the API
                       refuses it and the screen does not offer it. */}
+                  {/* WAITING TO BE CHECKED takes precedence over everything
+                      else, because the person looking at it is a different
+                      person: the maker is finished here, and what is offered is
+                      somebody else's judgement on their work. Offering Done
+                      would be offering a 409. */}
+                  {s.status === "blocked" && openCheckFor(checks, s.stepKey) !== null ? (
+                    <CheckActions
+                      check={openCheckFor(checks, s.stepKey) as StepCheck}
+                      busy={busy}
+                      onApprove={(id) => void decideCheck(id, "approved", null)}
+                      onSendBack={(id) => void sendBack(id)}
+                    />
+                  ) : null}
                   {s.status === "blocked" &&
+                    openCheckFor(checks, s.stepKey) === null &&
                     canComplete &&
                     (s.proposal ? (
                       <>
@@ -292,7 +352,109 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
  * "waiting for you" as a human step, because they are different facts and one
  * of them is something the firm may want to chase.
  */
-function StepState({ step }: { step: JobStep }) {
+/**
+ * The open check on a step, or null.
+ *
+ * One at most — the database enforces it with a unique partial index, so that
+ * two people cannot each open one and approve the other's. Joined on the step
+ * KEY rather than an id, because the key is what the wire carries and what the
+ * audit trail names; a step's id is not on the check.
+ */
+function openCheckFor(checks: StepCheck[], stepKey: string): StepCheck | null {
+  return checks.find((c) => c.stepKey === stepKey && c.decision === "pending") ?? null;
+}
+
+/**
+ * What a check says while it is open, and what it said after it was decided.
+ *
+ * The rejections are the whole reason decided checks are shown at all: a step
+ * sent back twice and then approved looks identical to one that sailed through
+ * if only the open check is rendered, and "this took three goes" is the only
+ * signal anywhere that explains where a week went.
+ */
+function CheckHistory({ checks }: { checks: StepCheck[] }) {
+  const decided = checks.filter((c) => c.decision !== "pending");
+  if (decided.length === 0) return null;
+  return (
+    <div style={{ marginTop: "var(--bib-gap-1)" }}>
+      {decided.map((c) => (
+        <p key={c.id} className="bib-muted" style={{ fontSize: 13, margin: "2px 0 0" }}>
+          {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
+          {c.decidedAt === null ? "—" : new Date(c.decidedAt).toLocaleDateString()}
+          {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Approve, or send it back — offered only to somebody who may actually do it.
+ *
+ * When they may not, the REASON is shown instead of a greyed-out button. That
+ * is the difference between a screen that looks broken and one that says "you
+ * did this work, so somebody else has to check it" — which is a rule the person
+ * then understands rather than a control they go looking for a way around.
+ */
+function CheckActions({
+  check,
+  busy,
+  onApprove,
+  onSendBack,
+}: {
+  check: StepCheck;
+  busy: string | null;
+  onApprove: (approvalId: string) => void;
+  onSendBack: (approvalId: string) => void;
+}) {
+  if (!check.viewer.eligible) {
+    return (
+      <p className="bib-muted" style={{ fontSize: 13, margin: 0, maxWidth: "22ch" }}>
+        {check.viewer.reason === null
+          ? "Not yours to check."
+          : CHECK_INELIGIBILITY[check.viewer.reason]}
+        {check.viewer.reason === "IS_THE_MAKER" && (
+          <>
+            {" "}
+            — somebody else has to.
+          </>
+        )}
+      </p>
+    );
+  }
+  return (
+    <>
+      <button
+        className="bib-button"
+        disabled={busy === check.id}
+        onClick={() => { onApprove(check.id); }}
+      >
+        Approve
+      </button>
+      <button
+        className="bib-button-quiet"
+        disabled={busy === check.id}
+        onClick={() => { onSendBack(check.id); }}
+      >
+        Send back
+      </button>
+    </>
+  );
+}
+
+function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) {
+  // WAITING TO BE CHECKED is a fourth cause of `blocked`, and it has to be said
+  // apart from the other three: the work is DONE here. A step that read
+  // "waiting for you" while sitting in somebody else's queue is the same class
+  // of bug T2.8 found by opening this page — a label reading one fact when a
+  // second had become true underneath it.
+  if (step.status === "blocked" && check !== null) {
+    return (
+      <span className="bib-pill" data-tone="revoked">
+        finished — waiting to be checked
+      </span>
+    );
+  }
   if (step.status === "blocked") {
     // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
     // found by opening the page: an `agent` step showed "no agent built for this

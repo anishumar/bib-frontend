@@ -98,6 +98,77 @@ export type JobStep =
  */
 export type AgentProposal = NonNullable<JobStep["proposal"]>;
 
+/**
+ * One check on one step — work waiting for somebody else to look at it (T2.9).
+ *
+ * `viewer` is the SIGNED-IN person's own verdict on this row, computed by the
+ * API against the firm's published rule. The queue is deliberately NOT filtered
+ * to what the viewer may take, so a screen reads `viewer.eligible` to decide
+ * whether to offer the button and `viewer.reason` to say why not.
+ */
+export type StepCheck =
+  paths["/api/v1/checks"]["get"]["responses"][200]["content"]["application/json"]["checks"][number];
+
+/** Why one person may not check one thing. A closed set, because each one is a
+ *  sentence a screen has to say out loud. */
+export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;
+
+/** How a firm decides who may check work. The three the founder chooses
+ *  between on /admin/verification. */
+export type VerificationRule = NonNullable<StepCheck["rule"]>;
+
+/** A member of staff, and whether they may check one particular thing. The
+ *  WHOLE roster comes back with a verdict each — see /admin/verification. */
+export type PossibleChecker =
+  paths["/api/v1/checks/{approvalId}/checkers"]["get"]["responses"][200]["content"]["application/json"]["checkers"][number];
+
+/**
+ * What each refusal SAYS, to the person refused.
+ *
+ * Retyped from the API's own vocabulary rather than fetched, unlike
+ * `PermissionInfo` — and the difference is deliberate. A permission's meaning is
+ * a fact about what the server will DO, so a stale copy would mislead about
+ * access. These are the same sentence said in a smaller space: the API sends
+ * the full prose in its 403, which is what a person sees when they actually try.
+ * This is the shorter form a table cell has room for.
+ */
+export const CHECK_INELIGIBILITY: Readonly<Record<CheckIneligibility, string>> = {
+  IS_THE_MAKER: "You did this work",
+  NO_WORK_PERMISSION: "Their role cannot complete work",
+  BELOW_GRADE: "Below the grade this step is checked at",
+  UNGRADED: "Not on the firm's ladder yet",
+  NOT_THE_MAKERS_MANAGER: "Not the maker's manager",
+};
+
+/** What each rule means, in the words the founder's screen offers it in. */
+export const VERIFICATION_RULES: readonly {
+  readonly value: VerificationRule;
+  readonly label: string;
+  readonly detail: string;
+}[] = [
+  {
+    value: "rank_threshold",
+    label: "Anybody senior enough",
+    detail:
+      "Anybody at or above a grade you choose may check the work. Nobody waits on one " +
+      "particular person.",
+  },
+  {
+    value: "reporting_line",
+    label: "The maker's own manager",
+    detail:
+      "Only the person they report to may check it. The tightest rule — and it stops the " +
+      "morning that manager is on leave, because nobody else becomes eligible.",
+  },
+  {
+    value: "reporting_line_or_rank",
+    label: "Their manager, or anybody senior enough",
+    detail:
+      "Their own manager normally, and anybody at or above a grade you choose when that " +
+      "person is away.",
+  },
+];
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
 export type ConfigEntry =

@@ -101,6 +101,22 @@ export default function PeoplePage() {
     );
   }
 
+  /**
+   * Who somebody reports to (T2.9).
+   *
+   * A FOURTH axis and it grants nothing either — one thing reads it, a
+   * reporting-line rule on `/admin/verification` deciding who may check this
+   * person's work. `null` is a real answer: a partner reports to nobody.
+   */
+  function changeReportsTo(membershipId: string, reportsToUserId: string | null): void {
+    void act(membershipId, () =>
+      api.PUT("/api/v1/tenancy/members/{membershipId}/reports-to", {
+        params: { path: { membershipId } },
+        body: { reportsToUserId },
+      }),
+    );
+  }
+
   function setActive(membershipId: string, isActive: boolean): void {
     void act(membershipId, () =>
       api.PUT("/api/v1/tenancy/members/{membershipId}/active", {
@@ -124,6 +140,7 @@ export default function PeoplePage() {
               <th>Person</th>
               <th>Role</th>
               <th>Grade</th>
+              <th>Reports to</th>
               <th>Access</th>
               <th>Fees</th>
               <th />
@@ -180,6 +197,38 @@ export default function PeoplePage() {
                         <option key={g.id} value={g.id}>
                           {g.name}
                           {g.isActive ? "" : " (retired)"}
+                        </option>
+                      ))}
+                  </select>
+                </td>
+                <td>
+                  <select
+                    className="bib-select"
+                    value={m.membership.reportsToUserId ?? ""}
+                    disabled={busy === m.membership.id}
+                    onChange={(e) => {
+                      changeReportsTo(m.membership.id, e.target.value || null);
+                    }}
+                  >
+                    {/* Nobody is a real answer, not a blank to be filled in
+                        later: a partner reports to nobody, and so does everybody
+                        at a firm that has not recorded this. */}
+                    <option value="">— nobody —</option>
+                    {/* Active STAFF only, and never themselves. The API refuses
+                        both — a client contact in the firm's reporting line
+                        would make a client eligible to check the firm's work,
+                        and the database refuses the self-loop — so offering
+                        either would just be a slower error. */}
+                    {members
+                      .filter(
+                        (o) =>
+                          o.membership.userId !== m.membership.userId &&
+                          o.membership.audience === "STAFF" &&
+                          o.membership.isActive,
+                      )
+                      .map((o) => (
+                        <option key={o.membership.id} value={o.membership.userId}>
+                          {o.displayName ?? o.email}
                         </option>
                       ))}
                   </select>

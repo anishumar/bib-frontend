@@ -43,6 +43,10 @@ interface StepDraft {
   dependsOn: string[];
   conditionFact: Fact | "";
   conditionEquals: string;
+  /** The rule that says WHO checks this step once it is done (T2.9), or "" for
+   *  a step nobody checks — which is every step of every process written before
+   *  this field existed, and the right default. */
+  verificationPolicyKey: string;
 }
 
 const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
@@ -63,6 +67,12 @@ const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
   },
 ];
 
+/** A published rule about who may check a step, as this screen offers it. */
+interface CheckRule {
+  readonly key: string;
+  readonly label: string;
+}
+
 const FACTS: { value: Fact; label: string; example: string }[] = [
   { value: "recurrence", label: "How often the service recurs", example: "monthly, annually" },
   { value: "jurisdiction", label: "Where the entity is registered", example: "IN, AE, US" },
@@ -82,6 +92,9 @@ function toBody(label: string, steps: readonly StepDraft[]): Record<string, unkn
         s.conditionFact === "" || s.conditionEquals.trim() === ""
           ? null
           : { fact: s.conditionFact, equals: s.conditionEquals.trim() },
+      // "" means nobody checks it, and that is null on the wire — not an empty
+      // string, which the API would refuse as not being a config key.
+      verificationPolicyKey: s.verificationPolicyKey === "" ? null : s.verificationPolicyKey,
     })),
   };
 }
@@ -101,6 +114,8 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
         dependsOn: Array.isArray(s["dependsOn"]) ? (s["dependsOn"] as string[]) : [],
         conditionFact: (condition?.["fact"] ?? "") as Fact | "",
         conditionEquals: typeof condition?.["equals"] === "string" ? condition["equals"] : "",
+        verificationPolicyKey:
+          typeof s["verificationPolicyKey"] === "string" ? s["verificationPolicyKey"] : "",
       };
     }),
   };
@@ -296,6 +311,16 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
                 · only when {s.conditionFact} is {s.conditionEquals}
               </>
             )}
+            {/* Said in the summary, not only in the editor. "Is this step
+                reviewed" is the question somebody reads a process to answer,
+                and a fact visible only behind an edit button is one nobody
+                checks. */}
+            {s.verificationPolicyKey !== "" && (
+              <>
+                {" "}
+                · then checked ({s.verificationPolicyKey})
+              </>
+            )}
           </span>
         </li>
       ))}
@@ -338,6 +363,7 @@ function NewTemplate({
             executor: "human",
             dependsOn: [],
             conditionFact: "",
+            verificationPolicyKey: "",
             conditionEquals: "",
           },
         ]}
@@ -386,6 +412,27 @@ function StepEditor({
   const [label, setLabel] = useState(initialLabel);
   const [steps, setSteps] = useState<StepDraft[]>([...initialSteps]);
   const [busy, setBusy] = useState(false);
+  const [policies, setPolicies] = useState<CheckRule[]>([]);
+
+  // Fetched HERE rather than on the page, because only an open editor needs it
+  // and only PUBLISHED rules may be offered: a draft governs nothing, and
+  // pointing a step at one would name a rule no check will ever apply.
+  useEffect(() => {
+    void (async () => {
+      const result = await api.GET("/api/v1/config/{kind}", {
+        params: { path: { kind: "verification_policy" } },
+      });
+      if (result.error) return;
+      setPolicies(
+        result.data.entries.flatMap((e) => {
+          const body = e.published?.body;
+          if (!body) return [];
+          const label = typeof body["label"] === "string" ? body["label"] : e.entry.key;
+          return [{ key: e.entry.key, label }];
+        }),
+      );
+    })();
+  }, []);
 
   function patch(index: number, change: Partial<StepDraft>): void {
     setSteps((current) => current.map((s, i) => (i === index ? { ...s, ...change } : s)));
@@ -400,6 +447,7 @@ function StepEditor({
         executor: "human",
         dependsOn: [],
         conditionFact: "",
+        verificationPolicyKey: "",
         conditionEquals: "",
       },
     ]);
@@ -491,6 +539,7 @@ function StepEditor({
           onChange={(change) => {
             patch(index, change);
           }}
+          policies={policies}
           onRemove={() => {
             removeStep(index);
           }}
@@ -522,12 +571,14 @@ function StepFields({
   index,
   step,
   others,
+  policies,
   onChange,
   onRemove,
 }: {
   index: number;
   step: StepDraft;
   others: readonly string[];
+  policies: readonly CheckRule[];
   onChange: (change: Partial<StepDraft>) => void;
   onRemove: () => void;
 }) {
@@ -664,6 +715,45 @@ function StepFields({
             </p>
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: "var(--bib-gap-1)", maxWidth: 360 }}>
+        <label className="bib-label" htmlFor={`${id}-check`}>
+          When it is done, who checks it?
+        </label>
+        <select
+          className="bib-select"
+          id={`${id}-check`}
+          value={step.verificationPolicyKey}
+          style={{ width: "100%" }}
+          onChange={(e) => { onChange({ verificationPolicyKey: e.target.value }); }}
+        >
+          {/* Nobody is the default and the honest one: it is what every process
+              written before this field existed meant, and those processes must
+              not start holding work for review because a new field appeared. */}
+          <option value="">nobody — it is finished when it is done</option>
+          {/* PUBLISHED rules only. A draft is not in force, and pointing a step
+              at one would name a rule that governs nothing. */}
+          {policies.map((pk) => (
+            <option key={pk.key} value={pk.key}>
+              {pk.label}
+            </option>
+          ))}
+          {/* A rule the step already names but the firm has since withdrawn
+              stays selectable, marked — blanking it silently is how a review
+              disappears from a process nobody meant to change. */}
+          {step.verificationPolicyKey !== "" &&
+            !policies.some((pk) => pk.key === step.verificationPolicyKey) && (
+              <option value={step.verificationPolicyKey}>
+                {step.verificationPolicyKey} (not in force)
+              </option>
+            )}
+        </select>
+        <p className="bib-hint">
+          {policies.length === 0
+            ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
+            : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."}
+        </p>
       </div>
 
       <button className="bib-button-quiet bib-button-danger" onClick={onRemove}>
