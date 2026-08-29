@@ -294,13 +294,28 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
  */
 function StepState({ step }: { step: JobStep }) {
   if (step.status === "blocked") {
-    return (
-      <span className="bib-pill" data-tone="revoked">
-        {step.executor === "agent"
+    // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
+    // found by opening the page: an `agent` step showed "no agent built for this
+    // yet" while a proposal sat underneath it saying one had just run. The label
+    // was reading the executor alone, which was the whole truth until T2.8 and
+    // is not any more.
+    //
+    // The two machine-answered cases are worded apart for the reason the
+    // proposal itself is: "it was not sure enough to answer" is a different job
+    // for the reader than "check this over".
+    const blockedBecause =
+      step.proposal === null || step.proposal === undefined
+        ? step.executor === "agent"
           ? "waiting for you — no agent built for this yet"
           : step.executor === "agent_with_approval"
             ? "waiting for you to approve"
-            : "waiting for you"}
+            : "waiting for you"
+        : step.proposal.decision === "escalated"
+          ? "a machine could not answer this — waiting for you to decide"
+          : "a machine answered — waiting for you to check it";
+    return (
+      <span className="bib-pill" data-tone="revoked">
+        {blockedBecause}
       </span>
     );
   }

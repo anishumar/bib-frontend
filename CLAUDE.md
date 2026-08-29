@@ -209,6 +209,13 @@ Reject, and never the Done button beside them — the API refuses it there, beca
 "done" would record that a PERSON did the work and leave what the machine said undecided
 forever. Offering a control that will 409 is not honesty, it is a slower error.
 
+**The step's own label reads the proposal, not just the executor** — and getting that wrong is
+what opening the page found. An `agent` step showed "waiting for you — no agent built for this
+yet" while a proposal sat underneath it saying one had just run. That label was the whole truth
+until T2.8 and is not any more, so it now says the two machine-answered cases apart: "a machine
+answered — waiting for you to check it" against "a machine could not answer this — waiting for
+you to decide". A different job for the reader in each case.
+
 The proposal shows the confidence **with the bar it was judged against**. "0.82" alone means
 nothing to somebody at a desk; "0.82, and this firm acts alone only above 0.95" is the entire
 explanation of why they are being asked. And the two reasons for being asked are worded apart:
