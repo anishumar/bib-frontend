@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
+import { AccountTeamPanel } from "./account-team";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -116,6 +117,11 @@ export default function PartyPage() {
       </p>
 
       {error !== null && <p className="bib-error">{error}</p>}
+
+      {/* First, because "who at the firm looks after this client" is the
+          question somebody opening a client page most often has, and until
+          G3.2 nothing in this product could answer it. */}
+      <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
 
       {profile.legalEntities.length > 0 && (
         <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>

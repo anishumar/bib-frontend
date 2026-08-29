@@ -1860,6 +1860,318 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{partyId}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who at the firm owns this client, and who they talk to
+         * @description The Key Manager and every SPOC, as they stood on `asOf` (default today), plus the whole history below. Nothing here is deleted and nobody is edited over — a handover is two rows — so an 'as of' date is the only thing a screen needs to answer what the account team was on any past day.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The account team */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AccountTeamResponse"];
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such party at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Put somebody in charge of a client
+         * @description A new **Key Manager** is a HANDOVER: the incumbent is closed on the day the new one starts, both rows survive, and only one is ever in force. A new **SPOC** is an ADDITION — a Dept may have more than one (leave cover, a joint SPOC, a fortnight run in parallel), so nothing is closed on the firm's behalf and ending the outgoing one is a separate, deliberate call.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignClientRequest"];
+                };
+            };
+            responses: {
+                /** @description Assigned */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAssignment"];
+                    };
+                };
+                /** @description Not a valid role or date, a SPOC with no Dept, or a Key Manager given one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such party, or no such Dept or delivery team at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is archived, the Dept is retired, this person already holds it, or the start date is on or before the current Key Manager's */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/assignments/{assignmentId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an assignment
+         * @description Somebody stops holding this client and nobody replaces them yet. The row is CLOSED, never deleted and never edited — it is what says who it used to be. `validTo` is the first day NOT in force.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndClientAssignmentRequest"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAssignment"];
+                    };
+                };
+                /** @description The end date is not after the start date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such assignment at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my-clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The clients on the signed-in person's book
+         * @description Every client this person is the Key Manager or a SPOC for TODAY, one row per client with the roles collected onto it. Archived clients are included and marked rather than dropped: somebody still holds them, and hiding that makes the book look smaller than the record says.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The book */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MyClientsResponse"];
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps": {
         parameters: {
             query?: never;
@@ -8487,6 +8799,74 @@ export interface components {
              * @enum {string}
              */
             workSplitAxis: "none" | "dept" | "team";
+        };
+        /** @description The Dept or delivery team a SPOC covers. Always null for a Key Manager. */
+        AssignmentAxis: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            axis: "dept" | "team";
+            code: string;
+            name: string;
+            /** @description Whether the firm still files new work under it. A retired Dept still appears here — the assignment really was made under it, and history is not corrected by hiding it. */
+            isActive: boolean;
+        } | null;
+        ClientAssignment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            clientPartyId: string;
+            /**
+             * @description 'key_manager' owns the client relationship — pricing, renewals, escalation — and there is one at a time. 'spoc' is the day-to-day contact for ONE of the firm's Depts or delivery teams; a client commonly has several, because the firm's own practice is a SPOC per Dept.
+             * @enum {string}
+             */
+            role: "key_manager" | "spoc";
+            /** Format: uuid */
+            userId: string;
+            holderEmail: string;
+            holderName: string | null;
+            axis: components["schemas"]["AssignmentAxis"];
+            validFrom: string;
+            /** @description The FIRST DAY NOT IN FORCE, or null while it still is. Half-open, like every effective-dated period in this product: an assignment ending 2026-04-01 was in force up to and including 2026-03-31. A handover therefore closes one row and opens the next on the SAME date, with no gap and no overlap. */
+            validTo: string | null;
+        };
+        AccountTeamResponse: {
+            /** @description The day `inForce` was computed for. Echoed back so a screen showing March can say it is showing March rather than implying it is showing today. */
+            onDate: string;
+            inForce: components["schemas"]["ClientAssignment"][];
+            /** @description Every assignment this client has ever had, live and historic, newest first. This is what makes 'who was the SPOC in March' answerable — nothing is deleted and nobody is edited over. */
+            all: components["schemas"]["ClientAssignment"][];
+        };
+        AssignClientRequest: {
+            /**
+             * @description 'key_manager' owns the client relationship — pricing, renewals, escalation — and there is one at a time. 'spoc' is the day-to-day contact for ONE of the firm's Depts or delivery teams; a client commonly has several, because the firm's own practice is a SPOC per Dept.
+             * @enum {string}
+             */
+            role: "key_manager" | "spoc";
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: uuid
+             * @description Required for a SPOC, refused for a Key Manager. It is one of the firm's own service-axis rows — a Dept OR a delivery team, whichever the firm assigns its SPOCs per. A retired one is refused.
+             */
+            axisId?: string | null;
+            /** @description The first day in force. Defaults to today. Backdating is allowed — a firm records a handover that happened last week, and refusing it would only make the record say the wrong day. */
+            validFrom?: string;
+        };
+        EndClientAssignmentRequest: {
+            /** @description The FIRST DAY NOT IN FORCE. Defaults to today, which reads as 'they stop today' — so they were in force up to and including yesterday. Must be after the start date. */
+            validTo?: string;
+        };
+        OwnedClient: {
+            /** Format: uuid */
+            clientPartyId: string;
+            displayName: string;
+            archivedAt: string | null;
+            /** @description Every role this person holds over this client today. One row per CLIENT, not per assignment — a partner is commonly the Key Manager and a Dept's SPOC on the same client, and listing it twice would report a bigger book than they have. */
+            roles: ("key_manager" | "spoc")[];
+        };
+        MyClientsResponse: {
+            clients: components["schemas"]["OwnedClient"][];
         };
         /** @description What a machine produced for this step, if it did and nobody has decided yet. Null for a human step, for a machine step nobody built an agent for, and for one that committed on its own — in that last case the work is simply done. */
         AgentProposal: {

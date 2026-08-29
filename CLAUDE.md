@@ -70,8 +70,8 @@ not before.
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
-| `/clients` | the firm's book — every counterparty, and adding one |
-| `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
+| `/clients` | the firm's book — every counterparty, and the caller's OWN clients |
+| `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
@@ -321,6 +321,51 @@ instead of the buttons — the API answers 403 there, and a greyed-out button sa
 why. Decided checks stay on the page with their notes: a step sent back twice and then approved
 reads as one that sailed through if only the open check is drawn, and "this took two goes" is
 the only signal anywhere that explains where a week went.
+
+## The account team, and the date box that is the whole feature (G3.2)
+
+`/clients/[partyId]` leads with **who at the firm owns this client** — the Key Manager, and a
+SPOC per Dept — because that is the question somebody opening a client page most often has, and
+until G3.2 nothing in this product could answer it.
+
+**The "as of" box is the point of the panel, not a nicety.** Nothing here is edited over: a
+handover closes one row and opens the next, so every arrangement the client has ever had is
+still on file, and "who was the SPOC in March" is a date in a box rather than a question for
+somebody's memory. The API returns the whole history in one response, so changing the date
+filters what is already loaded. On a past date the End buttons disappear and a line says which
+day is being shown — a screen that let somebody act on March's team would be offering to change
+the past.
+
+The **Until** column says "until", not "to", because the dates are HALF-OPEN: an assignment
+ending 1 April was in force up to and including 31 March. Getting that word wrong is how a
+reader concludes there were two SPOCs on the changeover day.
+
+**A Dept can have more than one SPOC**, so the form says so where somebody would otherwise
+expect a replacement: adding a SPOC adds one, and ending the outgoing one is a separate,
+deliberate step. A new **Key Manager** is a handover and the form says that instead. The Dept
+picker is absent — not disabled — when the role is Key Manager, because the API refuses one
+there and offering a control that will 400 is just a slower error.
+
+**TODAY IS THE BROWSER'S CALENDAR DAY, NEVER `toISOString()`.** That one-liner is a day out for
+anybody east of Greenwich in the morning, and opening this page at 04:11 in Delhi is how we
+found out: the panel rendered "as of 29-08" on the thirtieth. `/clients` sends its local date to
+`GET /api/v1/my-clients` for the same reason — the API runs in UTC and the firm does not, so
+without it a client assigned this morning was missing from its holder's own book until the
+afternoon. **A calendar day is the caller's fact, and this app is the caller.**
+
+**`/clients` has two tabs, not one filter.** "Everyone the firm stores" and "the clients I was
+put in charge of" are different questions, and the second reads the assignments rather than
+filtering the party list. One row per client with every role collected onto it — a partner is
+commonly the Key Manager AND a Dept's SPOC on the same client, and listing it twice would report
+a bigger book than they have. An archived client is shown and marked rather than dropped:
+somebody still holds it.
+
+**The assign form is not always there, and that is the API's rule rather than this screen's
+choice.** Assigning needs `party:write`, which a manager holds; the roster and the Dept list it
+needs for its two pickers are `tenant:admin` reads. So a manager can be permitted to assign and
+be shown no form — the same shape `/leads`'s owner dropdown already has, and left consistent
+with it rather than fixed here, because widening either read is a decision about who may see the
+firm's roster and it belongs in one place for both screens.
 
 ## Money never becomes a number
 

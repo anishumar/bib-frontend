@@ -234,6 +234,25 @@ export type PartyProfile =
 export type PartyIdentifier = PartyProfile["identifiers"][number];
 export type PartyRelationship = PartyProfile["relationships"][number];
 
+/**
+ * Who at the firm owns a client, as it stood on one day (G3.2).
+ *
+ * `inForce` is the account team on `onDate`; `all` is every assignment the
+ * client has ever had. Both come back on one request, which is what makes the
+ * "as of" box on the client screen a filter rather than a round trip.
+ */
+export type AccountTeam =
+  paths["/api/v1/parties/{partyId}/assignments"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ClientAssignment = AccountTeam["all"][number];
+export type AssignmentRole = ClientAssignment["role"];
+
+/** One client on the signed-in person's book, with every role they hold over
+ *  it — a partner is commonly the Key Manager AND a Dept's SPOC on the same
+ *  client, and this is one row either way. */
+export type OwnedClient =
+  paths["/api/v1/my-clients"]["get"]["responses"][200]["content"]["application/json"]["clients"][number];
+
 /** One row of the pipeline: the opportunity, the prospect it is about, and
  *  whose desk it is on. */
 export type LeadRecord =
