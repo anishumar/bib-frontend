@@ -227,8 +227,11 @@ export default function InvoicePage() {
                   <td style={{ textAlign: "right" }} className="bib-mono">
                     {formatMoney(l.unitAmount, l.currency)}
                   </td>
+                  {/* A discount is a price, so the fee axis takes it too — an
+                      em dash rather than "0%", which would be a figure this
+                      reader was not shown rather than one that is true. */}
                   <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatCount(l.discountPercent)}%
+                    {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
                   </td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
