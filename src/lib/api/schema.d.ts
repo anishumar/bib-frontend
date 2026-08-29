@@ -1779,6 +1779,152 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What this job's process is, and how far it has got
+         * @description Every step, in the order the template wrote them, including the ones that were skipped and why. A skipped step is shown rather than hidden: 'we did not do this, and here is why' is exactly what somebody asks a year later.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The steps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStepsResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A person says this step is done
+         * @description Records WHO finished it and when, and advances the job immediately — the steps that were waiting on this one open in the same call, rather than at the next sweep. Only a step that is waiting for a person can be completed this way, and only once: a second completion would overwrite the record of who did the work.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The completed step */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStep"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job or step at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The step is not waiting for anybody, or is not a person's to complete */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs": {
         parameters: {
             query?: never;
@@ -2701,7 +2847,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
                 };
                 cookie?: never;
             };
@@ -2743,7 +2889,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
                 };
                 cookie?: never;
             };
@@ -2819,7 +2965,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
                     key: string;
                 };
                 cookie?: never;
@@ -2887,7 +3033,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
                     key: string;
                 };
                 cookie?: never;
@@ -2966,7 +3112,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
                     key: string;
                     version: number;
                 };
@@ -6993,6 +7139,37 @@ export interface components {
              */
             workSplitAxis: "none" | "dept" | "team";
         };
+        JobStep: {
+            /** Format: uuid */
+            id: string;
+            /** @description The template's own key for this step. Stable across template edits, and what the audit trail names — never the step's position, which shifts when a firm inserts one. */
+            stepKey: string;
+            label: string;
+            /**
+             * @description Who is expected to do it. A step may say 'agent' before any agent exists for it — then it waits for a person like any other, and the firm's work carries on.
+             * @enum {string}
+             */
+            executor: "human" | "agent" | "agent_with_approval";
+            /**
+             * @description 'blocked' means waiting for a person. 'skipped' is NOT 'done': the step will not happen and `outcomeNote` says why, which is a different fact from having done it.
+             * @enum {string}
+             */
+            status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
+            /** @description Why a step was skipped, or why it failed. Null on every other state. */
+            outcomeNote: string | null;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /**
+             * Format: uuid
+             * @description The person who did it. Null for a step nobody has touched, for one an agent did, and for a skip — nobody performs a skip.
+             */
+            performedBy: string | null;
+        };
+        JobStepsResponse: {
+            steps: components["schemas"]["JobStep"][];
+        };
         Job: {
             /** Format: uuid */
             id: string;
@@ -7213,7 +7390,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template";
             key: string;
         };
         ConfigVersion: {

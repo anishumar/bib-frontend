@@ -82,6 +82,8 @@ not before.
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
 | `/admin/territories` | whose desk covers which country |
+| `/work` | the delivery board — what a signed engagement turned into |
+| `/work/[jobId]` | one job's process: its steps, who each is waiting on, and the Done button |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
 The four admin screens are one subject deliberately split: the API needs `tenant:admin` for
@@ -151,6 +153,38 @@ filed when the truth is that it can be filed anywhere until the firm decides. A 
 a code that has since been retired, or one typed before the list existed, is offered marked
 "no longer on this firm's list" rather than silently blanked — the submit rewrites the whole
 body, so blanking it is how a Dept disappears from a service nobody meant to refile.
+
+## `/work` — the first screen the delivery half of the product has ever had
+
+`GET /api/v1/jobs` shipped with T2.6 and nothing rendered it for two tasks, which is exactly the
+"write with no read" shape the backend's own CLAUDE.md warns about. It has a screen now, and
+building it is what made three things obvious.
+
+**A job with no steps is not broken.** It means the firm has not published a workflow template
+for that service, and the screen says so in words — "waiting for a process · nobody has written
+how this service is delivered" — rather than showing an empty row for somebody to interpret.
+
+**A skipped step is shown, marked "not needed", with its reason.** Hiding it would make the
+process look as though it never had that step, and "we did not do this, and here is why" is the
+question asked when a filing is questioned.
+
+**An `agent` step can say "waiting for you — no agent built for this yet".** A firm may write a
+step as an agent's long before one exists; the work does not stop, it goes to a person. That is
+the API's rule rendered, not a convenience, and the screen distinguishes it from an ordinary
+human step because one of the two is something the firm might want to chase.
+
+The Done button appears only for `work:write`, and only on a step that is waiting. Completing
+one RELOADS the whole list rather than patching the row, because finishing a step opens the ones
+waiting on it in the same call — updating only what was clicked would leave the next step
+looking untouched.
+
+`/work` lists what the API calls runnable, which now includes jobs waiting on a person. It does
+not show work whose window has not opened: the calendar is materialised a year ahead and showing
+all of it as "ready" would bury what actually is.
+
+**Not built: a screen to WRITE a workflow template.** A firm's process is published through the
+API today, and `/catalogue` is the precedent for what that screen should be — drafts, versions,
+publish. It is on the board as an honest gap, not an oversight.
 
 ## Money never becomes a number
 

@@ -122,6 +122,23 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* DELIVERY — the other half of the product, and until T2.7 it had no
+          screen at all. `party:read` because a work board is what everybody on
+          the delivery team looks at; the one act that changes something,
+          ticking a step off, is gated on `work:write` inside the screen. */}
+      {principal.permissions.includes("party:read") && (
+        <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Delivery</h2>
+          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            What a signed engagement turned into: the steps, who they are waiting on, and how
+            far each piece of work has got.
+          </p>
+          <div className="bib-nav" style={{ marginBottom: 0 }}>
+            <Link href="/work">Work →</Link>
+          </div>
+        </div>
+      )}
+
       {/* The whole trail names every client the firm has, which is why it is a
           ledger:read screen and not a general one. */}
       {principal.permissions.includes("ledger:read") && (

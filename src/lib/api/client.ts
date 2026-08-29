@@ -71,6 +71,21 @@ export type ServiceAxisKind = ServiceAxis["axis"];
 export type WorkSplitAxis =
   paths["/api/v1/tenancy/structure"]["get"]["responses"][200]["content"]["application/json"]["workSplitAxis"];
 
+/** A unit of delivery work — what the engine owes a client, and how far it has
+ *  got. Created by the scheduler when a contract activates (T2.6). */
+export type Job =
+  paths["/api/v1/jobs"]["get"]["responses"][200]["content"]["application/json"]["jobs"][number];
+
+/**
+ * One step of one job's process (T2.7).
+ *
+ * `status` carries the two distinctions that matter on a work board: `blocked`
+ * means waiting for a PERSON, and `skipped` is not `done` — the step will not
+ * happen and `outcomeNote` says why.
+ */
+export type JobStep =
+  paths["/api/v1/jobs/{jobId}/steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
 export type ConfigEntry =
