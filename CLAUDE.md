@@ -244,6 +244,22 @@ saves in one press. A process is not: publishing changes the path every job star
 on will walk, and a partner may write one over several sittings. So it follows `/catalogue` —
 a draft sits visibly unpublished, and the screen says "no job is following it".
 
+**A condition reads as one sentence across three controls** — "Only do this step when…
+[Where the entity is registered] …it [is none of] …these [AE, SG]". The labels are minimal
+because the OPTIONS carry the words, but they are real labels rather than a bare "…", because
+a screen reader gets nothing from an ellipsis. `in` / `not_in` take a comma-separated list; the
+blanks are dropped on the way out, so a trailing comma is not an empty value the API rejects.
+
+**There is no "is at least" in that picker, and that is not an omission.** The firm's own
+compliance list makes a threshold its commonest rule, but the API has no numeric fact to
+compare — so the option would sit there, compare a string, and do nothing. It arrives with the
+data (T3.2).
+
+**The long hint sits BELOW the row, not inside a column of it.** Inside, it made its own column
+six lines tall and `.bib-field-row`'s flex-end alignment pushed the two selects to the bottom
+of it, so the three parts of one sentence stopped being on one line. Found by looking at the
+page; the types were perfectly happy.
+
 **It is deliberately not a diagram editor.** The graph is expressed as "this step waits for
 these steps", which is how somebody describes a process out loud and is exactly what the
 engine reads. A cycle is typeable and the API refuses it by NAMING the loop — a better error
