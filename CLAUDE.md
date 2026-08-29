@@ -183,6 +183,27 @@ looking untouched.
 not show work whose window has not opened: the calendar is materialised a year ahead and showing
 all of it as "ready" would bury what actually is.
 
+**A ROW IS NOT AN ENGAGEMENT ANY MORE (T2.7's merge).** When a firm splits its work by Dept or
+delivery team, one row is that team's whole checklist for one of a client's companies on one
+engagement letter — which may be several services. So the row lists its SERVICES, names the team
+beside them, and leads the "For" column with the COMPANY the work is delivered to, with "billed
+to …" underneath only when the client differs. A group of four companies has four rows and they
+must not look identical.
+
+Listing the services is not decoration. A firm splitting by team can legitimately see two
+FinCompliance rows for one client — the merge key includes the workflow key, so two sets of
+services naming two different processes stay two checklists — and the only way to tell that from
+a duplicate is to see what is in each.
+
+**And this is where the uuid finally went.** The row used to render `engagement <uuid>` with a
+comment admitting the honest fix was a read model carrying names. The merge forced it: a merged
+job's `sourceRef` is a derived group key naming no row at all, so it was not even a uuid anybody
+could look up. `GET /api/v1/jobs` carries the names now, joined once for the page.
+
+`/work/[jobId]` calls `GET /api/v1/jobs/{jobId}` alongside its steps, for the same reason — a
+merged job's steps say nothing about whose work they are. That route also exists because the
+list is only what is RUNNABLE, so a finished job's page had no way to name itself at all.
+
 ## `/admin/workflows` — where a process stops living in somebody's head
 
 The engine could walk a process and the board could show one, and neither was worth anything

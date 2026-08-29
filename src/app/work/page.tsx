@@ -21,6 +21,27 @@ import type { Job } from "@/lib/api/client";
  * actually is — the API makes that choice and this screen does not second-guess
  * it.
  *
+ * ── WHAT A ROW IS, AFTER THE MERGE (T2.7) ───────────────────────────────────
+ *
+ * A row is not "an engagement" any more. When a firm splits its work by Dept or
+ * by delivery team, one row is that team's whole checklist for one client
+ * company on one engagement letter — which may be three services. So the card
+ * leads with the COMPANY the work is delivered to, names the team beside it,
+ * and lists the services inside it.
+ *
+ * That last part is not decoration. If a firm splits by team and sees two
+ * FinCompliance cards for one client, the only way to understand why is to see
+ * what is in each — the answer is usually that the two sets of services name
+ * different processes, and the card has to be able to say so rather than
+ * looking like a duplicate.
+ *
+ * ── AND IT NO LONGER RENDERS A uuid ─────────────────────────────────────────
+ *
+ * It used to show "engagement <uuid>", with a comment saying the honest fix was
+ * a read model carrying the client's name. The merge forced it: a merged job's
+ * `sourceRef` is a derived group key that names no row at all, so it was not
+ * even a uuid somebody could look up. `GET /api/v1/jobs` carries the names now.
+ *
  * ── THE HONEST GAP ──────────────────────────────────────────────────────────
  *
  * A job says `pending` with no steps when the firm has not published a workflow
@@ -78,7 +99,8 @@ export default function WorkPage() {
           <table className="bib-table">
             <thead>
               <tr>
-                <th>Job</th>
+                <th>Work</th>
+                <th>For</th>
                 <th>State</th>
                 <th>Ready since</th>
                 <th />
@@ -88,15 +110,40 @@ export default function WorkPage() {
               {jobs.map((j) => (
                 <tr key={j.id}>
                   <td>
-                    {/* The CAUSE, not the job's own id. "Engagement <uuid>" is
-                        still a uuid on a screen, and the honest fix is a read
-                        model that carries the client's name — recorded on the
-                        board rather than papered over with a lookup per row. */}
-                    <span className="bib-mono">{j.sourceKind}</span>
-                    <br />
-                    <span className="bib-muted bib-mono" style={{ fontSize: 12 }}>
-                      {j.sourceRef}
-                    </span>
+                    {/* The services this job delivers — one for an unmerged
+                        job, several for a merged one. The team or Dept it was
+                        cut under sits beside them, because "why are there two
+                        FinCompliance cards" is only answerable if each says
+                        what is in it. */}
+                    {j.services.length === 0 ? (
+                      <span className="bib-muted">no services listed</span>
+                    ) : (
+                      <>
+                        {j.services.map((sv) => (
+                          <div key={sv.engagementId}>{sv.serviceName}</div>
+                        ))}
+                      </>
+                    )}
+                    {j.splitCode !== null && (
+                      <span className="bib-pill" data-tone="neutral" style={{ marginTop: 4 }}>
+                        {j.splitCode}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {/* The COMPANY the work is delivered to, which is the one a
+                        filing belongs to — not the client who is billed. A group
+                        of four companies has four of these, and putting the
+                        billed client here would make them look identical. */}
+                    {j.entityName ?? <span className="bib-muted">—</span>}
+                    {j.clientName !== null && j.clientName !== j.entityName && (
+                      <>
+                        <br />
+                        <span className="bib-muted" style={{ fontSize: 12 }}>
+                          billed to {j.clientName}
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td>
                     <JobState job={j} />

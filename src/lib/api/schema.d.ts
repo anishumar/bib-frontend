@@ -1982,6 +1982,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One job — what it is for, and how it was cut
+         * @description The header the job screen shows above its steps: the company the work is delivered to, the services in it, and the Dept or delivery team it was cut under. Separate from the list because the list is deliberately only what is RUNNABLE — a job that has finished is absent from it, and its steps would otherwise be readable with nothing saying whose work they were.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The job */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Job"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/organizations": {
         parameters: {
             query?: never;
@@ -7174,15 +7242,32 @@ export interface components {
             /** Format: uuid */
             id: string;
             /**
-             * @description What caused this job to exist.
+             * @description What caused this job to exist. `engagement_group` is several of a letter's engagements merged into one checklist, because the firm splits its work by Dept or by delivery team.
              * @enum {string}
              */
-            sourceKind: "engagement" | "obligation";
+            sourceKind: "engagement" | "obligation" | "engagement_group";
             /**
              * Format: uuid
-             * @description The id of that cause — an engagement, later an obligation instance. One job per cause per firm, so this is what makes a redelivered trigger a no-op.
+             * @description The id of that cause — an engagement, later an obligation instance. For a merged job it names NO row: it is the group key, derived, and it exists so a redelivered trigger conflicts instead of building a second checklist. At most one OPEN job per cause per firm. To list what a merged job actually delivers, read `engagementIds`.
              */
             sourceRef: string;
+            /** @description The legal entity the work is delivered TO. One per job, always — merging across entities would break the firm's Per Company rule. */
+            entityName: string | null;
+            /** @description Who is BILLED. Not the same question as the entity, and often not the same party. */
+            clientName: string | null;
+            /** @description The services this job delivers, in the order their advances were recorded. One for an unmerged job; several for a merged one. The name is off the version the client's letter PINNED, so it reads as the letter wrote it. */
+            services: {
+                /** Format: uuid */
+                engagementId: string;
+                serviceName: string;
+            }[];
+            /**
+             * @description How this job was cut, recorded at spawn. `none` is one job per engagement — the firm has not said it splits its work, or has said it does not.
+             * @enum {string}
+             */
+            splitAxis: "none" | "dept" | "team";
+            /** @description The Dept or delivery team this job's work is filed under. Null on `none`, and null on a splitting firm whose service is filed under nothing — both real answers. */
+            splitCode: string | null;
             /**
              * @description The ENGINE's own mechanics, not the firm's vocabulary — identical at every firm, unlike a work item's states, which a firm names for itself.
              * @enum {string}

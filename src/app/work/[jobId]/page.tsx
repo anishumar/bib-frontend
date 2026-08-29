@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { JobStep } from "@/lib/api/client";
+import type { Job, JobStep } from "@/lib/api/client";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -35,6 +35,7 @@ import type { JobStep } from "@/lib/api/client";
 export default function JobStepsPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
   const router = useRouter();
+  const [job, setJob] = useState<Job | null>(null);
   const [steps, setSteps] = useState<JobStep[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +43,12 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [result, me] = await Promise.all([
+    const [result, header, me] = await Promise.all([
       api.GET("/api/v1/jobs/{jobId}/steps", { params: { path: { jobId } } }),
+      // The job itself, not just its steps. A merged job's steps say nothing
+      // about WHOSE work they are, and after the merge that is a real question:
+      // one checklist can hold three services for one of a client's companies.
+      api.GET("/api/v1/jobs/{jobId}", { params: { path: { jobId } } }),
       api.GET("/api/v1/auth/me", {}),
     ]);
     if (result.response.status === 401) {
@@ -56,6 +61,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       return;
     }
     setSteps(result.data.steps);
+    setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
     setError(null);
     setLoaded(true);
@@ -100,6 +106,23 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       </nav>
 
       <h1>Process</h1>
+      {/* WHOSE work this is, above the steps. After the merge one checklist can
+          hold three services for one of a client's companies, and a page that
+          only listed steps left "which client, which company, which services"
+          unanswerable from the screen. */}
+      {job !== null && (
+        <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+          <strong>{job.entityName ?? "an unnamed company"}</strong>
+          {job.clientName !== null && job.clientName !== job.entityName && (
+            <> · billed to {job.clientName}</>
+          )}
+          {job.splitCode !== null && <> · {job.splitCode}</>}
+          <br />
+          {job.services.length === 0
+            ? "No services listed against this job."
+            : job.services.map((sv) => sv.serviceName).join(" · ")}
+        </p>
+      )}
       {error !== null && <p className="bib-error">{error}</p>}
 
       {steps.length === 0 ? (
