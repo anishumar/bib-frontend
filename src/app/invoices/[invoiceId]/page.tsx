@@ -683,6 +683,7 @@ export default function InvoicePage() {
         subjectRef={invoiceId}
         partyId={invoice?.partyId ?? undefined}
         canWrite={permissions.includes("party:write")}
+        renderable="invoice"
         emptyHint="Nothing attached yet. A remittance advice, a signed challan, or the issued copy of this invoice belongs here."
       />
     </main>

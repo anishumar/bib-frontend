@@ -10244,6 +10244,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Produce a PDF of one of the firm's own documents
+         * @description Renders an engagement letter or an invoice, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenderDocumentRequest"];
+                };
+            };
+            responses: {
+                /** @description Rendered and stored */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Document"];
+                    };
+                };
+                /** @description The document contains a character the renderer cannot draw */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such record at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing knows how to render that kind of document yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{documentId}/links": {
         parameters: {
             query?: never;
@@ -12869,6 +12957,17 @@ export interface components {
         NewDocumentVersionForm: {
             /** Format: binary */
             file?: string;
+        };
+        RenderDocumentRequest: {
+            /**
+             * @description What to render. Deliberately narrow — the API says what it can do.
+             * @enum {string}
+             */
+            kind: "engagement_letter" | "invoice";
+            /** Format: uuid */
+            subjectRef: string;
+            /** Format: uuid */
+            partyId?: string | null;
         };
         DocumentLink: {
             /** Format: uuid */

@@ -76,6 +76,14 @@ export interface DocumentsProps {
   /** What this panel is for, in the empty state. Every subject wants a
    *  different sentence: a client's file is not a job's working paper. */
   readonly emptyHint: string;
+  /**
+   * Offer a "Generate PDF" button for this kind of document (T3.8).
+   *
+   * Only where the API can actually render one — an engagement letter and an
+   * invoice today. Absent means no button, which is right for a client's file
+   * and a job's working papers: there is nothing to generate.
+   */
+  readonly renderable?: "engagement_letter" | "invoice" | undefined;
 }
 
 export function Documents({
@@ -85,6 +93,7 @@ export function Documents({
   canWrite,
   title = "Files",
   emptyHint,
+  renderable,
 }: DocumentsProps) {
   const [documents, setDocuments] = useState<readonly StoredDocument[]>([]);
   const [versions, setVersions] = useState<Record<string, readonly StoredDocumentVersion[]>>({});
@@ -154,6 +163,32 @@ export function Documents({
     await load();
   }
 
+  /**
+   * Render the record this panel hangs off, and store the result.
+   *
+   * Safe to press twice: the renderer is deterministic and the store is
+   * content-addressed, so a second press produces the same bytes and writes no
+   * second blob. It DOES create a second document row, which is correct —
+   * generating a copy is an act, and the ledger records who did it.
+   */
+  async function generate(): Promise<void> {
+    if (renderable === undefined) return;
+    setBusy(true);
+    setError(null);
+    const result = await api.POST("/api/v1/documents/render", {
+      body: { kind: renderable, subjectRef, partyId: partyId ?? null },
+    });
+    setBusy(false);
+    if (result.error) {
+      // Shown verbatim. The 400 here is the renderer's own limit — it names the
+      // character it cannot draw and where it appeared — and paraphrasing it
+      // would throw away the only part somebody can act on.
+      setError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
+
   async function showVersions(documentId: string): Promise<void> {
     if (expanded === documentId) {
       setExpanded(null);
@@ -193,17 +228,29 @@ export function Documents({
             </span>
           )}
         </h2>
-        {canWrite && !adding && (
-          <button
-            type="button"
-            className="bib-button-quiet"
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            Add a file
-          </button>
-        )}
+        <div className="bib-chips">
+          {canWrite && renderable !== undefined && (
+            <button
+              type="button"
+              className="bib-button-quiet"
+              disabled={busy}
+              onClick={() => void generate()}
+            >
+              {busy ? "Generating…" : "Generate PDF"}
+            </button>
+          )}
+          {canWrite && !adding && (
+            <button
+              type="button"
+              className="bib-button-quiet"
+              onClick={() => {
+                setAdding(true);
+              }}
+            >
+              Add a file
+            </button>
+          )}
+        </div>
       </div>
 
       {error !== null && <p className="bib-error">{error}</p>}

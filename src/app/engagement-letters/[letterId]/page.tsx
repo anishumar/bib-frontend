@@ -877,6 +877,7 @@ export default function LetterPage() {
         subjectKind="engagement_letter"
         subjectRef={letterId}
         canWrite={permissions.includes("party:write")}
+        renderable="engagement_letter"
         emptyHint="Nothing attached yet. The signed copy belongs here — its content hash is what proves the file a client holds is the one the firm issued."
       />
     </main>
