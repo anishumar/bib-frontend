@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 
@@ -27,11 +28,15 @@ export default function PartyPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What to OFFER, never what is allowed.
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const one = await api.GET("/api/v1/parties/{partyId}", {
-      params: { path: { partyId } },
-    });
+    const [one, me] = await Promise.all([
+      api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } }),
+      api.GET("/api/v1/auth/me", {}),
+    ]);
+    setPermissions(me.data?.permissions ?? []);
     if (one.response.status === 401) {
       router.push("/login");
       return;
@@ -285,6 +290,16 @@ export default function PartyPage() {
           </button>
         </form>
       </div>
+      {/* The client's file. `partyId` is passed so every document carries the
+          column the client portal's record scope (Gate 4) will filter on —
+          adding it later would mean backfilling a fact nobody recorded. */}
+      <Documents
+        subjectKind="party"
+        subjectRef={partyId}
+        partyId={partyId}
+        canWrite={permissions.includes("party:write")}
+        emptyHint="Nothing on file yet. A PAN card, a certificate of incorporation, a board resolution — whatever the firm would have to go looking for."
+      />
     </main>
   );
 }

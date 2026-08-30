@@ -496,6 +496,157 @@ export type TerritoryRule =
 export type EventRecord =
   paths["/api/v1/events"]["get"]["responses"][200]["content"]["application/json"]["events"][number];
 
+// ── The document store (T3.6) ───────────────────────────────────────────────
+//
+// Two things called "document" now exist in this app, and the difference is
+// worth stating once: a `DocumentBlock` is a line of PROSE inside a proposal or
+// letter (G1.7). A `StoredDocument` is a FILE — bytes, versions, and what they
+// are attached to. They meet nowhere.
+
+/** A file the firm holds, with its latest version and the names a list renders
+ *  from — never bare uuids, per the API's read-model rule. */
+export type StoredDocument =
+  paths["/api/v1/documents"]["get"]["responses"][200]["content"]["application/json"]["documents"][number];
+
+/** One immutable set of bytes. `contentHash` is the same value an engagement
+ *  letter commits to, which is what makes "is the file the client holds the one
+ *  we issued" a comparison rather than a matter of trust. */
+export type StoredDocumentVersion = StoredDocument["latestVersion"];
+
+/** What a document is attached to. `subjectLabel` is NULL when the subject does
+ *  not resolve — the reference carries no foreign key, so a dangling link is
+ *  possible and is shown as unresolved rather than rendered blank. */
+export type DocumentLink =
+  paths["/api/v1/documents/{documentId}/links"]["get"]["responses"][200]["content"]["application/json"]["links"][number];
+
+/** A mark the firm prints on what it sends — per ISSUING ENTITY, never per
+ *  firm, because a firm signing on two letterheads must not put the Indian logo
+ *  on a letter its US entity issued. */
+export type BrandAsset =
+  paths["/api/v1/firm-entities/{entityPartyId}/brand-assets"]["get"]["responses"][200]["content"]["application/json"]["assets"][number];
+
+export type BrandAssetKind = BrandAsset["kind"];
+
+export const BRAND_ASSET_KINDS = ["logo", "signature", "letterhead"] as const satisfies readonly BrandAssetKind[];
+
+export const BRAND_ASSET_LABELS: Readonly<Record<BrandAssetKind, string>> = {
+  logo: "Logo",
+  signature: "Signature",
+  letterhead: "Letterhead",
+};
+
+export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
+  logo: "Printed at the head of what this entity issues.",
+  signature: "The image that signs off a letter this entity binds.",
+  letterhead: "The full stationery, when a firm uses one instead of a bare logo.",
+};
+
+/** What a document can be attached to. A CLOSED set in the API — the reference
+ *  carries no foreign key, so an unknown kind is refused at the write rather
+ *  than becoming a link nothing can follow. */
+export type DocumentSubjectKind = DocumentLink["subjectKind"];
+
+/** What the document IS. The product's own types, not a vocabulary a firm
+ *  edits — a firm does not invent a new kind of engagement letter. */
+export type StoredDocumentKind = StoredDocument["kind"];
+
+export const DOCUMENT_KINDS = [
+  "identity_proof",
+  "statutory_filing",
+  "working_paper",
+  "correspondence",
+  "proposal",
+  "engagement_letter",
+  "invoice",
+  "credit_note",
+  "brand_asset",
+  "other",
+] as const;
+
+export const DOCUMENT_KIND_LABELS: Readonly<Record<string, string>> = {
+  identity_proof: "Identity proof",
+  statutory_filing: "Statutory filing",
+  working_paper: "Working paper",
+  correspondence: "Correspondence",
+  proposal: "Proposal",
+  engagement_letter: "Engagement letter",
+  invoice: "Invoice",
+  credit_note: "Credit note",
+  brand_asset: "Brand asset",
+  other: "Other",
+};
+
+/**
+ * A file size, for people.
+ *
+ * `byteSize` arrives as a number the API has already bounded (nothing over
+ * BIB_MAX_UPLOAD_BYTES is stored), so this is presentation and nothing more.
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${String(bytes)} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit] ?? "KB"}`;
+}
+
+/**
+ * Fetch a document's bytes and hand them to the browser as a download.
+ *
+ * A plain `<a href>` would be the obvious thing and it is the wrong thing here.
+ * The session is an httpOnly cookie set by a DIFFERENT origin, and the API sets
+ * `SameSite=Lax` — so a link works on localhost (same site, different port) and
+ * silently downloads an HTML error page in any environment where the API is on
+ * another domain. Every other authenticated call in this app goes through fetch
+ * with `credentials: "include"`; bytes are not the place to invent a second
+ * mechanism that fails differently.
+ *
+ * The whole file is held in memory to do this. That is bounded by the API's own
+ * upload limit, and it is the honest cost of not using a pre-signed URL — which
+ * the backend deliberately does not offer, because a pre-signed URL answers to
+ * none of the four scoping gates.
+ */
+export async function downloadDocument(
+  documentId: string,
+  filename: string,
+  versionId?: string,
+): Promise<string | null> {
+  const path =
+    versionId === undefined
+      ? `/api/v1/documents/${documentId}/content`
+      : `/api/v1/documents/${documentId}/versions/${versionId}/content`;
+  const response = await fetch(`${baseUrl}${path}`, { credentials: "include" });
+  if (!response.ok) {
+    // The error body is the API's envelope, not bytes. Showing its message
+    // matters most for 502 — "storage lost the bytes" is a different thing from
+    // "no such document", and the API is careful to distinguish them.
+    try {
+      const body: unknown = await response.json();
+      return apiError(body).message;
+    } catch {
+      return `the file could not be fetched (${String(response.status)})`;
+    }
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = window.document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  window.document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoked on the next tick rather than immediately: Safari has historically
+  // cancelled an in-flight download whose object URL was revoked synchronously.
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
+  return null;
+}
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;

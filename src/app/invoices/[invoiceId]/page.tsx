@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Documents } from "@/lib/ui/documents";
 import {
   CREDIT_REASONS,
   CREDIT_REASON_LABELS,
@@ -674,6 +675,16 @@ export default function InvoicePage() {
           </p>
         </div>
       )}
+      {/* An invoice's own paperwork — the issued PDF once T3.8 renders one, the
+          client's remittance advice, a signed challan. `party:write` decides
+          what to OFFER; the API is still the only place the answer lives. */}
+      <Documents
+        subjectKind="invoice"
+        subjectRef={invoiceId}
+        partyId={invoice?.partyId ?? undefined}
+        canWrite={permissions.includes("party:write")}
+        emptyHint="Nothing attached yet. A remittance advice, a signed challan, or the issued copy of this invoice belongs here."
+      />
     </main>
   );
 }

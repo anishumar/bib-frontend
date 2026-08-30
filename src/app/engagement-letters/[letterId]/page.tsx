@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Documents } from "@/lib/ui/documents";
 import {
   BLOCK_KIND_LABELS,
   api,
@@ -57,15 +58,20 @@ export default function LetterPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // What to OFFER, never what is allowed — the API is the only place the answer
+  // lives, and its refusal is shown verbatim when one arrives.
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, catalogue, library, book, signatory] = await Promise.all([
+    const [one, catalogue, library, book, signatory, me] = await Promise.all([
       api.GET("/api/v1/engagement-letters/{letterId}", { params: { path: { letterId } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/parties"),
       api.GET("/api/v1/tenancy/firm-signatory"),
+      api.GET("/api/v1/auth/me", {}),
     ]);
+    setPermissions(me.data?.permissions ?? []);
     if (one.response.status === 401) {
       router.push("/login");
       return;
@@ -863,6 +869,16 @@ export default function LetterPage() {
           </p>
         )}
       </div>
+      {/* The letter's own paperwork. THE signed copy belongs here: the API
+          stores a content hash per version, and `crm.engagement_letter` carries
+          one too — which is what makes "is the PDF the client holds the one we
+          issued" a comparison rather than a matter of trust. */}
+      <Documents
+        subjectKind="engagement_letter"
+        subjectRef={letterId}
+        canWrite={permissions.includes("party:write")}
+        emptyHint="Nothing attached yet. The signed copy belongs here — its content hash is what proves the file a client holds is the one the firm issued."
+      />
     </main>
   );
 }

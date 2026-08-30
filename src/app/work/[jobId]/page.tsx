@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { Job, JobStep } from "@/lib/api/client";
 
@@ -183,6 +184,17 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         on it straight away. It cannot be undone: a second completion would overwrite the record
         of who did the work.
       </p>
+      {/* Working papers, challans, the evidence a step was actually done. A
+          job's files belong to the FIRM rather than to a client, so no partyId
+          is passed — the column exists for the client portal's record scope,
+          and claiming a working paper is the client's would be wrong. */}
+      <Documents
+        subjectKind="job"
+        subjectRef={jobId}
+        canWrite={permissions.includes("party:write")}
+        title="Working papers"
+        emptyHint="Nothing attached yet. The challan, the acknowledgement, the working paper behind a step — whatever a colleague would need to show this was done."
+      />
     </main>
   );
 }

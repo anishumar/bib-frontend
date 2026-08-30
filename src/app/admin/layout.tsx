@@ -11,7 +11,11 @@ import type { ReactNode } from "react";
  * what every role can do, who holds it, and who is senior enough to sign off
  * somebody else's work.
  *
- * The last four are not about people at all: PROCESSES is how the firm does its
+ * BRAND is the firm's marks — logo, signature, letterhead — and it is here for
+ * the same reason: they are per ISSUING ENTITY, so between this screen and the
+ * issuing table they decide what a client actually receives.
+ *
+ * The last five are not about people at all: PROCESSES is how the firm does its
  * work — the steps a job walks, which is the thing that used to live only in a
  * partner's head. STRUCTURE is the firm's own Depts
  * and delivery teams and which of them splits a client's work, the STANDARD PROSE
@@ -36,6 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Link href="/admin/structure">Structure</Link>
         <Link href="/admin/workflows">Processes</Link>
         <Link href="/admin/document-blocks">Standard prose</Link>
+        <Link href="/admin/brand">Brand</Link>
         <Link href="/admin/territories">Territories</Link>
       </nav>
       {children}

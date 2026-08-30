@@ -82,6 +82,7 @@ not before.
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
+| `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/admin/territories` | whose desk covers which country |
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, and the Done button |
@@ -227,6 +228,67 @@ to find out what you deleted.
 only. A draft is not in force, and offering one would point a service at something no job will
 ever follow. Blank is a real answer and the hint says what it means — the work is created and
 waits, visibly, rather than running a process nobody wrote.
+
+## Files are a PANEL, not a screen (T3.6)
+
+Nobody opens the product to browse files. They open a client, a letter, an invoice or a job,
+and the files are part of what that thing IS — so `<Documents>` (`src/lib/ui/documents.tsx`)
+is one component with the subject kind as a prop, dropped onto all four. There is deliberately
+no `/documents` route.
+
+The API is shaped the same way: `GET /subjects/{kind}/{ref}/documents` is the read, and the
+upload **attaches in the same call that stores**. A two-step "upload, then attach" would leave
+an orphan behind every time somebody closed the tab.
+
+**Downloads go through `fetch`, never an `<a href>`.** The session is an httpOnly cookie set by
+a different origin and the API sets `SameSite=Lax`, so a plain link works on localhost (same
+site, different port) and silently downloads an HTML error page anywhere the API is on another
+domain. `downloadDocument` in `client.ts` fetches with credentials and hands the browser a
+blob. That holds the whole file in memory, bounded by the API's own upload limit — the honest
+cost of the backend deliberately not offering a pre-signed URL, which would answer to none of
+the four scoping gates.
+
+**The title is required and never defaulted from the filename.** `scan_0043.pdf` is what a
+scanner produces and is not something anybody finds a document by later.
+
+**BUILDING THIS PANEL FOUND THREE THINGS WRONG WITH THE API IT WAS BUILT AGAINST**, which is
+the rule in the backend's own CLAUDE.md working exactly as written — and worth recording,
+because the module had 939 passing tests and every one of them was happy:
+
+- **`createdByName: string \| null` collapsed two different facts.** The system generating a
+  file and a person whose display name is simply unset both arrived as `null`. The audit
+  trail had already solved this — *email is the discriminator, not the id* — and the field is
+  now the same `{ userId, displayName, email }` shape `EventRecord.actor` uses.
+- **`kind` and `subjectKind` were bare `z.string()`**, so the generated client lost closed sets
+  the database enforces with a CHECK. They are enums on the wire now, and a screen switching on
+  one gets a compile error when a member is added instead of a silent default.
+- **A `BrandAsset` carried a version with no `documentId`**, so its bytes were unreachable —
+  bytes are fetched at `/documents/{documentId}/...` and there was no way to build the URL. A
+  write with no read, found the moment a screen tried to show a logo.
+
+## `/admin/brand` — the marks, per COMPANY
+
+Not three upload boxes. A firm with an Indian company and a US company signs on two
+letterheads, and a letter its US entity issued printing the Indian logo is the same class of
+error as one printing Indian governing law (G1.8) — so the screen leads with the entity.
+
+**Putting one in force supersedes; it does not replace.** The previous mark stays stored and
+downloadable, because a document issued last year was issued under last year's logo. There is
+no delete and no endpoint behind one.
+
+**It says out loud that nothing renders these yet.** They are stored, versioned and audited
+today; the renderer is T3.8. A control that looks live and is inert is the "feature that looks
+finished" this product has been caught by before, and this screen is the only place a partner
+would find out. That paragraph comes out when T3.8 lands.
+
+The entity list is derived from the ISSUING PREFERENCES, the same source `/invoices` uses, so
+the two cannot disagree about which companies the firm has. Its limit is stated in the empty
+state rather than hidden: a company with no country on the issuing table does not appear.
+
+Setting a mark is **two calls** — the bytes become an ordinary document first, then that
+version is put in force. If the second fails the screen says the file was stored and is not in
+force, rather than pretending the upload failed and sending somebody to re-upload a file the
+store already holds.
 
 ## Money never becomes a number
 
