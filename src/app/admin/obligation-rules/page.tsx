@@ -5,6 +5,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry, ObligationRule, RuleCoverage } from "@/lib/api/client";
+import { Cluster, Page, PageHeader, Row, Stack } from "@/components/layout";
+import {
+  Button,
+  Card,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  Input,
+  Notice,
+  Pill,
+  Select,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  type PillTone,
+} from "@/components/ui";
 import {
   bodyOf,
   draftOf,
@@ -45,12 +63,21 @@ import {
  * ── AND UNTIL T6.4 THE FIRM COULD NOT ANSWER IT ─────────────────────────────
  *
  * The screen offered the lead time, the confirmation tick and the retire
- * switch, and nothing else — while the API had taken a full formula, a new
- * rule and exceptions since T3.2 with no caller anywhere. So the forty-seven
- * were never going to start generating however well the firm knew the answer,
- * and "config a partner can edit without a deploy" was true of three fields out
- * of twelve. The editor is `rule-editor.tsx`; what stays absent from it, and
- * why, is written there.
+ * switch, and nothing else — while the API had taken a full formula, a new rule
+ * and exceptions since T3.2 with no caller anywhere. So the forty-seven were
+ * never going to start generating however well the firm knew the answer, and
+ * "config a partner can edit without a deploy" was true of three fields out of
+ * twelve. The editor is `rule-editor.tsx`; what stays absent from it, and why,
+ * is written there.
+ *
+ * ── EVERY WRITE SAYS WHAT IT DID TO THE CALENDAR ────────────────────────────
+ *
+ * Generation is idempotent and the sweep materialises a year ahead, so an edit
+ * that did not restate would be invisible for twelve months. The API returns
+ * what each write actually moved and this screen shows all three numbers —
+ * including `locked`, the filings it could NOT touch because somebody has
+ * already started them. A partial change reported as a whole one is how a
+ * deadline moves without anybody being told.
  *
  * ── THE COUNT IS A BUTTON, AND THAT IS THE WHOLE ONBOARDING DESIGN ──────────
  *
@@ -65,9 +92,15 @@ import {
  */
 export default function ObligationRulesPage() {
   // `useSearchParams` suspends during prerender; the boundary is the framework's
-  // requirement, not a loading state anybody will see.
+  // requirement rather than a loading state anybody will see.
   return (
-    <Suspense fallback={<main><h1>Compliance rules</h1></main>}>
+    <Suspense
+      fallback={
+        <Page>
+          <PageHeader eyebrow="Administration" title="Compliance rules" />
+        </Page>
+      }
+    >
       <Rules />
     </Suspense>
   );
@@ -161,7 +194,11 @@ function Rules() {
           `somebody has already started ${effect.locked === 1 ? "it" : "them"}`,
       );
     }
-    setNotice(parts.length === 0 ? `${prefix} Nothing on the calendar moved.` : `${prefix} ${parts.join("; ")}.`);
+    setNotice(
+      parts.length === 0
+        ? `${prefix} Nothing on the calendar moved.`
+        : `${prefix} ${parts.join("; ")}.`,
+    );
   }
 
   async function patch(ruleId: string, body: Record<string, unknown>, said: string): Promise<void> {
@@ -265,204 +302,209 @@ function Rules() {
     .filter((r) => showRetired || r.isActive)
     .filter((r) => filter === "" || r.coverage === filter);
 
+  const open = editing === null ? null : (rules.find((r) => r.id === editing) ?? null);
+
   return (
-    <main>
-      <h1>Compliance rules</h1>
-      <p className="bib-muted">
-        What the law asks of a client, and when. The calendar is generated from these &mdash;
-        nobody types a filing in, which is what stops it drifting from the statute.
-      </p>
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Compliance rules"
+        lede="What the law asks of a client, and when. The calendar is generated from these — nobody types a filing in, which is what stops it drifting from the statute."
+      />
 
-      {error !== null && <p className="bib-error">{error}</p>}
-      {notice !== null && <p className="bib-hint">{notice}</p>}
+      <Stack>
+        <ErrorNotice error={error} />
+        {notice !== null && <Notice tone="ok">{notice}</Notice>}
 
-      {focused.length > 0 && (
-        <div className="bib-callout">
-          <p style={{ margin: 0 }}>
-            <strong>
-              Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
-              engagement&rsquo;s calendar.
-            </strong>{" "}
-            Give each one a formula and its filings appear.
-          </p>
-          <Link href="/admin/obligation-rules">Show every rule</Link>
-        </div>
-      )}
-
-      {loaded && rules.length === 0 && (
-        <div className="bib-callout">
-          <p style={{ marginTop: 0 }}>
-            <strong>This firm has no compliance rules, so its calendar is empty.</strong>
-          </p>
-          <p>New firms are given the India pack automatically. This one predates it.</p>
-          {mayWrite && (
-            <button type="button" onClick={() => void seed()} disabled={busy}>
-              Load the India rule pack
-            </button>
-          )}
-        </div>
-      )}
-
-      {rules.length > 0 && (
-        <>
-          <div className="bib-callout" style={{ marginTop: "var(--bib-gap-2)" }}>
-            <p style={{ margin: 0 }}>
-              <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
-              {/* THE COUNT IS THE CONTROL. It was a number for three tasks and
-                  the list it described was four clicks away — so the one thing
-                  this screen exists to get answered was the hardest thing on it
-                  to reach. */}
-              <button
-                type="button"
-                className="bib-pill"
-                data-tone={(counts.get("needs_formula") ?? 0) > 0 ? "live" : undefined}
-                onClick={() => { setFilter(filter === "needs_formula" ? "" : "needs_formula"); }}
-              >
-                {counts.get("needs_formula") ?? 0} waiting on a fact
-              </button>{" "}
-              &mdash; each names the one thing it still needs, and you can answer it here. And{" "}
-              <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
-              {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by something
-              happening rather than by a period.
+        {focused.length > 0 && (
+          <Notice tone="accent" eyebrow="FROM THE CALENDAR">
+            <p>
+              <strong>
+                Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
+                engagement&rsquo;s calendar.
+              </strong>{" "}
+              Give each one a formula and its filings appear.
             </p>
-            <p className="bib-hint" style={{ marginBottom: 0 }}>
-              That second number is not a fault list &mdash; it is the honest state of the
-              firm&rsquo;s own specification, and a firm whose clients never owe those filings is
-              right to leave them unanswered.
+            <p>
+              <Link href="/admin/obligation-rules">Show every rule</Link>
             </p>
-          </div>
+          </Notice>
+        )}
 
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--bib-gap-2)",
-              alignItems: "center",
-              margin: "var(--bib-gap-2) 0",
-            }}
-          >
-            <select
-              className="bib-select"
-              value={filter}
-              onChange={(e) => { setFilter(e.target.value as RuleCoverage | ""); }}
-            >
-              <option value="">Every rule</option>
-              <option value="generating">Producing dates</option>
-              <option value="needs_formula">Waiting on a fact</option>
-              <option value="event_driven">Event-driven</option>
-              <option value="retired">Retired</option>
-            </select>
-            <label className="bib-check">
-              <input
-                type="checkbox"
-                checked={showRetired}
-                onChange={(e) => { setShowRetired(e.target.checked); }}
-              />
-              <span>
-                Show retired rules. A retired rule still explains an old filing&rsquo;s date, so
-                it is never deleted.
-              </span>
-            </label>
+        {loaded && rules.length === 0 && (
+          <Notice eyebrow="NO RULES">
+            <p>
+              <strong>This firm has no compliance rules, so its calendar is empty.</strong>
+            </p>
+            <p>New firms are given the India pack automatically. This one predates it.</p>
             {mayWrite && (
-              <button
-                type="button"
-                className="bib-button-quiet"
-                style={{ marginLeft: "auto" }}
-                onClick={() => {
-                  setEditing(null);
-                  setDraft(draftOf(null));
-                  setCreating((c) => !c);
-                }}
-              >
-                {creating ? "Cancel" : "Write a rule"}
-              </button>
+              <p>
+                <Button onClick={() => void seed()} loading={busy}>
+                  Load the India rule pack
+                </Button>
+              </p>
             )}
-          </div>
+          </Notice>
+        )}
 
-          {creating && (
-            <RuleEditor
-              draft={draft}
-              onChange={setDraft}
-              services={services}
-              rule={null}
-              creating
-              busy={busy}
-              onSave={() => void create()}
-              onCancel={() => { setCreating(false); }}
+        {rules.length > 0 && (
+          <>
+            <Notice>
+              <p>
+                <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
+                {/* THE COUNT IS THE CONTROL. It was a number for three tasks
+                    and the list it described was four clicks away — so the one
+                    thing this screen exists to get answered was the hardest
+                    thing on it to reach. */}
+                <Button
+                  variant="link"
+                  onClick={() => { setFilter(filter === "needs_formula" ? "" : "needs_formula"); }}
+                >
+                  {counts.get("needs_formula") ?? 0} waiting on a fact
+                </Button>{" "}
+                &mdash; each names the one thing it still needs, and you can answer it here. And{" "}
+                <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
+                {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by something
+                happening rather than by a period.
+              </p>
+              <p className="field-hint">
+                That second number is not a fault list &mdash; it is the honest state of the
+                firm&rsquo;s own specification, and a firm whose clients never owe those filings is
+                right to leave them unanswered.
+              </p>
+            </Notice>
+
+            {/* The FILTER and the one action on a line, the option under them.
+                Both in one `Cluster` pushed "Write a rule" onto its own line
+                the moment the checkbox's sentence wrapped, which reads as a
+                button somebody forgot to place. Found by looking at it. */}
+            <Row>
+              {/* IN A `Field`, like every other Select in this app. A bare one
+                  is `width: 100%` by design — right inside a form, and here it
+                  filled the row and pushed the button onto its own line. The
+                  label is the other half of the fix: a filter with no label is
+                  a control a screen reader announces as "combo box". */}
+              <Field label="Show">
+                <Select
+                  value={filter}
+                  onChange={(e) => { setFilter(e.target.value as RuleCoverage | ""); }}
+                >
+                  <option value="">Every rule</option>
+                  <option value="generating">Producing dates</option>
+                  <option value="needs_formula">Waiting on a fact</option>
+                  <option value="event_driven">Event-driven</option>
+                  <option value="retired">Retired</option>
+                </Select>
+              </Field>
+              {mayWrite && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setEditing(null);
+                    setDraft(draftOf(null));
+                    setCreating((c) => !c);
+                  }}
+                >
+                  {creating ? "Cancel" : "Write a rule"}
+                </Button>
+              )}
+            </Row>
+            <Checkbox
+              checked={showRetired}
+              onChange={(e) => { setShowRetired(e.target.checked); }}
+              label="Show retired rules"
+              note="a retired rule still explains an old filing's date, so it is never deleted"
             />
-          )}
 
-          <div className="bib-card">
-            <table className="bib-table">
-              <thead>
-                <tr>
-                  <th>Filing</th>
-                  <th>Authority</th>
-                  <th>When</th>
-                  <th>Start early</th>
-                  <th>Confirmed</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((rule) => (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    busy={busy}
-                    mayWrite={mayWrite}
-                    open={editing === rule.id}
-                    onOpen={() => {
-                      setCreating(false);
-                      setEditing(editing === rule.id ? null : rule.id);
-                      setDraft(draftOf(rule));
-                    }}
-                    onPatch={(body, said) => void patch(rule.id, body, said)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+            {creating && (
+              <RuleEditor
+                draft={draft}
+                onChange={setDraft}
+                services={services}
+                rule={null}
+                creating
+                busy={busy}
+                onSave={() => void create()}
+                onCancel={() => { setCreating(false); }}
+              />
+            )}
 
-          {editing !== null && (() => {
-            const rule = rules.find((r) => r.id === editing);
-            if (!rule) return null;
-            return (
-              <>
-                <h3 style={{ marginBottom: 0 }}>{rule.name}</h3>
-                <p className="bib-muted" style={{ marginTop: 4 }}>
-                  {rule.jurisdiction} &middot; <span className="bib-mono">{rule.rulePack}</span>
-                  {rule.status === "confirmed" && (
-                    <>
-                      {" "}&mdash; this rule is <strong>confirmed</strong>. If the law changed for
-                      one period, add an exception rather than editing the formula: an exception
-                      says which period is different and leaves the other eleven explaining
-                      themselves.
-                    </>
-                  )}
-                </p>
+            <Card flush>
+              <TableWrap>
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>Filing</Th>
+                      <Th>Authority</Th>
+                      <Th>When</Th>
+                      <Th>Start early</Th>
+                      <Th>Confirmed</Th>
+                      <Th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((rule) => (
+                      <RuleRow
+                        key={rule.id}
+                        rule={rule}
+                        busy={busy}
+                        mayWrite={mayWrite}
+                        open={editing === rule.id}
+                        onOpen={() => {
+                          setCreating(false);
+                          setEditing(editing === rule.id ? null : rule.id);
+                          setDraft(draftOf(rule));
+                        }}
+                        onPatch={(body, said) => void patch(rule.id, body, said)}
+                      />
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrap>
+            </Card>
+
+            {open !== null && (
+              <Stack>
+                <div>
+                  <h3 style={{ marginBottom: 4 }}>{open.name}</h3>
+                  <p className="muted">
+                    {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
+                  </p>
+                </div>
+                {/* A CONFIRMED rule is one somebody vouched for against the
+                    statute, so editing its formula is a different act from
+                    answering an unconfirmed one — named rather than refused,
+                    because a partner correcting their own mistake is allowed. */}
+                {open.status === "confirmed" && (
+                  <Notice tone="warn" eyebrow="THIS RULE IS CONFIRMED">
+                    Somebody has checked this date against the statute. If the law changed for one
+                    PERIOD, add an exception rather than editing the formula: an exception says
+                    which period is different and leaves the other eleven explaining themselves.
+                  </Notice>
+                )}
                 <RuleEditor
                   draft={draft}
                   onChange={setDraft}
                   services={services}
-                  rule={rule}
+                  rule={open}
                   creating={false}
                   busy={busy}
-                  onSave={() => void patch(rule.id, bodyOf(draft), "Saved.")}
+                  onSave={() => void patch(open.id, bodyOf(draft), "Saved.")}
                   onCancel={() => { setEditing(null); }}
                 />
                 <Exceptions
-                  rule={rule}
+                  rule={open}
                   busy={busy}
                   mayWrite={mayWrite}
-                  onAdd={(body) => void addException(rule.id, body)}
-                  onWithdraw={(m) => void withdrawException(rule.id, m)}
+                  onAdd={(body) => void addException(open.id, body)}
+                  onWithdraw={(m) => void withdrawException(open.id, m)}
                 />
-              </>
-            );
-          })()}
-        </>
-      )}
-    </main>
+              </Stack>
+            )}
+          </>
+        )}
+      </Stack>
+    </Page>
   );
 }
 
@@ -484,52 +526,45 @@ function RuleRow({
   const [lead, setLead] = useState(String(rule.leadTimeDays));
 
   return (
-    <tr data-inactive={rule.isActive ? undefined : "true"}>
-      <td>
+    <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
+      <Td>
         {rule.name}
-        {rule.module !== null && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
-            {rule.module}
-          </span>
-        )}
+        {rule.module !== null && <Sub>{rule.module}</Sub>}
         {/* THE REASON, in place of a date. This is what a partner reads and
             answers; without it an undated rule is indistinguishable from a
             broken import. */}
-        {rule.unresolvedReason !== null && <p className="bib-hint">{rule.unresolvedReason}</p>}
+        {rule.unresolvedReason !== null && <p className="field-hint">{rule.unresolvedReason}</p>}
         {rule.exceptions.length > 0 && (
-          <p className="bib-hint">
+          <p className="field-hint">
             {rule.exceptions
               .map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`)
               .join(" · ")}
           </p>
         )}
-      </td>
-      <td>
-        {rule.authority ?? <span className="bib-muted">&mdash;</span>}
-        <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
-          {rule.jurisdiction}
-        </span>
-      </td>
-      <td>
-        <span className="bib-pill" style={{ whiteSpace: "nowrap" }} data-tone={TONE[rule.coverage]}>
-          {LABEL[rule.coverage]}
-        </span>
-        <span className="bib-mono" style={{ display: "block", fontSize: 12, margin: 0 }}>
+      </Td>
+      <Td>
+        {rule.authority ?? <span className="muted">&mdash;</span>}
+        <Sub>{rule.jurisdiction}</Sub>
+      </Td>
+      <Td>
+        <Pill tone={TONE[rule.coverage]}>{LABEL[rule.coverage]}</Pill>
+        <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
           {describe(rule)}
         </span>
         {rule.instanceCount > 0 && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+          <Sub>
             {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
-          </span>
+          </Sub>
         )}
-      </td>
-      <td>
+      </Td>
+      <Td>
         {/* T–X, and it is a BLANK rather than a guess. Every shipped rule is at
             zero, which means the task appears on the statutory date itself —
             visibly useless, and deliberately so: this is the firm's own working
             practice and nobody has told us what it is. */}
-        <input
+        <Input
           type="number"
+          size="sm"
           min={0}
           value={lead}
           disabled={busy || !mayWrite || rule.coverage !== "generating"}
@@ -543,12 +578,12 @@ function RuleRow({
           style={{ width: 64 }}
           title="Days before the legal deadline that the work should start"
         />
-        <span className="bib-muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}> days</span>
-      </td>
-      <td>
+        <span className="muted text-xs" style={{ whiteSpace: "nowrap" }}> days</span>
+      </Td>
+      <Td>
         {/* The moment a date stops coming from a document and starts coming
             from the firm. Everything ships unconfirmed, India included. */}
-        <label className="bib-check">
+        <label className="check">
           <input
             type="checkbox"
             checked={rule.status === "confirmed"}
@@ -564,8 +599,8 @@ function RuleRow({
               column reads as a stack of fragments. The sentence lives in the
               tooltip; the cell says which of the two states this is. */}
           <span
-            className="bib-muted"
-            style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            className="muted text-xs"
+            style={{ whiteSpace: "nowrap" }}
             title={
               rule.status === "confirmed"
                 ? "A partner has checked this date against the statute."
@@ -575,22 +610,22 @@ function RuleRow({
             {rule.status === "confirmed" ? "confirmed" : "not yet"}
           </span>
         </label>
-      </td>
-      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+      </Td>
+      <Td align="right">
         {mayWrite && (
-          <>
-            <button
-              type="button"
-              className="bib-pill"
+          <Cluster>
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={busy}
               onClick={onOpen}
               title="The formula, the exceptions, and what this rule is waiting for."
             >
               {open ? "Close" : "Edit"}
-            </button>{" "}
-            <button
-              type="button"
-              className="bib-pill"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={busy}
               onClick={() => { onPatch({ isActive: !rule.isActive }, "Saved."); }}
               title={
@@ -600,10 +635,10 @@ function RuleRow({
               }
             >
               {rule.isActive ? "Retire" : "Reactivate"}
-            </button>
-          </>
+            </Button>
+          </Cluster>
         )}
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -615,14 +650,14 @@ const LABEL: Record<RuleCoverage, string> = {
   retired: "retired",
 };
 
-/** Only the actionable state is toned. "Waiting on a fact" gets the live tone
+/** Only the actionable state is toned. "Waiting on a fact" gets the accent tone
  *  because it is the list worth clearing; "event-driven" gets none, because
  *  there is nothing for anybody to do about it yet. */
-const TONE: Record<RuleCoverage, string | undefined> = {
-  generating: undefined,
-  needs_formula: "live",
-  event_driven: undefined,
-  retired: "revoked",
+const TONE: Record<RuleCoverage, PillTone> = {
+  generating: "neutral",
+  needs_formula: "accent",
+  event_driven: "neutral",
+  retired: "danger",
 };
 
 /**

@@ -12,6 +12,8 @@ import {
   TERMINAL_STAGES,
 } from "@/lib/api/client";
 import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
+import { Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * The pipeline.
@@ -154,40 +156,38 @@ export default function LeadsPage() {
     await load();
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   const open = leads.filter((l) => !TERMINAL_STAGES.includes(l.lead.stage));
   const closed = leads.filter((l) => TERMINAL_STAGES.includes(l.lead.stage));
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/clients">Clients</Link>
-        <Link href="/proposals">Proposals</Link>
-      </nav>
-      <h1>Pipeline</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Pipeline"
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
       {note !== null && (
-        <p className="bib-muted" style={{ fontSize: 14 }}>
+        <p className="muted text-md">
           {note}
         </p>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Open</h2>
+      <div className="card">
+        <h2 className="card-title">Open</h2>
         {open.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
+          <p className="muted">
             Nothing in the pipeline.
           </p>
         ) : (
-          <table className="bib-table">
+          <table className="table">
             <thead>
               <tr>
-                <th>Opportunity</th>
-                <th>Source</th>
-                <th>Stage</th>
-                <th>Owner</th>
+                <Th>Opportunity</Th>
+                <Th>Source</Th>
+                <Th>Stage</Th>
+                <Th>Owner</Th>
               </tr>
             </thead>
             <tbody>
@@ -196,22 +196,21 @@ export default function LeadsPage() {
                 return (
                   <Fragment key={l.lead.id}>
                     <tr>
-                      <td>
+                      <Td>
                         {/* What the opportunity IS, over who it is with. Two live
                             opportunities for one client used to render as the same
                             company twice, because the party was all a row had. */}
                         <div>{l.lead.title}</div>
                         {/* The party links, because the lead IS the party and
                             everything else known about them is there. */}
-                        <Link className="bib-muted" href={`/clients/${l.party.id}`}
-                              style={{ fontSize: 13 }}>
+                        <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
                           {l.party.displayName}
                         </Link>
-                      </td>
-                      <td className="bib-muted">{l.lead.source}</td>
-                      <td>
+                      </Td>
+                      <Td className="muted">{l.lead.source}</Td>
+                      <Td>
                         <select
-                          className="bib-select"
+                          className="select"
                           // While a close is being written the select shows the
                           // stage being moved TO, not the stored one — the
                           // request has not gone yet and snapping back would
@@ -234,10 +233,10 @@ export default function LeadsPage() {
                             </option>
                           ))}
                         </select>
-                      </td>
-                      <td>
+                      </Td>
+                      <Td>
                         <select
-                          className="bib-select"
+                          className="select"
                           value={l.owner?.userId ?? ""}
                           disabled={busy !== null || staff.length === 0}
                           onChange={(e) => {
@@ -260,11 +259,11 @@ export default function LeadsPage() {
                             </option>
                           ))}
                         </select>
-                      </td>
+                      </Td>
                     </tr>
                     {closingThis !== null && (
                       <tr>
-                        <td colSpan={4}>
+                        <Td colSpan={4}>
                           <form
                             action={(form) => {
                               move(
@@ -274,13 +273,13 @@ export default function LeadsPage() {
                               );
                             }}
                           >
-                            <label className="bib-label" htmlFor={`lostReason-${l.lead.id}`}>
+                            <label className="label" htmlFor={`lostReason-${l.lead.id}`}>
                               {closingThis.stage === "lost"
                                 ? "Why did it go elsewhere?"
                                 : "What happened to it?"}
                             </label>
                             <textarea
-                              className="bib-input"
+                              className="input"
                               id={`lostReason-${l.lead.id}`}
                               name="lostReason"
                               rows={2}
@@ -292,14 +291,14 @@ export default function LeadsPage() {
                                   : "Three calls and two emails, no reply since June."
                               }
                             />
-                            <div className="bib-nav"
-                                 style={{ marginTop: "var(--bib-gap-1)", marginBottom: 0 }}>
-                              <button className="bib-button" type="submit"
+                            <div className="cluster"
+                                 style={{ marginTop: "var(--s-2)", marginBottom: 0 }}>
+                              <button className="btn" type="submit"
                                       disabled={busy !== null}>
                                 Close as {closingThis.stage}
                               </button>
                               <button
-                                className="bib-button-quiet"
+                                className="btn" data-variant="secondary" data-size="sm"
                                 type="button"
                                 disabled={busy !== null}
                                 onClick={() => {
@@ -309,13 +308,13 @@ export default function LeadsPage() {
                                 Keep it open
                               </button>
                             </div>
-                            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+                            <p className="muted text-sm">
                               In your own words, and required — the stage says only THAT it did
                               not close won. Lost and abandoned are different findings and this
                               is the half worth reading next quarter.
                             </p>
                           </form>
-                        </td>
+                        </Td>
                       </tr>
                     )}
                   </Fragment>
@@ -327,42 +326,41 @@ export default function LeadsPage() {
       </div>
 
       {closed.length > 0 && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Closed</h2>
-          <table className="bib-table">
+        <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+          <h2 className="card-title">Closed</h2>
+          <table className="table">
             <tbody>
               {closed.map((l) => (
                 <tr key={l.lead.id} data-inactive="true">
-                  <td>
+                  <Td>
                     <div>{l.lead.title}</div>
-                    <Link className="bib-muted" href={`/clients/${l.party.id}`}
-                          style={{ fontSize: 13 }}>
+                    <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
                       {l.party.displayName}
                     </Link>
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     {/* `lost` and `abandoned` render as themselves. Collapsing
                         them into one word would throw away the only signal that
                         separates a pricing problem from a follow-up one. */}
                     <span
-                      className="bib-pill"
-                      data-tone={recordsLostReason(l.lead.stage) ? "revoked" : ""}
+                      className="pill"
+                      data-tone={recordsLostReason(l.lead.stage) ? "danger" : ""}
                     >
                       {l.lead.stage}
                     </span>
-                  </td>
+                  </Td>
                   {/* WHY, in the closer's own words. Null on a converted lead is
                       right; null on a closed-unwon one means it was closed
                       before anybody was asked, which is a different silence. */}
-                  <td style={{ fontSize: 13 }}>
+                  <Td className="text-sm">
                     {l.lead.lostReason ??
                       (recordsLostReason(l.lead.stage) ? (
-                        <span className="bib-muted">no reason recorded — nobody was asked</span>
+                        <span className="muted">no reason recorded — nobody was asked</span>
                       ) : (
                         ""
                       ))}
-                  </td>
-                  <td className="bib-muted">{l.lead.closedAt?.slice(0, 10) ?? ""}</td>
+                  </Td>
+                  <Td className="muted">{l.lead.closedAt?.slice(0, 10) ?? ""}</Td>
                 </tr>
               ))}
             </tbody>
@@ -370,9 +368,9 @@ export default function LeadsPage() {
         </div>
       )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Capture a lead</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+      <div className="card">
+        <h2 className="card-title">Capture a lead</h2>
+        <p className="muted text-md">
           At least one way to reach them. Email, phone and PAN are what the firm
           deduplicates on, so the same prospect arriving twice lands on one record.
         </p>
@@ -381,19 +379,19 @@ export default function LeadsPage() {
             void capture(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div style={{ flex: "2 1 240px" }}>
-              <label className="bib-label" htmlFor="name">
+              <label className="label" htmlFor="name">
                 Company
               </label>
-              <input className="bib-input" id="name" name="name" required />
+              <input className="input" id="name" name="name" required />
             </div>
             <div style={{ flex: "2 1 240px" }}>
-              <label className="bib-label" htmlFor="title">
+              <label className="label" htmlFor="title">
                 Opportunity
               </label>
               <input
-                className="bib-input"
+                className="input"
                 id="title"
                 name="title"
                 placeholder="FY26 statutory audit"
@@ -401,10 +399,10 @@ export default function LeadsPage() {
               />
             </div>
             <div>
-              <label className="bib-label" htmlFor="source">
+              <label className="label" htmlFor="source">
                 Source
               </label>
-              <select className="bib-select" id="source" name="source" style={{ width: "100%" }}>
+              <select className="select" id="source" name="source" style={{ width: "100%" }}>
                 {LEAD_SOURCES.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -413,31 +411,31 @@ export default function LeadsPage() {
               </select>
             </div>
           </div>
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div>
-              <label className="bib-label" htmlFor="email">
+              <label className="label" htmlFor="email">
                 Email
               </label>
-              <input className="bib-input" id="email" name="email" type="email" />
+              <input className="input" id="email" name="email" type="email" />
             </div>
             <div>
-              <label className="bib-label" htmlFor="phone">
+              <label className="label" htmlFor="phone">
                 Phone
               </label>
-              <input className="bib-input" id="phone" name="phone" />
+              <input className="input" id="phone" name="phone" />
             </div>
             <div>
-              <label className="bib-label" htmlFor="pan">
+              <label className="label" htmlFor="pan">
                 PAN
               </label>
-              <input className="bib-input" id="pan" name="pan" placeholder="AAACL1234M" />
+              <input className="input" id="pan" name="pan" placeholder="AAACL1234M" />
             </div>
           </div>
-          <button className="bib-button" type="submit" disabled={busy !== null}>
+          <button className="btn" type="submit" disabled={busy !== null}>
             {busy === "capture" ? "Capturing…" : "Capture"}
           </button>
         </form>
       </div>
-    </main>
+    </Page>
   );
 }

@@ -7,7 +7,8 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Fact, Facts, NotStated, Prose } from "@/lib/ui/record";
+import { Meta, MetaItem, NotStated, Prose } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * What the firm sells, the terms it sells under, and the one rule it sells by.
@@ -140,7 +141,7 @@ export default function CataloguePage() {
     );
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   const canWrite = permissions.includes("tenant:admin");
   const rows = services.map(serviceRow);
@@ -152,32 +153,28 @@ export default function CataloguePage() {
       : String(discount.published.body["maxDiscountPercent"] ?? "");
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/proposals">Proposals</Link>
-        <Link href="/engagement-letters">Engagement letters</Link>
-      </nav>
-      <h1>Catalogue</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        The firm&apos;s own record of what it sells. A published version is frozen — every
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Catalogue"
+        lede="The firm&apos;s own record of what it sells. A published version is frozen — every
         proposal and letter quoted from it resolves that exact version forever — so a change
-        is a new version, never an edit.
-      </p>
+        is a new version, never an edit."
+      />
       {noteFor("load")}
 
       {rows.length > 0 && <Axes rows={rows} />}
 
       {rows.length === 0 ? (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <p className="bib-muted" style={{ margin: 0 }}>
+        <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+          <p className="muted">
             Nothing in the catalogue yet.
           </p>
         </div>
       ) : (
         groups.map((group) => (
           <section key={group.module ?? ""}>
-            <h2 className="bib-group-head">
+            <h2 className="eyebrow">
               {group.module === null ? (
                 // A service filed under no Dept is not an error and must not be
                 // dropped off the bottom of a grouped list: it is a row whose
@@ -186,7 +183,7 @@ export default function CataloguePage() {
               ) : (
                 <span>{group.module}</span>
               )}
-              <span className="bib-muted" style={{ fontWeight: 400, letterSpacing: 0 }}>
+              <span className="annot">
                 · {group.rows.length} {group.rows.length === 1 ? "service" : "services"}
               </span>
             </h2>
@@ -208,9 +205,9 @@ export default function CataloguePage() {
       )}
 
       {canWrite && (
-        <div className="bib-card" style={{ margin: "var(--bib-gap-3) 0" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Add a service</h2>
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+        <div className="card" style={{ margin: "var(--s-5) 0" }}>
+          <h2 className="card-title">Add a service</h2>
+          <p className="muted text-md">
             Everything but the name, the handle and how it is charged is optional, and blank
             means the firm has not stated it — which is a real answer the record will show as
             such. Nothing blank is sent.
@@ -220,9 +217,9 @@ export default function CataloguePage() {
               define(form);
             }}
           >
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div style={{ flex: "2 1 220px" }}>
-                <label className="bib-label" htmlFor="define-key">
+                <label className="label" htmlFor="define-key">
                   Handle
                 </label>
                 {/* The key is a HANDLE, not a title, and not the firm's service
@@ -230,23 +227,23 @@ export default function CataloguePage() {
                     Lower case by rule — the code that prints on a proposal is
                     `ref` below. */}
                 <input
-                  className="bib-input"
+                  className="input"
                   id="define-key"
                   name="key"
                   placeholder="gst-filing"
                   required
                 />
-                <p className="bib-hint">
+                <p className="field-hint">
                   Lower case, url-safe, permanent. Every issued document resolves through it.
                 </p>
               </div>
             </div>
             <ServiceFields id="define" defaults={null} axes={axes} workflows={workflows} />
             {noteFor("define")}
-            <button className="bib-button" type="submit" disabled={busy !== null}>
+            <button className="btn" type="submit" disabled={busy !== null}>
               Add as a draft
             </button>
-            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+            <p className="muted text-sm">
               Defining does not put it in force. Publish it, and from then on the version it
               was quoted at is frozen — which is what lets a proposal reopened next year still
               show the price it was sent at.
@@ -255,9 +252,9 @@ export default function CataloguePage() {
         </div>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Standard terms</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+      <div className="card">
+        <h2 className="card-title">Standard terms</h2>
+        <p className="muted text-md">
           The clause library an engagement letter is assembled from. Each clause carries where
           it may be USED (its jurisdictions) and, separately, what it SAYS — whose law governs
           and which courts hear a dispute. Those are not the same fact: a clause applicable in
@@ -265,15 +262,15 @@ export default function CataloguePage() {
           by the firm&apos;s US entity.
         </p>
         {clauses.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>No clauses defined yet.</p>
+          <p className="muted">No clauses defined yet.</p>
         ) : (
           clauses.map((entry) => <ClauseCard key={entry.entry.id} entry={entry} />)
         )}
       </div>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Discount limit</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+      <div className="card">
+        <h2 className="card-title">Discount limit</h2>
+        <p className="muted text-md">
           {discountLimit === null || discountLimit === ""
             ? "None published — so ANY discount needs sign-off from somebody holding proposal:approve. A firm that has never set a limit has not decided that anything goes."
             : `${discountLimit}% off without sign-off. Past it, a proposal cannot be sent until somebody holding proposal:approve has approved it.`}
@@ -297,13 +294,13 @@ export default function CataloguePage() {
               );
             }}
           >
-            <div className="bib-field-row">
+            <div className="field-row">
               <div style={{ flex: "0 1 140px" }}>
-                <label className="bib-label" htmlFor="maxDiscountPercent">
+                <label className="label" htmlFor="maxDiscountPercent">
                   Limit %
                 </label>
                 <input
-                  className="bib-input"
+                  className="input"
                   id="maxDiscountPercent"
                   name="maxDiscountPercent"
                   defaultValue={discountLimit ?? "15"}
@@ -311,14 +308,14 @@ export default function CataloguePage() {
                 />
               </div>
               <div>
-                <button className="bib-button" type="submit" disabled={busy !== null}>
+                <button className="btn" type="submit" disabled={busy !== null}>
                   {discount === undefined ? "Set it" : "Draft a new limit"}
                 </button>
               </div>
             </div>
             {noteFor("policy")}
             {discount !== undefined && (
-              <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              <p className="muted text-sm">
                 A new version is a draft until it is published — the limit in force does not
                 move until then.
               </p>
@@ -326,7 +323,7 @@ export default function CataloguePage() {
           </form>
         )}
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -354,8 +351,8 @@ function ServiceCard({
   const { body, published, draft } = row;
   const draftBody = draft === null ? null : readServiceRecord(draft.body);
   return (
-    <article className="bib-card bib-record">
-      <div className="bib-record-head">
+    <article className="card stack">
+      <div className="card-head">
         {/* The firm's OWN code, printed as the firm writes it. It is on the body
             and not on the handle because a services-master renumber is an
             ordinary Tuesday and the handle is what every issued document pins
@@ -363,21 +360,21 @@ function ServiceCard({
         {body.ref === null ? (
           <NotStated>no code</NotStated>
         ) : (
-          <span className="bib-pill" data-tone="code">
+          <span className="pill" data-tone="code">
             {body.ref}
           </span>
         )}
-        <h3>{body.name === "" ? row.key : body.name}</h3>
-        <span className="bib-muted bib-mono">{row.key}</span>
+        <h3 className="card-title">{body.name === "" ? row.key : body.name}</h3>
+        <span className="mono muted">{row.key}</span>
         <span style={{ marginLeft: "auto" }}>
           {published === null ? (
             // A draft was never in force, so it cannot be quoted — the proposal
             // screen will not offer it either.
-            <span className="bib-pill" data-tone="revoked">
+            <span className="pill" data-tone="danger">
               draft only — never in force
             </span>
           ) : (
-            <span className="bib-pill" data-tone="live">
+            <span className="pill" data-tone="accent">
               in force · v{published.version}
             </span>
           )}
@@ -390,7 +387,7 @@ function ServiceCard({
         // not "still loading", it is a row the API could not resolve. Saying so
         // beats rendering "not stated" against every field, which would be that
         // lie in full.
-        <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+        <p className="muted text-md">
           Its versions could not be read, so what this service says is unknown here.
         </p>
       ) : (
@@ -401,8 +398,8 @@ function ServiceCard({
       )}
 
       {draft !== null && (
-        <div style={{ marginTop: "var(--bib-gap-3)" }}>
-          <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+        <div style={{ marginTop: "var(--s-5)" }}>
+          <p className="muted text-md">
             {published === null
               ? `Draft v${draft.version} is what would go in force. Nothing is quoting this service until it is published.`
               : `A draft v${draft.version} is waiting. It changes nothing until it is published — v${published.version} above is what proposals still resolve.`}
@@ -411,9 +408,9 @@ function ServiceCard({
             // Side by side, never merged: what is in force is above, and this is
             // what would replace it. Blurring the two is the one thing this
             // screen must not do.
-            <details style={{ marginTop: "var(--bib-gap-1)" }}>
+            <details style={{ marginTop: "var(--s-2)" }}>
               <summary>What the pending draft v{draft.version} says</summary>
-              <div style={{ marginTop: "var(--bib-gap-2)" }}>
+              <div style={{ marginTop: "var(--s-4)" }}>
                 <ServiceFacts body={draftBody} />
                 <ServiceProse body={draftBody} />
               </div>
@@ -423,8 +420,8 @@ function ServiceCard({
             <>
               {note(`publish:${row.key}`)}
               <button
-                className="bib-button-quiet"
-                style={{ marginTop: "var(--bib-gap-1)" }}
+                className="btn" data-variant="secondary" data-size="sm"
+                style={{ marginTop: "var(--s-2)" }}
                 disabled={busy !== null}
                 onClick={() => {
                   onPublish(row.key, draft.version);
@@ -438,22 +435,22 @@ function ServiceCard({
       )}
 
       {canWrite && draft === null && published !== null && (
-        <details style={{ marginTop: "var(--bib-gap-3)" }}>
+        <details style={{ marginTop: "var(--s-5)" }}>
           <summary>Draft a new version</summary>
           <form
-            style={{ marginTop: "var(--bib-gap-2)" }}
+            style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
               onNewVersion(row.key, form);
             }}
           >
-            <p className="bib-muted" style={{ fontSize: 13, marginTop: 0 }}>
+            <p className="muted text-sm">
               A new version is a WHOLE new body, so this starts as a copy of what is in force.
               Clearing a field here means the new version does not state it — which is a
               change, not a blank.
             </p>
             <ServiceFields id={`v-${row.key}`} defaults={body} axes={axes} workflows={workflows} />
             {note(`version:${row.key}`)}
-            <button className="bib-button" type="submit" disabled={busy !== null}>
+            <button className="btn" type="submit" disabled={busy !== null}>
               Draft it
             </button>
           </form>
@@ -466,22 +463,22 @@ function ServiceCard({
 /** The short facts: how it is filed, how it is sold, what it promises. */
 function ServiceFacts({ body }: { body: ServiceRecord }) {
   return (
-    <Facts>
+    <Meta>
       {/* Two axes, never a tree — see Axes below. */}
-      <Fact label="Dept (module)">
+      <MetaItem label="Dept (module)">
         {body.module === null ? <NotStated>filed under no Dept</NotStated> : body.module}
-      </Fact>
-      <Fact label="Delivery team (group)">
+      </MetaItem>
+      <MetaItem label="Delivery team (group)">
         {body.group === null ? <NotStated>no team</NotStated> : body.group}
-      </Fact>
-      <Fact label="Charged">
+      </MetaItem>
+      <MetaItem label="Charged">
         {body.billingBasis === null ? (
           <NotStated />
         ) : (
           body.billingBasis.replace("_", " ")
         )}
-      </Fact>
-      <Fact label="Recurs">
+      </MetaItem>
+      <MetaItem label="Recurs">
         {/* Null is not one_time. A consumer that defaulted it would put a billing
             frequency on an engagement letter that nobody chose. */}
         {body.recurrence === null ? (
@@ -489,35 +486,35 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
         ) : (
           body.recurrence.replace("_", " ")
         )}
-      </Fact>
-      <Fact label="Turnaround (SLA)">{slaSentence(body.slaDays)}</Fact>
-      <Fact label="List price">
+      </MetaItem>
+      <MetaItem label="Turnaround (SLA)">{slaSentence(body.slaDays)}</MetaItem>
+      <MetaItem label="List price">
         {/* Null is "we quote it", never zero and never free. */}
         {body.listPrice === null ? (
           <NotStated>no list price — quoted per engagement</NotStated>
         ) : (
-          <span className="bib-mono">
+          <span className="mono">
             {formatMoney(body.listPrice.amount, body.listPrice.currency)}
           </span>
         )}
-      </Fact>
-      <Fact label="Pricing note">
+      </MetaItem>
+      <MetaItem label="Pricing note">
         {/* Allowed beside a price too: "plus statutory fees at actuals" belongs
             next to the money, not buried in the description. */}
         {body.pricingNote === null ? <NotStated /> : body.pricingNote}
-      </Fact>
-      <Fact label="Offered in">
+      </MetaItem>
+      <MetaItem label="Offered in">
         {body.jurisdictions.length === 0 ? (
-          <span className="bib-muted">everywhere</span>
+          <span className="muted">everywhere</span>
         ) : (
-          <span className="bib-mono">{body.jurisdictions.join(", ")}</span>
+          <span className="mono">{body.jurisdictions.join(", ")}</span>
         )}
-      </Fact>
-      <Fact label="Category">{body.category === null ? <NotStated /> : body.category}</Fact>
-      <Fact label="Description">
+      </MetaItem>
+      <MetaItem label="Category">{body.category === null ? <NotStated /> : body.category}</MetaItem>
+      <MetaItem label="Description">
         {body.description === null ? <NotStated /> : body.description}
-      </Fact>
-    </Facts>
+      </MetaItem>
+    </Meta>
   );
 }
 
@@ -532,7 +529,7 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
  */
 function ServiceProse({ body }: { body: ServiceRecord }) {
   return (
-    <div className="bib-prose-grid">
+    <div className="prose-grid">
       <Prose heading="What the firm will do" field="scope" text={body.scope} />
       <Prose
         heading="What the client must do"
@@ -560,16 +557,16 @@ function ServiceProse({ body }: { body: ServiceRecord }) {
  */
 function Axes({ rows }: { rows: ServiceRow[] }) {
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-      <Facts>
-        <Fact label="By Dept — what revenue is reported by">
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+      <Meta>
+        <MetaItem label="By Dept — what revenue is reported by">
           <AxisChips counts={countBy(rows, (b) => b.module)} />
-        </Fact>
-        <Fact label="By delivery team — who does the work">
+        </MetaItem>
+        <MetaItem label="By delivery team — who does the work">
           <AxisChips counts={countBy(rows, (b) => b.group)} />
-        </Fact>
-      </Facts>
-      <p className="bib-muted" style={{ fontSize: 13, margin: 0 }}>
+        </MetaItem>
+      </Meta>
+      <p className="muted text-sm">
         Two independent dimensions, not a hierarchy: one delivery team works under more than
         one Dept, so a service has each of these separately.
       </p>
@@ -580,9 +577,9 @@ function Axes({ rows }: { rows: ServiceRow[] }) {
 function AxisChips({ counts }: { counts: AxisCount[] }) {
   if (counts.length === 0) return <NotStated>nothing filed</NotStated>;
   return (
-    <span className="bib-chips">
+    <span className="cluster">
       {counts.map((c) => (
-        <span key={c.label ?? ""} className="bib-pill" data-tone={c.label === null ? "" : "code"}>
+        <span key={c.label ?? ""} className="pill" data-tone={c.label === null ? "" : "code"}>
           {c.label ?? "not filed"} · {c.count}
         </span>
       ))}
@@ -596,23 +593,23 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
   const body = readClauseRecord(entry.published?.body);
   return (
     <article
-      className="bib-record"
+      className="stack"
       style={{
-        borderTop: "1px solid var(--bib-border)",
-        paddingTop: "var(--bib-gap-2)",
-        marginTop: "var(--bib-gap-2)",
+        borderTop: "1px solid var(--line)",
+        paddingTop: "var(--s-4)",
+        marginTop: "var(--s-4)",
       }}
     >
-      <div className="bib-record-head">
-        <h3>{body.title === "" ? entry.entry.key : body.title}</h3>
-        <span className="bib-muted bib-mono">{entry.entry.key}</span>
+      <div className="card-head">
+        <h3 className="card-title">{body.title === "" ? entry.entry.key : body.title}</h3>
+        <span className="mono muted">{entry.entry.key}</span>
         <span style={{ marginLeft: "auto" }}>
           {entry.published === null ? (
-            <span className="bib-pill" data-tone="revoked">
+            <span className="pill" data-tone="danger">
               draft only — never in force
             </span>
           ) : (
-            <span className="bib-pill" data-tone="live">
+            <span className="pill" data-tone="accent">
               in force · v{entry.published.version}
             </span>
           )}
@@ -623,29 +620,29 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         // that has only ever been a draft has no body here. Saying that is the
         // honest render; a record of "not stated" everywhere would read as a
         // clause that names no law, which is a different and much worse claim.
-        <p className="bib-muted" style={{ fontSize: 14, margin: 0 }}>
+        <p className="muted text-md">
           Never published, so what it says is not on this list. No letter can pin it.
         </p>
       ) : (
         <>
-          <Facts>
-            <Fact label="Applicable in">
+          <Meta>
+            <MetaItem label="Applicable in">
               {/* Where it may be USED. Not the same fact as what it SAYS — the
                   two below are that, and the gap between them is how a US
                   entity's letter went out naming Indian law. */}
               {body.jurisdictions.length === 0 ? (
-                <span className="bib-muted">everywhere</span>
+                <span className="muted">everywhere</span>
               ) : (
-                <span className="bib-mono">{body.jurisdictions.join(", ")}</span>
+                <span className="mono">{body.jurisdictions.join(", ")}</span>
               )}
-            </Fact>
-            <Fact label="Governing law">
+            </MetaItem>
+            <MetaItem label="Governing law">
               <Term term={body.governingLaw} absent="this clause names no law" />
-            </Fact>
-            <Fact label="Courts">
+            </MetaItem>
+            <MetaItem label="Courts">
               <Term term={body.courts} absent="this clause names no forum" />
-            </Fact>
-          </Facts>
+            </MetaItem>
+          </Meta>
           <Prose
             heading="The clause"
             field="text"
@@ -672,7 +669,7 @@ function Term({ term, absent }: { term: JurisdictionalTerm | null; absent: strin
   if (term === null) return <NotStated>{absent}</NotStated>;
   return (
     <span>
-      <span className="bib-pill" data-tone="code">
+      <span className="pill" data-tone="code">
         {term.jurisdiction}
       </span>{" "}
       {term.text}
@@ -703,13 +700,13 @@ function ServiceFields({
 }) {
   return (
     <>
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div style={{ flex: "3 1 240px" }}>
-          <label className="bib-label" htmlFor={`${id}-name`}>
+          <label className="label" htmlFor={`${id}-name`}>
             Name
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-name`}
             name="name"
             defaultValue={defaults?.name ?? ""}
@@ -717,25 +714,25 @@ function ServiceFields({
           />
         </div>
         <div style={{ flex: "0 1 120px" }}>
-          <label className="bib-label" htmlFor={`${id}-ref`}>
+          <label className="label" htmlFor={`${id}-ref`}>
             Service code
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-ref`}
             name="ref"
             placeholder="A1"
             maxLength={32}
             defaultValue={defaults?.ref ?? ""}
           />
-          <p className="bib-hint">The firm&apos;s own code. Printed on proposals.</p>
+          <p className="field-hint">The firm&apos;s own code. Printed on proposals.</p>
         </div>
         <div>
-          <label className="bib-label" htmlFor={`${id}-billingBasis`}>
+          <label className="label" htmlFor={`${id}-billingBasis`}>
             Charged
           </label>
           <select
-            className="bib-select"
+            className="select"
             id={`${id}-billingBasis`}
             name="billingBasis"
             defaultValue={defaults?.billingBasis ?? "fixed"}
@@ -747,11 +744,11 @@ function ServiceFields({
               </option>
             ))}
           </select>
-          <p className="bib-hint">What the price is a price OF.</p>
+          <p className="field-hint">What the price is a price OF.</p>
         </div>
       </div>
 
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div>
           <AxisPicker
             id={id}
@@ -776,9 +773,9 @@ function ServiceFields({
         </div>
       </div>
 
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div style={{ flex: "1 1 100%" }}>
-          <label className="bib-label" htmlFor={`${id}-workflowTemplateKey`}>
+          <label className="label" htmlFor={`${id}-workflowTemplateKey`}>
             How it is delivered
           </label>
           {/* A PICKER of the firm's published processes, and only published
@@ -787,7 +784,7 @@ function ServiceFields({
               an option here — the key resolves against config.entry and a typo
               would leave every job for this service waiting forever. */}
           <select
-            className="bib-select"
+            className="select"
             id={`${id}-workflowTemplateKey`}
             name="workflowTemplateKey"
             defaultValue={defaults?.workflowTemplateKey ?? ""}
@@ -804,7 +801,7 @@ function ServiceFields({
                 </option>
               ))}
           </select>
-          <p className="bib-hint">
+          <p className="field-hint">
             The process every job for this service follows.{" "}
             <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
             real answer — the work is created and waits, visibly, rather than running a
@@ -813,13 +810,13 @@ function ServiceFields({
         </div>
       </div>
 
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div>
-          <label className="bib-label" htmlFor={`${id}-recurrence`}>
+          <label className="label" htmlFor={`${id}-recurrence`}>
             Recurs
           </label>
           <select
-            className="bib-select"
+            className="select"
             id={`${id}-recurrence`}
             name="recurrence"
             defaultValue={defaults?.recurrence ?? ""}
@@ -832,14 +829,14 @@ function ServiceFields({
               </option>
             ))}
           </select>
-          <p className="bib-hint">How often the work comes round. Not how it is billed.</p>
+          <p className="field-hint">How often the work comes round. Not how it is billed.</p>
         </div>
         <div>
-          <label className="bib-label" htmlFor={`${id}-slaDays`}>
+          <label className="label" htmlFor={`${id}-slaDays`}>
             SLA, days from signing
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-slaDays`}
             name="slaDays"
             type="number"
@@ -849,19 +846,19 @@ function ServiceFields({
             placeholder="30"
             defaultValue={defaults?.slaDays ?? ""}
           />
-          <p className="bib-hint">
+          <p className="field-hint">
             Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing.
           </p>
         </div>
       </div>
 
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div style={{ flex: "0 1 160px" }}>
-          <label className="bib-label" htmlFor={`${id}-amount`}>
+          <label className="label" htmlFor={`${id}-amount`}>
             List price
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-amount`}
             name="amount"
             placeholder="25000.00"
@@ -869,11 +866,11 @@ function ServiceFields({
           />
         </div>
         <div style={{ flex: "0 1 100px" }}>
-          <label className="bib-label" htmlFor={`${id}-currency`}>
+          <label className="label" htmlFor={`${id}-currency`}>
             Currency
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-currency`}
             name="currency"
             maxLength={3}
@@ -881,54 +878,54 @@ function ServiceFields({
           />
         </div>
         <div style={{ flex: "2 1 240px" }}>
-          <label className="bib-label" htmlFor={`${id}-pricingNote`}>
+          <label className="label" htmlFor={`${id}-pricingNote`}>
             Pricing note
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-pricingNote`}
             name="pricingNote"
             placeholder="As mutually agreed"
             defaultValue={defaults?.pricingNote ?? ""}
           />
-          <p className="bib-hint">
+          <p className="field-hint">
             Why there is no list price — and allowed beside one, for &quot;plus statutory fees
             at actuals&quot;.
           </p>
         </div>
       </div>
 
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="field-row">
         <div>
-          <label className="bib-label" htmlFor={`${id}-category`}>
+          <label className="label" htmlFor={`${id}-category`}>
             Category
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-category`}
             name="category"
             defaultValue={defaults?.category ?? ""}
           />
         </div>
         <div>
-          <label className="bib-label" htmlFor={`${id}-jurisdictions`}>
+          <label className="label" htmlFor={`${id}-jurisdictions`}>
             Offered in
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-jurisdictions`}
             name="jurisdictions"
             placeholder="IN, AE"
             defaultValue={defaults?.jurisdictions.join(", ") ?? ""}
           />
-          <p className="bib-hint">ISO codes, comma separated. Blank means everywhere.</p>
+          <p className="field-hint">ISO codes, comma separated. Blank means everywhere.</p>
         </div>
         <div style={{ flex: "3 1 260px" }}>
-          <label className="bib-label" htmlFor={`${id}-description`}>
+          <label className="label" htmlFor={`${id}-description`}>
             Description
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-description`}
             name="description"
             defaultValue={defaults?.description ?? ""}
@@ -936,14 +933,14 @@ function ServiceFields({
         </div>
       </div>
 
-      <div className="bib-prose-grid" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <div className="prose-grid">
         {SCOPE_BLOCKS.map((block) => (
           <div key={block.field}>
-            <label className="bib-label" htmlFor={`${id}-${block.field}`}>
-              {block.heading} <span className="bib-mono">{block.field}</span>
+            <label className="label" htmlFor={`${id}-${block.field}`}>
+              {block.heading} <span className="mono">{block.field}</span>
             </label>
             <textarea
-              className="bib-textarea"
+              className="textarea"
               id={`${id}-${block.field}`}
               name={block.field}
               rows={3}
@@ -953,7 +950,7 @@ function ServiceFields({
           </div>
         ))}
       </div>
-      <p className="bib-hint" style={{ marginBottom: "var(--bib-gap-2)" }}>
+      <p className="field-hint">
         The firm&apos;s own words, as the firm states them — &quot;under 1,000 entries; under 8
         bank accounts&quot;. Nothing is metered against them: past a ceiling the firm
         re-assesses the engagement.
@@ -1327,12 +1324,12 @@ function failureOf(at: string, error: unknown): Failure {
  */
 function FailureNote({ failure }: { failure: Failure }) {
   return (
-    <p className="bib-error">
+    <p className="notice" data-tone="danger" role="alert">
       {failure.message}
       {failure.reason !== null && (
         <>
           {" "}
-          <span className="bib-mono">({failure.reason})</span>
+          <span className="mono">({failure.reason})</span>
         </>
       )}
     </p>
@@ -1382,7 +1379,7 @@ function AxisPicker({
   if (rows.length === 0) {
     return (
       <>
-        <label className="bib-label" htmlFor={`${id}-${field}`}>
+        <label className="label" htmlFor={`${id}-${field}`}>
           {label}
         </label>
         {/* Sent VERBATIM. The API demands the canonical form at the WRITE rather
@@ -1390,13 +1387,13 @@ function AxisPicker({
             axis is GROUPED BY in SQL — so upper-casing it here would hide a rule
             the firm needs to know about behind a silent fix. */}
         <input
-          className="bib-input"
+          className="input"
           id={`${id}-${field}`}
           name={field}
           placeholder={placeholder}
           defaultValue={current ?? ""}
         />
-        <p className="bib-hint">
+        <p className="field-hint">
           {hint} This firm has not defined its list yet, so anything upper-case is accepted —
           define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
           picker.
@@ -1407,11 +1404,11 @@ function AxisPicker({
 
   return (
     <>
-      <label className="bib-label" htmlFor={`${id}-${field}`}>
+      <label className="label" htmlFor={`${id}-${field}`}>
         {label}
       </label>
       <select
-        className="bib-select"
+        className="select"
         id={`${id}-${field}`}
         name={field}
         defaultValue={current ?? ""}
@@ -1428,7 +1425,7 @@ function AxisPicker({
           <option value={current}>{current} — no longer on this firm&apos;s list</option>
         )}
       </select>
-      <p className="bib-hint">
+      <p className="field-hint">
         {hint}
         {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
       </p>

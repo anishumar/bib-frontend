@@ -52,11 +52,42 @@ Do not improve on it — several messages are deliberately vague because the API
 confirm who holds an account, and a friendlier local rewrite would leak exactly what the
 backend refused to.
 
-## Styling
+## Styling — read `src/design/README.md` before writing any UI
 
-Tokens in `src/app/globals.css`, used by name. No hardcoded hex values in components. This
-is the smallest thing worth calling a design system; grow it when a real screen needs more,
-not before.
+There is a design system, and it is the DEFAULT way to build a screen here, not a set of
+optional helpers sitting beside the old way. It is the **same design language as 10x CRM**
+(`../10xcrm`): same IBM Plex faces, same blue-green-biased neutrals, same teal accent, same
+scales. Where a token name exists in both, it means the same thing.
+
+```
+src/design/     tokens.css · base.css · layout.css · components.css
+src/components/ ui/ · layout/ · states/
+```
+
+The rules, in short:
+
+- **Import the component, never type the class.** `<Button>`, `<Field>`, `<Pill>`, `<Card>`,
+  `<Table>`, `<Tabs>`, `<Dialog>` — all from `@/components/ui`. The class names are an
+  implementation detail, and keeping them so is what stops a sixth button appearing the week
+  after the fifth was consolidated.
+- **Colour is spent in one place and means one thing: status.** A button is not coloured
+  because a button is not a status. The primary button is ink, not accent.
+- **Nothing invents a value.** Type comes off the scale (`--t-xs`…`--t-2xl`, or the
+  `.text-*` classes), spacing off `--s-1`…`--s-7`, shape off `--r`/`--r-sm`. `13px`, `15px`
+  and `17px` are not on the ladder.
+- **No hex values in components**, and no inline `fontSize`, `color`, `borderRadius` or
+  `boxShadow`. All of these are **lint errors** — `eslint.config.mjs` names what to use
+  instead in each message.
+- **A component never branches on theme.** Light and dark redefine only the semantic colour
+  tokens; everything else appears once. If you want a dark-mode rule inside a component, the
+  token is missing — add it to `tokens.css`.
+- **Navigation lives in `AppShell`, once.** A page does not list its own links.
+- **Accessibility comes from the components.** `<Field>` wires label/hint/error and the ARIA
+  that goes with them; `<Tabs>` is a real tablist with arrow keys; `<Dialog>` is the native
+  element. Do not hand-roll any of the three.
+
+If a screen needs something the system does not have, add it to the system — deliberately,
+in one place, for everybody. Do not solve it locally.
 
 ## The screens, and what they are for
 

@@ -7,6 +7,8 @@ import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
+import { Button, Pill, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -29,6 +31,7 @@ export default function PartyPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   // What to OFFER, never what is allowed.
   const [permissions, setPermissions] = useState<string[]>([]);
 
@@ -58,6 +61,30 @@ export default function PartyPage() {
     })();
   }, [load]);
 
+  /**
+   * Archive, or bring back.
+   *
+   * NOT a delete, and the API says so in its own summary: it hides the party
+   * from pickers and lists. Everything the firm did with them — engagements,
+   * invoices, the trail — stays exactly where it was, which is why this is
+   * offered on the record rather than as a row action somebody could hit by
+   * accident on the way past.
+   */
+  async function setArchived(archive: boolean): Promise<void> {
+    setArchiving(true);
+    setError(null);
+    const result = archive
+      ? await api.POST("/api/v1/parties/{partyId}/archive", { params: { path: { partyId } } })
+      : await api.POST("/api/v1/parties/{partyId}/unarchive", { params: { path: { partyId } } });
+    if (result.error) {
+      setError(apiError(result.error).message);
+      setArchiving(false);
+      return;
+    }
+    await load();
+    setArchiving(false);
+  }
+
   async function addIdentifier(form: FormData): Promise<void> {
     setBusy(true);
     setError(null);
@@ -80,30 +107,47 @@ export default function PartyPage() {
     await load();
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
   if (profile === null) {
     return (
-      <main>
-        <nav className="bib-nav">
-          <Link href="/clients">← Clients</Link>
-        </nav>
-        <p className="bib-error">{error ?? "No such party."}</p>
-      </main>
+      <Page>
+        <p className="notice" data-tone="danger" role="alert">{error ?? "No such party."}</p>
+      </Page>
     );
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  // The same permission the Files panel on this page is gated on, and the one
+  // the API takes for archiving.
+  const canWrite = permissions.includes("party:write");
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/clients">← Clients</Link>
-      </nav>
-      <h1 style={{ marginBottom: 4 }}>{profile.party.displayName}</h1>
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title={<>{profile.party.displayName}</>}
+        aside={
+          <>
+            {/* The state, where the action to change it is. The book already
+                rendered this pill and could not set it. */}
+            {profile.party.archivedAt !== null && <Pill tone="danger">archived</Pill>}
+            {canWrite && (
+              <Button
+                size="sm"
+                variant={profile.party.archivedAt === null ? "destructive-quiet" : "secondary"}
+                loading={archiving}
+                onClick={() => void setArchived(profile.party.archivedAt === null)}
+              >
+                {profile.party.archivedAt === null ? "Archive" : "Restore"}
+              </Button>
+            )}
+          </>
+        }
+      />
       {/* The subtype detail. The display name prefers a trade name, so the LEGAL
           name is a different fact and worth showing when they differ — it is
           what goes on an engagement letter. */}
-      <p className="bib-muted" style={{ marginTop: 0 }}>
+      <p className="muted">
         {profile.organization !== null
           ? [
               profile.organization.legalName === profile.party.displayName
@@ -121,7 +165,7 @@ export default function PartyPage() {
             : profile.party.kind}
       </p>
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {/* First, because "who at the firm looks after this client" is the
           question somebody opening a client page most often has, and until
@@ -129,35 +173,35 @@ export default function PartyPage() {
       <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
 
       {profile.legalEntities.length > 0 && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Registered</h2>
-          <table className="bib-table">
+        <div className="card">
+          <h2 className="card-title">Registered</h2>
+          <table className="table">
             <thead>
               <tr>
-                <th>Jurisdiction</th>
-                <th>Type</th>
-                <th>Incorporated</th>
-                <th>FY end</th>
-                <th>Status</th>
+                <Th>Jurisdiction</Th>
+                <Th>Type</Th>
+                <Th>Incorporated</Th>
+                <Th>FY end</Th>
+                <Th>Status</Th>
               </tr>
             </thead>
             <tbody>
               {profile.legalEntities.map((e) => (
                 <tr key={`${e.jurisdiction}-${e.entityType}`}>
-                  <td className="bib-mono">{e.jurisdiction}</td>
-                  <td>{e.entityType}</td>
-                  <td className="bib-muted">{e.incorporatedOn ?? "—"}</td>
+                  <Td className="mono">{e.jurisdiction}</Td>
+                  <Td>{e.entityType}</Td>
+                  <Td className="muted">{e.incorporatedOn ?? "—"}</Td>
                   {/* MM-DD: a financial year ends on a date in the calendar,
                       not in a particular year. */}
-                  <td className="bib-muted">{e.financialYearEnd ?? "—"}</td>
-                  <td>
+                  <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
+                  <Td>
                     <span
-                      className="bib-pill"
-                      data-tone={e.status === "active" ? "" : "revoked"}
+                      className="pill"
+                      data-tone={e.status === "active" ? "" : "danger"}
                     >
                       {e.status}
                     </span>
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -165,39 +209,39 @@ export default function PartyPage() {
         </div>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Identifiers</h2>
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">Identifiers</h2>
         {profile.identifiers.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
+          <p className="muted">
             None yet. A PAN or an email is what lets a second capture of this
             counterparty find this record instead of making another.
           </p>
         ) : (
-          <table className="bib-table">
+          <table className="table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Value</th>
-                <th>Where</th>
-                <th>From</th>
+                <Th>Type</Th>
+                <Th>Value</Th>
+                <Th>Where</Th>
+                <Th>From</Th>
               </tr>
             </thead>
             <tbody>
               {profile.identifiers.map((i) => (
                 <tr key={i.id}>
-                  <td>
+                  <Td>
                     {i.type}
                     {i.isPrimary && (
-                      <span className="bib-pill" style={{ marginLeft: 8 }}>
+                      <span className="pill" style={{ marginLeft: 8 }}>
                         primary
                       </span>
                     )}
-                  </td>
+                  </Td>
                   {/* Stored normalised by the API — uppercase, unspaced — which
                       is what makes two captures of one company match. */}
-                  <td className="bib-mono">{i.value}</td>
-                  <td className="bib-muted">{i.jurisdiction ?? "—"}</td>
-                  <td className="bib-muted">{i.validFrom}</td>
+                  <Td className="mono">{i.value}</Td>
+                  <Td className="muted">{i.jurisdiction ?? "—"}</Td>
+                  <Td className="muted">{i.validFrom}</Td>
                 </tr>
               ))}
             </tbody>
@@ -205,20 +249,20 @@ export default function PartyPage() {
         )}
       </div>
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Relationships</h2>
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">Relationships</h2>
         {profile.relationships.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
+          <p className="muted">
             None recorded.
           </p>
         ) : (
-          <table className="bib-table">
+          <table className="table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Counterparty</th>
-                <th>From</th>
-                <th>To</th>
+                <Th>Type</Th>
+                <Th>Counterparty</Th>
+                <Th>From</Th>
+                <Th>To</Th>
               </tr>
             </thead>
             <tbody>
@@ -227,18 +271,18 @@ export default function PartyPage() {
                   {/* Direction matters: "Priya is a director of Meridian" and
                       "Meridian has Priya as a director" are one row read from
                       two ends, and the sentence is different each way. */}
-                  <td>
+                  <Td>
                     {r.relationship.type} {r.direction === "outgoing" ? "→" : "←"}
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     <Link href={`/clients/${r.counterparty.id}`}>
                       {r.counterparty.displayName}
                     </Link>
-                  </td>
-                  <td className="bib-muted">{r.relationship.validFrom}</td>
+                  </Td>
+                  <Td className="muted">{r.relationship.validFrom}</Td>
                   {/* Effective dating: an open relationship has no end, which is
                       a different fact from one that ended today. */}
-                  <td className="bib-muted">{r.relationship.validTo ?? "open"}</td>
+                  <Td className="muted">{r.relationship.validTo ?? "open"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -246,19 +290,19 @@ export default function PartyPage() {
         )}
       </div>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Attach an identifier</h2>
+      <div className="card">
+        <h2 className="card-title">Attach an identifier</h2>
         <form
           action={(form) => {
             void addIdentifier(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div>
-              <label className="bib-label" htmlFor="type">
+              <label className="label" htmlFor="type">
                 Type
               </label>
-              <select className="bib-select" id="type" name="type" style={{ width: "100%" }}>
+              <select className="select" id="type" name="type" style={{ width: "100%" }}>
                 {IDENTIFIER_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -267,31 +311,31 @@ export default function PartyPage() {
               </select>
             </div>
             <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="value">
+              <label className="label" htmlFor="value">
                 Value
               </label>
-              <input className="bib-input" id="value" name="value" required />
+              <input className="input" id="value" name="value" required />
             </div>
             <div>
-              <label className="bib-label" htmlFor="jurisdiction">
+              <label className="label" htmlFor="jurisdiction">
                 Jurisdiction
               </label>
-              <input className="bib-input" id="jurisdiction" name="jurisdiction" maxLength={2}
+              <input className="input" id="jurisdiction" name="jurisdiction" maxLength={2}
                      placeholder="IN" />
             </div>
             <div>
-              <label className="bib-label" htmlFor="validFrom">
+              <label className="label" htmlFor="validFrom">
                 Valid from
               </label>
-              <input className="bib-input" id="validFrom" name="validFrom" type="date"
+              <input className="input" id="validFrom" name="validFrom" type="date"
                      defaultValue={today} required />
             </div>
           </div>
-          <label className="bib-check" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
             <input type="checkbox" name="isPrimary" />
             <span>The primary one of its type for this party.</span>
           </label>
-          <button className="bib-button" type="submit" disabled={busy}>
+          <button className="btn" type="submit" disabled={busy}>
             {busy ? "Attaching…" : "Attach"}
           </button>
         </form>
@@ -303,10 +347,10 @@ export default function PartyPage() {
         subjectKind="party"
         subjectRef={partyId}
         partyId={partyId}
-        canWrite={permissions.includes("party:write")}
+        canWrite={canWrite}
         emptyHint="Nothing on file yet. A PAN card, a certificate of incorporation, a board resolution — whatever the firm would have to go looking for."
       />
-    </main>
+    </Page>
   );
 }
 

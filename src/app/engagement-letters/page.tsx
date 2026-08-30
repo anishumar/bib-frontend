@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
+import { Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * Engagement letters — what the firm has AGREED, as opposed to what it offered.
@@ -102,7 +104,7 @@ export default function LettersPage() {
     router.push(`/engagement-letters/${result.data.id}`);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   const today = new Date().toISOString().slice(0, 10);
   // A letter already replaced cannot be replaced again — the API refuses a
@@ -117,30 +119,28 @@ export default function LettersPage() {
   );
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/proposals">Proposals</Link>
-        <Link href="/catalogue">Catalogue</Link>
-      </nav>
-      <h1>Engagement letters</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Engagement letters"
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+      <div className="card">
         {letters.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
+          <p className="muted">
             Nothing agreed yet.
           </p>
         ) : (
-          <table className="bib-table">
+          <table className="table">
             <thead>
               <tr>
-                <th>Ref</th>
-                <th>Letter</th>
-                <th>Client</th>
-                <th>Issued by</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Value</th>
+                <Th>Ref</Th>
+                <Th>Letter</Th>
+                <Th>Client</Th>
+                <Th>Issued by</Th>
+                <Th>Status</Th>
+                <Th style={{ textAlign: "right" }}>Value</Th>
               </tr>
             </thead>
             <tbody>
@@ -148,37 +148,37 @@ export default function LettersPage() {
                 <tr key={l.letter.id}>
                   {/* The number, first, because it is what somebody arrives
                       holding. */}
-                  <td className="bib-mono">
+                  <Td className="mono">
                     <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.ref}</Link>
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.title}</Link>
-                    <div className="bib-muted" style={{ fontSize: 13 }}>
+                    <div className="muted text-sm">
                       {l.lineCount} {l.lineCount === 1 ? "service" : "services"}
                       {l.letter.advanceRequired && " · advance required"}
                       {l.letter.effectiveFrom !== null && ` · from ${l.letter.effectiveFrom}`}
                     </div>
-                  </td>
-                  <td>{l.party.displayName}</td>
+                  </Td>
+                  <Td>{l.party.displayName}</Td>
                   {/* WHO is bound, and WHERE the law is — the two questions the
                       jurisdiction alone could never answer, side by side. */}
-                  <td>
+                  <Td>
                     {l.issuingEntity.displayName}
-                    <div className="bib-mono bib-muted" style={{ fontSize: 13 }}>
+                    <div className="mono muted text-sm">
                       {l.letter.jurisdiction}
                     </div>
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     <span
-                      className="bib-pill"
-                      data-tone={l.letter.status === "withdrawn" ? "revoked" : ""}
+                      className="pill"
+                      data-tone={l.letter.status === "withdrawn" ? "danger" : ""}
                     >
                       {l.letter.status}
                     </span>
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
+                  </Td>
+                  <Td style={{ textAlign: "right" }} className="mono">
                     {formatMoney(l.totals.net, l.totals.currency)}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -186,25 +186,25 @@ export default function LettersPage() {
         )}
       </div>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>New engagement letter</h2>
+      <div className="card">
+        <h2 className="card-title">New engagement letter</h2>
         <form
           action={(form) => {
             void draft(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div style={{ flex: "2 1 240px" }}>
-              <label className="bib-label" htmlFor="title">
+              <label className="label" htmlFor="title">
                 Title
               </label>
-              <input className="bib-input" id="title" name="title" required />
+              <input className="input" id="title" name="title" required />
             </div>
             <div>
-              <label className="bib-label" htmlFor="partyId">
+              <label className="label" htmlFor="partyId">
                 Client
               </label>
-              <select className="bib-select" id="partyId" name="partyId" required
+              <select className="select" id="partyId" name="partyId" required
                       style={{ width: "100%" }}>
                 {parties.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -214,40 +214,40 @@ export default function LettersPage() {
               </select>
             </div>
             <div>
-              <label className="bib-label" htmlFor="jurisdiction">
+              <label className="label" htmlFor="jurisdiction">
                 Written for
               </label>
               {/* Stated, not inferred: not always the client's, not always the
                   firm's, and it decides which clauses may go on the letter. */}
-              <input className="bib-input" id="jurisdiction" name="jurisdiction"
+              <input className="input" id="jurisdiction" name="jurisdiction"
                      defaultValue="IN" maxLength={2} required />
             </div>
           </div>
 
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div>
-              <label className="bib-label" htmlFor="currency">
+              <label className="label" htmlFor="currency">
                 Currency
               </label>
-              <input className="bib-input" id="currency" name="currency" defaultValue="INR"
+              <input className="input" id="currency" name="currency" defaultValue="INR"
                      maxLength={3} required />
             </div>
             <div>
-              <label className="bib-label" htmlFor="fxRate">
+              <label className="label" htmlFor="fxRate">
                 Rate to the firm&apos;s currency
               </label>
-              <input className="bib-input" id="fxRate" name="fxRate" defaultValue="1" required />
+              <input className="input" id="fxRate" name="fxRate" defaultValue="1" required />
             </div>
             <div>
-              <label className="bib-label" htmlFor="fxRateDate">
+              <label className="label" htmlFor="fxRateDate">
                 Rate dated
               </label>
-              <input className="bib-input" id="fxRateDate" name="fxRateDate" type="date"
+              <input className="input" id="fxRateDate" name="fxRateDate" type="date"
                      defaultValue={today} required />
             </div>
           </div>
 
-          <label className="bib-check" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
             <input
               type="checkbox"
               checked={advance}
@@ -261,19 +261,19 @@ export default function LettersPage() {
             </span>
           </label>
           {advance && (
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div style={{ flex: "0 1 200px" }}>
-                <label className="bib-label" htmlFor="advanceAmount">
+                <label className="label" htmlFor="advanceAmount">
                   Advance amount
                 </label>
                 {/* Required once the box is ticked — the API refuses a gate with
                     no figure, because nobody can pass one. */}
-                <input className="bib-input" id="advanceAmount" name="advanceAmount" required />
+                <input className="input" id="advanceAmount" name="advanceAmount" required />
               </div>
             </div>
           )}
 
-          <label className="bib-check" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
             <input
               type="checkbox"
               checked={moreTerms}
@@ -290,9 +290,9 @@ export default function LettersPage() {
 
           {moreTerms && (
             <>
-              <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
                 <div style={{ flex: "2 1 220px" }}>
-                  <label className="bib-label" htmlFor="issuingEntityPartyId">
+                  <label className="label" htmlFor="issuingEntityPartyId">
                     Issued by
                   </label>
                   {/* Stored, never derived: the firm's rule for picking an
@@ -300,7 +300,7 @@ export default function LettersPage() {
                       silently restate every letter already issued. Left blank,
                       the API applies the firm's own preference for this
                       jurisdiction. */}
-                  <select className="bib-select" id="issuingEntityPartyId"
+                  <select className="select" id="issuingEntityPartyId"
                           name="issuingEntityPartyId" defaultValue="" style={{ width: "100%" }}>
                     <option value="">the firm&apos;s entity for this jurisdiction</option>
                     {parties.map((p) => (
@@ -311,13 +311,13 @@ export default function LettersPage() {
                   </select>
                 </div>
                 <div style={{ flex: "2 1 220px" }}>
-                  <label className="bib-label" htmlFor="addressedToPartyId">
+                  <label className="label" htmlFor="addressedToPartyId">
                     Addressed to
                   </label>
                   {/* A named PERSON, care-of the client above. Not who is
                       billed — that is the client — which is why it is a second
                       field and not a rename of the first. */}
-                  <select className="bib-select" id="addressedToPartyId" name="addressedToPartyId"
+                  <select className="select" id="addressedToPartyId" name="addressedToPartyId"
                           defaultValue="" style={{ width: "100%" }}>
                     <option value="">nobody named — the organization</option>
                     {parties.map((p) => (
@@ -329,12 +329,12 @@ export default function LettersPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: "var(--bib-gap-2)" }}>
-                <label className="bib-label" htmlFor="background">
+              <div style={{ marginBottom: "var(--s-4)" }}>
+                <label className="label" htmlFor="background">
                   Background
                 </label>
                 <textarea
-                  className="bib-input"
+                  className="input"
                   id="background"
                   name="background"
                   rows={4}
@@ -342,31 +342,31 @@ export default function LettersPage() {
                 />
               </div>
 
-              <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
                 <div>
-                  <label className="bib-label" htmlFor="issuedOn">
+                  <label className="label" htmlFor="issuedOn">
                     Dated
                   </label>
-                  <input className="bib-input" id="issuedOn" name="issuedOn" type="date" />
-                  <p className="bib-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  <input className="input" id="issuedOn" name="issuedOn" type="date" />
+                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
                     The date under the letterhead. Blank means the day it is sent.
                   </p>
                 </div>
                 <div>
-                  <label className="bib-label" htmlFor="effectiveFrom">
+                  <label className="label" htmlFor="effectiveFrom">
                     Work begins
                   </label>
-                  <input className="bib-input" id="effectiveFrom" name="effectiveFrom"
+                  <input className="input" id="effectiveFrom" name="effectiveFrom"
                          type="date" />
-                  <p className="bib-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
                     Blank means the signature date. A line may start later still.
                   </p>
                 </div>
                 <div>
-                  <label className="bib-label" htmlFor="supersedesId">
+                  <label className="label" htmlFor="supersedesId">
                     Replaces
                   </label>
-                  <select className="bib-select" id="supersedesId" name="supersedesId"
+                  <select className="select" id="supersedesId" name="supersedesId"
                           defaultValue="" style={{ width: "100%" }}
                           disabled={supersedable.length === 0}>
                     <option value="">nothing — this is a new agreement</option>
@@ -376,7 +376,7 @@ export default function LettersPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="bib-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
                     {supersedable.length === 0
                       ? "No signed letter is waiting to be replaced."
                       : "A signed letter is never edited. This is how the change is recorded."}
@@ -386,11 +386,11 @@ export default function LettersPage() {
             </>
           )}
 
-          <button className="bib-button" type="submit" disabled={busy}>
+          <button className="btn" type="submit" disabled={busy}>
             {busy ? "Drafting…" : "Draft letter"}
           </button>
         </form>
       </div>
-    </main>
+    </Page>
   );
 }

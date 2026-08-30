@@ -2,6 +2,22 @@
 
 import { useState } from "react";
 import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
+import { Cluster, Row, Stack } from "@/components/layout";
+import {
+  Button,
+  Card,
+  CardHead,
+  CardTitle,
+  Field,
+  FieldRow,
+  Fieldset,
+  Input,
+  Notice,
+  Radio,
+  Select,
+  Table,
+  Td,
+} from "@/components/ui";
 
 /**
  * The form a partner answers a compliance rule with (T6.4).
@@ -24,8 +40,8 @@ import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
  * and refuses one holding neither. Rendered as two independent inputs, the
  * commonest edit on this screen — answering a rule — fails with a constraint
  * message unless the partner also remembers to clear the reason. So the two are
- * one radio: EITHER this rule computes a date, OR it says what it is waiting
- * for. The form cannot express the states the database refuses.
+ * one radio group: EITHER this rule computes a date, OR it says what it is
+ * waiting for. The form cannot express the states the database refuses.
  *
  * ── WHAT IS NOT OFFERED, AND WHY EACH ONE IS ABSENT ─────────────────────────
  *
@@ -62,8 +78,10 @@ export interface RuleDraft {
 
 /** The pack a firm's OWN rules go into, kept clear of the shipped `gst-in@…`
  *  namespace so that re-seeding a vendor pack can never collide with an answer
- *  the firm wrote itself. Prefilled rather than locked: it is a default the
- *  partner may overwrite, which is what this whole screen is about. */
+ *  the firm wrote itself — the unique key is (tenant, jurisdiction, name, rule
+ *  pack), so this is a collision boundary rather than a label. Prefilled rather
+ *  than locked: it is a default the partner may overwrite, which is what this
+ *  whole screen is about. */
 export function firmRulePack(): string {
   return `firm@${String(new Date().getFullYear())}`;
 }
@@ -94,7 +112,7 @@ export function draftOf(rule: ObligationRule | null): RuleDraft {
  * `null` on the losing half of the radio is deliberate and is not the same as
  * omitting it: PATCH treats an absent field as "leave it alone", so answering a
  * rule has to SEND `unresolvedReason: null` or the write is refused for holding
- * both.
+ * both a formula and a reason.
  */
 export function bodyOf(d: RuleDraft): Record<string, unknown> {
   const formula = d.hasFormula
@@ -121,7 +139,7 @@ export function bodyOf(d: RuleDraft): Record<string, unknown> {
  * The formula in the words a partner checks against the statute.
  *
  * Shown live, above the Save button, because `dueMonthOffset` is not a thing
- * anybody can proofread. The first version of the list's copy of this function
+ * anybody can proofread. The list's copy of this function was written blind and
  * produced "Once a year, day 15 3 months after" and "When it happens, 30 days
  * after the period ends" — the second factually wrong as well, since an
  * event-driven rule has no period to count from. Reading the page found them
@@ -195,241 +213,219 @@ export function RuleEditor({
   // which is the state of every rule a partner actually has to answer.
   const produced = rule?.instanceCount ?? 0;
   const shapeLocked = produced > 0;
+  const group = `formula-${rule?.id ?? "new"}`;
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      {creating && (
-        <div className="bib-field-row">
-          <label className="bib-label">
-            Filing
-            <input
-              className="bib-input"
-              value={draft.name}
-              placeholder="PF monthly return"
-              onChange={(e) => { set("name", e.target.value); }}
-            />
-          </label>
-          <label className="bib-label">
-            Country
-            <input
-              className="bib-input"
-              value={draft.jurisdiction}
-              maxLength={2}
-              placeholder="IN"
-              onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
-            />
-          </label>
-          <label className="bib-label">
-            Rule pack
-            <input
-              className="bib-input"
-              value={draft.rulePack}
-              onChange={(e) => { set("rulePack", e.target.value); }}
-            />
-          </label>
-        </div>
-      )}
-      {creating && (
-        <p className="bib-hint" style={{ marginTop: 0 }}>
-          The filing, the country and the pack are this rule&rsquo;s <strong>identity</strong> and
-          cannot be changed afterwards &mdash; every filing it generates pins this row, so moving
-          them would restate why those filings were due when they were. The pack is prefilled with
-          the firm&rsquo;s own, kept clear of the shipped <span className="bib-mono">gst-in@…</span>{" "}
-          namespace so reloading a shipped pack can never collide with an answer you wrote here.
-        </p>
-      )}
-
-      <div className="bib-field-row">
-        <label className="bib-label">
-          How often
-          <select
-            className="bib-select"
-            value={draft.recurrence}
-            disabled={shapeLocked}
-            onChange={(e) => { set("recurrence", e.target.value); }}
-          >
-            <option value="monthly">Every month</option>
-            <option value="quarterly">Every quarter</option>
-            <option value="half_yearly">Twice a year</option>
-            <option value="annual">Once a year</option>
-            <option value="event">When something happens</option>
-          </select>
-        </label>
-        <label className="bib-label">
-          Financial year starts in
-          <select
-            className="bib-select"
-            value={String(draft.fiscalYearStartMonth)}
-            disabled={shapeLocked}
-            onChange={(e) => { set("fiscalYearStartMonth", Number(e.target.value)); }}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={String(i + 1)}>{m}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {shapeLocked ? (
-        <p className="bib-hint" style={{ marginTop: 0 }}>
-          These two decide where a period <strong>begins</strong>, and this rule has already
-          produced {produced} filing{produced === 1 ? "" : "s"} keyed on those boundaries. Changing
-          them now would orphan every one of them &mdash; last quarter&rsquo;s return would match no
-          quarter. Retire this rule and write a new one instead; the retired row goes on explaining
-          the filings it made.
-        </p>
-      ) : (
-        <p className="bib-hint" style={{ marginTop: 0 }}>
-          April for India: a quarter runs Apr&ndash;Jun, so leaving this at January would put every
-          quarterly filing in the wrong period.
-        </p>
-      )}
-
-      {/* ── THE ONE DECISION, AS ONE CONTROL ──────────────────────────────── */}
-      <fieldset style={{ border: "none", padding: 0, margin: "var(--bib-gap-2) 0 0" }}>
-        <legend style={{ padding: 0, fontSize: 12, fontWeight: 600, letterSpacing: "0.04em" }}>
-          WHEN IT IS DUE
-        </legend>
-        <label className="bib-check" style={{ marginTop: "var(--bib-gap-1)" }}>
-          <input
-            type="radio"
-            name={`formula-${rule?.id ?? "new"}`}
-            checked={draft.hasFormula}
-            onChange={() => { set("hasFormula", true); }}
-          />
-          <span>This rule computes a date</span>
-        </label>
-        {draft.hasFormula && (
-          <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-1)" }}>
-            <label className="bib-label">
-              Counted as
-              <select
-                className="bib-select"
-                value={draft.kind}
-                onChange={(e) => { set("kind", e.target.value as DueRuleKind); }}
-              >
-                <option value="day_of_month">A day of a month</option>
-                <option value="days_after">A number of days</option>
-              </select>
-            </label>
-            {draft.kind === "day_of_month" ? (
-              <>
-                <label className="bib-label">
-                  Day of the month
-                  <input
-                    className="bib-input"
-                    inputMode="numeric"
-                    value={String(draft.dueDayOfMonth)}
-                    onChange={(e) => { set("dueDayOfMonth", intOf(e.target.value, 1)); }}
-                  />
-                </label>
-                <label className="bib-label">
-                  Months after the period ends
-                  <input
-                    className="bib-input"
-                    inputMode="numeric"
-                    value={String(draft.dueMonthOffset)}
-                    onChange={(e) => { set("dueMonthOffset", intOf(e.target.value, 0)); }}
-                  />
-                </label>
-              </>
-            ) : (
-              <label className="bib-label">
-                Days after the period ends
-                <input
-                  className="bib-input"
-                  inputMode="numeric"
-                  value={String(draft.dueDaysAfter)}
-                  onChange={(e) => { set("dueDaysAfter", intOf(e.target.value, 0)); }}
+    <Card>
+      <Stack>
+        {creating && (
+          <>
+            <FieldRow>
+              <Field label="Filing">
+                <Input
+                  value={draft.name}
+                  placeholder="PF monthly return"
+                  onChange={(e) => { set("name", e.target.value); }}
                 />
-              </label>
-            )}
-          </div>
+              </Field>
+              <Field label="Country">
+                <Input
+                  value={draft.jurisdiction}
+                  maxLength={2}
+                  placeholder="IN"
+                  onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
+                />
+              </Field>
+              <Field
+                label="Rule pack"
+                hint="The firm's own, kept clear of the shipped packs."
+              >
+                <Input
+                  value={draft.rulePack}
+                  onChange={(e) => { set("rulePack", e.target.value); }}
+                />
+              </Field>
+            </FieldRow>
+            <Notice eyebrow="CANNOT BE CHANGED LATER">
+              The filing, the country and the pack are this rule&rsquo;s <strong>identity</strong>.
+              Every filing it generates pins this row, so moving them would restate why those
+              filings were due when they were. The pack is prefilled with the firm&rsquo;s own,
+              kept clear of the shipped <code>gst-in@…</code> namespace so reloading a shipped pack
+              can never collide with an answer you wrote here.
+            </Notice>
+          </>
         )}
 
-        <label className="bib-check" style={{ marginTop: "var(--bib-gap-2)" }}>
-          <input
-            type="radio"
-            name={`formula-${rule?.id ?? "new"}`}
-            checked={!draft.hasFormula}
-            onChange={() => { set("hasFormula", false); }}
-          />
-          <span>
-            It depends on something this system does not hold &mdash; say what, and the calendar
-            shows that instead of a deadline
-          </span>
-        </label>
-        {!draft.hasFormula && (
-          <input
-            className="bib-input"
-            style={{ width: "100%", marginTop: "var(--bib-gap-1)" }}
-            value={draft.unresolvedReason}
-            placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
-            onChange={(e) => { set("unresolvedReason", e.target.value); }}
-          />
-        )}
-      </fieldset>
-
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <label className="bib-label">
-          Filed with
-          <input
-            className="bib-input"
-            value={draft.authority}
-            placeholder="GST"
-            onChange={(e) => { set("authority", e.target.value); }}
-          />
-        </label>
-        <label className="bib-label">
-          Statute grouping
-          <input
-            className="bib-input"
-            value={draft.module}
-            placeholder="TDS"
-            onChange={(e) => { set("module", e.target.value); }}
-          />
-        </label>
-        <label className="bib-label">
-          Only for entity type
-          <input
-            className="bib-input"
-            value={draft.entityType}
-            placeholder="private_limited"
-            onChange={(e) => { set("entityType", e.target.value); }}
-          />
-        </label>
-        <label className="bib-label">
-          Owed by clients who bought
-          <select
-            className="bib-select"
-            value={draft.serviceEntryId}
-            onChange={(e) => { set("serviceEntryId", e.target.value); }}
+        <FieldRow>
+          <Field
+            label="How often"
+            hint={
+              shapeLocked
+                ? undefined
+                : "April for India: a quarter runs Apr–Jun, so leaving the year at January would put every quarterly filing in the wrong period."
+            }
           >
-            <option value="">Any service</option>
-            {services.map((s) => (
-              <option key={s.entry.id} value={s.entry.id}>{s.entry.key}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <p className="bib-hint" style={{ marginTop: 0 }}>
-        <strong>Statute grouping</strong> is the law&rsquo;s &mdash; GST, TDS, MCA &mdash; and not
-        the firm&rsquo;s revenue Dept, which is a different axis. Leaving{" "}
-        <strong>entity type</strong> blank means every kind of company, which is the ordinary case:
-        GST does not care what shape a client is.
-      </p>
+            <Select
+              value={draft.recurrence}
+              disabled={shapeLocked}
+              onChange={(e) => { set("recurrence", e.target.value); }}
+            >
+              <option value="monthly">Every month</option>
+              <option value="quarterly">Every quarter</option>
+              <option value="half_yearly">Twice a year</option>
+              <option value="annual">Once a year</option>
+              <option value="event">When something happens</option>
+            </Select>
+          </Field>
+          <Field label="Financial year starts in">
+            <Select
+              value={String(draft.fiscalYearStartMonth)}
+              disabled={shapeLocked}
+              onChange={(e) => { set("fiscalYearStartMonth", Number(e.target.value)); }}
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={String(i + 1)}>{m}</option>
+              ))}
+            </Select>
+          </Field>
+        </FieldRow>
 
-      <p className="bib-mono" style={{ marginBottom: "var(--bib-gap-2)" }}>
-        {describeDraft(draft)}
-      </p>
-      <div style={{ display: "flex", gap: "var(--bib-gap-1)" }}>
-        <button type="button" onClick={onSave} disabled={busy}>
-          {creating ? "Write the rule" : "Save the formula"}
-        </button>
-        <button type="button" className="bib-button-quiet" onClick={onCancel} disabled={busy}>
-          Cancel
-        </button>
-      </div>
-    </div>
+        {/* DISABLED WITH THE SENTENCE, never silently. A partner meets an
+            explanation rather than the API's 409. */}
+        {shapeLocked && (
+          <Notice tone="warn" eyebrow="THE PERIOD SHAPE IS FIXED NOW">
+            These two decide where a period <strong>begins</strong>, and this rule has already
+            produced {produced} filing{produced === 1 ? "" : "s"} keyed on those boundaries.
+            Changing them now would orphan every one of them &mdash; last quarter&rsquo;s return
+            would match no quarter. Retire this rule and write a new one instead; the retired row
+            goes on explaining the filings it made.
+          </Notice>
+        )}
+
+        {/* ── THE ONE DECISION, AS ONE CONTROL ──────────────────────────── */}
+        <Fieldset legend="When it is due">
+          <Stack>
+            <Radio
+              name={group}
+              checked={draft.hasFormula}
+              label="This rule computes a date"
+              onChange={() => { set("hasFormula", true); }}
+            />
+            {draft.hasFormula && (
+              <FieldRow>
+                <Field label="Counted as">
+                  <Select
+                    value={draft.kind}
+                    onChange={(e) => { set("kind", e.target.value as DueRuleKind); }}
+                  >
+                    <option value="day_of_month">A day of a month</option>
+                    <option value="days_after">A number of days</option>
+                  </Select>
+                </Field>
+                {draft.kind === "day_of_month" ? (
+                  <>
+                    <Field label="Day of the month">
+                      <Input
+                        inputMode="numeric"
+                        value={String(draft.dueDayOfMonth)}
+                        onChange={(e) => { set("dueDayOfMonth", intOf(e.target.value, 1)); }}
+                      />
+                    </Field>
+                    <Field label="Months after the period ends">
+                      <Input
+                        inputMode="numeric"
+                        value={String(draft.dueMonthOffset)}
+                        onChange={(e) => { set("dueMonthOffset", intOf(e.target.value, 0)); }}
+                      />
+                    </Field>
+                  </>
+                ) : (
+                  <Field label="Days after the period ends">
+                    <Input
+                      inputMode="numeric"
+                      value={String(draft.dueDaysAfter)}
+                      onChange={(e) => { set("dueDaysAfter", intOf(e.target.value, 0)); }}
+                    />
+                  </Field>
+                )}
+              </FieldRow>
+            )}
+
+            <Radio
+              name={group}
+              checked={!draft.hasFormula}
+              label="It depends on something this system does not hold"
+              note="Say what, and the calendar shows that in place of a deadline."
+              onChange={() => { set("hasFormula", false); }}
+            />
+            {!draft.hasFormula && (
+              <Field label="What it is waiting for">
+                <Input
+                  value={draft.unresolvedReason}
+                  placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
+                  onChange={(e) => { set("unresolvedReason", e.target.value); }}
+                />
+              </Field>
+            )}
+          </Stack>
+        </Fieldset>
+
+        <FieldRow>
+          <Field label="Filed with">
+            <Input
+              value={draft.authority}
+              placeholder="GST"
+              onChange={(e) => { set("authority", e.target.value); }}
+            />
+          </Field>
+          <Field
+            label="Statute grouping"
+            hint="The law's — GST, TDS, MCA — not the firm's revenue Dept, which is a different axis."
+          >
+            <Input
+              value={draft.module}
+              placeholder="TDS"
+              onChange={(e) => { set("module", e.target.value); }}
+            />
+          </Field>
+          <Field
+            label="Only for entity type"
+            optional
+            hint="Blank means every kind of company, which is the ordinary case: GST does not care what shape a client is."
+          >
+            <Input
+              value={draft.entityType}
+              placeholder="private_limited"
+              onChange={(e) => { set("entityType", e.target.value); }}
+            />
+          </Field>
+          <Field label="Owed by clients who bought" optional>
+            <Select
+              value={draft.serviceEntryId}
+              onChange={(e) => { set("serviceEntryId", e.target.value); }}
+            >
+              <option value="">Any service</option>
+              {services.map((s) => (
+                <option key={s.entry.id} value={s.entry.id}>{s.entry.key}</option>
+              ))}
+            </Select>
+          </Field>
+        </FieldRow>
+
+        {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
+            rather than after. `dueMonthOffset: 1` is not proofreadable. */}
+        <p className="mono">{describeDraft(draft)}</p>
+
+        <Cluster>
+          <Button onClick={onSave} loading={busy}>
+            {creating ? "Write the rule" : "Save the formula"}
+          </Button>
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+        </Cluster>
+      </Stack>
+    </Card>
   );
 }
 
@@ -460,6 +456,7 @@ export function Exceptions({
   onAdd: (body: Record<string, unknown>) => void;
   onWithdraw: (periodEndMonth: number) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [month, setMonth] = useState("3");
   const [kind, setKind] = useState<DueRuleKind>("day_of_month");
   const [day, setDay] = useState("30");
@@ -468,140 +465,133 @@ export function Exceptions({
   const [note, setNote] = useState("");
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      <h4 style={{ margin: "0 0 var(--bib-gap-1)" }}>Exceptions</h4>
-      {rule.exceptions.length === 0 ? (
-        <p className="bib-muted" style={{ marginTop: 0 }}>
-          None. This rule&rsquo;s own formula governs every period.
-        </p>
-      ) : (
-        <table className="bib-table">
-          <tbody>
-            {rule.exceptions.map((e) => (
-              <tr key={e.periodEndMonth}>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  Period ending {MONTHS[e.periodEndMonth - 1] ?? "?"}
-                </td>
-                <td className="bib-mono">
-                  {e.kind === "days_after"
-                    ? `${String(e.dueDaysAfter ?? 0)} days after the period ends`
-                    : `the ${ordinal(e.dueDayOfMonth ?? 1)}, ${String(e.dueMonthOffset ?? 0)} month${
-                        (e.dueMonthOffset ?? 0) === 1 ? "" : "s"
-                      } after`}
-                </td>
-                <td>{e.note}</td>
-                <td style={{ textAlign: "right" }}>
-                  {mayWrite && (
-                    <button
-                      type="button"
-                      className="bib-pill"
-                      disabled={busy}
-                      onClick={() => { onWithdraw(e.periodEndMonth); }}
-                      title="Put this period back under the rule's own formula. The row is kept, never destroyed — it is part of why a filing was due on the day it was."
-                    >
-                      Withdraw
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <Card>
+      <CardHead>
+        <CardTitle>Exceptions</CardTitle>
+        {mayWrite && rule.recurrence !== "event" && (
+          <Button variant="ghost" size="sm" onClick={() => { setOpen((o) => !o); }}>
+            {open ? "Cancel" : "Add an exception"}
+          </Button>
+        )}
+      </CardHead>
 
-      {mayWrite && rule.recurrence !== "event" && (
-        <details style={{ marginTop: "var(--bib-gap-2)" }}>
-          <summary>Add an exception</summary>
-          <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-            <label className="bib-label">
-              Month the PERIOD ends in
-              <select
-                className="bib-select"
-                value={month}
-                onChange={(e) => { setMonth(e.target.value); }}
+      <Stack>
+        {rule.exceptions.length === 0 ? (
+          <p className="muted">None. This rule&rsquo;s own formula governs every period.</p>
+        ) : (
+          <Table>
+            <tbody>
+              {rule.exceptions.map((e) => (
+                <tr key={e.periodEndMonth}>
+                  <Td>Period ending {MONTHS[e.periodEndMonth - 1] ?? "?"}</Td>
+                  <Td className="mono">
+                    {e.kind === "days_after"
+                      ? `${String(e.dueDaysAfter ?? 0)} days after the period ends`
+                      : `the ${ordinal(e.dueDayOfMonth ?? 1)}, ${String(
+                          e.dueMonthOffset ?? 0,
+                        )} month${(e.dueMonthOffset ?? 0) === 1 ? "" : "s"} after`}
+                  </Td>
+                  <Td>{e.note}</Td>
+                  <Td align="right">
+                    {mayWrite && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => { onWithdraw(e.periodEndMonth); }}
+                        title="Put this period back under the rule's own formula. The row is kept, never destroyed — it is part of why a filing was due on the day it was."
+                      >
+                        Withdraw
+                      </Button>
+                    )}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+
+        {open && mayWrite && rule.recurrence !== "event" && (
+          <Stack>
+            <FieldRow>
+              <Field
+                label="Month the PERIOD ends in"
+                hint="Never the month it is due — the due month is exactly what this changes."
               >
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={String(i + 1)}>{m}</option>
-                ))}
-              </select>
-            </label>
-            <label className="bib-label">
-              Counted as
-              <select
-                className="bib-select"
-                value={kind}
-                onChange={(e) => { setKind(e.target.value as DueRuleKind); }}
+                <Select value={month} onChange={(e) => { setMonth(e.target.value); }}>
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={String(i + 1)}>{m}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Counted as">
+                <Select
+                  value={kind}
+                  onChange={(e) => { setKind(e.target.value as DueRuleKind); }}
+                >
+                  <option value="day_of_month">A day of a month</option>
+                  <option value="days_after">A number of days</option>
+                </Select>
+              </Field>
+              {kind === "day_of_month" ? (
+                <>
+                  <Field label="Day">
+                    <Input
+                      inputMode="numeric"
+                      value={day}
+                      onChange={(e) => { setDay(e.target.value); }}
+                    />
+                  </Field>
+                  <Field label="Months after">
+                    <Input
+                      inputMode="numeric"
+                      value={offset}
+                      onChange={(e) => { setOffset(e.target.value); }}
+                    />
+                  </Field>
+                </>
+              ) : (
+                <Field label="Days after">
+                  <Input
+                    inputMode="numeric"
+                    value={daysAfter}
+                    onChange={(e) => { setDaysAfter(e.target.value); }}
+                  />
+                </Field>
+              )}
+            </FieldRow>
+            <Field
+              label="Why this period is different"
+              hint="Required. A partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo."
+            >
+              <Input
+                value={note}
+                placeholder="March is the year end, and the statute allows until the 30th."
+                onChange={(e) => { setNote(e.target.value); }}
+              />
+            </Field>
+            <Row>
+              <Button
+                disabled={busy || note.trim() === ""}
+                onClick={() => {
+                  onAdd({
+                    periodEndMonth: Number(month),
+                    kind,
+                    dueMonthOffset: kind === "day_of_month" ? intOf(offset, 0) : null,
+                    dueDayOfMonth: kind === "day_of_month" ? intOf(day, 1) : null,
+                    dueDaysAfter: kind === "days_after" ? intOf(daysAfter, 0) : null,
+                    note: note.trim(),
+                  });
+                  setNote("");
+                  setOpen(false);
+                }}
               >
-                <option value="day_of_month">A day of a month</option>
-                <option value="days_after">A number of days</option>
-              </select>
-            </label>
-            {kind === "day_of_month" ? (
-              <>
-                <label className="bib-label">
-                  Day
-                  <input
-                    className="bib-input"
-                    inputMode="numeric"
-                    value={day}
-                    onChange={(e) => { setDay(e.target.value); }}
-                  />
-                </label>
-                <label className="bib-label">
-                  Months after
-                  <input
-                    className="bib-input"
-                    inputMode="numeric"
-                    value={offset}
-                    onChange={(e) => { setOffset(e.target.value); }}
-                  />
-                </label>
-              </>
-            ) : (
-              <label className="bib-label">
-                Days after
-                <input
-                  className="bib-input"
-                  inputMode="numeric"
-                  value={daysAfter}
-                  onChange={(e) => { setDaysAfter(e.target.value); }}
-                />
-              </label>
-            )}
-          </div>
-          <label className="bib-label" style={{ display: "block" }}>
-            Why this period is different
-            <input
-              className="bib-input"
-              style={{ width: "100%" }}
-              value={note}
-              placeholder="March is the year end, and the statute allows until the 30th."
-              onChange={(e) => { setNote(e.target.value); }}
-            />
-          </label>
-          <p className="bib-hint" style={{ marginTop: "var(--bib-gap-1)" }}>
-            Required. A partner checking the calendar against the statute cannot otherwise tell a
-            real carve-out from a typo.
-          </p>
-          <button
-            type="button"
-            disabled={busy || note.trim() === ""}
-            onClick={() => {
-              onAdd({
-                periodEndMonth: Number(month),
-                kind,
-                dueMonthOffset: kind === "day_of_month" ? intOf(offset, 0) : null,
-                dueDayOfMonth: kind === "day_of_month" ? intOf(day, 1) : null,
-                dueDaysAfter: kind === "days_after" ? intOf(daysAfter, 0) : null,
-                note: note.trim(),
-              });
-              setNote("");
-            }}
-          >
-            Add the exception
-          </button>
-        </details>
-      )}
-    </div>
+                Add the exception
+              </Button>
+            </Row>
+          </Stack>
+        )}
+      </Stack>
+    </Card>
   );
 }

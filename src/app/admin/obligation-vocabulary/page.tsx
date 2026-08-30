@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ObligationState, ResolutionOption } from "@/lib/api/client";
+import { TableWrap, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * The firm's own words for its compliance calendar (T3.3).
@@ -98,50 +100,45 @@ export default function ObligationVocabularyPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading&hellip;</p>;
+  if (!loaded) return <p className="muted">Loading&hellip;</p>;
 
   return (
-    <main>
-      <div className="bib-nav">
-        <Link href="/">&larr; Home</Link>
-        <Link href="/calendar">The calendar &rarr;</Link>
-        <Link href="/admin/obligation-rules">Compliance rules &rarr;</Link>
-      </div>
-      <h1>Compliance states and decisions</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        The words your firm uses on its compliance calendar. Rename any of them, add your own,
-        or change what they mean &mdash; the product reads the TICK BOXES and never the names,
-        so nothing breaks when you rename one.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Compliance states and decisions"
+        lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what they mean — the product reads the TICK BOXES and never the names, so nothing breaks when you rename one."
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>States a filing moves through</h2>
-        <p className="bib-hint" style={{ marginTop: 0 }}>
+      <div className="card">
+        <h2 className="card-title">States a filing moves through</h2>
+        <p className="field-hint">
           The four columns on the right are <strong>destinations</strong> &mdash; where a filing
           goes when something happens to it. Your firm has exactly one of each, and marking
           another moves it in one step.
         </p>
-        <table className="bib-table">
+        <TableWrap>
+          <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th style={{ width: 90 }}>Order</th>
-              <th>Finished</th>
-              <th>Needs a decision</th>
-              <th>Starts here</th>
-              <th>Filed here</th>
-              <th>Missed here</th>
-              <th>Decided here</th>
-              <th>Status</th>
-              <th />
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th style={{ width: 90 }}>Order</Th>
+              <Th>Finished</Th>
+              <Th>Needs a decision</Th>
+              <Th>Starts here</Th>
+              <Th>Filed here</Th>
+              <Th>Missed here</Th>
+              <Th>Decided here</Th>
+              <Th>Status</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {states.map((s) => (
               <tr key={s.id} data-inactive={!s.isActive}>
-                <td>
+                <Td>
                   <CommitText
                     key={`${s.id}:${s.name}`}
                     value={s.name}
@@ -151,13 +148,13 @@ export default function ObligationVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { name }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* The code never changes. It is the firm's stable handle, and
                     an audit event that recorded it would stop resolving if it
                     moved. Nothing in the product compares it, which is what
                     makes the NAME free to change. */}
-                <td className="bib-muted bib-mono">{s.code}</td>
-                <td>
+                <Td className="mono muted">{s.code}</Td>
+                <Td>
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
                     value={s.sortOrder}
@@ -167,8 +164,8 @@ export default function ObligationVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { sortOrder }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${s.name} means finished`}
@@ -178,12 +175,12 @@ export default function ObligationVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { isTerminal: e.target.checked }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* The one that puts a filing in front of a person. It is also
                     what makes "missed here" legal on this row — the API refuses
                     a missed state that asks nobody, because every overdue
                     filing would move there and be seen by no one. */}
-                <td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${s.name} needs somebody to decide what happens next`}
@@ -198,7 +195,7 @@ export default function ObligationVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { needsDecision: e.target.checked }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* RADIOS, not checkboxes, for all four destinations. A firm
                     holds exactly one of each, and a radio says that before
                     anybody clicks — a checkbox that refuses to be unticked
@@ -241,17 +238,17 @@ export default function ObligationVocabularyPage() {
                   why="Only a finished state can be where a partner's decision ends a filing."
                   onPick={() => { void act(s.id, () => patchState(s.id, { isResolution: true })); }}
                 />
-                <td>
+                <Td>
                   {s.isActive ? (
-                    <span className="bib-pill" data-tone="live">in use</span>
+                    <span className="pill" data-tone="accent">in use</span>
                   ) : (
-                    <span className="bib-pill">retired</span>
+                    <span className="pill">retired</span>
                   )}
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <button
                     type="button"
-                    className="bib-pill"
+                    className="pill"
                     disabled={busy === s.id}
                     onClick={() => {
                       void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
@@ -259,11 +256,12 @@ export default function ObligationVocabularyPage() {
                   >
                     {s.isActive ? "Retire" : "Bring back"}
                   </button>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </TableWrap>
         <AddState
           busy={busy !== null}
           onAdd={(body) => {
@@ -274,32 +272,33 @@ export default function ObligationVocabularyPage() {
         />
       </div>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>
+      <div className="card">
+        <h2 className="card-title">
           What may be decided about a missed deadline
         </h2>
-        <p className="bib-hint" style={{ marginTop: 0 }}>
+        <p className="field-hint">
           When a legal deadline passes with nothing filed, a partner picks one of these and
           writes down <strong>why</strong>. The list is yours &mdash; and the four below came
           from the app this replaced, so they are marked{" "}
           <em>unconfirmed</em> until somebody here says they are right.
         </p>
-        <table className="bib-table">
+        <TableWrap>
+          <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th style={{ width: 90 }}>Order</th>
-              <th>What it does</th>
-              <th>Confirmed</th>
-              <th>Status</th>
-              <th />
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th style={{ width: 90 }}>Order</Th>
+              <Th>What it does</Th>
+              <Th>Confirmed</Th>
+              <Th>Status</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {options.map((o) => (
               <tr key={o.id} data-inactive={!o.isActive}>
-                <td>
+                <Td>
                   <CommitText
                     key={`${o.id}:${o.name}`}
                     value={o.name}
@@ -309,9 +308,9 @@ export default function ObligationVocabularyPage() {
                       void act(o.id, () => patchOption(o.id, { name }));
                     }}
                   />
-                </td>
-                <td className="bib-muted bib-mono">{o.code}</td>
-                <td>
+                </Td>
+                <Td className="mono muted">{o.code}</Td>
+                <Td>
                   <CommitNumber
                     key={`${o.id}:${String(o.sortOrder)}`}
                     value={o.sortOrder}
@@ -321,13 +320,13 @@ export default function ObligationVocabularyPage() {
                       void act(o.id, () => patchOption(o.id, { sortOrder }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* THE FORK, and it is a sentence rather than a tick box
                     labelled `closesWithoutFiling`. The two answers are the
                     whole design: one keeps the filing owed and sends the work
                     back, the other ends it forever. A partner picking an option
                     on the calendar should never have to know which is which. */}
-                <td>
+                <Td>
                   <select
                     value={o.closesWithoutFiling ? "closes" : "refiles"}
                     aria-label={`What ${o.name} does to the filing`}
@@ -341,8 +340,8 @@ export default function ObligationVocabularyPage() {
                     <option value="refiles">The filing still happens, late</option>
                     <option value="closes">It will never be filed</option>
                   </select>
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${o.name} is confirmed by this firm`}
@@ -357,18 +356,18 @@ export default function ObligationVocabularyPage() {
                       );
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   {o.isActive ? (
-                    <span className="bib-pill" data-tone="live">in use</span>
+                    <span className="pill" data-tone="accent">in use</span>
                   ) : (
-                    <span className="bib-pill">retired</span>
+                    <span className="pill">retired</span>
                   )}
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <button
                     type="button"
-                    className="bib-pill"
+                    className="pill"
                     disabled={busy === o.id}
                     onClick={() => {
                       void act(o.id, () => patchOption(o.id, { isActive: !o.isActive }));
@@ -376,11 +375,12 @@ export default function ObligationVocabularyPage() {
                   >
                     {o.isActive ? "Retire" : "Bring back"}
                   </button>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </TableWrap>
         <AddOption
           busy={busy !== null}
           onAdd={(body) => {
@@ -395,12 +395,12 @@ export default function ObligationVocabularyPage() {
             them — so an empty list is allowed and simply means nothing can be
             decided until one exists. */}
         {options.filter((o) => o.isActive).length === 0 && (
-          <p className="bib-error" style={{ marginBottom: 0 }}>
+          <p className="notice" data-tone="danger" role="alert">
             You have no options in use, so nothing on the decision queue can be resolved.
           </p>
         )}
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -429,7 +429,7 @@ function DestinationCell({
   onPick: () => void;
 }) {
   return (
-    <td>
+    <Td>
       <input
         type="radio"
         name={name}
@@ -439,7 +439,7 @@ function DestinationCell({
         title={legal ? undefined : why}
         onChange={onPick}
       />
-    </td>
+    </Td>
   );
 }
 
@@ -506,7 +506,7 @@ function CommitText({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -545,7 +545,7 @@ function CommitNumber({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -580,31 +580,31 @@ function AddState({
   const [needsDecision, setNeedsDecision] = useState(false);
 
   return (
-    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+    <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a state</summary>
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <label className="bib-label">
+      <div className="field-row" style={{ marginTop: "var(--s-4)" }}>
+        <label className="label">
           Name
           <input
-            className="bib-input"
+            className="input"
             value={name}
             placeholder="Awaiting client"
             onChange={(e) => { setName(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Code
           <input
-            className="bib-input"
+            className="input"
             value={code}
             placeholder="awaiting_client"
             onChange={(e) => { setCode(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Order
           <input
-            className="bib-input"
+            className="input"
             value={sortOrder}
             inputMode="numeric"
             onChange={(e) => { setSortOrder(e.target.value); }}
@@ -617,8 +617,8 @@ function AddState({
           flag off whatever holds it today. That is a real change to how the
           nightly sweep behaves, and it belongs on the row where somebody can
           see what it replaces. */}
-      <div className="bib-field-row">
-        <label className="bib-check">
+      <div className="field-row">
+        <label className="check">
           <input
             type="checkbox"
             checked={isTerminal}
@@ -629,7 +629,7 @@ function AddState({
           />
           <span>Means finished</span>
         </label>
-        <label className="bib-check">
+        <label className="check">
           <input
             type="checkbox"
             checked={needsDecision}
@@ -640,8 +640,8 @@ function AddState({
         </label>
       </div>
       <button
-        className="bib-button"
-        style={{ marginTop: "var(--bib-gap-2)" }}
+        className="btn"
+        style={{ marginTop: "var(--s-4)" }}
         disabled={busy || name.trim() === "" || code.trim() === ""}
         onClick={() => {
           onAdd({
@@ -679,40 +679,40 @@ function AddOption({
   const [closes, setCloses] = useState(false);
 
   return (
-    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+    <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a decision</summary>
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <label className="bib-label">
+      <div className="field-row" style={{ marginTop: "var(--s-4)" }}>
+        <label className="label">
           Name
           <input
-            className="bib-input"
+            className="input"
             value={name}
             placeholder="Client deregistered mid-year"
             onChange={(e) => { setName(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Code
           <input
-            className="bib-input"
+            className="input"
             value={code}
             placeholder="client_deregistered"
             onChange={(e) => { setCode(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Order
           <input
-            className="bib-input"
+            className="input"
             value={sortOrder}
             inputMode="numeric"
             onChange={(e) => { setSortOrder(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           What it does
           <select
-            className="bib-input"
+            className="input"
             value={closes ? "closes" : "refiles"}
             onChange={(e) => { setCloses(e.target.value === "closes"); }}
           >
@@ -722,8 +722,8 @@ function AddOption({
         </label>
       </div>
       <button
-        className="bib-button"
-        style={{ marginTop: "var(--bib-gap-2)" }}
+        className="btn"
+        style={{ marginTop: "var(--s-4)" }}
         disabled={busy || name.trim() === "" || code.trim() === ""}
         onClick={() => {
           onAdd({
@@ -742,7 +742,7 @@ function AddOption({
           be a decision rather than a convenience: a passed legal deadline is a
           fork with consequences either way, and an option that let one be
           dismissed would hide the thing this queue exists to surface. */}
-      <p className="bib-hint">
+      <p className="field-hint">
         A new decision starts unconfirmed, like the shipped four. Nothing is ever deleted
         &mdash; retiring one keeps it on every decision already recorded against it.
       </p>

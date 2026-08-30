@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -191,23 +192,25 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   const canComplete = permissions.includes("work:write");
 
   return (
-    <main>
-      <nav className="bib-subnav" style={{ marginBottom: "var(--bib-gap-2)" }}>
+    <Page>
+      <nav className="cluster">
         <Link href="/work">← Work</Link>
       </nav>
-
-      <h1>Process</h1>
+      <PageHeader
+        eyebrow="Delivery"
+        title="Process"
+      />
       {/* WHOSE work this is, above the steps. After the merge one checklist can
           hold three services for one of a client's companies, and a page that
           only listed steps left "which client, which company, which services"
           unanswerable from the screen. */}
       {job !== null && (
-        <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+        <p className="muted" style={{ maxWidth: "62ch" }}>
           <strong>{job.entityName ?? "an unnamed company"}</strong>
           {job.clientName !== null && job.clientName !== job.entityName && (
             <> · billed to {job.clientName}</>
@@ -219,38 +222,38 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
             : job.services.map((sv) => sv.serviceName).join(" · ")}
         </p>
       )}
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {steps.length === 0 ? (
-        <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+        <p className="muted" style={{ maxWidth: "62ch" }}>
           This job has no steps yet. That means the firm has not published a workflow template
           for the service it delivers — the work is not lost, it waits. Publish the process and
           the job picks it up on the next sweep.
         </p>
       ) : (
-        <div className="bib-card">
-          <ol className="bib-steps" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <div className="card">
+          <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {steps.map((s) => (
               <li
                 key={s.id}
                 data-inactive={s.status === "skipped"}
                 style={{
                   display: "flex",
-                  gap: "var(--bib-gap-2)",
+                  gap: "var(--s-4)",
                   alignItems: "flex-start",
-                  padding: "var(--bib-gap-2) 0",
-                  borderTop: "1px solid var(--bib-border)",
+                  padding: "var(--s-4) 0",
+                  borderTop: "1px solid var(--line)",
                 }}
               >
                 <div style={{ flex: "1 1 auto" }}>
                   <strong>{s.label}</strong>{" "}
-                  <span className="bib-muted bib-mono" style={{ fontSize: 12 }}>
+                  <span className="mono muted text-xs">
                     {s.stepKey}
                   </span>
                   <br />
                   <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
                   {s.outcomeNote !== null && (
-                    <p className="bib-muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
+                    <p className="muted text-sm" style={{ margin: "4px 0 0" }}>
                       {s.outcomeNote}
                     </p>
                   )}
@@ -285,7 +288,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     (s.proposal ? (
                       <>
                         <button
-                          className="bib-button"
+                          className="btn"
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             void decide(s.stepKey, "accepted", null, null);
@@ -294,7 +297,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           Accept
                         </button>
                         <button
-                          className="bib-button-quiet"
+                          className="btn" data-variant="secondary" data-size="sm"
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             if (s.proposal) void correct(s.stepKey, s.proposal);
@@ -303,7 +306,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           Correct
                         </button>
                         <button
-                          className="bib-button-quiet"
+                          className="btn" data-variant="secondary" data-size="sm"
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             void reject(s.stepKey);
@@ -314,7 +317,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                       </>
                     ) : (
                       <button
-                        className="bib-button"
+                        className="btn"
                         disabled={busy === s.stepKey}
                         onClick={() => {
                           void complete(s.stepKey);
@@ -330,12 +333,12 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         </div>
       )}
 
-      <p className="bib-muted" style={{ fontSize: 13, maxWidth: "62ch" }}>
+      <p className="muted text-sm" style={{ maxWidth: "62ch" }}>
         Ticking a step records that <strong>you</strong> did it, and opens whatever was waiting
         on it straight away. It cannot be undone: a second completion would overwrite the record
         of who did the work.
       </p>
-      <p className="bib-muted" style={{ fontSize: 13, maxWidth: "62ch" }}>
+      <p className="muted text-sm" style={{ maxWidth: "62ch" }}>
         Where a machine has proposed an answer, accepting and correcting are recorded
         separately and both are kept beside what it originally said. That difference is the
         only measure of whether it is getting better — so a correction that changes nothing is
@@ -353,7 +356,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         title="Working papers"
         emptyHint="Nothing attached yet. The challan, the acknowledgement, the working paper behind a step — whatever a colleague would need to show this was done."
       />
-    </main>
+    </Page>
   );
 }
 
@@ -388,9 +391,9 @@ function CheckHistory({ checks }: { checks: StepCheck[] }) {
   const decided = checks.filter((c) => c.decision !== "pending");
   if (decided.length === 0) return null;
   return (
-    <div style={{ marginTop: "var(--bib-gap-1)" }}>
+    <div style={{ marginTop: "var(--s-2)" }}>
       {decided.map((c) => (
-        <p key={c.id} className="bib-muted" style={{ fontSize: 13, margin: "2px 0 0" }}>
+        <p key={c.id} className="muted text-sm" style={{ margin: "2px 0 0" }}>
           {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
           {c.decidedAt === null ? "—" : new Date(c.decidedAt).toLocaleDateString()}
           {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
@@ -421,7 +424,7 @@ function CheckActions({
 }) {
   if (!check.viewer.eligible) {
     return (
-      <p className="bib-muted" style={{ fontSize: 13, margin: 0, maxWidth: "22ch" }}>
+      <p className="muted text-sm" style={{ maxWidth: "22ch" }}>
         {check.viewer.reason === null
           ? "Not yours to check."
           : CHECK_INELIGIBILITY[check.viewer.reason]}
@@ -437,14 +440,14 @@ function CheckActions({
   return (
     <>
       <button
-        className="bib-button"
+        className="btn"
         disabled={busy === check.id}
         onClick={() => { onApprove(check.id); }}
       >
         Approve
       </button>
       <button
-        className="bib-button-quiet"
+        className="btn" data-variant="secondary" data-size="sm"
         disabled={busy === check.id}
         onClick={() => { onSendBack(check.id); }}
       >
@@ -462,7 +465,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // second had become true underneath it.
   if (step.status === "blocked" && check !== null) {
     return (
-      <span className="bib-pill" data-tone="revoked">
+      <span className="pill" data-tone="danger">
         finished — waiting to be checked
       </span>
     );
@@ -488,28 +491,28 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
           ? "a machine could not answer this — waiting for you to decide"
           : "a machine answered — waiting for you to check it";
     return (
-      <span className="bib-pill" data-tone="revoked">
+      <span className="pill" data-tone="danger">
         {blockedBecause}
       </span>
     );
   }
   if (step.status === "skipped") {
     return (
-      <span className="bib-pill" data-tone="revoked">
+      <span className="pill" data-tone="danger">
         not needed
       </span>
     );
   }
   if (step.status === "failed") {
     return (
-      <span className="bib-pill" data-tone="revoked">
+      <span className="pill" data-tone="danger">
         could not be finished
       </span>
     );
   }
   if (step.status === "done") {
     return (
-      <span className="bib-pill" data-tone="active">
+      <span className="pill" data-tone="accent">
         done
       </span>
     );
@@ -518,7 +521,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // waiting on a step before it, which is worth saying rather than leaving
   // somebody to wonder why there is no button.
   return (
-    <span className="bib-muted" style={{ fontSize: 13 }}>
+    <span className="muted text-sm">
       {step.status === "running" ? "in progress" : "waiting on an earlier step"}
     </span>
   );
@@ -542,11 +545,11 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
       style={{
         marginTop: 8,
         padding: "8px 10px",
-        borderLeft: "3px solid var(--bib-border)",
-        background: "var(--bib-surface-2, transparent)",
+        borderLeft: "3px solid var(--line)",
+        background: "var(--surface-sunk)",
       }}
     >
-      <div className="bib-muted" style={{ fontSize: 12 }}>
+      <div className="muted text-xs">
         {proposal.decision === "escalated" ? (
           <>
             The machine was <strong>not sure enough to answer</strong> — {proposal.confidence}{" "}
@@ -566,12 +569,12 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
         )}
       </div>
       <pre
-        className="bib-mono"
-        style={{ fontSize: 12, margin: "6px 0 0", whiteSpace: "pre-wrap", overflowX: "auto" }}
+        className="mono text-xs"
+        style={{ margin: "var(--s-1) 0 0", whiteSpace: "pre-wrap", overflowX: "auto" }}
       >
         {JSON.stringify(proposal.proposed, null, 2)}
       </pre>
-      <div className="bib-muted" style={{ fontSize: 11, marginTop: 4 }}>
+      <div className="muted text-xs" style={{ marginTop: 4 }}>
         {proposal.model} · {proposal.promptVersion}
       </div>
     </div>

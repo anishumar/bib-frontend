@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
+import { Td, Th } from "@/components/ui";
 import type {
   AccountTeam,
   AssignmentRole,
@@ -135,9 +136,9 @@ export function AccountTeamPanel({
 
   if (team === null) {
     return (
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Account team</h2>
-        <p className="bib-muted" style={{ margin: 0 }}>
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">Account team</h2>
+        <p className="muted">
           {error ?? "Loading…"}
         </p>
       </div>
@@ -153,21 +154,21 @@ export function AccountTeamPanel({
   const past = team.all.filter((a) => !inForceIds.has(a.id));
 
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
       <div
         style={{
           display: "flex",
           alignItems: "baseline",
           justifyContent: "space-between",
-          gap: "var(--bib-gap-2)",
+          gap: "var(--s-4)",
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ marginTop: 0, marginBottom: 0, fontSize: 16 }}>Account team</h2>
-        <label className="bib-label" style={{ marginBottom: 0 }}>
+        <h2 className="card-title">Account team</h2>
+        <label className="label" style={{ marginBottom: 0 }}>
           As of{" "}
           <input
-            className="bib-input"
+            className="input"
             type="date"
             value={asOf}
             style={{ width: "auto", marginLeft: 6 }}
@@ -179,48 +180,48 @@ export function AccountTeamPanel({
       </div>
 
       {!showingToday && (
-        <p className="bib-muted" style={{ marginTop: "var(--bib-gap-1)" }}>
+        <p className="muted" style={{ marginTop: "var(--s-2)" }}>
           Showing who held {clientName} on {asOf} — not today.
         </p>
       )}
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {team.inForce.length === 0 ? (
-        <p className="bib-muted" style={{ marginBottom: 0 }}>
+        <p className="muted">
           Nobody held this client on {asOf}. A Key Manager owns the relationship;
           a SPOC is the contact for one Dept.
         </p>
       ) : (
-        <table className="bib-table">
+        <table className="table">
           <thead>
             <tr>
-              <th>Role</th>
-              <th>Who</th>
-              <th>Dept / team</th>
-              <th>From</th>
-              <th>Until</th>
-              <th />
+              <Th>Role</Th>
+              <Th>Who</Th>
+              <Th>Dept / team</Th>
+              <Th>From</Th>
+              <Th>Until</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {team.inForce.map((a) => (
               <tr key={a.id}>
-                <td>
-                  <span className="bib-pill">{roleLabel(a.role)}</span>
-                </td>
-                <td>{a.holderName ?? a.holderEmail}</td>
-                <td className="bib-muted">
+                <Td>
+                  <span className="pill">{roleLabel(a.role)}</span>
+                </Td>
+                <Td>{a.holderName ?? a.holderEmail}</Td>
+                <Td className="muted">
                   {a.axis === null ? "— whole relationship" : a.axis.name}
-                </td>
-                <td className="bib-muted">{a.validFrom}</td>
+                </Td>
+                <Td className="muted">{a.validFrom}</Td>
                 {/* Half-open: the first day NOT in force, which is why this
                     column is "until" and an open row says "open". */}
-                <td className="bib-muted">{a.validTo ?? "open"}</td>
-                <td>
+                <Td className="muted">{a.validTo ?? "open"}</Td>
+                <Td>
                   {showingToday && a.validTo === null && (
                     <button
-                      className="bib-button-quiet"
+                      className="btn" data-variant="secondary" data-size="sm"
                       type="button"
                       disabled={busy}
                       onClick={() => {
@@ -230,7 +231,7 @@ export function AccountTeamPanel({
                       End today
                     </button>
                   )}
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -238,28 +239,28 @@ export function AccountTeamPanel({
       )}
 
       {past.length > 0 && (
-        <details style={{ marginTop: "var(--bib-gap-2)" }}>
-          <summary className="bib-muted">
+        <details style={{ marginTop: "var(--s-4)" }}>
+          <summary className="muted">
             {past.length} earlier {past.length === 1 ? "arrangement" : "arrangements"}
           </summary>
-          <table className="bib-table" style={{ marginTop: "var(--bib-gap-1)" }}>
+          <table className="table" style={{ marginTop: "var(--s-2)" }}>
             <thead>
               <tr>
-                <th>Role</th>
-                <th>Who</th>
-                <th>Dept / team</th>
-                <th>From</th>
-                <th>Until</th>
+                <Th>Role</Th>
+                <Th>Who</Th>
+                <Th>Dept / team</Th>
+                <Th>From</Th>
+                <Th>Until</Th>
               </tr>
             </thead>
             <tbody>
               {past.map((a) => (
                 <tr key={a.id}>
-                  <td className="bib-muted">{roleLabel(a.role)}</td>
-                  <td className="bib-muted">{a.holderName ?? a.holderEmail}</td>
-                  <td className="bib-muted">{a.axis?.name ?? "—"}</td>
-                  <td className="bib-muted">{a.validFrom}</td>
-                  <td className="bib-muted">{a.validTo ?? "open"}</td>
+                  <Td className="muted">{roleLabel(a.role)}</Td>
+                  <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
+                  <Td className="muted">{a.axis?.name ?? "—"}</Td>
+                  <Td className="muted">{a.validFrom}</Td>
+                  <Td className="muted">{a.validTo ?? "open"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -269,19 +270,19 @@ export function AccountTeamPanel({
 
       {canAssign && (
         <form
-          style={{ marginTop: "var(--bib-gap-3)" }}
+          style={{ marginTop: "var(--s-5)" }}
           action={(form) => {
             void assign(form);
           }}
         >
-          <h3 style={{ fontSize: 14, marginBottom: "var(--bib-gap-1)" }}>Put somebody in charge</h3>
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <h3 className="text-md" style={{ marginBottom: "var(--s-2)" }}>Put somebody in charge</h3>
+          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
             <div>
-              <label className="bib-label" htmlFor="role">
+              <label className="label" htmlFor="role">
                 Role
               </label>
               <select
-                className="bib-select"
+                className="select"
                 id="role"
                 name="role"
                 value={role}
@@ -298,10 +299,10 @@ export function AccountTeamPanel({
                 a Dept — so the field is absent rather than disabled. */}
             {role === "spoc" && (
               <div>
-                <label className="bib-label" htmlFor="axisId">
+                <label className="label" htmlFor="axisId">
                   Dept / team
                 </label>
-                <select className="bib-select" id="axisId" name="axisId" style={{ width: "100%" }}>
+                <select className="select" id="axisId" name="axisId" style={{ width: "100%" }}>
                   {axes.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({a.axis === "dept" ? "Dept" : "team"})
@@ -311,10 +312,10 @@ export function AccountTeamPanel({
               </div>
             )}
             <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="userId">
+              <label className="label" htmlFor="userId">
                 Who
               </label>
-              <select className="bib-select" id="userId" name="userId" style={{ width: "100%" }}>
+              <select className="select" id="userId" name="userId" style={{ width: "100%" }}>
                 {staff.map((m) => (
                   <option key={m.membership.id} value={m.membership.userId}>
                     {m.displayName ?? m.email}
@@ -323,11 +324,11 @@ export function AccountTeamPanel({
               </select>
             </div>
             <div>
-              <label className="bib-label" htmlFor="validFrom">
+              <label className="label" htmlFor="validFrom">
                 From
               </label>
               <input
-                className="bib-input"
+                className="input"
                 id="validFrom"
                 name="validFrom"
                 type="date"
@@ -336,12 +337,12 @@ export function AccountTeamPanel({
               />
             </div>
           </div>
-          <p className="bib-muted" style={{ marginTop: 0, marginBottom: "var(--bib-gap-2)" }}>
+          <p className="muted" style={{ marginBottom: "var(--s-4)" }}>
             {role === "key_manager"
               ? "A new Key Manager is a handover: the current one is closed on this date, and both stay on file."
               : "A Dept can have more than one SPOC — this adds one. Ending the outgoing SPOC is a separate step."}
           </p>
-          <button className="bib-button" type="submit" disabled={busy}>
+          <button className="btn" type="submit" disabled={busy}>
             {busy ? "Saving…" : "Assign"}
           </button>
         </form>

@@ -4,6 +4,26 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
 import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
+import { Page, PageHeader, Stack } from "@/components/layout";
+import { Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Notice,
+  Pill,
+  Select,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  Input,
+} from "@/components/ui";
 
 /**
  * The firm's roster.
@@ -126,140 +146,163 @@ export default function PeoplePage() {
     );
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading the roster" />;
 
   return (
-    <main>
-      <h1>People</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="People"
+        lede="Who works at the firm, what their role reaches, how senior they are, and who they report to. Four independent axes — changing one never changes another."
+        aside={<Pill tone="quiet">{members.length} on the roster</Pill>}
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <table className="bib-table">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Role</th>
-              <th>Grade</th>
-              <th>Reports to</th>
-              <th>Access</th>
-              <th>Fees</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((m) => (
-              <tr key={m.membership.id} data-inactive={!m.membership.isActive}>
-                <td>
-                  {/* The name when there is one; the email otherwise. Nobody is
-                      shown as a uuid. */}
-                  <div>{m.displayName ?? m.email}</div>
-                  {m.displayName !== null && (
-                    <div className="bib-muted bib-mono">{m.email}</div>
-                  )}
-                </td>
-                <td>
-                  <select
-                    className="bib-select"
-                    value={m.membership.role}
-                    disabled={busy === m.membership.id}
-                    onChange={(e) => { changeRole(m.membership.id, e.target.value); }}
-                  >
-                    {/* The role they hold is always an option, even if the firm
-                        has since unpublished it — otherwise the dropdown would
-                        silently show somebody as holding a different role. */}
-                    {!roles.some((r) => r.entry.key === m.membership.role) && (
-                      <option value={m.membership.role}>{m.membership.role} (not published)</option>
-                    )}
-                    {roles.map((r) => (
-                      <option key={r.entry.key} value={r.entry.key}>
-                        {readRoleBody(r.published?.body).label || r.entry.key}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className="bib-select"
-                    value={m.grade?.id ?? ""}
-                    disabled={busy === m.membership.id}
-                    onChange={(e) => { changeGrade(m.membership.id, e.target.value || null); }}
-                  >
-                    {/* Ungraded is offered as a choice, not shown as an empty
-                        cell: taking somebody off the ladder is a decision, and a
-                        portal contact belongs on no rung at all. */}
-                    <option value="">— not graded —</option>
-                    {/* A retired rung is offered only to the person already on
-                        it. The API refuses it for anybody else, and offering
-                        what will fail is just a slower error. */}
-                    {grades
-                      .filter((g) => g.isActive || g.id === m.grade?.id)
-                      .map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                          {g.isActive ? "" : " (retired)"}
-                        </option>
-                      ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className="bib-select"
-                    value={m.membership.reportsToUserId ?? ""}
-                    disabled={busy === m.membership.id}
-                    onChange={(e) => {
-                      changeReportsTo(m.membership.id, e.target.value || null);
-                    }}
-                  >
-                    {/* Nobody is a real answer, not a blank to be filled in
-                        later: a partner reports to nobody, and so does everybody
-                        at a firm that has not recorded this. */}
-                    <option value="">— nobody —</option>
-                    {/* Active STAFF only, and never themselves. The API refuses
-                        both — a client contact in the firm's reporting line
-                        would make a client eligible to check the firm's work,
-                        and the database refuses the self-loop — so offering
-                        either would just be a slower error. */}
-                    {members
-                      .filter(
-                        (o) =>
-                          o.membership.userId !== m.membership.userId &&
-                          o.membership.audience === "STAFF" &&
-                          o.membership.isActive,
-                      )
-                      .map((o) => (
-                        <option key={o.membership.id} value={o.membership.userId}>
-                          {o.displayName ?? o.email}
-                        </option>
-                      ))}
-                  </select>
-                </td>
-                <td>
-                  <span className="bib-pill" data-tone={m.membership.isActive ? "active" : "revoked"}>
-                    {m.membership.isActive ? m.membership.audience : "revoked"}
-                  </span>
-                </td>
-                <td className="bib-muted">{m.membership.commercialVisibility ? "visible" : "hidden"}</td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className={`bib-button-quiet${m.membership.isActive ? " bib-button-danger" : ""}`}
-                    disabled={busy === m.membership.id}
-                    onClick={() => { setActive(m.membership.id, !m.membership.isActive); }}
-                  >
-                    {m.membership.isActive ? "Revoke access" : "Restore"}
-                  </button>
-                </td>
+      <ErrorNotice error={error} />
+
+      <Stack gap="tight">
+        <TableWrap>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Person</Th>
+                <Th>Role</Th>
+                <Th>Grade</Th>
+                <Th>Reports to</Th>
+                <Th>Access</Th>
+                <Th>Fees</Th>
+                {/* The actions column has no visible heading, but an empty one
+                    is announced as an empty column. This names it for anybody
+                    navigating the table by header. */}
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0, marginTop: "var(--bib-gap-2)" }}>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.membership.id} data-inactive={!m.membership.isActive}>
+                  <Td>
+                    {/* The name when there is one; the email otherwise. Nobody
+                        is shown as a uuid. */}
+                    {m.displayName ?? m.email}
+                    {m.displayName !== null && <Sub>{m.email}</Sub>}
+                  </Td>
+                  <Td>
+                    <Select
+                      size="sm"
+                      aria-label={`Role for ${m.displayName ?? m.email}`}
+                      value={m.membership.role}
+                      disabled={busy === m.membership.id}
+                      onChange={(e) => { changeRole(m.membership.id, e.target.value); }}
+                    >
+                      {/* The role they hold is always an option, even if the firm
+                          has since unpublished it — otherwise the dropdown would
+                          silently show somebody as holding a different role. */}
+                      {!roles.some((r) => r.entry.key === m.membership.role) && (
+                        <option value={m.membership.role}>
+                          {m.membership.role} (not published)
+                        </option>
+                      )}
+                      {roles.map((r) => (
+                        <option key={r.entry.key} value={r.entry.key}>
+                          {readRoleBody(r.published?.body).label || r.entry.key}
+                        </option>
+                      ))}
+                    </Select>
+                  </Td>
+                  <Td>
+                    <Select
+                      size="sm"
+                      aria-label={`Grade for ${m.displayName ?? m.email}`}
+                      value={m.grade?.id ?? ""}
+                      disabled={busy === m.membership.id}
+                      onChange={(e) => { changeGrade(m.membership.id, e.target.value || null); }}
+                    >
+                      {/* Ungraded is offered as a choice, not shown as an empty
+                          cell: taking somebody off the ladder is a decision, and a
+                          portal contact belongs on no rung at all. */}
+                      <option value="">— not graded —</option>
+                      {/* A retired rung is offered only to the person already on
+                          it. The API refuses it for anybody else, and offering
+                          what will fail is just a slower error. */}
+                      {grades
+                        .filter((g) => g.isActive || g.id === m.grade?.id)
+                        .map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                            {g.isActive ? "" : " (retired)"}
+                          </option>
+                        ))}
+                    </Select>
+                  </Td>
+                  <Td>
+                    <Select
+                      size="sm"
+                      aria-label={`Reporting line for ${m.displayName ?? m.email}`}
+                      value={m.membership.reportsToUserId ?? ""}
+                      disabled={busy === m.membership.id}
+                      onChange={(e) => {
+                        changeReportsTo(m.membership.id, e.target.value || null);
+                      }}
+                    >
+                      {/* Nobody is a real answer, not a blank to be filled in
+                          later: a partner reports to nobody, and so does everybody
+                          at a firm that has not recorded this. */}
+                      <option value="">— nobody —</option>
+                      {/* Active STAFF only, and never themselves. The API refuses
+                          both — a client contact in the firm's reporting line
+                          would make a client eligible to check the firm's work,
+                          and the database refuses the self-loop — so offering
+                          either would just be a slower error. */}
+                      {members
+                        .filter(
+                          (o) =>
+                            o.membership.userId !== m.membership.userId &&
+                            o.membership.audience === "STAFF" &&
+                            o.membership.isActive,
+                        )
+                        .map((o) => (
+                          <option key={o.membership.id} value={o.membership.userId}>
+                            {o.displayName ?? o.email}
+                          </option>
+                        ))}
+                    </Select>
+                  </Td>
+                  <Td>
+                    <Pill tone={m.membership.isActive ? "accent" : "danger"}>
+                      {m.membership.isActive ? m.membership.audience : "revoked"}
+                    </Pill>
+                  </Td>
+                  <Td>
+                    {m.membership.commercialVisibility ? (
+                      <Pill tone="neutral">visible</Pill>
+                    ) : (
+                      <Pill tone="quiet">hidden</Pill>
+                    )}
+                  </Td>
+                  <Td align="right">
+                    <Button
+                      size="sm"
+                      variant={m.membership.isActive ? "destructive-quiet" : "secondary"}
+                      loading={busy === m.membership.id}
+                      onClick={() => { setActive(m.membership.id, !m.membership.isActive); }}
+                    >
+                      {m.membership.isActive ? "Revoke access" : "Restore"}
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrap>
+        <p className="field-hint">
           Revoking takes effect on their next request, not at their next sign-in. A grade is
           seniority only — it grants nothing, and it is what review rules compare.
         </p>
-      </div>
+      </Stack>
 
       <AddMember roles={roles} onAdded={() => void load()} onError={setError} />
-    </main>
+    </Page>
   );
 }
 
@@ -324,83 +367,82 @@ function AddMember({
   }
 
   return (
-    <div className="bib-card">
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Add somebody</h2>
+    <Card>
+      <CardHead title="Add somebody" />
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <div className="bib-field-row">
-          <div>
-            <label className="bib-label" htmlFor="email">Email</label>
-            <input
-              id="email" className="bib-input" type="email" required value={email}
-              onChange={(e) => { setEmail(e.target.value); }}
-            />
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="name">Name (optional)</label>
-            <input
-              id="name" className="bib-input" value={displayName}
-              onChange={(e) => { setDisplayName(e.target.value); }}
-            />
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="role">Role</label>
-            <select
-              id="role" className="bib-select" style={{ width: "100%" }} value={chosenRole}
-              onChange={(e) => { setRole(e.target.value); }}
-            >
-              {roles.map((r) => (
-                <option key={r.entry.key} value={r.entry.key}>
-                  {readRoleBody(r.published?.body).label || r.entry.key}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="audience">Surface</label>
-            <select
-              id="audience" className="bib-select" style={{ width: "100%" }} value={audience}
-              onChange={(e) => { setAudience(e.target.value); }}
-            >
-              <option value="STAFF">Staff workspace</option>
-              <option value="CLIENT_PORTAL">Client portal</option>
-            </select>
-          </div>
-        </div>
+        <div className="stack">
+          <FieldRow>
+            <Field label="Email">
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); }}
+              />
+            </Field>
+            <Field label="Name" optional>
+              <Input
+                value={displayName}
+                onChange={(e) => { setDisplayName(e.target.value); }}
+              />
+            </Field>
+            <Field label="Role">
+              <Select value={chosenRole} onChange={(e) => { setRole(e.target.value); }}>
+                {roles.map((r) => (
+                  <option key={r.entry.key} value={r.entry.key}>
+                    {readRoleBody(r.published?.body).label || r.entry.key}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Surface">
+              <Select value={audience} onChange={(e) => { setAudience(e.target.value); }}>
+                <option value="STAFF">Staff workspace</option>
+                <option value="CLIENT_PORTAL">Client portal</option>
+              </Select>
+            </Field>
+          </FieldRow>
 
-        {strandedPermissions.length > 0 && (
-          <p className="bib-muted" style={{ fontSize: 13, marginTop: "var(--bib-gap-2)", marginBottom: 0 }}>
-            <strong>This role carries {strandedPermissions.length} permission
-            {strandedPermissions.length === 1 ? "" : "s"} a client-portal login cannot use.</strong>{" "}
-            A portal session reaches only its own sign-in and org-switch routes, so{" "}
-            {strandedPermissions.join(", ")} will not apply. They will still be listed as
-            “{readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body).label ||
-              chosenRole}” on the roster.
-          </p>
-        )}
+          {strandedPermissions.length > 0 && (
+            <Notice tone="warn" eyebrow="Will not apply">
+              <p>
+                <strong>
+                  This role carries {strandedPermissions.length} permission
+                  {strandedPermissions.length === 1 ? "" : "s"} a client-portal login cannot
+                  use.
+                </strong>{" "}
+                A portal session reaches only its own sign-in and org-switch routes, so{" "}
+                {strandedPermissions.join(", ")} will not apply. They will still be listed as
+                “
+                {readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body)
+                  .label || chosenRole}
+                ” on the roster.
+              </p>
+            </Notice>
+          )}
 
-        <label className="bib-check" style={{ marginTop: "var(--bib-gap-2)" }}>
-          <input
-            type="checkbox" checked={seesFees}
+          <Checkbox
+            label="Can see fees"
+            note="separate from their role, on purpose."
+            checked={seesFees}
             onChange={(e) => { setSeesFees(e.target.checked); }}
           />
-          <span>
-            Can see fees
-            <span className="bib-muted"> — separate from their role, on purpose.</span>
-          </span>
-        </label>
 
-        <button className="bib-button" style={{ marginTop: "var(--bib-gap-2)" }} disabled={busy}>
-          {busy ? "Adding…" : "Add"}
-        </button>
-        <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
-          No email is sent yet — they sign in with a magic link from the login page.
-        </p>
+          <div>
+            <Button type="submit" loading={busy}>
+              Add
+            </Button>
+            <p className="field-hint">
+              No email is sent yet — they sign in with a magic link from the login page.
+            </p>
+          </div>
+        </div>
       </form>
-    </div>
+    </Card>
   );
 }

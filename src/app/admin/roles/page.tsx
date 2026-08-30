@@ -4,6 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
 import type { ConfigEntry, PermissionInfo } from "@/lib/api/client";
+import { Page, PageHeader, Stack } from "@/components/layout";
+import { Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Input,
+  Pill,
+} from "@/components/ui";
 
 /**
  * What the firm's roles MEAN — the other half of access control, and the screen
@@ -54,25 +67,66 @@ export default function RolesPage() {
     })();
   }, [load]);
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading roles" />;
 
   return (
-    <main>
-      <h1>Roles</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Roles"
+        lede="What each role MEANS. Changing one publishes a new version rather than editing the old one — the version beside each name is the registry's design, not decoration."
+        aside={<Pill tone="quiet">{roles.length} defined</Pill>}
+      />
 
-      {roles.map((role) => (
-        <RoleCard
-          key={role.entry.key}
-          role={role}
-          permissions={permissions}
-          onSaved={() => void load()}
-          onError={setError}
-        />
-      ))}
+      <ErrorNotice error={error} />
+
+      <Stack>
+        {roles.map((role) => (
+          <RoleCard
+            key={role.entry.key}
+            role={role}
+            permissions={permissions}
+            onSaved={() => void load()}
+            onError={setError}
+          />
+        ))}
+      </Stack>
 
       <NewRole permissions={permissions} onCreated={() => void load()} onError={setError} />
-    </main>
+    </Page>
+  );
+}
+
+/**
+ * The permission checklist, written once.
+ *
+ * Both the editor and the create form need exactly this list with exactly this
+ * behaviour, and they had two copies of it. Local to this screen rather than in
+ * the design system, because a checklist of THIS API's permissions is not a
+ * general-purpose component — the shared parts (`Checkbox`, the mono key, the
+ * muted description) already come from there.
+ */
+function PermissionChecklist({
+  permissions,
+  held,
+  onToggle,
+}: {
+  permissions: PermissionInfo[];
+  held: string[];
+  onToggle: (key: string, on: boolean) => void;
+}) {
+  return (
+    <div className="stack tight">
+      {permissions.map((p) => (
+        <Checkbox
+          key={p.key}
+          checked={held.includes(p.key)}
+          onChange={(e) => { onToggle(p.key, e.target.checked); }}
+          label={<span className="mono">{p.key}</span>}
+          note={p.description}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -129,48 +183,37 @@ function RoleCard({
   }
 
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>
-          {current.label || role.entry.key}{" "}
-          <span className="bib-muted bib-mono">{role.entry.key}</span>
-        </h2>
-        <span className="bib-pill">
-          {role.published === null ? "not published" : `v${String(role.published.version)}`}
-        </span>
-      </div>
+    <Card>
+      <CardHead
+        title={
+          <>
+            {current.label || role.entry.key}{" "}
+            <span className="mono muted">{role.entry.key}</span>
+          </>
+        }
+        aside={
+          <Pill tone={role.published === null ? "warn" : "neutral"}>
+            {role.published === null ? "not published" : `v${String(role.published.version)}`}
+          </Pill>
+        }
+      />
 
-      <div style={{ marginTop: "var(--bib-gap-2)", display: "grid", gap: "var(--bib-gap-1)" }}>
-        {permissions.map((p) => (
-          <label key={p.key} className="bib-check">
-            <input
-              type="checkbox"
-              checked={held.includes(p.key)}
-              onChange={(e) => {
-                setHeld((was) =>
-                  e.target.checked ? [...was, p.key] : was.filter((k) => k !== p.key),
-                );
-              }}
-            />
-            <span>
-              <span className="bib-mono">{p.key}</span>
-              <span className="bib-muted"> — {p.description}</span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <PermissionChecklist
+        permissions={permissions}
+        held={held}
+        onToggle={(key, on) => {
+          setHeld((was) => (on ? [...was, key] : was.filter((k) => k !== key)));
+        }}
+      />
 
       {changed && (
-        <button
-          className="bib-button"
-          style={{ marginTop: "var(--bib-gap-2)" }}
-          disabled={busy}
-          onClick={() => void save()}
-        >
-          {busy ? "Publishing…" : "Publish as a new version"}
-        </button>
+        <div className="card-foot">
+          <Button loading={busy} onClick={() => void save()}>
+            Publish as a new version
+          </Button>
+        </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -216,59 +259,52 @@ function NewRole({
   }
 
   return (
-    <div className="bib-card">
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Add a role</h2>
+    <Card>
+      <CardHead title="Add a role" />
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <div className="bib-field-row">
-          <div>
-            <label className="bib-label" htmlFor="key">Handle</label>
-            <input
-              id="key" className="bib-input" required value={key} placeholder="relationship-manager"
-              onChange={(e) => { setKey(e.target.value); }}
-            />
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="label">Name</label>
-            <input
-              id="label" className="bib-input" required value={label} placeholder="Relationship manager"
-              onChange={(e) => { setLabel(e.target.value); }}
-            />
-          </div>
-        </div>
-        <p className="bib-muted" style={{ fontSize: 13 }}>
-          The handle is permanent and is what memberships refer to. The name can be changed
-          whenever you like.
-        </p>
-
-        <div style={{ display: "grid", gap: "var(--bib-gap-1)" }}>
-          {permissions.map((p) => (
-            <label key={p.key} className="bib-check">
-              <input
-                type="checkbox"
-                checked={held.includes(p.key)}
-                onChange={(e) => {
-                  setHeld((was) =>
-                    e.target.checked ? [...was, p.key] : was.filter((k) => k !== p.key),
-                  );
-                }}
+        <div className="stack">
+          <FieldRow>
+            <Field
+              label="Handle"
+              hint="Permanent, and what memberships refer to."
+            >
+              <Input
+                required
+                value={key}
+                placeholder="relationship-manager"
+                onChange={(e) => { setKey(e.target.value); }}
               />
-              <span>
-                <span className="bib-mono">{p.key}</span>
-                <span className="bib-muted"> — {p.description}</span>
-              </span>
-            </label>
-          ))}
-        </div>
+            </Field>
+            <Field label="Name" hint="Changeable whenever you like.">
+              <Input
+                required
+                value={label}
+                placeholder="Relationship manager"
+                onChange={(e) => { setLabel(e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
 
-        <button className="bib-button" style={{ marginTop: "var(--bib-gap-2)" }} disabled={busy}>
-          {busy ? "Creating…" : "Create and publish"}
-        </button>
+          <PermissionChecklist
+            permissions={permissions}
+            held={held}
+            onToggle={(k, on) => {
+              setHeld((was) => (on ? [...was, k] : was.filter((x) => x !== k)));
+            }}
+          />
+
+          <div>
+            <Button type="submit" loading={busy}>
+              Create and publish
+            </Button>
+          </div>
+        </div>
       </form>
-    </div>
+    </Card>
   );
 }

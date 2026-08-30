@@ -4,6 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { StaffGrade } from "@/lib/api/client";
+import { Page, PageHeader, Stack } from "@/components/layout";
+import { Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Input,
+  Pill,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 
 /**
  * The firm's seniority ladder.
@@ -98,74 +114,87 @@ export default function GradesPage() {
     );
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading the ladder" />;
 
   return (
-    <main>
-      <h1>Grades</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Grades"
+        lede="The firm's seniority ladder. A grade grants nothing — it exists for one comparison, the review rule that reads “Manager or above”."
+        aside={<Pill tone="quiet">{grades.length} rungs</Pill>}
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <table className="bib-table">
+      <ErrorNotice error={error} />
+
+      <Stack gap="tight">
+        <TableWrap>
+          <Table>
           <thead>
             <tr>
-              <th>Rung</th>
-              <th>Code</th>
-              <th style={{ width: 110 }}>Rank</th>
-              <th>Status</th>
-              <th />
+              <Th>Rung</Th>
+              <Th>Code</Th>
+              <Th>Rank</Th>
+              <Th>Status</Th>
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
             {grades.map((g) => (
               <tr key={g.id} data-inactive={!g.isActive}>
-                <td>
+                <Td>
                   <GradeName
                     key={`${g.id}:${g.name}`}
                     value={g.name}
                     disabled={busy === g.id}
                     onCommit={(name) => { rename(g.id, name); }}
                   />
-                </td>
+                </Td>
                 {/* The code never changes. It is the firm's stable handle for
                     the rung, and anything that has recorded it — an audit event,
                     an import script — would stop resolving if it moved. */}
-                <td className="bib-muted bib-mono">{g.code}</td>
-                <td>
+                <Td>
+                  <span className="mono muted">{g.code}</span>
+                </Td>
+                <Td>
                   <GradeRank
                     key={`${g.id}:${String(g.rank)}`}
                     value={g.rank}
                     disabled={busy === g.id}
                     onCommit={(rank) => { reRank(g.id, rank); }}
                   />
-                </td>
-                <td>
-                  <span className="bib-pill" data-tone={g.isActive ? "active" : "revoked"}>
+                </Td>
+                <Td>
+                  <Pill tone={g.isActive ? "accent" : "danger"}>
                     {g.isActive ? "in use" : "retired"}
-                  </span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className={`bib-button-quiet${g.isActive ? " bib-button-danger" : ""}`}
-                    disabled={busy === g.id}
+                  </Pill>
+                </Td>
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant={g.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === g.id}
                     onClick={() => { setActive(g.id, !g.isActive); }}
                   >
                     {g.isActive ? "Retire" : "Bring back"}
-                  </button>
-                </td>
+                  </Button>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
-        <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0, marginTop: "var(--bib-gap-2)" }}>
+          </Table>
+        </TableWrap>
+        <p className="field-hint">
           Rank 1 is the most junior, and a review rule like “Manager or above” compares it.
           Ranks need not be consecutive, and two rungs may share one. Retiring keeps a rung
           readable on everybody who holds it — it only stops being offered to anybody new.
         </p>
-      </div>
+      </Stack>
 
       <AddGrade onAdded={() => void load()} onError={setError} />
-    </main>
+    </Page>
   );
 }
 
@@ -200,8 +229,8 @@ function GradeName({
   }
 
   return (
-    <input
-      className="bib-input"
+    <Input
+      size="sm"
       value={draft}
       disabled={disabled}
       aria-label="Grade name"
@@ -241,8 +270,8 @@ function GradeRank({
   }
 
   return (
-    <input
-      className="bib-input"
+    <Input
+      size="sm"
       type="number"
       min={1}
       value={draft}
@@ -295,48 +324,55 @@ function AddGrade({
   }
 
   return (
-    <div className="bib-card">
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Add a rung</h2>
+    <Card>
+      <CardHead title="Add a rung" />
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
         }}
       >
-        <div className="bib-field-row">
+        <div className="stack">
+          <FieldRow>
+            <Field label="Name">
+              <Input
+                required
+                value={name}
+                placeholder="Article"
+                onChange={(e) => { setName(e.target.value); }}
+              />
+            </Field>
+            <Field label="Code" hint="Permanent once set.">
+              <Input
+                required
+                value={code}
+                placeholder="article"
+                onChange={(e) => { setCode(e.target.value); }}
+              />
+            </Field>
+            <Field label="Rank">
+              <Input
+                type="number"
+                min={1}
+                required
+                value={rank}
+                onChange={(e) => { setRank(e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
+
           <div>
-            <label className="bib-label" htmlFor="grade-name">Name</label>
-            <input
-              id="grade-name" className="bib-input" required value={name}
-              placeholder="Article"
-              onChange={(e) => { setName(e.target.value); }}
-            />
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="grade-code">Code</label>
-            <input
-              id="grade-code" className="bib-input" required value={code}
-              placeholder="article"
-              onChange={(e) => { setCode(e.target.value); }}
-            />
-          </div>
-          <div>
-            <label className="bib-label" htmlFor="grade-rank">Rank</label>
-            <input
-              id="grade-rank" className="bib-input" type="number" min={1} required value={rank}
-              onChange={(e) => { setRank(e.target.value); }}
-            />
+            <Button type="submit" loading={busy}>
+              Add
+            </Button>
+            <p className="field-hint">
+              The code is permanent and is how the rung is referred to everywhere else. To slot
+              a rung in below an existing one, give it the rank you want and edit the ranks
+              above it.
+            </p>
           </div>
         </div>
-
-        <button className="bib-button" style={{ marginTop: "var(--bib-gap-2)" }} disabled={busy}>
-          {busy ? "Adding…" : "Add"}
-        </button>
-        <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
-          The code is permanent and is how the rung is referred to everywhere else. To slot a
-          rung in below an existing one, give it the rank you want and edit the ranks above it.
-        </p>
       </form>
-    </div>
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
+import { LinkButton, Td, Th } from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
@@ -13,6 +14,7 @@ import type {
   WorkItemReview,
   WorkVocabulary,
 } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * One work item — the page where it is actually worked (T3.1).
@@ -110,15 +112,15 @@ export default function WorkItemPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
   if (detail === null) {
     return (
-      <main>
-        <div className="bib-nav">
+      <Page>
+        <div className="cluster">
           <Link href="/work-items">← Work</Link>
         </div>
-        <p className="bib-error">{error ?? "No such work item."}</p>
-      </main>
+        <p className="notice" data-tone="danger" role="alert">{error ?? "No such work item."}</p>
+      </Page>
     );
   }
 
@@ -127,28 +129,43 @@ export default function WorkItemPage() {
   const canWrite = me?.permissions.includes("work:write") ?? false;
 
   return (
-    <main>
-      <div className="bib-nav">
-        <Link href="/work-items">← Work</Link>
-        {item.jobId !== null && <Link href={`/work/${item.jobId}`}>The process →</Link>}
-        <Link href={`/clients/${item.clientPartyId}`}>The client →</Link>
-      </div>
+    <Page>
+      <PageHeader
+        eyebrow="Delivery"
+        title={<>{item.title}</>}
+        lede={
+          <>
+            {item.clientName}
+            {item.entityName !== null &&
+              item.entityName !== item.clientName &&
+              ` · ${item.entityName}`}
+            {item.deptName !== null && ` · ${item.deptName}`}
+          </>
+        }
+        /* The two things this item hangs off. Siblings, not breadcrumbs: the
+           sidebar already says where you are, and these say what else to open. */
+        aside={
+          <>
+            {item.jobId !== null && (
+              <LinkButton size="sm" href={`/work/${item.jobId}`}>
+                The process
+              </LinkButton>
+            )}
+            <LinkButton size="sm" href={`/clients/${item.clientPartyId}`}>
+              The client
+            </LinkButton>
+          </>
+        }
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
-      <h1 style={{ marginBottom: 4 }}>{item.title}</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        {item.clientName}
-        {item.entityName !== null && item.entityName !== item.clientName && ` · ${item.entityName}`}
-        {item.deptName !== null && ` · ${item.deptName}`}
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
-
-      <div className="bib-card">
-        <dl className="bib-facts">
+      <div className="card">
+        <dl className="meta">
           <Fact label="State">
             <span
-              className="bib-pill"
+              className="pill"
               data-tone={
-                item.state.isBlocked ? "revoked" : item.state.isTerminal ? undefined : "live"
+                item.state.isBlocked ? "danger" : item.state.isTerminal ? undefined : "accent"
               }
             >
               {item.state.name}
@@ -160,7 +177,7 @@ export default function WorkItemPage() {
                 printing it here too made the fact grid six lines tall and said
                 the same sentence twice, which is what opening the page found. */}
             {item.assignee === null ? (
-              <span className="bib-muted">Nobody</span>
+              <span className="muted">Nobody</span>
             ) : (
               (item.assignee.displayName ?? item.assignee.email)
             )}
@@ -168,7 +185,7 @@ export default function WorkItemPage() {
           <Fact label="Due">
             {item.dueOn ?? "no date"}
             {item.slaDaysSnapshot !== null && (
-              <span className="bib-muted" style={{ fontSize: 12 }}>
+              <span className="muted text-xs">
                 {" "}
                 {/* The SNAPSHOT, and the page says it is one. A catalogue
                     revision must not make finished work retroactively late, so
@@ -187,15 +204,15 @@ export default function WorkItemPage() {
         </dl>
 
         {item.assignee === null && item.assignmentNote !== null && (
-          <p className="bib-callout">{item.assignmentNote}</p>
+          <p className="notice">{item.assignmentNote}</p>
         )}
         {item.state.isBlocked && item.blockedReason !== null && (
-          <p className="bib-callout">
+          <p className="notice">
             <strong>Blocked:</strong> {item.blockedReason}
           </p>
         )}
         {item.blockedByOpen.length > 0 && (
-          <p className="bib-callout">
+          <p className="notice">
             Cannot start until {item.blockedByOpen.map((b) => b.title).join(", ")}{" "}
             {item.blockedByOpen.length === 1 ? "is" : "are"} finished.
           </p>
@@ -285,13 +302,13 @@ export default function WorkItemPage() {
           );
         }}
       />
-    </main>
+    </Page>
   );
 }
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bib-fact">
+    <div>
       <dt>{label}</dt>
       <dd>{children}</dd>
     </div>
@@ -324,13 +341,13 @@ function MoveState({
   const needsReason = target?.isBlocked ?? false;
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Move it</h2>
-      <div className="bib-field-row">
-        <label className="bib-label">
+    <div className="card" style={{ marginTop: "var(--s-4)" }}>
+      <h2 className="card-title">Move it</h2>
+      <div className="field-row">
+        <label className="label">
           State
           <select
-            className="bib-select"
+            className="select"
             value={stateId}
             onChange={(e) => { setStateId(e.target.value); }}
           >
@@ -344,8 +361,8 @@ function MoveState({
           </select>
         </label>
         <button
-          className="bib-button"
-          // `.bib-field-row > *` is `flex: 1 1 160px`, which is right for the
+          className="btn"
+          // `.field-row` lays out its children on a `minmax(12rem, 1fr)` grid, which is right for the
           // control beside it and turns a button into a banner. Found by
           // opening the page.
           style={{ flex: "0 0 auto" }}
@@ -357,10 +374,10 @@ function MoveState({
       </div>
 
       {needsReason && (
-        <label className="bib-label" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <label className="label">
           Why is it stuck?
           <textarea
-            className="bib-textarea"
+            className="textarea"
             value={reason}
             rows={2}
             onChange={(e) => { setReason(e.target.value); }}
@@ -369,7 +386,7 @@ function MoveState({
               blocks a task the reason is obvious to everybody in the room and
               nobody writes it down; a year later "are our delays ours or the
               client's" has no query that can answer it. */}
-          <span className="bib-hint">
+          <span className="field-hint">
             Required for this state, and it is the only thing that will ever explain the
             delay. It stays on the task and never enters the audit log — the log cannot be
             erased and this names people.
@@ -396,13 +413,13 @@ function Assign({
   const [userId, setUserId] = useState(currentUserId ?? "");
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Whose desk</h2>
-      <div className="bib-field-row">
-        <label className="bib-label">
+    <div className="card" style={{ marginTop: "var(--s-4)" }}>
+      <h2 className="card-title">Whose desk</h2>
+      <div className="field-row">
+        <label className="label">
           Owner
           <select
-            className="bib-select"
+            className="select"
             value={userId}
             onChange={(e) => { setUserId(e.target.value); }}
           >
@@ -421,7 +438,7 @@ function Assign({
           </select>
         </label>
         <button
-          className="bib-button"
+          className="btn"
           style={{ flex: "0 0 auto" }}
           disabled={busy || userId === (currentUserId ?? "")}
           onClick={() => { onAssign(userId === "" ? null : userId); }}
@@ -429,7 +446,7 @@ function Assign({
           Save
         </button>
       </div>
-      <p className="bib-hint">
+      <p className="field-hint">
         Work spawned from an engagement arrives on the client&rsquo;s SPOC for that
         department automatically. Changing it here is an override, and the trail records it
         as one.
@@ -458,22 +475,22 @@ function Checklist({
   const done = lines.filter((l) => l.doneAt !== null).length;
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>
+    <div className="card" style={{ marginTop: "var(--s-4)" }}>
+      <h2 className="card-title">
         Checklist{" "}
-        <span className="bib-muted" style={{ fontWeight: 400, fontSize: 13 }}>
+        <span className="annot text-sm">
           {done}/{lines.length}
         </span>
       </h2>
       {lines.length === 0 && (
-        <p className="bib-muted" style={{ fontSize: 14 }}>
+        <p className="muted text-md">
           Nothing on it yet. This is the firm&rsquo;s own list for this task — separate from
           the process steps, which live on the job.
         </p>
       )}
       {lines.map((line) => (
-        <div key={line.id} className="bib-row-between" style={{ padding: "4px 0" }}>
-          <label className="bib-check">
+        <div key={line.id} className="row" style={{ padding: "4px 0" }}>
+          <label className="check">
             <input
               type="checkbox"
               checked={line.doneAt !== null}
@@ -484,7 +501,7 @@ function Checklist({
           </label>
           {canWrite && line.doneAt === null && (
             <button
-              className="bib-button-quiet"
+              className="btn" data-variant="secondary" data-size="sm"
               disabled={busy === line.id}
               onClick={() => { onRemove(line.id); }}
             >
@@ -495,9 +512,9 @@ function Checklist({
       ))}
 
       {canWrite && (
-        <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <div className="field-row">
           <input
-            className="bib-input"
+            className="input"
             value={draft}
             placeholder="Add a line"
             aria-label="New checklist line"
@@ -510,7 +527,7 @@ function Checklist({
             }}
           />
           <button
-            className="bib-button-quiet"
+            className="btn" data-variant="secondary" data-size="sm"
             style={{ flex: "0 0 auto" }}
             disabled={busy === "checklist" || draft.trim() === ""}
             onClick={() => {
@@ -525,7 +542,7 @@ function Checklist({
       {/* A ticked line cannot be removed, and the screen says so before somebody
           goes looking for the button. The tick is the record that a person did
           something and it lives nowhere else. */}
-      <p className="bib-hint">
+      <p className="field-hint">
         A ticked line cannot be removed — untick it first if it was ticked by mistake.
       </p>
     </div>
@@ -549,16 +566,16 @@ function Reviews({
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-2)" }}>
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>Review</h2>
+    <div className="card" style={{ marginTop: "var(--s-4)" }}>
+      <h2 className="card-title">Review</h2>
 
       {openReview === null ? (
         <>
-          <p className="bib-muted" style={{ fontSize: 14 }}>
+          <p className="muted text-md">
             Nothing is waiting to be checked.
           </p>
           {canWrite && (
-            <button className="bib-button" disabled={busy === "review"} onClick={onRequest}>
+            <button className="btn" disabled={busy === "review"} onClick={onRequest}>
               Send for review
             </button>
           )}
@@ -568,40 +585,40 @@ function Reviews({
       )}
 
       {reviews.length > 0 && (
-        <table className="bib-table" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <table className="table">
           <thead>
             <tr>
-              <th>Sent</th>
-              <th>By</th>
-              <th>Rule</th>
-              <th>Outcome</th>
-              <th>Note</th>
+              <Th>Sent</Th>
+              <Th>By</Th>
+              <Th>Rule</Th>
+              <Th>Outcome</Th>
+              <Th>Note</Th>
             </tr>
           </thead>
           <tbody>
             {reviews.map((r) => (
               <tr key={r.id}>
-                <td className="bib-mono">{r.submittedAt.slice(0, 10)}</td>
+                <Td className="mono">{r.submittedAt.slice(0, 10)}</Td>
                 {/* Null is a real answer: the task was unassigned when the check
                     opened, so nobody is recorded as having made it — and maker
                     != checker then has nothing to compare. */}
-                <td>{r.submittedByName ?? <span className="bib-muted">nobody recorded</span>}</td>
-                <td className="bib-muted">{r.policyLabel ?? "no particular rule"}</td>
-                <td>
+                <Td>{r.submittedByName ?? <span className="muted">nobody recorded</span>}</Td>
+                <Td className="muted">{r.policyLabel ?? "no particular rule"}</Td>
+                <Td>
                   <span
-                    className="bib-pill"
+                    className="pill"
                     data-tone={
                       r.decision === "rejected"
-                        ? "revoked"
+                        ? "danger"
                         : r.decision === "pending"
-                          ? "live"
+                          ? "accent"
                           : undefined
                     }
                   >
                     {r.decision}
                   </span>
-                </td>
-                <td className="bib-muted">{r.notes ?? "—"}</td>
+                </Td>
+                <Td className="muted">{r.notes ?? "—"}</Td>
               </tr>
             ))}
           </tbody>
@@ -641,7 +658,7 @@ function DecideReview({
 
   return (
     <>
-      <p className="bib-callout">
+      <p className="notice">
         Waiting to be checked since {review.submittedAt.slice(0, 10)}
         {review.submittedByName !== null && `, made by ${review.submittedByName}`}
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
@@ -649,29 +666,29 @@ function DecideReview({
 
       {canWrite && (
         <>
-          <label className="bib-label">
+          <label className="label">
             Note
             <textarea
-              className="bib-textarea"
+              className="textarea"
               rows={2}
               value={notes}
               onChange={(e) => { setNotes(e.target.value); }}
             />
-            <span className="bib-hint">
+            <span className="field-hint">
               Required when you send it back. Why work came back is the only thing that ever
               explains rework — marking the task done later erases that it was rejected at all.
             </span>
           </label>
-          <div className="bib-nav" style={{ marginBottom: 0 }}>
+          <div className="cluster" style={{ marginBottom: 0 }}>
             <button
-              className="bib-button"
+              className="btn"
               disabled={busy === review.id}
               onClick={() => { onDecide(review.id, "approved", notes.trim() || null); }}
             >
               Approve
             </button>
             <button
-              className="bib-button-quiet bib-button-danger"
+              className="btn" data-variant="destructive-quiet" data-size="sm"
               disabled={busy === review.id || notes.trim() === ""}
               onClick={() => { onDecide(review.id, "rejected", notes.trim()); }}
             >
@@ -681,7 +698,7 @@ function DecideReview({
         </>
       )}
 
-      <details style={{ marginTop: "var(--bib-gap-2)" }}>
+      <details style={{ marginTop: "var(--s-4)" }}>
         <summary
           onClick={() => {
             if (checkers === null) void loadCheckers();
@@ -690,27 +707,27 @@ function DecideReview({
           Who may check this?
         </summary>
         {checkers === null ? (
-          <p className="bib-muted" style={{ fontSize: 13 }}>
+          <p className="muted text-sm">
             Loading…
           </p>
         ) : (
-          <table className="bib-table">
+          <table className="table">
             <tbody>
               {checkers.map((c) => (
                 <tr key={c.userId}>
-                  <td>{c.displayName}</td>
-                  <td className="bib-muted">{c.gradeName ?? "ungraded"}</td>
-                  <td>
+                  <Td>{c.displayName}</Td>
+                  <Td className="muted">{c.gradeName ?? "ungraded"}</Td>
+                  <Td>
                     {c.eligible ? (
-                      <span className="bib-pill" data-tone="live">
+                      <span className="pill" data-tone="accent">
                         may check
                       </span>
                     ) : (
                       // The REASON, always. "You cannot check this" with no
                       // reason is how a person concludes the button is broken.
-                      <span className="bib-muted">{c.reason}</span>
+                      <span className="muted">{c.reason}</span>
                     )}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>

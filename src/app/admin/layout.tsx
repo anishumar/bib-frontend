@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
@@ -37,22 +36,15 @@ import type { ReactNode } from "react";
  * rule. Merging them would suggest a promotion changes what you can open.
  */
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return (
-    <div>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/admin/people">People</Link>
-        <Link href="/admin/roles">Roles</Link>
-        <Link href="/admin/grades">Grades</Link>
-        <Link href="/admin/structure">Structure</Link>
-        <Link href="/admin/workflows">Processes</Link>
-        <Link href="/admin/obligation-rules">Compliance rules</Link>
-        <Link href="/admin/verification">Who checks work</Link>
-        <Link href="/admin/document-blocks">Standard prose</Link>
-        <Link href="/admin/brand">Brand</Link>
-        <Link href="/admin/territories">Territories</Link>
-      </nav>
-      {children}
-    </div>
-  );
+  /*
+   * No nav of its own any more.
+   *
+   * This layout used to render eleven links across the top, because there was
+   * no application shell and every section had to carry its own navigation.
+   * The sidebar now lists exactly these screens, under Administration, and
+   * offers them only to a session holding `tenant:admin` — the same gate the
+   * API applies. A second copy here would be a second thing to keep in step,
+   * and the two would drift the first time a screen was added.
+   */
+  return <>{children}</>;
 }
