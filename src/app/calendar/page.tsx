@@ -4,7 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { CalendarRow, CoverageGap, CoverageReason } from "@/lib/api/client";
+import type {
+  CalendarRow,
+  CoverageGap,
+  CoverageReason,
+  DecisionRow,
+  ResolutionOption,
+} from "@/lib/api/client";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -33,12 +39,24 @@ import type { CalendarRow, CoverageGap, CoverageReason } from "@/lib/api/client"
  * "the software is broken", and only one of those is anybody's to fix. Every
  * coverage row names a reason and none of them is an error — most advisory work
  * legitimately has no compliance rule at all.
+ *
+ * ── AND THE THIRD TAB IS WHERE MONEY IS DECIDED (T3.3) ──────────────────────
+ *
+ * A deadline that has passed is not an error and is not hidden. It is a
+ * DECISION somebody has to make — file it provisionally, accept the late fee,
+ * record that it never applied — and until now that conversation happened on
+ * WhatsApp and was written down nowhere. The reason box is mandatory and it is
+ * the point of the form existing rather than a single Resolve button: in
+ * eighteen months nobody remembers why a late fee was accepted, and that is
+ * exactly what the client asks about.
  */
 export default function CalendarPage() {
   const router = useRouter();
   const [rows, setRows] = useState<CalendarRow[]>([]);
   const [gaps, setGaps] = useState<CoverageGap[]>([]);
-  const [tab, setTab] = useState<"due" | "coverage">("due");
+  const [decisions, setDecisions] = useState<DecisionRow[]>([]);
+  const [options, setOptions] = useState<ResolutionOption[]>([]);
+  const [tab, setTab] = useState<"due" | "decisions" | "coverage">("due");
   const [includeSettled, setIncludeSettled] = useState(false);
   const [module, setModule] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +67,7 @@ export default function CalendarPage() {
     // paints. A count that fills in a second later reads as "no gaps" to
     // somebody who glances and moves on — and this is the badge whose whole
     // job is to be noticed.
-    const [calendar, coverage] = await Promise.all([
+    const [calendar, coverage, queue, vocabulary] = await Promise.all([
       api.GET("/api/v1/calendar", {
         // The STRING the API documents, not a boolean. It used to take
         // `z.coerce.boolean()`, where "false" coerces to TRUE — so unticking
@@ -58,6 +76,12 @@ export default function CalendarPage() {
         params: { query: { includeSettled: includeSettled ? "true" : "false", limit: 500 } },
       }),
       api.GET("/api/v1/calendar/coverage", {}),
+      // THE BROWSER'S OWN CALENDAR DAY, not the server's. `daysLate` is
+      // computed from it, and a UTC day is yesterday in India before 05:30 —
+      // which would understate how late every filing is, every morning, on the
+      // one screen whose job is saying exactly that.
+      api.GET("/api/v1/calendar/decisions", { params: { query: { asOf: browserDay() } } }),
+      api.GET("/api/v1/obligation-vocabulary", {}),
     ]);
 
     if (calendar.response.status === 401 || coverage.response.status === 401) {
@@ -71,6 +95,11 @@ export default function CalendarPage() {
     }
     setRows(calendar.data.rows);
     setGaps(coverage.error ? [] : coverage.data.gaps);
+    setDecisions(queue.error ? [] : queue.data.rows);
+    // Only the ones the firm still chooses. A retired option still EXPLAINS
+    // decisions already recorded against it, so the row survives — it simply
+    // does not appear in this picker.
+    setOptions(vocabulary.error ? [] : vocabulary.data.resolutionOptions.filter((o) => o.isActive));
     setError(null);
     setLoaded(true);
   }, [router, includeSettled]);
@@ -87,8 +116,7 @@ export default function CalendarPage() {
   // THE CALLER'S CALENDAR DAY, never `toISOString().slice(0, 10)`. The UTC day
   // is yesterday in India before 05:30, and this screen's whole job is saying
   // what is late.
-  const now = new Date();
-  const today = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = browserDay();
 
   return (
     <main>
@@ -116,6 +144,18 @@ export default function CalendarPage() {
           onClick={() => { setTab("due"); }}
         >
           Due ({rows.length})
+        </button>
+        <button
+          type="button"
+          className="bib-pill"
+          // TONED WHENEVER THERE IS ANYTHING IN IT, not only when selected.
+          // Every other badge on this screen is a filter; this one is a queue
+          // of decisions nobody has taken, and each row is a client's money
+          // sitting undecided. It should be visible from across the room.
+          data-tone={decisions.length > 0 ? "revoked" : tab === "decisions" ? "live" : undefined}
+          onClick={() => { setTab("decisions"); }}
+        >
+          Needs a decision ({decisions.length})
         </button>
         <button
           type="button"
@@ -204,11 +244,26 @@ export default function CalendarPage() {
             </div>
           )}
         </>
+      ) : tab === "decisions" ? (
+        <DecisionsTab
+          rows={decisions}
+          options={options}
+          loaded={loaded}
+          onDecided={() => { void load(); }}
+        />
       ) : (
         <CoverageTab gaps={gaps} loaded={loaded} />
       )}
     </main>
   );
+}
+
+/** The browser's own calendar day, `YYYY-MM-DD`. Never `toISOString()`, which
+ *  is the UTC day and therefore yesterday for anyone east of Greenwich in the
+ *  morning — on a screen about deadlines that is a wrong answer, not a rounding. */
+function browserDay(): string {
+  const now = new Date();
+  return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
@@ -460,3 +515,226 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     where: null,
   },
 };
+
+/**
+ * Deadlines that have passed, and what the firm decided about each (T3.3).
+ *
+ * ── AN EMPTY QUEUE IS THE GOOD CASE AND MUST READ AS ONE ────────────────────
+ *
+ * Every other empty state on this screen is ambiguous — nothing owed, or a rule
+ * missing a fact. This one is not: nothing here means no statutory date has
+ * passed undischarged, which is the firm doing its job.
+ *
+ * ── THE FORM IS COLLAPSED UNTIL SOMEBODY ACTS ───────────────────────────────
+ *
+ * The row itself is the information. A form open on every late filing turns a
+ * list a partner can scan into a wall of controls, and the scan is what tells
+ * them which one to open.
+ *
+ * ── AND THE REASON IS THE POINT OF THE FORM ─────────────────────────────────
+ *
+ * A single "Resolve" button would record that something was decided and lose
+ * why. The option is what can be counted — "fourteen late fees this quarter" —
+ * and the reason is what answers the client eighteen months later. The API
+ * refuses a blank one, and so does the database.
+ */
+function DecisionsTab({
+  rows,
+  options,
+  loaded,
+  onDecided,
+}: {
+  rows: DecisionRow[];
+  options: ResolutionOption[];
+  loaded: boolean;
+  onDecided: () => void;
+}) {
+  if (!loaded) return <p className="bib-muted">Loading&hellip;</p>;
+
+  if (rows.length === 0) {
+    return (
+      <div className="bib-callout" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <p style={{ margin: 0 }}>
+          <strong>Nothing is waiting on a decision.</strong> No statutory date has passed with
+          the filing still open &mdash; and unlike an empty calendar, that is unambiguously the
+          good case.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: "var(--bib-gap-2)" }}>
+      <p className="bib-muted">
+        These deadlines have passed and nothing was filed. Each one is a choice with money on
+        both sides, and <strong>the reason is what nobody remembers later</strong> &mdash; it is
+        what answers the client who asks in eighteen months what the penalty was for.
+      </p>
+      {options.length === 0 && (
+        <p className="bib-error">
+          This firm has no resolution options, so nothing here can be decided.{" "}
+          <Link href="/admin/obligation-vocabulary">Add one &rarr;</Link>
+        </p>
+      )}
+      <div className="bib-card">
+        <table className="bib-table">
+          <thead>
+            <tr>
+              <th>Filing</th>
+              <th>Company</th>
+              <th>Period</th>
+              <th>Legal deadline</th>
+              <th>Late by</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <DecisionLine
+                key={row.id}
+                row={row}
+                options={options}
+                onDecided={onDecided}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DecisionLine({
+  row,
+  options,
+  onDecided,
+}: {
+  row: DecisionRow;
+  options: ResolutionOption[];
+  onDecided: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [optionId, setOptionId] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const chosen = options.find((o) => o.id === optionId);
+
+  async function record(): Promise<void> {
+    setSaving(true);
+    setError(null);
+    const { error: err } = await api.POST("/api/v1/obligations/{obligationId}/resolve", {
+      params: { path: { obligationId: row.id } },
+      body: { resolutionOptionId: optionId, reason },
+    });
+    setSaving(false);
+    if (err) {
+      // The API's own sentence, not one invented here. It says which tick to
+      // move or what is missing, in the firm's terms — and a 403 here means
+      // the role may not decide, which is a real answer rather than a fault.
+      setError(apiError(err).message);
+      return;
+    }
+    setOpen(false);
+    onDecided();
+  }
+
+  return (
+    <tr>
+      <td>
+        {row.name}
+        {row.authority !== null && (
+          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+            {row.authority}
+          </span>
+        )}
+        {row.ruleUnconfirmed && (
+          <span className="bib-pill" style={{ marginLeft: 6 }}>
+            unconfirmed rule
+          </span>
+        )}
+      </td>
+      <td>
+        {row.entityName ?? <span className="bib-muted">&mdash;</span>}
+        {row.clientName !== null && row.clientName !== row.entityName && (
+          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+            {row.clientName}
+          </span>
+        )}
+      </td>
+      <td className="bib-mono">{row.periodLabel}</td>
+      <td className="bib-mono">{row.statutoryDueOn}</td>
+      <td>
+        <span className="bib-pill" data-tone="revoked">
+          {row.daysLate} {row.daysLate === 1 ? "day" : "days"}
+        </span>
+        {row.workItemId !== null && (
+          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+            <Link href={`/work-items/${row.workItemId}`}>on somebody&rsquo;s desk &rarr;</Link>
+          </span>
+        )}
+      </td>
+      <td>
+        {!open ? (
+          <button type="button" className="bib-pill" onClick={() => { setOpen(true); }}>
+            Decide
+          </button>
+        ) : (
+          <div style={{ display: "grid", gap: "var(--bib-gap-1)", minWidth: 280 }}>
+            <select
+              value={optionId}
+              aria-label="What was decided"
+              onChange={(e) => { setOptionId(e.target.value); }}
+            >
+              <option value="">What was decided&hellip;</option>
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                  {o.status === "unconfirmed" ? " (unconfirmed)" : ""}
+                </option>
+              ))}
+            </select>
+            {/* WHERE IT GOES NEXT, said out loud before the click. The two
+                answers are genuinely different — one keeps the filing owed and
+                one ends it forever — and a partner should not have to know
+                which option means which. */}
+            {chosen !== undefined && (
+              <p className="bib-hint" style={{ margin: 0 }}>
+                {chosen.closesWithoutFiling
+                  ? "This ENDS the filing. It will never be made, and the obligation closes."
+                  : "The filing still has to happen. It goes back to be worked and filed late."}
+              </p>
+            )}
+            <input
+              value={reason}
+              aria-label="Reason"
+              placeholder="Why &mdash; client sent books late, portal was down&hellip;"
+              onChange={(e) => { setReason(e.target.value); }}
+            />
+            <div style={{ display: "flex", gap: "var(--bib-gap-1)" }}>
+              <button
+                type="button"
+                // Both are required by the API and by the database. Disabling
+                // says so before the click rather than after it — but the
+                // server's refusal is still what the message comes from.
+                disabled={saving || optionId === "" || reason.trim() === ""}
+                onClick={() => { void record(); }}
+              >
+                {saving ? "Recording\u2026" : "Record decision"}
+              </button>
+              <button
+                type="button"
+                className="bib-pill"
+                onClick={() => { setOpen(false); setError(null); }}
+              >
+                Cancel
+              </button>
+            </div>
+            {error !== null && <p className="bib-error" style={{ margin: 0 }}>{error}</p>}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+}

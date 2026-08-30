@@ -2417,6 +2417,590 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calendar/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deadlines that have passed, waiting on a partner
+         * @description A WORKLIST, not a window — deliberately unlike /calendar. An obligation missed in April is still owed in September, so there is no date filter: one would drop exactly the oldest and most expensive rows off the bottom. Reading it is `party:read`, like the calendar it hangs off — everybody on the team should be able to see that six filings have been late for a week. DECIDING is a different permission.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The queue */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rows: components["schemas"]["DecisionRow"][];
+                        };
+                    };
+                };
+                /** @description An asOf that is not YYYY-MM-DD */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligations/{obligationId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record what the firm decided about a deadline it missed
+         * @description Where the obligation goes next is the OPTION's to say, not this call's: an option marked `closesWithoutFiling` ends it, and any other sends it back to be filed late — after which the ordinary completion path files it, with `daysLate` on the event. A decision is never overwritten; a second attempt is refused rather than replacing the first.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    obligationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description One of the firm's own resolution options. A row and not an enum, so the list is the firm's to change — and so 'how many late fees did we accept this quarter' is a GROUP BY.
+                         */
+                        resolutionOptionId: string;
+                        /** @description WHY. Mandatory, and the point of the whole endpoint: in eighteen months nobody remembers why a late fee was accepted rather than a provisional filing made, and that is the question the client actually asks. */
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No reason given */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not decide about a missed deadline */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such obligation, or no such resolution option */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already decided, not waiting on a decision, or the firm has nowhere for the decision to send it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's own words for its compliance calendar
+         * @description Retired rows are returned on purpose: an admin needs to see what was stopped in order to bring it back, and obligations sitting in a retired state still carry it.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The vocabulary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            states: components["schemas"]["ObligationState"][];
+                            resolutionOptions: components["schemas"]["ResolutionOption"][];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-vocabulary/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a state to the firm's compliance vocabulary */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        code: string;
+                        name: string;
+                        isInitial?: boolean;
+                        isTerminal?: boolean;
+                        needsDecision?: boolean;
+                        isFiled?: boolean;
+                        isMissed?: boolean;
+                        isResolution?: boolean;
+                        sortOrder?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObligationState"];
+                    };
+                };
+                /** @description A malformed handle or sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That handle is taken, or the flags contradict each other */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-vocabulary/states/{stateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, re-flag, reorder or retire a compliance state
+         * @description Marking a state as one of the four destinations CLEARS that flag on whoever held it, in the same statement — so there is never a moment where the firm has none. What is refused is leaving it with none: untick nothing, mark another instead.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    stateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        isInitial?: boolean;
+                        isTerminal?: boolean;
+                        needsDecision?: boolean;
+                        isFiled?: boolean;
+                        isMissed?: boolean;
+                        isResolution?: boolean;
+                        sortOrder?: number;
+                        isActive?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObligationState"];
+                    };
+                };
+                /** @description A malformed sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such state */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The flags contradict each other, or this is the last state holding a destination */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/obligation-vocabulary/resolution-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add an answer to the firm's list of what may be decided about a missed deadline */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        code: string;
+                        name: string;
+                        closesWithoutFiling?: boolean;
+                        sortOrder?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResolutionOption"];
+                    };
+                };
+                /** @description A malformed handle or sort order */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That handle is taken */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-vocabulary/resolution-options/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, re-point, confirm, reorder or retire a resolution option
+         * @description Changing `closesWithoutFiling` affects only decisions taken from then on. Obligations already resolved under it keep the state they were moved to, because that is where a partner actually sent them.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    optionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        closesWithoutFiling?: boolean;
+                        /**
+                         * @description Whether a partner has checked this date against the statute. Everything ships 'unconfirmed', India included: the dates came from a document rather than from the firm, and the firm's own practice may be earlier than the law.
+                         * @enum {string}
+                         */
+                        status?: "unconfirmed" | "confirmed";
+                        sortOrder?: number;
+                        isActive?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResolutionOption"];
+                    };
+                };
+                /** @description A malformed sort order or status */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such option */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/assignments": {
         parameters: {
             query?: never;
@@ -5729,7 +6313,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
                 };
                 cookie?: never;
             };
@@ -5771,7 +6355,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
                 };
                 cookie?: never;
             };
@@ -5847,7 +6431,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
                     key: string;
                 };
                 cookie?: never;
@@ -5915,7 +6499,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
                     key: string;
                 };
                 cookie?: never;
@@ -5994,7 +6578,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
                     key: string;
                     version: number;
                 };
@@ -11252,6 +11836,13 @@ export interface components {
              */
             workItemId: string | null;
             filedOn: string | null;
+            /** Format: uuid */
+            resolutionOptionId: string | null;
+            /** @description What the partner chose, in the firm's own words. Joined rather than left as an id: a list that returns uuids is one somebody has to fetch per row. */
+            resolutionName: string | null;
+            /** @description WHY they chose it. The half nobody remembers eighteen months later, and the reason this feature exists — it is deliberately NOT in the audit log, because it is a partner's free text about a client and may name a person. */
+            resolutionReason: string | null;
+            resolvedAt: string | null;
             /** @description The rule behind this date has not been confirmed by the firm. Shown rather than hidden: a plausible-looking wrong due date is the dangerous kind. */
             ruleUnconfirmed: boolean;
             rulePack: string;
@@ -11272,6 +11863,68 @@ export interface components {
             reason: "entity_not_registered" | "no_rule_names_this_service" | "no_rule_for_jurisdiction" | "rules_need_a_formula" | "rules_retired" | "nothing_due_yet";
             /** @description Rules that name this service but could not be used, so the screen can link straight to them. */
             blockedRuleIds: string[];
+        };
+        DecisionRow: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            authority: string | null;
+            module: string | null;
+            /** Format: uuid */
+            entityPartyId: string;
+            entityName: string | null;
+            clientName: string | null;
+            periodLabel: string;
+            /** @description The date that passed. This list is ordered by it, OLDEST FIRST — the row that has been late longest is the one costing the most. */
+            statutoryDueOn: string;
+            internalTargetOn: string;
+            /** @description How many days past the statutory date, as of the caller's own day. Computed on the server from the date the CALLER sent, so a partner in Delhi opening this at 04:11 does not read yesterday's number. */
+            daysLate: number;
+            /** Format: uuid */
+            stateId: string;
+            stateCode: string;
+            stateName: string;
+            /**
+             * Format: uuid
+             * @description The task raised for it, if one was. A partner choosing 'file it late' wants to see whether somebody is already on it.
+             */
+            workItemId: string | null;
+            ruleUnconfirmed: boolean;
+        };
+        ObligationState: {
+            /** Format: uuid */
+            id: string;
+            /** @description The firm's stable handle. NEVER compared by any rule in this product — the meaning is entirely in the flags, which is what makes renaming safe. */
+            code: string;
+            name: string;
+            /** @description Where a newly generated filing starts. At most one, and never none. */
+            isInitial: boolean;
+            isTerminal: boolean;
+            /** @description A person has to choose what happens next. Puts the row in the queue. */
+            needsDecision: boolean;
+            /** @description Where a filing lands once the work discharging it is finished. */
+            isFiled: boolean;
+            /** @description Where the nightly sweep sends a filing whose statutory date passed undischarged. Has to be a state that needs a decision, or the filing would move there and nobody would be asked about it. */
+            isMissed: boolean;
+            /** @description Where a filing ends when a partner decides it will never be made. The OTHER terminal state — distinct from filed, which is where one lands when it actually was. */
+            isResolution: boolean;
+            sortOrder: number;
+            isActive: boolean;
+        };
+        ResolutionOption: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description THE FORK. False — 'file provisionally', 'accept the late fee' — means the filing still has to happen, so the obligation goes back to be worked and filed late. True — 'not applicable to this entity' — means it never will, and the obligation ends. */
+            closesWithoutFiling: boolean;
+            /**
+             * @description The four shipped options came from a previous vendor's app and match what the firm described its practice to be — but nobody has confirmed the LIST, so they ship 'unconfirmed'. Confirming one is a partner saying it is actually theirs.
+             * @enum {string}
+             */
+            status: "unconfirmed" | "confirmed";
+            sortOrder: number;
+            isActive: boolean;
         };
         /** @description The Dept or delivery team a SPOC covers. Always null for a Key Manager. */
         AssignmentAxis: {
@@ -11943,7 +12596,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
             key: string;
         };
         ConfigVersion: {

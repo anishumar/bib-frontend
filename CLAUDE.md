@@ -89,7 +89,8 @@ not before.
 | `/work-items` | the board — what is owed, whose desk it is on, and what is late |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
-| `/calendar` | the compliance calendar — what each company owes and by when, plus WHY an engagement produced nothing |
+| `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
+| `/admin/obligation-vocabulary` | the firm's own words for that calendar — the states a filing moves through, and what may be decided about one that was missed |
 | `/admin/obligation-rules` | what the law asks of a client, and when — confirm a date, set T–X, retire a rule |
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
@@ -529,6 +530,58 @@ screen.
 reported as "no rule names this service" at a firm that had just loaded fifty-seven rules; the real
 answer was that nobody had registered the companies as legal entities, and a rule matches an
 entity's jurisdiction exactly. The backend's reason logic was wrong and was fixed there.
+
+### The decisions tab is where money gets decided (T3.3)
+
+A deadline that has passed is **not an error and is not hidden**. It is a choice with money on both
+sides — file it provisionally, accept the late fee, record that it never applied — and before this
+it happened on WhatsApp and was written down nowhere. Eight months later a client asks what a
+₹10,000 late fee was for and the firm has no answer.
+
+**The badge is toned whenever it is non-empty, not only when the tab is selected.** Every other
+badge on this screen is a filter; this one is a queue of undecided client money and should be
+visible from across the room.
+
+**It is a WORKLIST, not a window.** The due tab is a date range; this has no date filter at all,
+because an obligation missed in April is still owed in September and a window would drop exactly
+the oldest and most expensive rows off the bottom. Oldest first, for the same reason.
+
+**`daysLate` is computed from the day the BROWSER sends.** G3.2's rule, on the screen that is most
+about it: `asOf` goes up with the request, because a UTC day is yesterday in Delhi before 05:30 and
+this list's whole job is saying how late something is.
+
+**The form is collapsed until somebody acts, and the REASON is why it is a form.** A single
+"Resolve" button would record that something was decided and lose why — which is the half nobody
+remembers and the half the client asks about. Both the API and a database CHECK refuse a blank one;
+the button is disabled before the click, but the server's sentence is what gets shown.
+
+**And it says where the filing goes NEXT before the click.** Selecting an option renders one line —
+*"the filing still has to happen"* or *"this ENDS the filing"* — because the two answers are
+genuinely different and a partner should never have to know which option means which. That comes
+from `closesWithoutFiling` on the firm's own option row, so a firm adding its own answer gets the
+right sentence with no change here.
+
+### `/admin/obligation-vocabulary` — the promise 0052 made and could not keep
+
+The compliance states have been ROWS since T3.2, held that way precisely so a firm could rename
+them, and **nothing could write them until T3.3**. Every *"mark another state as the missed one"*
+message the API produced was describing a control that did not exist.
+
+**The tick boxes are mechanism, not labels**, and this screen has to say which is which. Four are
+DESTINATIONS — starts here · filed here · missed here · decided here — and a firm holds exactly one
+of each; two are DESCRIPTIONS of what is true once a filing is there. The destinations are
+**radios**, because a checkbox that refuses to be unticked reads as broken, and marking another
+moves the flag in one step with no moment in between.
+
+**A control that would contradict is DISABLED with a title saying why, never hidden.** "Missed
+here" is unavailable until "needs a decision" is ticked, and the tooltip says what would otherwise
+happen: the filing moves there and nobody is ever asked about it. A vanishing control reads as a
+bug; an explained one reads as a rule.
+
+**The resolution options are shown as a sentence, not as `closesWithoutFiling`.** The dropdown says
+*"the filing still happens, late"* or *"it will never be filed"*, and every seeded option carries
+**unconfirmed** on its face — they came from the app this replaced, and the firm has never been
+asked to confirm the list.
 
 ### `/admin/obligation-rules` is the standing directive made visible
 

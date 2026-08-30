@@ -241,6 +241,33 @@ export type CoverageGap =
 export type CoverageReason = CoverageGap["reason"];
 
 /**
+ * A deadline that has passed with nothing filed, waiting on a partner (T3.3).
+ *
+ * A WORKLIST and not a window, unlike `CalendarRow`: an obligation missed in
+ * April is still owed in September, so the API applies no date filter and the
+ * list is ordered oldest-first. `daysLate` is computed against the day the
+ * BROWSER sends, because this screen's whole job is saying how late something
+ * is and the server's UTC day is yesterday in India each morning.
+ */
+export type DecisionRow =
+  paths["/api/v1/calendar/decisions"]["get"]["responses"][200]["content"]["application/json"]["rows"][number];
+
+/**
+ * The firm's own words for its compliance calendar (T3.3).
+ *
+ * The counterpart of `WorkVocabulary`, and it did not exist until T3.3 —
+ * 0052 held these as rows precisely so a firm could rename them, and nothing
+ * could write them. Read the FLAGS rather than the codes: `isMissed` is where
+ * an overdue filing goes, `isFiled` where a completed one lands, and the names
+ * beside them are the firm's to change.
+ */
+export type ObligationVocabulary =
+  paths["/api/v1/obligation-vocabulary"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ObligationState = ObligationVocabulary["states"][number];
+export type ResolutionOption = ObligationVocabulary["resolutionOptions"][number];
+
+/**
  * A compliance rule — what the law asks, and when.
  *
  * `coverage` is the field to read before anything else: `needs_formula` means
