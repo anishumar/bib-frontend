@@ -166,3 +166,45 @@ body {
 .bib-error { white-space: pre-wrap; margin: var(--bib-gap-2) 0; }
 .bib-hint { font-size: 12px; color: var(--bib-ink-muted); margin: 4px 0 0; }
 summary { cursor: pointer; font-size: 14px; }
+
+/*
+ * Added for the verification queue (T2.9). Three shapes the earlier screens
+ * never needed, and each one exists because of something this feature has to
+ * SAY rather than merely show.
+ */
+
+/* A statement the reader must not mistake for a setting. Used for "nobody can
+   approve their own work" — a control somebody thinks is configurable is one
+   they will look for a way around — and for a draft rule that is not in force. */
+.bib-callout {
+  border: 1px solid var(--bib-border); border-left: 3px solid var(--bib-accent);
+  border-radius: var(--bib-radius); background: var(--bib-surface);
+  padding: var(--bib-gap-2); margin: var(--bib-gap-2) 0; font-size: 14px;
+}
+.bib-callout[data-tone="danger"] { border-left-color: var(--bib-danger); }
+
+/* A radio whose OPTION carries the trade-off, not a help link beside it. This
+   is the choice that decides who may sign off a statutory filing, and "the
+   reporting line stalls when that person is on leave" has to be readable at the
+   moment somebody picks it. */
+.bib-fieldset { border: 0; padding: 0; margin: 0; }
+.bib-fieldset legend { padding: 0; margin-bottom: var(--bib-gap-1); }
+.bib-radio-row {
+  display: flex; gap: var(--bib-gap-1); align-items: flex-start;
+  padding: var(--bib-gap-1) 0; font-size: 14px; cursor: pointer;
+}
+.bib-radio-row input { margin-top: 3px; }
+
+/* Label-and-value pairs read down the page rather than across a grid — a rule
+   has two facts, and `bib-facts` spreads two items across the full width. */
+.bib-deflist { margin: 0; font-size: 14px; }
+.bib-deflist dt {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--bib-ink-muted); margin-top: var(--bib-gap-1);
+}
+.bib-deflist dd { margin: 2px 0 0; }
+
+.bib-row-between {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: var(--bib-gap-1) var(--bib-gap-2);
+}

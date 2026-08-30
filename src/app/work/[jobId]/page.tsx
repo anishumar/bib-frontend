@@ -4,8 +4,8 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
-import { api, apiError } from "@/lib/api/client";
-import type { Job, JobStep } from "@/lib/api/client";
+import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
+import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -38,19 +38,24 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const router = useRouter();
   const [job, setJob] = useState<Job | null>(null);
   const [steps, setSteps] = useState<JobStep[]>([]);
+  const [checks, setChecks] = useState<StepCheck[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [result, header, me] = await Promise.all([
+    const [result, header, me, checkList] = await Promise.all([
       api.GET("/api/v1/jobs/{jobId}/steps", { params: { path: { jobId } } }),
       // The job itself, not just its steps. A merged job's steps say nothing
       // about WHOSE work they are, and after the merge that is a real question:
       // one checklist can hold three services for one of a client's companies.
       api.GET("/api/v1/jobs/{jobId}", { params: { path: { jobId } } }),
       api.GET("/api/v1/auth/me", {}),
+      // Every check this job has ever had, decided ones included (T2.9). The
+      // rejections are the point: a step sent back twice and then approved
+      // reads as a step that sailed through if only the open one is shown.
+      api.GET("/api/v1/jobs/{jobId}/checks", { params: { path: { jobId } } }),
     ]);
     if (result.response.status === 401) {
       router.push("/login");
@@ -62,6 +67,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       return;
     }
     setSteps(result.data.steps);
+    setChecks(checkList.data?.checks ?? []);
     setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
     setError(null);
@@ -73,6 +79,95 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       await load();
     })();
   }, [load]);
+
+  /**
+   * What a person decided about a machine's answer.
+   *
+   * Reloads the whole list afterwards for the same reason completing a step
+   * does: accepting one opens whatever was waiting on it in the same call, and
+   * patching only the clicked row would leave the next step looking untouched.
+   */
+  async function decide(
+    stepKey: string,
+    outcome: "accepted" | "corrected" | "rejected",
+    applied: Record<string, unknown> | null,
+    rejectedReason: string | null,
+  ): Promise<void> {
+    setBusy(stepKey);
+    const result = await api.POST("/api/v1/jobs/{jobId}/steps/{stepKey}/decide", {
+      params: { path: { jobId, stepKey } },
+      body: { outcome, applied, rejectedReason },
+    });
+    if (result.error) setError(apiError(result.error).message);
+    else await load();
+    setBusy(null);
+  }
+
+  /** Correcting edits the machine's own answer, so the box opens holding it —
+   *  a blank field would make "correct" mean "retype everything", and the API
+   *  refuses a correction that changed nothing anyway. */
+  async function correct(stepKey: string, proposal: AgentProposal): Promise<void> {
+    const edited = window.prompt(
+      "What should this say instead? The machine's answer is below — change what is wrong.",
+      JSON.stringify(proposal.proposed),
+    );
+    if (edited === null) return;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(edited) as Record<string, unknown>;
+    } catch {
+      setError("That is not valid JSON, so nothing was recorded. Nothing has changed.");
+      return;
+    }
+    await decide(stepKey, "corrected", parsed, null);
+  }
+
+  /** A rejection has to say what was wrong — the schema insists, because that
+   *  note is only ever written by somebody already in a hurry. */
+  async function reject(stepKey: string): Promise<void> {
+    const reason = window.prompt("What was wrong with it?");
+    if (reason === null || reason.trim() === "") return;
+    await decide(stepKey, "rejected", null, reason.trim());
+  }
+
+  /**
+   * Approve somebody else's work, or send it back (T2.9).
+   *
+   * Reloads afterwards for `complete`'s reason and one more: approving FINISHES
+   * the step and opens whatever was waiting on it, in the same call, so patching
+   * the clicked row would leave the next step looking untouched.
+   */
+  async function decideCheck(
+    approvalId: string,
+    decision: "approved" | "rejected",
+    notes: string | null,
+  ): Promise<void> {
+    setBusy(approvalId);
+    setError(null);
+    const result = await api.POST("/api/v1/checks/{approvalId}/decide", {
+      params: { path: { approvalId } },
+      body: { decision, notes },
+    });
+    if (result.error) {
+      // Verbatim, and this is the family where it matters most. "You did this
+      // work, so you cannot be the one who checks it" is the whole explanation,
+      // and a local "not allowed" would leave somebody looking for a permission
+      // to change when there is none — the database refuses it.
+      setError(apiError(result.error).message);
+      setBusy(null);
+      return;
+    }
+    await load();
+    setBusy(null);
+  }
+
+  /** Sending work back has to say what was wrong. The API insists and so does
+   *  the database — that note is the only thing that ever explains rework. */
+  async function sendBack(approvalId: string): Promise<void> {
+    const reason = window.prompt("What needs fixing?");
+    if (reason === null || reason.trim() === "") return;
+    await decideCheck(approvalId, "rejected", reason.trim());
+  }
 
   async function complete(stepKey: string): Promise<void> {
     setBusy(stepKey);
@@ -153,25 +248,81 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     {s.stepKey}
                   </span>
                   <br />
-                  <StepState step={s} />
+                  <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
                   {s.outcomeNote !== null && (
                     <p className="bib-muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
                       {s.outcomeNote}
                     </p>
                   )}
-                </div>
-                <div style={{ flex: "0 0 auto" }}>
-                  {s.status === "blocked" && canComplete && (
-                    <button
-                      className="bib-button"
-                      disabled={busy === s.stepKey}
-                      onClick={() => {
-                        void complete(s.stepKey);
-                      }}
-                    >
-                      Done
-                    </button>
+                  {s.proposal !== null && s.proposal !== undefined && (
+                    <Proposal proposal={s.proposal} />
                   )}
+                  <CheckHistory checks={checks.filter((c) => c.stepKey === s.stepKey)} />
+                </div>
+                <div style={{ flex: "0 0 auto", display: "grid", gap: 6 }}>
+                  {/* A step with an undecided proposal gets the three verdicts
+                      INSTEAD of the Done button, not beside it. Ticking "done"
+                      would record that a person did the work and leave what the
+                      machine said undecided forever — which is the accuracy
+                      signal the whole guardrail exists to keep, so the API
+                      refuses it and the screen does not offer it. */}
+                  {/* WAITING TO BE CHECKED takes precedence over everything
+                      else, because the person looking at it is a different
+                      person: the maker is finished here, and what is offered is
+                      somebody else's judgement on their work. Offering Done
+                      would be offering a 409. */}
+                  {s.status === "blocked" && openCheckFor(checks, s.stepKey) !== null ? (
+                    <CheckActions
+                      check={openCheckFor(checks, s.stepKey) as StepCheck}
+                      busy={busy}
+                      onApprove={(id) => void decideCheck(id, "approved", null)}
+                      onSendBack={(id) => void sendBack(id)}
+                    />
+                  ) : null}
+                  {s.status === "blocked" &&
+                    openCheckFor(checks, s.stepKey) === null &&
+                    canComplete &&
+                    (s.proposal ? (
+                      <>
+                        <button
+                          className="bib-button"
+                          disabled={busy === s.stepKey}
+                          onClick={() => {
+                            void decide(s.stepKey, "accepted", null, null);
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="bib-button-quiet"
+                          disabled={busy === s.stepKey}
+                          onClick={() => {
+                            if (s.proposal) void correct(s.stepKey, s.proposal);
+                          }}
+                        >
+                          Correct
+                        </button>
+                        <button
+                          className="bib-button-quiet"
+                          disabled={busy === s.stepKey}
+                          onClick={() => {
+                            void reject(s.stepKey);
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="bib-button"
+                        disabled={busy === s.stepKey}
+                        onClick={() => {
+                          void complete(s.stepKey);
+                        }}
+                      >
+                        Done
+                      </button>
+                    ))}
                 </div>
               </li>
             ))}
@@ -183,6 +334,13 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         Ticking a step records that <strong>you</strong> did it, and opens whatever was waiting
         on it straight away. It cannot be undone: a second completion would overwrite the record
         of who did the work.
+      </p>
+      <p className="bib-muted" style={{ fontSize: 13, maxWidth: "62ch" }}>
+        Where a machine has proposed an answer, accepting and correcting are recorded
+        separately and both are kept beside what it originally said. That difference is the
+        only measure of whether it is getting better — so a correction that changes nothing is
+        refused, and a rejection has to say what was wrong. Rejecting does not finish the step:
+        the work still needs doing.
       </p>
       {/* Working papers, challans, the evidence a step was actually done. A
           job's files belong to the FIRM rather than to a client, so no partyId
@@ -206,15 +364,132 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
  * "waiting for you" as a human step, because they are different facts and one
  * of them is something the firm may want to chase.
  */
-function StepState({ step }: { step: JobStep }) {
-  if (step.status === "blocked") {
+/**
+ * The open check on a step, or null.
+ *
+ * One at most — the database enforces it with a unique partial index, so that
+ * two people cannot each open one and approve the other's. Joined on the step
+ * KEY rather than an id, because the key is what the wire carries and what the
+ * audit trail names; a step's id is not on the check.
+ */
+function openCheckFor(checks: StepCheck[], stepKey: string): StepCheck | null {
+  return checks.find((c) => c.stepKey === stepKey && c.decision === "pending") ?? null;
+}
+
+/**
+ * What a check says while it is open, and what it said after it was decided.
+ *
+ * The rejections are the whole reason decided checks are shown at all: a step
+ * sent back twice and then approved looks identical to one that sailed through
+ * if only the open check is rendered, and "this took three goes" is the only
+ * signal anywhere that explains where a week went.
+ */
+function CheckHistory({ checks }: { checks: StepCheck[] }) {
+  const decided = checks.filter((c) => c.decision !== "pending");
+  if (decided.length === 0) return null;
+  return (
+    <div style={{ marginTop: "var(--bib-gap-1)" }}>
+      {decided.map((c) => (
+        <p key={c.id} className="bib-muted" style={{ fontSize: 13, margin: "2px 0 0" }}>
+          {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
+          {c.decidedAt === null ? "—" : new Date(c.decidedAt).toLocaleDateString()}
+          {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Approve, or send it back — offered only to somebody who may actually do it.
+ *
+ * When they may not, the REASON is shown instead of a greyed-out button. That
+ * is the difference between a screen that looks broken and one that says "you
+ * did this work, so somebody else has to check it" — which is a rule the person
+ * then understands rather than a control they go looking for a way around.
+ */
+function CheckActions({
+  check,
+  busy,
+  onApprove,
+  onSendBack,
+}: {
+  check: StepCheck;
+  busy: string | null;
+  onApprove: (approvalId: string) => void;
+  onSendBack: (approvalId: string) => void;
+}) {
+  if (!check.viewer.eligible) {
+    return (
+      <p className="bib-muted" style={{ fontSize: 13, margin: 0, maxWidth: "22ch" }}>
+        {check.viewer.reason === null
+          ? "Not yours to check."
+          : CHECK_INELIGIBILITY[check.viewer.reason]}
+        {check.viewer.reason === "IS_THE_MAKER" && (
+          <>
+            {" "}
+            — somebody else has to.
+          </>
+        )}
+      </p>
+    );
+  }
+  return (
+    <>
+      <button
+        className="bib-button"
+        disabled={busy === check.id}
+        onClick={() => { onApprove(check.id); }}
+      >
+        Approve
+      </button>
+      <button
+        className="bib-button-quiet"
+        disabled={busy === check.id}
+        onClick={() => { onSendBack(check.id); }}
+      >
+        Send back
+      </button>
+    </>
+  );
+}
+
+function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) {
+  // WAITING TO BE CHECKED is a fourth cause of `blocked`, and it has to be said
+  // apart from the other three: the work is DONE here. A step that read
+  // "waiting for you" while sitting in somebody else's queue is the same class
+  // of bug T2.8 found by opening this page — a label reading one fact when a
+  // second had become true underneath it.
+  if (step.status === "blocked" && check !== null) {
     return (
       <span className="bib-pill" data-tone="revoked">
-        {step.executor === "agent"
+        finished — waiting to be checked
+      </span>
+    );
+  }
+  if (step.status === "blocked") {
+    // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
+    // found by opening the page: an `agent` step showed "no agent built for this
+    // yet" while a proposal sat underneath it saying one had just run. The label
+    // was reading the executor alone, which was the whole truth until T2.8 and
+    // is not any more.
+    //
+    // The two machine-answered cases are worded apart for the reason the
+    // proposal itself is: "it was not sure enough to answer" is a different job
+    // for the reader than "check this over".
+    const blockedBecause =
+      step.proposal === null || step.proposal === undefined
+        ? step.executor === "agent"
           ? "waiting for you — no agent built for this yet"
           : step.executor === "agent_with_approval"
             ? "waiting for you to approve"
-            : "waiting for you"}
+            : "waiting for you"
+        : step.proposal.decision === "escalated"
+          ? "a machine could not answer this — waiting for you to decide"
+          : "a machine answered — waiting for you to check it";
+    return (
+      <span className="bib-pill" data-tone="revoked">
+        {blockedBecause}
       </span>
     );
   }
@@ -246,5 +521,59 @@ function StepState({ step }: { step: JobStep }) {
     <span className="bib-muted" style={{ fontSize: 13 }}>
       {step.status === "running" ? "in progress" : "waiting on an earlier step"}
     </span>
+  );
+}
+
+/**
+ * What a machine produced, and how sure it was.
+ *
+ * The confidence is shown with the BAR it was judged against, not on its own —
+ * "0.82" means nothing to a person, and "0.82, and this firm commits above
+ * 0.95" is the whole explanation of why they are being asked.
+ *
+ * And the two reasons for being asked are said apart. A step the firm marked
+ * for approval always comes here, however sure the machine was; a step that
+ * merely fell short of the bar is a different fact, and only the second is an
+ * argument for improving the agent.
+ */
+function Proposal({ proposal }: { proposal: AgentProposal }) {
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "8px 10px",
+        borderLeft: "3px solid var(--bib-border)",
+        background: "var(--bib-surface-2, transparent)",
+      }}
+    >
+      <div className="bib-muted" style={{ fontSize: 12 }}>
+        {proposal.decision === "escalated" ? (
+          <>
+            The machine was <strong>not sure enough to answer</strong> — {proposal.confidence}{" "}
+            against a bar of {proposal.reviewAt}. What it found is below, as material rather
+            than as an answer.
+          </>
+        ) : proposal.approvalRequired ? (
+          <>
+            A machine did this and <strong>your firm asks for a person on this step</strong>,
+            whatever it scored — {proposal.confidence} here.
+          </>
+        ) : (
+          <>
+            A machine did this at <strong>{proposal.confidence}</strong>, and this firm acts
+            unattended only above {proposal.autoCommitAt}.
+          </>
+        )}
+      </div>
+      <pre
+        className="bib-mono"
+        style={{ fontSize: 12, margin: "6px 0 0", whiteSpace: "pre-wrap", overflowX: "auto" }}
+      >
+        {JSON.stringify(proposal.proposed, null, 2)}
+      </pre>
+      <div className="bib-muted" style={{ fontSize: 11, marginTop: 4 }}>
+        {proposal.model} · {proposal.promptVersion}
+      </div>
+    </div>
   );
 }

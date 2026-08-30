@@ -42,7 +42,14 @@ interface StepDraft {
   executor: Executor;
   dependsOn: string[];
   conditionFact: Fact | "";
-  conditionEquals: string;
+  conditionOp: Operator;
+  /** One value for equals / is not; a comma-separated list for is one of /
+   *  is none of. Split on the way out — see `toBody`. */
+  conditionValue: string;
+  /** The rule that says WHO checks this step once it is done (T2.9), or "" for
+   *  a step nobody checks — which is every step of every process written before
+   *  this field existed, and the right default. */
+  verificationPolicyKey: string;
 }
 
 const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
@@ -63,13 +70,72 @@ const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
   },
 ];
 
+/** A published rule about who may check a step, as this screen offers it. */
+interface CheckRule {
+  readonly key: string;
+  readonly label: string;
+}
+
+/**
+ * How a condition compares its fact.
+ *
+ * **All four compare a STRING**, because both facts the engine can resolve are
+ * strings. There is deliberately no "is at least" here: the firm's own
+ * compliance list makes a threshold its commonest rule (*"turnover > ₹1 Cr"*),
+ * but nothing stores a turnover yet — so the option would sit in this picker,
+ * compare a string, and do nothing. It arrives with the data.
+ */
+type Operator = "equals" | "not_equals" | "in" | "not_in";
+
+const OPERATORS: { value: Operator; label: string; list: boolean; hint: string }[] = [
+  { value: "equals", label: "is", list: false, hint: "" },
+  {
+    value: "not_equals",
+    label: "is not",
+    list: false,
+    hint: "Everything except this one — a step that applies to everybody but one case.",
+  },
+  {
+    value: "in",
+    label: "is one of",
+    list: true,
+    hint: "Comma-separated. One step instead of one process per value.",
+  },
+  { value: "not_in", label: "is none of", list: true, hint: "Comma-separated." },
+];
+
+function takesList(op: Operator): boolean {
+  return OPERATORS.find((o) => o.value === op)?.list ?? false;
+}
+
 const FACTS: { value: Fact; label: string; example: string }[] = [
   { value: "recurrence", label: "How often the service recurs", example: "monthly, annually" },
   { value: "jurisdiction", label: "Where the entity is registered", example: "IN, AE, US" },
 ];
 
-/** A step as the API wants it. `condition` is null unless both halves are given —
- *  half a condition is not a condition, and sending one would be refused. */
+/**
+ * A condition as the API wants it, or null.
+ *
+ * Null unless both halves are given: half a condition is not a condition, and
+ * sending one would be refused. A list operator splits on commas and drops the
+ * blanks, so a trailing comma is not an empty value the API then rejects.
+ */
+function toCondition(s: StepDraft): Record<string, unknown> | null {
+  if (s.conditionFact === "") return null;
+  if (takesList(s.conditionOp)) {
+    const values = s.conditionValue
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v !== "");
+    return values.length === 0
+      ? null
+      : { fact: s.conditionFact, op: s.conditionOp, value: values };
+  }
+  const value = s.conditionValue.trim();
+  return value === "" ? null : { fact: s.conditionFact, op: s.conditionOp, value };
+}
+
+/** A step as the API wants it. */
 function toBody(label: string, steps: readonly StepDraft[]): Record<string, unknown> {
   return {
     label: label.trim(),
@@ -78,10 +144,10 @@ function toBody(label: string, steps: readonly StepDraft[]): Record<string, unkn
       label: s.label.trim(),
       executor: s.executor,
       dependsOn: s.dependsOn,
-      condition:
-        s.conditionFact === "" || s.conditionEquals.trim() === ""
-          ? null
-          : { fact: s.conditionFact, equals: s.conditionEquals.trim() },
+      condition: toCondition(s),
+      // "" means nobody checks it, and that is null on the wire — not an empty
+      // string, which the API would refuse as not being a config key.
+      verificationPolicyKey: s.verificationPolicyKey === "" ? null : s.verificationPolicyKey,
     })),
   };
 }
@@ -100,7 +166,21 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
         executor: (typeof s["executor"] === "string" ? s["executor"] : "human") as Executor,
         dependsOn: Array.isArray(s["dependsOn"]) ? (s["dependsOn"] as string[]) : [],
         conditionFact: (condition?.["fact"] ?? "") as Fact | "",
-        conditionEquals: typeof condition?.["equals"] === "string" ? condition["equals"] : "",
+        // BOTH SHAPES. A version published before operators existed carries
+        // `equals` and no `op`, and it is frozen — it will never be rewritten,
+        // so this reader keeps understanding it forever.
+        conditionOp: (typeof condition?.["op"] === "string"
+          ? condition["op"]
+          : "equals") as Operator,
+        conditionValue: Array.isArray(condition?.["value"])
+          ? (condition["value"] as string[]).join(", ")
+          : typeof condition?.["value"] === "string"
+            ? condition["value"]
+            : typeof condition?.["equals"] === "string"
+              ? condition["equals"]
+              : "",
+        verificationPolicyKey:
+          typeof s["verificationPolicyKey"] === "string" ? s["verificationPolicyKey"] : "",
       };
     }),
   };
@@ -293,7 +373,19 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
             {s.conditionFact !== "" && (
               <>
                 {" "}
-                · only when {s.conditionFact} is {s.conditionEquals}
+                · only when {s.conditionFact}{" "}
+                {OPERATORS.find((o) => o.value === s.conditionOp)?.label ?? s.conditionOp}{" "}
+                {s.conditionValue}
+              </>
+            )}
+            {/* Said in the summary, not only in the editor. "Is this step
+                reviewed" is the question somebody reads a process to answer,
+                and a fact visible only behind an edit button is one nobody
+                checks. */}
+            {s.verificationPolicyKey !== "" && (
+              <>
+                {" "}
+                · then checked ({s.verificationPolicyKey})
               </>
             )}
           </span>
@@ -338,7 +430,9 @@ function NewTemplate({
             executor: "human",
             dependsOn: [],
             conditionFact: "",
-            conditionEquals: "",
+            conditionOp: "equals",
+            conditionValue: "",
+            verificationPolicyKey: "",
           },
         ]}
         note="Saved as a draft. Nothing follows it until you put it in force."
@@ -386,6 +480,27 @@ function StepEditor({
   const [label, setLabel] = useState(initialLabel);
   const [steps, setSteps] = useState<StepDraft[]>([...initialSteps]);
   const [busy, setBusy] = useState(false);
+  const [policies, setPolicies] = useState<CheckRule[]>([]);
+
+  // Fetched HERE rather than on the page, because only an open editor needs it
+  // and only PUBLISHED rules may be offered: a draft governs nothing, and
+  // pointing a step at one would name a rule no check will ever apply.
+  useEffect(() => {
+    void (async () => {
+      const result = await api.GET("/api/v1/config/{kind}", {
+        params: { path: { kind: "verification_policy" } },
+      });
+      if (result.error) return;
+      setPolicies(
+        result.data.entries.flatMap((e) => {
+          const body = e.published?.body;
+          if (!body) return [];
+          const label = typeof body["label"] === "string" ? body["label"] : e.entry.key;
+          return [{ key: e.entry.key, label }];
+        }),
+      );
+    })();
+  }, []);
 
   function patch(index: number, change: Partial<StepDraft>): void {
     setSteps((current) => current.map((s, i) => (i === index ? { ...s, ...change } : s)));
@@ -400,7 +515,9 @@ function StepEditor({
         executor: "human",
         dependsOn: [],
         conditionFact: "",
-        conditionEquals: "",
+        conditionOp: "equals",
+        conditionValue: "",
+        verificationPolicyKey: "",
       },
     ]);
   }
@@ -491,6 +608,7 @@ function StepEditor({
           onChange={(change) => {
             patch(index, change);
           }}
+          policies={policies}
           onRemove={() => {
             removeStep(index);
           }}
@@ -522,12 +640,14 @@ function StepFields({
   index,
   step,
   others,
+  policies,
   onChange,
   onRemove,
 }: {
   index: number;
   step: StepDraft;
   others: readonly string[];
+  policies: readonly CheckRule[];
   onChange: (change: Partial<StepDraft>) => void;
   onRemove: () => void;
 }) {
@@ -643,27 +763,105 @@ function StepFields({
           </select>
         </div>
         {step.conditionFact !== "" && (
-          <div style={{ flex: "1 1 160px" }}>
-            <label className="bib-label" htmlFor={`${id}-equals`}>
-              …is
-            </label>
-            <input
-              className="bib-input"
-              id={`${id}-equals`}
-              value={step.conditionEquals}
-              placeholder={FACTS.find((f) => f.value === step.conditionFact)?.example}
-              onChange={(e) => {
-                onChange({ conditionEquals: e.target.value });
-              }}
-            />
-            {/* The rule that is least obvious and most consequential, said where
-                somebody is choosing it. */}
-            <p className="bib-hint">
-              If the service does not state this at all, the step is KEPT — a blank field must
-              not quietly remove a step from a process.
-            </p>
-          </div>
+          <>
+            <div style={{ flex: "0 1 140px" }}>
+              {/* Reads as one sentence with the two selects around it — "…it"
+                  + "is one of" + "…these". The labels are minimal because the
+                  OPTIONS carry the words; they are still real labels rather
+                  than a bare "…", because a screen reader gets nothing from an
+                  ellipsis. */}
+              <label className="bib-label" htmlFor={`${id}-op`}>
+                …it
+              </label>
+              <select
+                className="bib-select"
+                id={`${id}-op`}
+                value={step.conditionOp}
+                style={{ width: "100%" }}
+                onChange={(e) => {
+                  onChange({ conditionOp: e.target.value as Operator });
+                }}
+              >
+                {OPERATORS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: "1 1 160px" }}>
+              <label className="bib-label" htmlFor={`${id}-value`}>
+                {takesList(step.conditionOp) ? "…these" : "…this"}
+              </label>
+              <input
+                className="bib-input"
+                id={`${id}-value`}
+                value={step.conditionValue}
+                placeholder={
+                  takesList(step.conditionOp)
+                    ? (FACTS.find((f) => f.value === step.conditionFact)?.example ?? "")
+                    : (FACTS.find((f) => f.value === step.conditionFact)?.example.split(",")[0] ??
+                      "")
+                }
+                onChange={(e) => {
+                  onChange({ conditionValue: e.target.value });
+                }}
+              />
+            </div>
+          </>
         )}
+      </div>
+      {/* BELOW the row, not inside one of its columns. Inside, this paragraph
+          made its own column six lines tall, and `.bib-field-row`'s flex-end
+          alignment then pushed the two selects to the bottom of it — the three
+          parts of one sentence stopped being on one line. Found by looking at
+          the page, not by the types. */}
+      {step.conditionFact !== "" && (
+        <p className="bib-hint" style={{ maxWidth: "62ch" }}>
+          {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
+          If the service does not state this at all, the step is KEPT — under every one of these,
+          including the negative ones. A blank field must not quietly remove a step from a
+          process.
+        </p>
+      )}
+
+      <div style={{ marginTop: "var(--bib-gap-1)", maxWidth: 360 }}>
+        <label className="bib-label" htmlFor={`${id}-check`}>
+          When it is done, who checks it?
+        </label>
+        <select
+          className="bib-select"
+          id={`${id}-check`}
+          value={step.verificationPolicyKey}
+          style={{ width: "100%" }}
+          onChange={(e) => { onChange({ verificationPolicyKey: e.target.value }); }}
+        >
+          {/* Nobody is the default and the honest one: it is what every process
+              written before this field existed meant, and those processes must
+              not start holding work for review because a new field appeared. */}
+          <option value="">nobody — it is finished when it is done</option>
+          {/* PUBLISHED rules only. A draft is not in force, and pointing a step
+              at one would name a rule that governs nothing. */}
+          {policies.map((pk) => (
+            <option key={pk.key} value={pk.key}>
+              {pk.label}
+            </option>
+          ))}
+          {/* A rule the step already names but the firm has since withdrawn
+              stays selectable, marked — blanking it silently is how a review
+              disappears from a process nobody meant to change. */}
+          {step.verificationPolicyKey !== "" &&
+            !policies.some((pk) => pk.key === step.verificationPolicyKey) && (
+              <option value={step.verificationPolicyKey}>
+                {step.verificationPolicyKey} (not in force)
+              </option>
+            )}
+        </select>
+        <p className="bib-hint">
+          {policies.length === 0
+            ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
+            : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."}
+        </p>
       </div>
 
       <button className="bib-button-quiet bib-button-danger" onClick={onRemove}>

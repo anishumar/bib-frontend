@@ -64,13 +64,14 @@ not before.
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | the workspace home: who you are, which firms you belong to |
-| `/admin/people` | the firm's roster — add somebody, change a role, revoke or restore access |
+| `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
-| `/clients` | the firm's book — every counterparty, and adding one |
-| `/clients/[partyId]` | party 360: identifiers, registrations, relationships |
+| `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
+| `/clients` | the firm's book — every counterparty, and the caller's OWN clients |
+| `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
@@ -84,11 +85,16 @@ not before.
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/admin/territories` | whose desk covers which country |
+| `/work-items` | the board — what is owed, whose desk it is on, and what is late |
+| `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
+| `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
+| `/calendar` | the compliance calendar — what each company owes and by when, plus WHY an engagement produced nothing |
+| `/admin/obligation-rules` | what the law asks of a client, and when — confirm a date, set T–X, retire a rule |
 | `/work` | the delivery board — what a signed engagement turned into |
-| `/work/[jobId]` | one job's process: its steps, who each is waiting on, and the Done button |
+| `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
-The four admin screens are one subject deliberately split: the API needs `tenant:admin` for
+The admin screens are one subject deliberately split: the API needs `tenant:admin` for
 all of them, because between them they decide what every role can do, who holds it, and who is
 senior enough to sign off somebody else's work.
 
@@ -205,6 +211,35 @@ could look up. `GET /api/v1/jobs` carries the names now, joined once for the pag
 merged job's steps say nothing about whose work they are. That route also exists because the
 list is only what is RUNNABLE, so a finished job's page had no way to name itself at all.
 
+**A step a machine answered gets three buttons INSTEAD of Done (T2.8).** Accept · Correct ·
+Reject, and never the Done button beside them — the API refuses it there, because ticking
+"done" would record that a PERSON did the work and leave what the machine said undecided
+forever. Offering a control that will 409 is not honesty, it is a slower error.
+
+**The step's own label reads the proposal, not just the executor** — and getting that wrong is
+what opening the page found. An `agent` step showed "waiting for you — no agent built for this
+yet" while a proposal sat underneath it saying one had just run. That label was the whole truth
+until T2.8 and is not any more, so it now says the two machine-answered cases apart: "a machine
+answered — waiting for you to check it" against "a machine could not answer this — waiting for
+you to decide". A different job for the reader in each case.
+
+The proposal shows the confidence **with the bar it was judged against**. "0.82" alone means
+nothing to somebody at a desk; "0.82, and this firm acts alone only above 0.95" is the entire
+explanation of why they are being asked. And the two reasons for being asked are worded apart:
+a step the firm marked for approval always comes here whatever the machine scored, while one
+that merely fell short is a different fact — only the second says anything about the agent.
+
+Correcting opens the machine's own answer to edit rather than a blank box: a correction is a
+change to what it said, and the API refuses one that changed nothing (with a message that says
+"if it was right, accept it"). Rejecting asks what was wrong, because the schema insists — and
+rejecting does NOT finish the step, which the screen says, because throwing away an answer is
+not doing the work.
+
+**There is no screen for the thresholds themselves, deliberately.** They are a `confidence_tier`
+config entry and reachable through the generic config API. There are no agents yet, so there is
+nothing to auto-commit; a screen for a knob with no consumer is the "control that looks live and
+is inert" trap `/admin/structure` was careful about. It belongs with the first real agent.
+
 ## `/admin/workflows` — where a process stops living in somebody's head
 
 The engine could walk a process and the board could show one, and neither was worth anything
@@ -214,6 +249,22 @@ while the only way to WRITE a process was a curl command. This is that screen.
 saves in one press. A process is not: publishing changes the path every job started from now
 on will walk, and a partner may write one over several sittings. So it follows `/catalogue` —
 a draft sits visibly unpublished, and the screen says "no job is following it".
+
+**A condition reads as one sentence across three controls** — "Only do this step when…
+[Where the entity is registered] …it [is none of] …these [AE, SG]". The labels are minimal
+because the OPTIONS carry the words, but they are real labels rather than a bare "…", because
+a screen reader gets nothing from an ellipsis. `in` / `not_in` take a comma-separated list; the
+blanks are dropped on the way out, so a trailing comma is not an empty value the API rejects.
+
+**There is no "is at least" in that picker, and that is not an omission.** The firm's own
+compliance list makes a threshold its commonest rule, but the API has no numeric fact to
+compare — so the option would sit there, compare a string, and do nothing. It arrives with the
+data (T3.2).
+
+**The long hint sits BELOW the row, not inside a column of it.** Inside, it made its own column
+six lines tall and `.bib-field-row`'s flex-end alignment pushed the two selects to the bottom
+of it, so the three parts of one sentence stopped being on one line. Found by looking at the
+page; the types were perfectly happy.
 
 **It is deliberately not a diagram editor.** The graph is expressed as "this step waits for
 these steps", which is how somebody describes a process out loud and is exactly what the
@@ -289,6 +340,221 @@ Setting a mark is **two calls** — the bytes become an ordinary document first,
 version is put in force. If the second fails the screen says the file was stored and is not in
 force, rather than pretending the upload failed and sending somebody to re-upload a file the
 store already holds.
+## `/admin/verification` and the To check tab — where work goes to somebody's desk
+
+Before T2.9 an escalation and a queued proposal landed in the same place — a blocked step on a
+job page — and went to nobody. You found them by opening a job and looking.
+
+**`/work` has a second tab, and it shows the WHOLE FIRM's queue.** Not "mine": under a rank
+threshold there is no "mine", any Manager may take any of it, and a list filtered to what the
+viewer can act on hides the queue's most useful fact — that six filings have been waiting a week
+because nobody senior enough has looked. So every row carries `viewer.eligible` and, when it is
+false, `viewer.reason`, and the screen SAYS the reason rather than greying a button out.
+
+**Ordered oldest-first, and there is deliberately no due date anywhere on the screen.** The firm
+has not given its internal turnaround times or confirmed its escalation matrix, and a deadline
+this product invented would be a priority the firm never set.
+
+**`/admin/verification` is where the firm picks its rule**, and the thing to understand about
+the page is the banner at the top: **maker ≠ checker is NOT a setting on it.** Whoever did the
+work can never approve it, the database refuses it, and the screen says so where somebody would
+otherwise go looking for the switch. What the page configures is who *else* may check.
+
+Three rules, and **each option carries its own trade-off in the option itself**, not in help
+text somebody has to find: "the maker's own manager" says out loud that it stops the morning
+that person is on leave. This is the choice that decides who may sign off a statutory filing.
+
+The grade picker appears only for the two rules that READ a grade — the API refuses a
+`reporting_line` body carrying a threshold, on the ground that a number nothing compares is a
+setting that looks live, so offering the field would be offering a 400. And choosing the
+reporting-line rule says, before it is saved, that it reads who reports to whom on
+`/admin/people` and that anybody without a manager recorded there has nobody who may check
+their work.
+
+**Draft and publish are separate, for a stronger reason than `/admin/workflows` has.** A check
+PINS the rule in force when it opened, so raising the bar this afternoon leaves this morning's
+open checks approvable by the people already looking at them.
+
+`/admin/workflows` gains a per-step **"who checks it"** picker over PUBLISHED rules only — a
+draft governs nothing — and "nobody" is the default, because that is what every process written
+before this field existed meant. A rule a step names but the firm has since withdrawn stays
+selectable, marked, rather than silently blanked: the submit rewrites the whole body, so
+blanking it is how a review disappears from a process nobody meant to change.
+
+`/work/[jobId]` shows a checked step as **"finished — waiting to be checked"** and offers
+Approve / Send back INSTEAD of Done. To the person who did the work it shows the sentence
+instead of the buttons — the API answers 403 there, and a greyed-out button says nothing about
+why. Decided checks stay on the page with their notes: a step sent back twice and then approved
+reads as one that sailed through if only the open check is drawn, and "this took two goes" is
+the only signal anywhere that explains where a week went.
+
+## The account team, and the date box that is the whole feature (G3.2)
+
+`/clients/[partyId]` leads with **who at the firm owns this client** — the Key Manager, and a
+SPOC per Dept — because that is the question somebody opening a client page most often has, and
+until G3.2 nothing in this product could answer it.
+
+**The "as of" box is the point of the panel, not a nicety.** Nothing here is edited over: a
+handover closes one row and opens the next, so every arrangement the client has ever had is
+still on file, and "who was the SPOC in March" is a date in a box rather than a question for
+somebody's memory. The API returns the whole history in one response, so changing the date
+filters what is already loaded. On a past date the End buttons disappear and a line says which
+day is being shown — a screen that let somebody act on March's team would be offering to change
+the past.
+
+The **Until** column says "until", not "to", because the dates are HALF-OPEN: an assignment
+ending 1 April was in force up to and including 31 March. Getting that word wrong is how a
+reader concludes there were two SPOCs on the changeover day.
+
+**A Dept can have more than one SPOC**, so the form says so where somebody would otherwise
+expect a replacement: adding a SPOC adds one, and ending the outgoing one is a separate,
+deliberate step. A new **Key Manager** is a handover and the form says that instead. The Dept
+picker is absent — not disabled — when the role is Key Manager, because the API refuses one
+there and offering a control that will 400 is just a slower error.
+
+**TODAY IS THE BROWSER'S CALENDAR DAY, NEVER `toISOString()`.** That one-liner is a day out for
+anybody east of Greenwich in the morning, and opening this page at 04:11 in Delhi is how we
+found out: the panel rendered "as of 29-08" on the thirtieth. `/clients` sends its local date to
+`GET /api/v1/my-clients` for the same reason — the API runs in UTC and the firm does not, so
+without it a client assigned this morning was missing from its holder's own book until the
+afternoon. **A calendar day is the caller's fact, and this app is the caller.**
+
+**`/clients` has two tabs, not one filter.** "Everyone the firm stores" and "the clients I was
+put in charge of" are different questions, and the second reads the assignments rather than
+filtering the party list. One row per client with every role collected onto it — a partner is
+commonly the Key Manager AND a Dept's SPOC on the same client, and listing it twice would report
+a bigger book than they have. An archived client is shown and marked rather than dropped:
+somebody still holds it.
+
+**The assign form is not always there, and that is the API's rule rather than this screen's
+choice.** Assigning needs `party:write`, which a manager holds; the roster and the Dept list it
+needs for its two pickers are `tenant:admin` reads. So a manager can be permitted to assign and
+be shown no form — the same shape `/leads`'s owner dropdown already has, and left consistent
+with it rather than fixed here, because widening either read is a decision about who may see the
+firm's roster and it belongs in one place for both screens.
+
+## `/work-items` and `/admin/work-vocabulary` — the board, and the words on it (T3.1)
+
+`/work` shows the ENGINE: which process a job is walking and which step it is on. `/work-items`
+shows the work as a person experiences it — a client, a due date, a name, and a state in the
+firm's own words. **They are two screens because they answer two questions**, and because a
+firm that has published no process still has work: ad hoc work has no job at all and is still
+owned, still due and still reviewable.
+
+**THREE TABS ARE THREE DIFFERENT JOBS.** Mine is what somebody opens in the morning. Everything
+is the delivery meeting. **Unassigned is the one that matters most and would not exist on a
+naive board**: when the router cannot find the client's SPOC for a Dept, or finds two, it
+refuses to guess and the item lands here **with a sentence saying which**. A dash in that
+column would make "two SPOCs for FRC, pick one" and "nobody has got to it" look identical, and
+only one of them is somebody's to fix.
+
+**NOTHING ON THESE SCREENS COMPARES A STATE'S CODE.** States and priorities are rows the firm
+owns and may rename from `/admin/work-vocabulary` without a deploy, so every branch reads the
+FLAGS — `isBlocked`, `isTerminal`, `isInitial` — and prints the NAME. The state picker offers
+only ACTIVE states (a retired one still renders where it is held), and the **reason box appears
+when the SELECTED state is flagged blocked**, for whatever the firm has called it — including a
+second state the firm flagged itself. Asking for the reason before the API refuses is not a
+duplicated rule: the API refuses regardless, and a person who has already pressed Save has lost
+the sentence they were about to write.
+
+**`/admin/work-vocabulary` is the standing directive made visible.** The names came from a
+previous vendor and are still unconfirmed even for 10x, so renaming one has to be a tick and a
+blur — not a migration somebody asks an engineer for. Each box says **what it turns on** rather
+than naming itself ("Means blocked — needs a written reason"), because `is_blocked` tells a
+partner nothing. Neither "Starting" nor either default is on the ADD form, deliberately: taking
+one silently moves it off whatever holds it today, and that belongs on the row where somebody
+can see what it replaces. Name and rank commit on **blur or Enter**, like `/admin/grades`, because
+every commit writes an audit event.
+
+There is no Delete on either table, because there is no delete endpoint and no DELETE grant:
+a hundred tasks sitting in a state would lose it. Retiring keeps it readable everywhere it is
+held.
+
+**TODAY IS THE BROWSER'S CALENDAR DAY, on the board as on `/clients`.** The API takes `asOf` to
+decide what is overdue, and `toISOString()` here would be the UTC day — which calls a filing due
+today "late" for anybody west of Greenwich and "not yet" for anybody east.
+
+**There is no "approve and mark done" button, and that is a decision.** Nothing says which of the
+firm's terminal states an approval should move work into — a firm has at least two, Completed and
+Cancelled — so picking one would be this product deciding what approval MEANS. The two acts are
+separate and the page shows both. The review section lists **every** review including the
+rejections: a list of only the open one makes work that came back twice read as work that sailed
+through.
+
+### What building these screens found
+
+**PATCH was missing from the backend's CORS `allowMethods`, and had been since CORS was added.**
+These are the first routes in the product that use it. The browser answers the preflight 204,
+reads the header, sees PATCH is absent and DISCARDS the request — no server log, no status code,
+surfacing as "TypeError: Failed to fetch" and reading as a dead endpoint. **The backend's smoke
+walk could never have caught it: curl does not preflight**, and every one of those PATCH calls
+passed. Found by clicking a checkbox. There is a backend test over it now.
+
+**Two rendering faults the types were perfectly happy with.** The Owner fact printed the
+assignment note in full AND the callout below repeated it verbatim, making the fact grid six
+lines tall and saying one sentence twice. And a two-word state name wrapped inside its pill and
+rendered as a broken circle — the firm names these, so a two-word name is the ordinary case.
+`.bib-field-row > *` is `flex: 1 1 160px`, which is right for a control and turns a Save button
+into a banner; the buttons opt out.
+
+## `/calendar` and `/admin/obligation-rules` — the calendar, and the rules behind it (T3.2)
+
+**`/calendar` IS READ-ONLY AND MUST STAY THAT WAY.** There is no "add a filing" button because
+there is no endpoint for one, and there will not be: every row falls out of the firm's rules, its
+entities and its engagements. If a person could type one in, the calendar could disagree with the
+statute — and then it is the Excel this product replaces, only now inside Postgres. What a person
+changes is the RULES.
+
+**Ordered by the INTERNAL target, not the legal deadline.** `statutoryDueOn` is what the law says;
+`internalTargetOn` is the firm's own T–X and is when work has to START. A list sorted by the legal
+date tells you when you are already too late. Both are on the row, and both go red separately.
+
+**Every row is marked "unconfirmed rule" until a partner has ticked it.** The shipped dates came
+from a previous vendor's document, not from the firm. Hiding that would make a plausible wrong due
+date indistinguishable from a checked one, which is the dangerous kind.
+
+### The coverage tab is the point of the screen
+
+An empty calendar has three possible meanings — nothing is owed, a rule is missing a fact, or the
+software is broken — and only one of them is anybody's to fix. So the second tab names every live
+engagement the calendar produced nothing for, WITH A REASON, and **the screen says out loud that
+none of them is an error**: `no_rule_names_this_service` is the ordinary state of advisory work and
+is the longest list at every firm, which is why it sorts LAST. The reasons are grouped rather than
+listed flat, because they are four different jobs, and each group's "what to do next" links to
+where the fix actually is — an unregistered company is fixed on its client page, not on the rules
+screen.
+
+**`entity_not_registered` exists because opening this screen found it.** Three engagements were
+reported as "no rule names this service" at a firm that had just loaded fifty-seven rules; the real
+answer was that nobody had registered the companies as legal entities, and a rule matches an
+entity's jurisdiction exactly. The backend's reason logic was wrong and was fixed there.
+
+### `/admin/obligation-rules` is the standing directive made visible
+
+Forty-seven of the fifty-seven shipped rules cannot produce a date, and **the screen must not
+render that as a fault list.** Each says, in the firm's own words, the one fact it is waiting for —
+which is a question a partner can answer without knowing anything about this system. The counts
+callout leads with the ratio and says in as many words that the second number is the honest state
+of the firm's own specification.
+
+**The lead time is a blank, not a default.** Every rule ships at zero, so the task appears on the
+statutory date itself — visibly useless, and deliberately so: T–X is the firm's own working
+practice and a guessed one is a commitment it never made. It commits on **blur**, like
+`/admin/grades`, because every commit writes an audit event.
+
+**Only three things are editable, and what is NOT is the design.** Jurisdiction, name and rule pack
+are a rule's identity and every filing already generated pins the row; moving them would silently
+restate why those filings were due when they were. A revision is a new rule under a new pack with
+the old one retired — and the old one stays readable, which is what lets a filing made last year
+explain its own date. There is no Delete for the same reason there is none on `/admin/grades`.
+
+**The formula is rendered as a sentence a partner can check against the statute** — "Every month ·
+the 20th of the following month" — never as `dueMonthOffset: 1`. The first version of that function
+was written without looking at the page and produced "Once a year, day 15 3 months after" and, for
+an event-driven rule, "30 days after the period ends" when an event rule has no period at all. Both
+were grammatical nonsense and the second was factually wrong; the types were perfectly happy with
+both.
+
 
 ## Money never becomes a number
 

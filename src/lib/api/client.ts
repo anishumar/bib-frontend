@@ -86,8 +86,175 @@ export type Job =
 export type JobStep =
   paths["/api/v1/jobs/{jobId}/steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
 
+/**
+ * What a machine produced for one step, and how sure it was (T2.8).
+ *
+ * `AgentProposal`, not `Proposal` — this product already has proposals, the
+ * priced document a firm sends a prospect, and a second meaning of the word
+ * would be a trap for whoever reads this file next.
+ *
+ * Null on a step where no machine answered, and null once one committed on its
+ * own: in that case the work is simply done and there is nothing to decide.
+ */
+export type AgentProposal = NonNullable<JobStep["proposal"]>;
+
+/**
+ * One check on one step — work waiting for somebody else to look at it (T2.9).
+ *
+ * `viewer` is the SIGNED-IN person's own verdict on this row, computed by the
+ * API against the firm's published rule. The queue is deliberately NOT filtered
+ * to what the viewer may take, so a screen reads `viewer.eligible` to decide
+ * whether to offer the button and `viewer.reason` to say why not.
+ */
+export type StepCheck =
+  paths["/api/v1/checks"]["get"]["responses"][200]["content"]["application/json"]["checks"][number];
+
+/** Why one person may not check one thing. A closed set, because each one is a
+ *  sentence a screen has to say out loud. */
+export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;
+
+/** How a firm decides who may check work. The three the founder chooses
+ *  between on /admin/verification. */
+export type VerificationRule = NonNullable<StepCheck["rule"]>;
+
+/** A member of staff, and whether they may check one particular thing. The
+ *  WHOLE roster comes back with a verdict each — see /admin/verification. */
+export type PossibleChecker =
+  paths["/api/v1/checks/{approvalId}/checkers"]["get"]["responses"][200]["content"]["application/json"]["checkers"][number];
+
+/**
+ * What each refusal SAYS, to the person refused.
+ *
+ * Retyped from the API's own vocabulary rather than fetched, unlike
+ * `PermissionInfo` — and the difference is deliberate. A permission's meaning is
+ * a fact about what the server will DO, so a stale copy would mislead about
+ * access. These are the same sentence said in a smaller space: the API sends
+ * the full prose in its 403, which is what a person sees when they actually try.
+ * This is the shorter form a table cell has room for.
+ */
+export const CHECK_INELIGIBILITY: Readonly<Record<CheckIneligibility, string>> = {
+  IS_THE_MAKER: "You did this work",
+  NO_WORK_PERMISSION: "Their role cannot complete work",
+  BELOW_GRADE: "Below the grade this step is checked at",
+  UNGRADED: "Not on the firm's ladder yet",
+  NOT_THE_MAKERS_MANAGER: "Not the maker's manager",
+};
+
+/** What each rule means, in the words the founder's screen offers it in. */
+export const VERIFICATION_RULES: readonly {
+  readonly value: VerificationRule;
+  readonly label: string;
+  readonly detail: string;
+}[] = [
+  {
+    value: "rank_threshold",
+    label: "Anybody senior enough",
+    detail:
+      "Anybody at or above a grade you choose may check the work. Nobody waits on one " +
+      "particular person.",
+  },
+  {
+    value: "reporting_line",
+    label: "The maker's own manager",
+    detail:
+      "Only the person they report to may check it. The tightest rule — and it stops the " +
+      "morning that manager is on leave, because nobody else becomes eligible.",
+  },
+  {
+    value: "reporting_line_or_rank",
+    label: "Their manager, or anybody senior enough",
+    detail:
+      "Their own manager normally, and anybody at or above a grade you choose when that " +
+      "person is away.",
+  },
+];
+
+/**
+ * One row on the work board — what is owed and whose it is (T3.1).
+ *
+ * The other half of `Job`. A JOB is HOW work gets done: which template, which
+ * steps, which agent. A WORK ITEM is WHAT is owed and WHOSE it is — a client, a
+ * due date, a person, and a state in the firm's OWN words. They are linked by
+ * `jobId` and either can be null: ad hoc work has no process, and a merged job
+ * puts several work items on several desks.
+ */
+export type WorkItem =
+  paths["/api/v1/work-items"]["get"]["responses"][200]["content"]["application/json"]["items"][number];
+
+/** A work item with everything its own page shows. */
+export type WorkItemDetail =
+  paths["/api/v1/work-items/{workItemId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ChecklistItem = WorkItemDetail["checklist"][number];
+export type WorkItemReview = WorkItemDetail["reviews"][number];
+
+/**
+ * A state a work item can be in — ONE ROW of the firm's own vocabulary.
+ *
+ * Read the FLAGS, never the code. `isBlocked` is what makes a reason mandatory,
+ * `isTerminal` is what "finished" means, `isInitial` is where new work starts —
+ * and the firm may rename any of them from /admin/work-vocabulary without a
+ * deploy, which is the whole reason these are rows. A screen that branched on
+ * `code === "blocked"` would break the first time somebody used that freedom.
+ */
+export type WorkItemState = WorkItem["state"];
+
+/** How urgent, as a row. `rank` is what sorts — 1 is most urgent — and the name
+ *  is display. */
+export type WorkItemPriority = WorkItem["priority"];
+
+/** The firm's whole vocabulary, retired rows included: an admin needs to see
+ *  what was stopped and be able to bring it back. */
+export type WorkVocabulary =
+  paths["/api/v1/work-vocabulary"]["get"]["responses"][200]["content"]["application/json"];
+
+/** A member of staff, and whether they may check one particular work item. The
+ *  same rule a process step's check uses. */
+export type WorkItemChecker =
+  paths["/api/v1/work-item-checks/{approvalId}/checkers"]["get"]["responses"][200]["content"]["application/json"]["checkers"][number];
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
+/**
+ * One row of the compliance calendar — what the LAW asks of one entity for one
+ * period (T3.2).
+ *
+ * Two dates, and the difference between them is the whole point:
+ * `statutoryDueOn` is what the law says and missing it is the client's money;
+ * `internalTargetOn` is the firm's own T–X and is the actionable one, which is
+ * why the API orders by it.
+ */
+export type CalendarRow =
+  paths["/api/v1/calendar"]["get"]["responses"][200]["content"]["application/json"]["rows"][number];
+
+/**
+ * A live engagement the calendar produced NOTHING for, and why.
+ *
+ * THE ANSWER TO AN EMPTY CALENDAR, and the reason this type exists at all. None
+ * of the reasons is an error — most advisory work legitimately has no
+ * compliance rule — but a firm looking at a blank screen with no explanation
+ * cannot tell that from broken software.
+ */
+export type CoverageGap =
+  paths["/api/v1/calendar/coverage"]["get"]["responses"][200]["content"]["application/json"]["gaps"][number];
+
+export type CoverageReason = CoverageGap["reason"];
+
+/**
+ * A compliance rule — what the law asks, and when.
+ *
+ * `coverage` is the field to read before anything else: `needs_formula` means
+ * the obligation is REAL and its timing depends on a fact this system does not
+ * hold, and `unresolvedReason` says which. Forty-six of the fifty-seven shipped
+ * India rules are in that state, and rendering them as failures would be
+ * wrong — they are questions for the firm.
+ */
+export type ObligationRule =
+  paths["/api/v1/obligation-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];
+
+export type ObligationException = ObligationRule["exceptions"][number];
+export type RuleCoverage = ObligationRule["coverage"];
+
 export type ConfigEntry =
   paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];
 
@@ -150,6 +317,25 @@ export type PartyProfile =
 
 export type PartyIdentifier = PartyProfile["identifiers"][number];
 export type PartyRelationship = PartyProfile["relationships"][number];
+
+/**
+ * Who at the firm owns a client, as it stood on one day (G3.2).
+ *
+ * `inForce` is the account team on `onDate`; `all` is every assignment the
+ * client has ever had. Both come back on one request, which is what makes the
+ * "as of" box on the client screen a filter rather than a round trip.
+ */
+export type AccountTeam =
+  paths["/api/v1/parties/{partyId}/assignments"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ClientAssignment = AccountTeam["all"][number];
+export type AssignmentRole = ClientAssignment["role"];
+
+/** One client on the signed-in person's book, with every role they hold over
+ *  it — a partner is commonly the Key Manager AND a Dept's SPOC on the same
+ *  client, and this is one row either way. */
+export type OwnedClient =
+  paths["/api/v1/my-clients"]["get"]["responses"][200]["content"]["application/json"]["clients"][number];
 
 /** One row of the pipeline: the opportunity, the prospect it is about, and
  *  whose desk it is on. */

@@ -24,6 +24,13 @@ import type { ReactNode } from "react";
  * `tenant:admin` for the same reason it gates roles — each one silently changes
  * what happens on work nobody has looked at yet.
  *
+ * WHO CHECKS WORK sits beside PROCESSES because the two are read together: a
+ * process says a step is reviewed, and a rule here says by whom. It is a
+ * separate screen because it is a separate decision, made once and pointed at by
+ * many processes — and because the one thing on it that is NOT configurable
+ * (nobody may approve their own work) has to be stated somewhere a partner would
+ * go looking for the switch.
+ *
  * Roles and grades are deliberately not one screen. A role is what somebody may
  * REACH and it grants permissions; a grade is how SENIOR they are and it grants
  * nothing — it exists for one comparison, the firm's "Manager or above" review
@@ -39,6 +46,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Link href="/admin/grades">Grades</Link>
         <Link href="/admin/structure">Structure</Link>
         <Link href="/admin/workflows">Processes</Link>
+        <Link href="/admin/obligation-rules">Compliance rules</Link>
+        <Link href="/admin/verification">Who checks work</Link>
         <Link href="/admin/document-blocks">Standard prose</Link>
         <Link href="/admin/brand">Brand</Link>
         <Link href="/admin/territories">Territories</Link>

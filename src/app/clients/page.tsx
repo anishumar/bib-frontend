@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { PartySummary } from "@/lib/api/client";
+import type { OwnedClient, PartySummary } from "@/lib/api/client";
 
 /**
  * The firm's book: every counterparty it stores.
@@ -22,9 +22,21 @@ export default function ClientsPage() {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<"organization" | "person">("organization");
+  // Whose book to show. `mine` reads the assignments (G3.2) rather than
+  // filtering the party list, because "my clients" is a fact about who was put
+  // in charge — not a property of the party row.
+  const [scope, setScope] = useState<"all" | "mine">("all");
+  const [mine, setMine] = useState<OwnedClient[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const list = await api.GET("/api/v1/parties", {});
+    const [list, book] = await Promise.all([
+      api.GET("/api/v1/parties", {}),
+      // The date is sent, not left to the server. The API runs in UTC and the
+      // firm does not: a client assigned this morning in Delhi starts
+      // "tomorrow" as far as the server is concerned, and was missing from its
+      // holder's own book until the afternoon. Found by opening this page.
+      api.GET("/api/v1/my-clients", { params: { query: { asOf: today() } } }),
+    ]);
     if (list.response.status === 401) {
       router.push("/login");
       return;
@@ -35,6 +47,7 @@ export default function ClientsPage() {
       return;
     }
     setParties(list.data.parties);
+    setMine(book.data?.clients ?? []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -90,7 +103,77 @@ export default function ClientsPage() {
       {error !== null && <p className="bib-error">{error}</p>}
 
       <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        {parties.length === 0 ? (
+        {/* Two questions, not one filter over one list: "everyone the firm
+            stores" and "the clients I was put in charge of". The second is only
+            answerable since G3.2 — before it, nothing recorded who owns a
+            client. */}
+        <div className="bib-nav" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <button
+            type="button"
+            className="bib-button-quiet"
+            aria-current={scope === "all" ? "page" : undefined}
+            style={scope === "all" ? { borderColor: "var(--bib-ink-muted)" } : undefined}
+            onClick={() => {
+              setScope("all");
+            }}
+          >
+            Everyone ({parties.length})
+          </button>
+          <button
+            type="button"
+            className="bib-button-quiet"
+            aria-current={scope === "mine" ? "page" : undefined}
+            style={scope === "mine" ? { borderColor: "var(--bib-ink-muted)" } : undefined}
+            onClick={() => {
+              setScope("mine");
+            }}
+          >
+            My clients ({mine.length})
+          </button>
+        </div>
+
+        {scope === "mine" ? (
+          mine.length === 0 ? (
+            <p className="bib-muted" style={{ margin: 0 }}>
+              No clients on your book. Somebody is made a Key Manager or a SPOC
+              on the client&rsquo;s own page.
+            </p>
+          ) : (
+            <table className="bib-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Why it is yours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mine.map((c) => (
+                  <tr key={c.clientPartyId}>
+                    <td>
+                      <Link href={`/clients/${c.clientPartyId}`}>{c.displayName}</Link>
+                      {/* Archived clients are shown and marked, not dropped:
+                          somebody still holds them, and hiding that makes the
+                          book look smaller than the record says. */}
+                      {c.archivedAt !== null && (
+                        <span className="bib-pill" data-tone="revoked" style={{ marginLeft: 8 }}>
+                          archived
+                        </span>
+                      )}
+                    </td>
+                    <td className="bib-muted">
+                      {/* One row per client with every role collected — a
+                          partner is commonly the Key Manager AND a Dept's SPOC
+                          on the same client. */}
+                      {c.roles
+                        .map((r) => (r === "key_manager" ? "Key Manager" : "SPOC"))
+                        .join(" · ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        ) : parties.length === 0 ? (
           <p className="bib-muted" style={{ margin: 0 }}>
             Nobody in the book yet.
           </p>
@@ -198,4 +281,18 @@ export default function ClientsPage() {
       </div>
     </main>
   );
+}
+
+/**
+ * Today, in the CALENDAR the person is looking at — not in UTC.
+ *
+ * `toISOString().slice(0, 10)` is the obvious one-liner and it is a day out for
+ * anybody east of Greenwich in the morning. A client's ownership is a calendar
+ * fact in the firm's own office.
+ */
+function today(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
