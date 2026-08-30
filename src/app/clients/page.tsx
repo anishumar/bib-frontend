@@ -1,10 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Input,
+  Pill,
+  TabPanel,
+  Table,
+  TableWrap,
+  Tabs,
+  Td,
+  Th,
+} from "@/components/ui";
 
 /**
  * The firm's book: every counterparty it stores.
@@ -22,10 +40,12 @@ export default function ClientsPage() {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<"organization" | "person">("organization");
+  const kindTabs = useId();
   // Whose book to show. `mine` reads the assignments (G3.2) rather than
   // filtering the party list, because "my clients" is a fact about who was put
   // in charge — not a property of the party row.
   const [scope, setScope] = useState<"all" | "mine">("all");
+  const scopeTabs = useId();
   const [mine, setMine] = useState<OwnedClient[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
@@ -90,196 +110,171 @@ export default function ClientsPage() {
     router.push(`/clients/${result.data.partyId}`);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading the book" />;
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/leads">Pipeline</Link>
-        <Link href="/proposals">Proposals</Link>
-      </nav>
-      <h1>Clients</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Clients"
+        lede="Everyone the firm holds a record for, and the ones you were put in charge of."
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        {/* Two questions, not one filter over one list: "everyone the firm
-            stores" and "the clients I was put in charge of". The second is only
-            answerable since G3.2 — before it, nothing recorded who owns a
-            client. */}
-        <div className="bib-nav" style={{ marginBottom: "var(--bib-gap-2)" }}>
-          <button
-            type="button"
-            className="bib-button-quiet"
-            aria-current={scope === "all" ? "page" : undefined}
-            style={scope === "all" ? { borderColor: "var(--bib-ink-muted)" } : undefined}
-            onClick={() => {
-              setScope("all");
-            }}
-          >
-            Everyone ({parties.length})
-          </button>
-          <button
-            type="button"
-            className="bib-button-quiet"
-            aria-current={scope === "mine" ? "page" : undefined}
-            style={scope === "mine" ? { borderColor: "var(--bib-ink-muted)" } : undefined}
-            onClick={() => {
-              setScope("mine");
-            }}
-          >
-            My clients ({mine.length})
-          </button>
-        </div>
+      <ErrorNotice error={error} />
 
+      {/* Two questions, not one filter over one list: "everyone the firm
+          stores" and "the clients I was put in charge of". The second is only
+          answerable since G3.2 — before it, nothing recorded who owns a
+          client. */}
+      <Tabs
+        id={scopeTabs}
+        label="Client views"
+        value={scope}
+        onChange={setScope}
+        tabs={[
+          { value: "all", label: "Everyone", count: parties.length },
+          { value: "mine", label: "My clients", count: mine.length },
+        ]}
+      />
+
+      <TabPanel tabsId={scopeTabs} value={scope}>
         {scope === "mine" ? (
           mine.length === 0 ? (
-            <p className="bib-muted" style={{ margin: 0 }}>
-              No clients on your book. Somebody is made a Key Manager or a SPOC
-              on the client&rsquo;s own page.
-            </p>
+            <Card>
+              <Empty title="No clients on your book" icon="clients">
+                Somebody is made a Key Manager or a SPOC on the client’s own page.
+              </Empty>
+            </Card>
           ) : (
-            <table className="bib-table">
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Name</Th>
+                    <Th>Why it is yours</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mine.map((c) => (
+                    <tr key={c.clientPartyId}>
+                      <Td>
+                        <span className="cluster tight">
+                          <Link href={`/clients/${c.clientPartyId}`}>{c.displayName}</Link>
+                          {/* Archived clients are shown and marked, not dropped:
+                              somebody still holds them, and hiding that makes
+                              the book look smaller than the record says. */}
+                          {c.archivedAt !== null && <Pill tone="danger">archived</Pill>}
+                        </span>
+                      </Td>
+                      <Td>
+                        {/* One row per client with every role collected — a
+                            partner is commonly the Key Manager AND a Dept's
+                            SPOC on the same client. */}
+                        <span className="muted">
+                          {c.roles
+                            .map((r) => (r === "key_manager" ? "Key Manager" : "SPOC"))
+                            .join(" · ")}
+                        </span>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )
+        ) : parties.length === 0 ? (
+          <Card>
+            <Empty title="Nobody in the book yet" icon="clients">
+              A client is an organization or a person the firm holds a record for. Add the first
+              one below.
+            </Empty>
+          </Card>
+        ) : (
+          <TableWrap>
+            <Table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Why it is yours</th>
+                  <Th>Name</Th>
+                  <Th>Kind</Th>
                 </tr>
               </thead>
               <tbody>
-                {mine.map((c) => (
-                  <tr key={c.clientPartyId}>
-                    <td>
-                      <Link href={`/clients/${c.clientPartyId}`}>{c.displayName}</Link>
-                      {/* Archived clients are shown and marked, not dropped:
-                          somebody still holds them, and hiding that makes the
-                          book look smaller than the record says. */}
-                      {c.archivedAt !== null && (
-                        <span className="bib-pill" data-tone="revoked" style={{ marginLeft: 8 }}>
-                          archived
-                        </span>
-                      )}
-                    </td>
-                    <td className="bib-muted">
-                      {/* One row per client with every role collected — a
-                          partner is commonly the Key Manager AND a Dept's SPOC
-                          on the same client. */}
-                      {c.roles
-                        .map((r) => (r === "key_manager" ? "Key Manager" : "SPOC"))
-                        .join(" · ")}
-                    </td>
+                {parties.map((p) => (
+                  <tr key={p.id}>
+                    <Td>
+                      <Link href={`/clients/${p.id}`}>{p.displayName}</Link>
+                    </Td>
+                    <Td>
+                      <Pill tone="quiet">{p.kind}</Pill>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          )
-        ) : parties.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nobody in the book yet.
-          </p>
-        ) : (
-          <table className="bib-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Kind</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parties.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <Link href={`/clients/${p.id}`}>{p.displayName}</Link>
-                  </td>
-                  <td className="bib-muted">{p.kind}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            </Table>
+          </TableWrap>
         )}
-      </div>
+      </TabPanel>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Add to the book</h2>
+      <Card>
+        <CardHead title="Add to the book" />
         {/* Organization and person are different rows with different fields, so
             this is a real choice rather than a toggle over one form. */}
-        <div className="bib-nav" style={{ marginBottom: "var(--bib-gap-2)" }}>
-          {(["organization", "person"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              className="bib-button-quiet"
-              aria-current={kind === k ? "page" : undefined}
-              style={kind === k ? { borderColor: "var(--bib-ink-muted)" } : undefined}
-              onClick={() => {
-                setKind(k);
-              }}
-            >
-              {k === "organization" ? "Organization" : "Person"}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          id={kindTabs}
+          label="What kind of record"
+          value={kind}
+          onChange={setKind}
+          tabs={[
+            { value: "organization", label: "Organization" },
+            { value: "person", label: "Person" },
+          ]}
+        />
 
         <form
           action={(form) => {
             void create(form);
           }}
         >
-          {kind === "organization" ? (
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-              <div style={{ flex: "2 1 240px" }}>
-                <label className="bib-label" htmlFor="legalName">
-                  Legal name
-                </label>
-                <input className="bib-input" id="legalName" name="legalName" required />
-              </div>
+          <TabPanel tabsId={kindTabs} value={kind}>
+            <div className="stack" style={{ marginTop: "var(--s-4)" }}>
+              {kind === "organization" ? (
+                <FieldRow>
+                  <Field label="Legal name">
+                    <Input name="legalName" required />
+                  </Field>
+                  <Field label="Trade name" optional>
+                    <Input name="tradeName" />
+                  </Field>
+                  <Field label="Industry" optional>
+                    <Input name="industry" />
+                  </Field>
+                  <Field label="Website" optional>
+                    <Input name="website" />
+                  </Field>
+                </FieldRow>
+              ) : (
+                <FieldRow>
+                  <Field label="Full name">
+                    <Input name="fullName" required />
+                  </Field>
+                  <Field label="Nationality" optional>
+                    <Input name="nationality" />
+                  </Field>
+                  <Field label="Date of birth" optional>
+                    <Input name="dateOfBirth" type="date" />
+                  </Field>
+                </FieldRow>
+              )}
               <div>
-                <label className="bib-label" htmlFor="tradeName">
-                  Trade name
-                </label>
-                <input className="bib-input" id="tradeName" name="tradeName" />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="industry">
-                  Industry
-                </label>
-                <input className="bib-input" id="industry" name="industry" />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="website">
-                  Website
-                </label>
-                <input className="bib-input" id="website" name="website" />
+                <Button type="submit" loading={busy}>
+                  Add
+                </Button>
               </div>
             </div>
-          ) : (
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-              <div style={{ flex: "2 1 240px" }}>
-                <label className="bib-label" htmlFor="fullName">
-                  Full name
-                </label>
-                <input className="bib-input" id="fullName" name="fullName" required />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="nationality">
-                  Nationality
-                </label>
-                <input className="bib-input" id="nationality" name="nationality" />
-              </div>
-              <div>
-                <label className="bib-label" htmlFor="dateOfBirth">
-                  Date of birth
-                </label>
-                <input className="bib-input" id="dateOfBirth" name="dateOfBirth" type="date" />
-              </div>
-            </div>
-          )}
-          <button className="bib-button" type="submit" disabled={busy}>
-            {busy ? "Saving…" : "Add"}
-          </button>
+          </TabPanel>
         </form>
-      </div>
-    </main>
+      </Card>
+    </Page>
   );
 }
 

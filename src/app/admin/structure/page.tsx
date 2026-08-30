@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis } from "@/lib/api/client";
+import { Button, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * The firm's own delivery structure — its Depts, its delivery teams, and how it
@@ -120,19 +122,20 @@ export default function StructurePage() {
     );
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   const depts = axes.filter((a) => a.axis === "dept");
   const teams = axes.filter((a) => a.axis === "team");
 
   return (
-    <main>
-      <h1>Firm structure</h1>
-      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
-        Most firms have one of these layers, some have both, and plenty have neither. Fill in
-        what your firm actually uses and leave the rest empty — nothing here is required.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Firm structure"
+        lede="Most firms have one of these layers, some have both, and plenty have neither. Fill in
+        what your firm actually uses and leave the rest empty — nothing here is required."
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       <WorkSplitChooser
         chosen={split}
@@ -167,7 +170,7 @@ export default function StructurePage() {
         onAdded={() => void load()}
         onError={setError}
       />
-    </main>
+    </Page>
   );
 }
 
@@ -221,19 +224,19 @@ function WorkSplitChooser({
   ];
 
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-      <h2 style={{ marginTop: 0 }}>When a client signs, how is the work split up?</h2>
-      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+      <h2 className="card-title">When a client signs, how is the work split up?</h2>
+      <p className="muted" style={{ maxWidth: "62ch" }}>
         A client signs one engagement letter for several services. This decides whether that
         becomes one job with everything in it, or several — one per group.
       </p>
-      <div style={{ display: "grid", gap: "var(--bib-gap-1)" }}>
+      <div style={{ display: "grid", gap: "var(--s-2)" }}>
         {options.map((o) => (
           <label
             key={o.value}
             style={{
               display: "flex",
-              gap: "var(--bib-gap-1)",
+              gap: "var(--s-2)",
               alignItems: "flex-start",
               opacity: o.disabledBecause === null ? 1 : 0.55,
             }}
@@ -250,7 +253,7 @@ function WorkSplitChooser({
             <span>
               <strong>{o.label}</strong>
               <br />
-              <span className="bib-muted" style={{ fontSize: 13 }}>
+              <span className="muted text-sm">
                 {o.hint}
                 {o.disabledBecause !== null && ` — ${o.disabledBecause}.`}
               </span>
@@ -258,7 +261,7 @@ function WorkSplitChooser({
           </label>
         ))}
       </div>
-      <p className="bib-muted" style={{ fontSize: 13, marginTop: "var(--bib-gap-2)" }}>
+      <p className="muted text-sm">
         Changing this restates nothing. Work already under way keeps the shape it started
         with; the next engagement is split the new way.
       </p>
@@ -267,7 +270,7 @@ function WorkSplitChooser({
           control that looks live and is not is exactly the "feature that looks
           finished" this codebase has been caught by before — a registered event
           verb with no writer — so the screen says which half exists. */}
-      <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+      <p className="muted text-sm">
         <strong>Not in effect yet.</strong> Your answer is saved and will be used the moment
         delivery scheduling goes live. Until then every signed engagement produces one job,
         whatever is chosen here.
@@ -302,65 +305,66 @@ function AxisList({
   onError: (message: string) => void;
 }) {
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
-      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+      <h2 className="card-title">{title}</h2>
+      <p className="muted" style={{ maxWidth: "62ch" }}>
         {blurb}
       </p>
 
       {rows.length === 0 ? (
-        <p className="bib-muted">
+        <p className="muted">
           None defined. While this list is empty a service&apos;s {title.toLowerCase()} field
           takes any code the firm types — the moment there is one row, the list is closed and
           only these codes are accepted.
         </p>
       ) : (
-        <table className="bib-table">
+        <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th style={{ width: 110 }}>Order</th>
-              <th>Status</th>
-              <th />
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th style={{ width: 110 }}>Order</Th>
+              <Th>Status</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} data-inactive={!r.isActive}>
-                <td>
+                <Td>
                   <CommittedText
                     key={`${r.id}:${r.name}`}
                     value={r.name}
                     disabled={busy === r.id}
                     onCommit={(name) => { onRename(r.id, name); }}
                   />
-                </td>
+                </Td>
                 {/* The code never changes — every published service body names
                     it and those bodies are frozen. Shown, not editable. */}
-                <td className="bib-muted bib-mono">{r.code}</td>
-                <td>
+                <Td className="mono muted">{r.code}</Td>
+                <Td>
                   <CommittedNumber
                     key={`${r.id}:${String(r.sortOrder)}`}
                     value={r.sortOrder}
                     disabled={busy === r.id}
                     onCommit={(sortOrder) => { onReorder(r.id, sortOrder); }}
                   />
-                </td>
-                <td>
-                  <span className="bib-pill" data-tone={r.isActive ? "active" : "revoked"}>
+                </Td>
+                <Td>
+                  <span className="pill" data-tone={r.isActive ? "accent" : "danger"}>
                     {r.isActive ? "in use" : "retired"}
                   </span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className={`bib-button-quiet${r.isActive ? " bib-button-danger" : ""}`}
-                    disabled={busy === r.id}
+                </Td>
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant={r.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === r.id}
                     onClick={() => { onSetActive(r.id, !r.isActive); }}
                   >
                     {r.isActive ? "Retire" : "Bring back"}
-                  </button>
-                </td>
+                  </Button>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -405,49 +409,49 @@ function AddAxis({
   }
 
   return (
-    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+    <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add one</summary>
       <form
-        style={{ marginTop: "var(--bib-gap-2)" }}
+        style={{ marginTop: "var(--s-4)" }}
         action={(form) => {
           void add(form);
         }}
       >
-        <div className="bib-field-row">
+        <div className="field-row">
           <div style={{ flex: "1 1 160px" }}>
-            <label className="bib-label" htmlFor={`add-${axis}-code`}>
+            <label className="label" htmlFor={`add-${axis}-code`}>
               Code
             </label>
             <input
-              className="bib-input"
+              className="input"
               id={`add-${axis}-code`}
               name="code"
               placeholder={axis === "dept" ? "FRC" : "FINCOMPLIANCE"}
               required
             />
-            <p className="bib-hint">
+            <p className="field-hint">
               Permanent. Upper case, spaces allowed. Every service filed here names it.
             </p>
           </div>
           <div style={{ flex: "2 1 220px" }}>
-            <label className="bib-label" htmlFor={`add-${axis}-name`}>
+            <label className="label" htmlFor={`add-${axis}-name`}>
               Name
             </label>
             <input
-              className="bib-input"
+              className="input"
               id={`add-${axis}-name`}
               name="name"
               placeholder={axis === "dept" ? "Financial Reporting & Compliance" : "FinCompliance"}
               required
             />
-            <p className="bib-hint">What people read. Changeable later.</p>
+            <p className="field-hint">What people read. Changeable later.</p>
           </div>
           <div style={{ flex: "0 1 100px" }}>
-            <label className="bib-label" htmlFor={`add-${axis}-order`}>
+            <label className="label" htmlFor={`add-${axis}-order`}>
               Order
             </label>
             <input
-              className="bib-input"
+              className="input"
               id={`add-${axis}-order`}
               name="sortOrder"
               type="number"
@@ -455,7 +459,7 @@ function AddAxis({
             />
           </div>
         </div>
-        <button className="bib-button" type="submit" disabled={busy}>
+        <button className="btn" type="submit" disabled={busy}>
           Add
         </button>
       </form>
@@ -493,7 +497,7 @@ function CommittedText({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       value={draft}
       disabled={disabled}
       onChange={(e) => { setDraft(e.target.value); }}
@@ -528,7 +532,7 @@ function CommittedNumber({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       type="number"
       value={draft}
       disabled={disabled}

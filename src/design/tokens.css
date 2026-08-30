@@ -1,0 +1,291 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — the single source of truth for every visual decision.
+
+   This is the SAME design language as 10x CRM (`../10xcrm`). Deliberately so:
+   the two products are used by the same firm, often on the same day, and a
+   developer who has built a screen in one should recognise every token here.
+   Where a name exists there, it means the same thing here.
+
+   The rule the whole system runs on, inherited with it: **colour is spent in
+   one place and means one thing.** Status, and nothing else. A button is not
+   coloured because a button is not a status; a card is not tinted because a
+   card is not a state. That is what keeps a scan down a busy screen answering
+   "what needs me?" without reading a word.
+
+   Nothing below this file may invent a colour, a font size, a spacing step or
+   a radius. If a screen needs a value that is not here, either the value is
+   wrong or the scale is missing a rung — and adding a rung is a deliberate
+   act, made here, once, for everybody.
+
+   ── On the two themes ──────────────────────────────────────────────────────
+   10x CRM is light-only on purpose. This app carries both, and the structure
+   below is what makes that affordable rather than a second design to maintain:
+   ONLY the semantic layer is redefined per theme. Sizes, spacing, shape, type
+   and motion are theme-invariant and appear exactly once.
+
+   So a component never branches on theme. It names `--surface` and gets the
+   right ground in both. If you find yourself writing a dark-mode rule inside a
+   component, the token is missing — add it here instead.
+
+   Three states, because "system" is the default and stamps nothing:
+     :root                                     light
+     @media (dark) :root:not([data-theme=light])   follows the OS
+     :root[data-theme="dark"]                  explicit choice wins
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   THEME-INVARIANT. Measured in ems, pixels and milliseconds — never colour.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Type ────────────────────────────────────────────────────────────────
+     IBM Plex, self-hosted by `next/font` in the root layout — which is what
+     defines `--font-sans` and `--font-mono`. The fallbacks after them are not
+     decoration: they are what renders while the face loads and if it never
+     does. */
+  --sans: var(--font-sans), "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: var(--font-mono), "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  /* One type scale, so a size is CHOSEN FROM A LIST rather than invented.
+     Base is 16px: this is read all day beside spreadsheets and PDFs, and
+     shaving it to 14 buys density nobody asked for at the cost of legibility.
+     A screen that reaches for 15px or 17px has left the system. */
+  --t-xs: 0.75rem;    /* 12 — eyebrows, table heads, tags */
+  --t-sm: 0.8125rem;  /* 13 — helper text, metadata */
+  --t-md: 0.875rem;   /* 14 — dense controls, table cells */
+  --t-base: 1rem;     /* 16 — body, form controls */
+  --t-lg: 1.125rem;   /* 18 — card and section headings */
+  --t-xl: 1.5rem;     /* 24 — page subheads */
+  --t-2xl: 2rem;      /* 32 — page title */
+
+  /* ── Spacing ─────────────────────────────────────────────────────────────
+     Vertical rhythm as a decision rather than a habit. Related things sit at
+     --s-2; sections separate at --s-5. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  /* The longest a line of prose is allowed to get. Beyond about 70 characters
+     the eye loses the start of the next line. */
+  --measure: 68ch;
+
+  /* ── Shape ───────────────────────────────────────────────────────────────
+     Two radii. A third would be a decision nobody made on purpose. */
+  --r: 10px;
+  --r-sm: 7px;
+
+  /* ── Controls ────────────────────────────────────────────────────────────
+     Every interactive control snaps to one of these, so an input and the
+     button beside it line up because they read the SAME token — not because
+     somebody counted padding twice.
+
+     2.75rem is the floor: below it a control stops reading as something you
+     can put a value into, and it fails the 44px pointer-target guideline. */
+  --control-h: 2.75rem;
+  --control-h-sm: 2.125rem;
+
+  /* ── Layout ──────────────────────────────────────────────────────────────
+     Note what is NOT here: a global 880px cap. This product's tables run to
+     seven columns, and 78rem is what lets them be read rather than scrolled. */
+  --sidebar-w: 15.5rem;
+  --main-w: 78rem;
+  --main-w-narrow: 46rem;
+
+  /* ── Motion ──────────────────────────────────────────────────────────────
+     Short and few. Anything longer than 200ms in an app people use all day is
+     a delay, not a delight. All of it is disabled under reduced-motion. */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 140ms;
+
+  /* ── Layers ──────────────────────────────────────────────────────────── */
+  --z-sticky: 10;
+  --z-topbar: 30;
+  --z-dropdown: 40;
+  --z-overlay: 50;
+  --z-dialog: 60;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   LIGHT — the default, and the palette 10x CRM is built in.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  /* ── Ground and ink ──────────────────────────────────────────────────────
+     The neutrals carry a faint blue-green bias so they sit WITH the accent
+     rather than beside it — a pure grey reads as unchosen. */
+  --paper: #f6f7f8;
+  --surface: #ffffff;
+  --surface-sunk: #fafbfb;
+  --surface-hover: #f6f7f8;
+  --ink: #0f1a20;
+  --ink-2: #35454f;
+  --muted: #5b6b75;
+  --faint: #8b979f;
+  --line: #e4e8ea;
+  --line-soft: #eef1f2;
+
+  /* The firm's own colour. `--accent-ink` is the READABLE one — accent as
+     text, on paper or on its own wash. */
+  --accent: #0b6e63;
+  --accent-ink: #075049;
+  --accent-wash: #e9f2f0;
+
+  /* ── Status ──────────────────────────────────────────────────────────────
+     Two tones, and they are INFORMATIONAL rather than decorative. Amber is
+     "this needs attention"; red is "this is wrong, refused, or overdue".
+     Nothing else in the app is allowed to use them.
+
+     Same hexes as 10x CRM's escalation ladder (`--rung-1` / `--rung-2`),
+     named for what they mean here: this product has no 24/48-hour ladder, it
+     has revoked memberships, refused API calls and overdue filings. */
+  --warn: #b26a00;
+  --warn-wash: #fdf3e3;
+  --danger: #b4382c;
+  --danger-wash: #fdeeec;
+  --danger-hover: #9c3025;
+
+  /* Success is the accent. Deliberately not a third green: "done" and "the
+     firm's mark" reading alike is correct, and a fourth hue would be colour
+     spent on decoration. */
+  --ok: var(--accent);
+  --ok-wash: var(--accent-wash);
+
+  /* ── Component grounds ───────────────────────────────────────────────────
+     Named separately because they diverge between themes. A primary button is
+     INK in light and near-white in dark; writing that as `var(--ink)` at the
+     call site would look right until the day dark mode landed. */
+  --btn-bg: var(--ink);
+  --btn-ink: #ffffff;
+  --btn-bg-hover: #1d2c35;
+
+  --input-bg: var(--surface);
+  --input-border-hover: #d3d9dc;
+
+  /* The `<select>` chevron. Baked into a data URI because a background image
+     cannot read `currentColor` — so it is a token, swapped with the palette,
+     rather than a colour a component would have to branch on. */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6b75' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
+
+
+  /* The topbar is translucent over whatever scrolls under it. */
+  --topbar-bg: rgb(255 255 255 / 0.85);
+  --overlay: rgb(15 26 32 / 0.4);
+
+  --shadow: 0 1px 2px rgb(15 26 32 / 0.04), 0 8px 24px -12px rgb(15 26 32 / 0.14);
+
+  /* The plate a brand mark sits on. White in BOTH themes, deliberately: a logo
+     supplied as a transparent PNG was drawn for white paper, and a dark ground
+     turns its black strokes into a smudge. This is the one colour in the
+     system that does not follow the theme, and that is the point of it. */
+  --logo-plate: #ffffff;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   DARK.
+
+   Not the light palette inverted — inverting `#fdf3e3` gives a glowing bar of
+   colour where a quiet wash belongs. The hues are held and the LIGHTNESS is
+   re-derived: neutrals keep the same blue-green bias, status washes become
+   dark tints of their own hue, and the accent lifts because #0b6e63 on a dark
+   ground is a smudge.
+
+   Surfaces LIFT as they come forward — paper is darkest, a card sits above it,
+   a dialog above that. That is how depth reads without light to cast it, and
+   it is why shadows do almost nothing here and are kept only so components
+   need no dark-mode branch of their own.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --paper: #0c1417;
+    --surface: #141f24;
+    --surface-sunk: #101a1e;
+    --surface-hover: #1a262c;
+    --ink: #e6ecee;
+    --ink-2: #c2ced3;
+    --muted: #93a3aa;
+    --faint: #6d7d85;
+    --line: #253238;
+    --line-soft: #1b262b;
+
+    --accent: #3fa593;
+    --accent-ink: #8fd9c6;
+    --accent-wash: #10302b;
+
+    --warn: #d99a3d;
+    --warn-wash: #2e2413;
+    --danger: #e0776a;
+    --danger-wash: #331a17;
+    --danger-hover: #ec8b7e;
+
+    --ok: var(--accent);
+    --ok-wash: var(--accent-wash);
+
+    /* Inverted: on a dark ground the loud button is the light one. */
+    --btn-bg: #e6ecee;
+    --btn-ink: #0c1417;
+    --btn-bg-hover: #ffffff;
+
+    --input-bg: #101a1e;
+    --input-border-hover: #38474e;
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393a3aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
+
+    --topbar-bg: rgb(20 31 36 / 0.85);
+    --overlay: rgb(0 0 0 / 0.6);
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* The same block again for an EXPLICIT choice, so the toggle beats the OS in
+   both directions. Duplicated on purpose — a preprocessor would hide it, and
+   the two blocks must be edited together. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0c1417;
+  --surface: #141f24;
+  --surface-sunk: #101a1e;
+  --surface-hover: #1a262c;
+  --ink: #e6ecee;
+  --ink-2: #c2ced3;
+  --muted: #93a3aa;
+  --faint: #6d7d85;
+  --line: #253238;
+  --line-soft: #1b262b;
+
+  --accent: #3fa593;
+  --accent-ink: #8fd9c6;
+  --accent-wash: #10302b;
+
+  --warn: #d99a3d;
+  --warn-wash: #2e2413;
+  --danger: #e0776a;
+  --danger-wash: #331a17;
+  --danger-hover: #ec8b7e;
+
+  --ok: var(--accent);
+  --ok-wash: var(--accent-wash);
+
+  --btn-bg: #e6ecee;
+  --btn-ink: #0c1417;
+  --btn-bg-hover: #ffffff;
+
+  --input-bg: #101a1e;
+  --input-border-hover: #38474e;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393a3aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 9 7 7 7-7'/%3E%3C/svg%3E");
+
+  --topbar-bg: rgb(20 31 36 / 0.85);
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
+}

@@ -1,0 +1,447 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT — the shell every signed-in page sits in, and the primitives pages
+   compose with.
+
+   The rule this file exists to enforce: **a page never decides its own
+   padding, width or navigation.** Those are properties of the APPLICATION, and
+   a screen that sets them has made a decision on behalf of every other screen
+   without being able to see them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ────────────────────────────────────────────────────────────────
+   A sidebar. Navigation used to be repeated inline at the top of every page,
+   which meant every page decided for itself where you could go — the admin
+   screens had one nav, the commercial screens another, and the workspace home
+   was the only route between them. */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--s-5) var(--s-4);
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 var(--s-2);
+  min-width: 0;
+}
+.brand .mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+  font-size: var(--t-sm);
+  letter-spacing: -0.04em;
+}
+.brand .brand-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.brand b {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brand span {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--faint);
+  letter-spacing: 0.02em;
+}
+
+/* ── Sidebar navigation ─────────────────────────────────────────────────── */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nav-label {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0 var(--s-2);
+  margin: var(--s-3) 0 0.4rem;
+}
+.nav-label:first-child {
+  margin-top: 0;
+}
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4rem var(--s-2);
+  border-radius: var(--r-sm);
+  font-size: var(--t-md);
+  color: var(--muted);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.nav-link:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+/* The current page is stated with `aria-current="page"`, so the styling and
+   the screen-reader announcement cannot drift apart. */
+.nav-link[aria-current="page"] {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+.nav-icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.nav-link .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-link .count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--faint);
+}
+.nav-link[aria-current="page"] .count {
+  color: var(--accent);
+}
+
+/* ── Sidebar foot ───────────────────────────────────────────────────────── */
+
+.sidebar-foot {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 var(--s-2);
+  min-width: 0;
+}
+/* `min-width: 0` is what lets a long name truncate instead of pushing the
+   avatar out of the sidebar. */
+.who-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.who .n {
+  display: block;
+  font-size: var(--t-md);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.who .r {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--faint);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+
+/* ── Main column ────────────────────────────────────────────────────────── */
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: 0.875rem 2.5rem;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.crumb {
+  font-size: var(--t-sm);
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crumb b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* The page canvas. ONE definition of how wide a page is and how far its
+   content sits from the edge — the reason no screen has to decide.
+
+   `.main > main` is matched as well as `.page`, so a route that has not been
+   migrated to `<Page>` yet is still inset correctly. Without it those screens
+   would sit flush against the sidebar the moment the old `.bib-shell` wrapper
+   came out of the root layout — a regression the shim could not cover, because
+   the wrapper was in the layout rather than in any page. */
+.main > main,
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: var(--main-w);
+  margin: 0 auto;
+  padding: 2.25rem 2.5rem 5rem;
+}
+.page.narrow {
+  max-width: var(--main-w-narrow);
+}
+.page.wide {
+  max-width: none;
+}
+
+/* ── Stacks and rows ──────────────────────────────────────────────────────
+   The two shapes almost every layout is made of. Reaching for a bare
+   `display: flex` with a hand-picked gap is what these exist to replace. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.stack.tight { gap: var(--s-2); }
+.stack.snug  { gap: var(--s-3); }
+.stack.loose { gap: var(--s-6); }
+
+/* Baseline-aligned, spread apart: a heading and the thing that sits opposite
+   it. `flex-wrap` so it becomes two lines on a narrow screen rather than
+   crushing the heading. */
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+/* Things that sit beside each other and wrap: buttons, pills, filters. */
+.cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+.cluster.tight { gap: var(--s-1); }
+.cluster.loose { gap: var(--s-4); }
+.cluster.end { justify-content: flex-end; }
+
+/* Columns that collapse on their own, without a breakpoint per screen. */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1.25rem;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.25rem;
+}
+
+/* ── Page head ────────────────────────────────────────────────────────────
+   Eyebrow, title, lede, and whatever sits opposite. Every page opens this way,
+   which is most of what makes them feel like one product. */
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-5);
+  flex-wrap: wrap;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 0.4rem;
+}
+.lede {
+  margin: var(--s-3) 0 0;
+  max-width: var(--main-w-narrow);
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+/* ── Section ──────────────────────────────────────────────────────────────
+   A heading and its content, with the gap between them decided once. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+}
+.section > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+/* ── Sign in ──────────────────────────────────────────────────────────────
+   Its own frame. Signed out there is no shell at all: a sidebar full of links
+   you cannot follow is furniture. */
+
+.signin {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--s-6);
+}
+.signin > div {
+  width: 100%;
+  max-width: 22rem;
+}
+
+/* ── Small screens ───────────────────────────────────────────────────────
+   ONE breakpoint strategy, defined here, so no page invents its own.
+
+   60rem is where the sidebar stops earning its column: it folds into a
+   horizontal scroller across the top, the labels and the identity block drop
+   away, and the page padding tightens. Everything else in the system is fluid
+   by construction (`auto-fit` grids, wrapping clusters, scrolling tables), so
+   this is the only structural change the layout needs. */
+
+@media (max-width: 60rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-4);
+    overflow-x: auto;
+    overflow-y: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: var(--s-3) 1.25rem;
+    /*
+     * Without this the bar does not scroll — it STRETCHES THE PAGE.
+     *
+     * A grid item's default `min-width` is `auto`, meaning "at least as wide
+     * as my content". The children below are `flex: none`, so the content is
+     * far wider than a phone, and the sidebar was quietly widening the whole
+     * grid column: the page scrolled sideways by ~550px and the overflow sat
+     * off-screen where a screenshot never shows it.
+     *
+     * `min-width: 0` lets the item be narrower than its content, which is what
+     * makes `overflow-x: auto` mean anything.
+     */
+    min-width: 0;
+  }
+  /* Everything in the folded bar keeps its own width. Without `flex: none` the
+     items shrink to fit the viewport instead of overflowing it, and a row of
+     links inside a horizontal scroller becomes a row of links printed on top
+     of each other — which is exactly what it did. */
+  .sidebar > *,
+  .brand,
+  .nav-link {
+    flex: none;
+  }
+  .nav {
+    flex-direction: row;
+    gap: var(--s-1);
+  }
+  .nav-link {
+    white-space: nowrap;
+  }
+  .nav-label,
+  .brand span {
+    display: none;
+  }
+  .sidebar-foot {
+    margin-top: 0;
+    margin-left: auto;
+    border-top: none;
+    padding-top: 0;
+    flex-direction: row;
+    align-items: center;
+  }
+  .who .who-id {
+    display: none;
+  }
+  .topbar,
+  .main > main,
+  .page {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .main > main,
+  .page {
+    padding-top: var(--s-5);
+    padding-bottom: var(--s-7);
+  }
+}
+
+@media (max-width: 40rem) {
+  .page-head {
+    align-items: flex-start;
+  }
+  h1 {
+    font-size: var(--t-xl);
+  }
+}

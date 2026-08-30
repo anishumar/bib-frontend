@@ -5,6 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Card,
+  ErrorNotice,
+  LinkButton,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import type { EventRecord } from "@/lib/api/client";
 
 /**
@@ -26,7 +38,7 @@ import type { EventRecord } from "@/lib/api/client";
  */
 export default function AuditPage() {
   return (
-    <Suspense fallback={<p className="bib-muted">Loading…</p>}>
+    <Suspense fallback={<p className="muted">Loading…</p>}>
       <AuditFeed />
     </Suspense>
   );
@@ -72,64 +84,76 @@ function AuditFeed() {
     })();
   }, [load]);
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading the trail" />;
 
   const scoped = objectType !== null && objectId !== null;
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        {scoped && <Link href="/audit">The whole trail</Link>}
-      </nav>
-      <h1 style={{ marginBottom: 4 }}>{scoped ? "History" : "Audit trail"}</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        {scoped
-          ? `Everything that ever happened to this ${objectType}.`
-          : "Every state transition, newest first. Append-only — nothing here can be edited."}
-      </p>
+    <Page>
+      <PageHeader
+        eyebrow="Record"
+        title={scoped ? "History" : "Audit trail"}
+        lede={
+          scoped
+            ? `Everything that ever happened to this ${objectType}.`
+            : "Every state transition, newest first. Append-only — nothing here can be edited."
+        }
+        aside={
+          scoped ? (
+            <LinkButton size="sm" href="/audit">
+              The whole trail
+            </LinkButton>
+          ) : undefined
+        }
+      />
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      <ErrorNotice error={error} />
 
-      <div className="bib-card">
-        {events.length === 0 && error === null ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nothing recorded yet.
-          </p>
-        ) : (
-          <table className="bib-table">
+      {events.length === 0 && error === null ? (
+        <Card>
+          <Empty title="Nothing recorded yet" icon="audit">
+            The trail fills itself as the firm works. Nothing writes to it by hand.
+          </Empty>
+        </Card>
+      ) : (
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
-                <th>When</th>
-                <th>What</th>
-                <th>Who</th>
-                <th>About</th>
+                <Th>When</Th>
+                <Th>What</Th>
+                <Th>Who</Th>
+                <Th>About</Th>
               </tr>
             </thead>
             <tbody>
               {events.map((r) => (
                 <tr key={r.event.id}>
-                  <td className="bib-muted" style={{ whiteSpace: "nowrap" }}>
-                    {r.event.occurredAt.slice(0, 16).replace("T", " ")}
-                  </td>
-                  <td className="bib-mono">{r.event.verb}</td>
-                  <td>
+                  <Td className="nowrap">
+                    <span className="mono">
+                      {r.event.occurredAt.slice(0, 16).replace("T", " ")}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="mono">{r.event.verb}</span>
+                  </Td>
+                  <Td>
                     {/* Null is a real answer, not a gap: the system and agent
                         actors have no account, and neither does a human whose
                         account has since been erased. */}
                     {r.actor === null ? (
-                      <span className="bib-muted">{r.event.actorType}</span>
+                      <span className="muted">{r.event.actorType}</span>
                     ) : (
                       (r.actor.displayName ?? r.actor.email)
                     )}
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     {scoped ? (
-                      <span className="bib-muted">{r.event.objectType}</span>
+                      <span className="muted">{r.event.objectType}</span>
                     ) : (
                       <Link
                         href={`/audit?type=${r.event.objectType}&id=${r.event.objectId}`}
-                        className="bib-mono"
+                        className="mono"
                       >
                         {r.event.objectType}
                       </Link>
@@ -139,17 +163,17 @@ function AuditFeed() {
                       // audit trail is read when something has gone wrong, and
                       // a friendlier rendering is one more thing between the
                       // reader and what was actually recorded.
-                      <div className="bib-muted bib-mono" style={{ fontSize: 11 }}>
-                        {JSON.stringify(r.event.payload)}
-                      </div>
+                      <Sub>
+                        <span className="mono">{JSON.stringify(r.event.payload)}</span>
+                      </Sub>
                     )}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
-    </main>
+          </Table>
+        </TableWrap>
+      )}
+    </Page>
   );
 }

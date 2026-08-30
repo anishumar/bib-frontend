@@ -5,6 +5,22 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { PendingDunning, Receivable } from "@/lib/api/client";
+import { Page, PageHeader, Section } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  Icon,
+  Input,
+  LinkButton,
+  Pill,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -75,41 +91,49 @@ export default function ReceivablesPage() {
     setBusy(false);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading receivables" />;
 
   const mayDecide = permissions.includes("tenant:admin");
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/invoices">Invoices →</Link>
-      </nav>
-      <h1>Receivables</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Receivables"
+        lede="What the firm is owed, and what the dunning worker has climbed to and stopped at."
+        aside={
+          <LinkButton size="sm" href="/invoices" iconAfter={<Icon name="arrowRight" size={15} />}>
+            Invoices
+          </LinkButton>
+        }
+      />
+
+      <ErrorNotice error={error} />
 
       {/* ── Waiting for a person ───────────────────────────────────────── */}
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Waiting for a decision</h2>
+      <Section title="Waiting for a decision">
         {pending.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nothing has reached a step that needs a person.
-          </p>
+          <Card>
+            <Empty title="Nothing needs a person" icon="check">
+              Nothing has reached a step the worker may not apply on its own.
+            </Empty>
+          </Card>
         ) : (
           <>
-            <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            <p className="lede">
               The worker climbed to these and stopped. Credit hold and legal action are the two
               rungs it may reach and may not apply.
             </p>
-            <table className="bib-table">
+            <TableWrap>
+              <Table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Invoice</th>
-                  <th>Step</th>
-                  <th style={{ textAlign: "right" }}>Outstanding</th>
-                  {mayDecide && <th>Decide</th>}
+                  <Th>Client</Th>
+                  <Th>Invoice</Th>
+                  <Th>Step</Th>
+                  <Th align="right">Outstanding</Th>
+                  {mayDecide && <Th>Decide</Th>}
                 </tr>
               </thead>
               <tbody>
@@ -118,29 +142,29 @@ export default function ReceivablesPage() {
                     {/* WHOSE. The decision is "put this client on credit hold",
                         and a queue that showed a uuid would be asking somebody
                         to approve something they cannot see. */}
-                    <td>{p.party.displayName}</td>
-                    <td className="bib-mono">
-                      <Link href={`/invoices/${p.action.invoiceId}`}>{p.invoiceNumber}</Link>
-                      <div className="bib-muted" style={{ fontSize: 13 }}>
-                        due {p.dueOn ?? "—"}
-                      </div>
-                    </td>
-                    <td className="bib-mono">
-                      {p.action.step} <span className="bib-muted">D+{p.action.afterDays}</span>
-                      <div>
-                        <span className="bib-pill" data-tone="revoked">
-                          {p.action.action.replace("_", " ")}
-                        </span>
-                      </div>
-                    </td>
+                    <Td>{p.party.displayName}</Td>
+                    <Td>
+                      <Link href={`/invoices/${p.action.invoiceId}`} className="mono">
+                        {p.invoiceNumber}
+                      </Link>
+                      <Sub>due {p.dueOn ?? "—"}</Sub>
+                    </Td>
+                    <Td>
+                      <span className="mono">
+                        {p.action.step} <span className="muted">D+{p.action.afterDays}</span>
+                      </span>
+                      <Sub>
+                        <Pill tone="danger">{p.action.action.replace("_", " ")}</Pill>
+                      </Sub>
+                    </Td>
                     {/* Read NOW, not when the rung fired. A debt settled since
                         is exactly the case a partner rejects, and a stale
                         figure would hide it. */}
-                    <td style={{ textAlign: "right" }} className="bib-mono">
-                      {formatMoney(p.outstanding, p.currency)}
-                    </td>
+                    <Td align="right">
+                      <span className="mono">{formatMoney(p.outstanding, p.currency)}</span>
+                    </Td>
                     {mayDecide && (
-                      <td>
+                      <Td>
                         <form
                           action={(form) => {
                             void decide(
@@ -150,92 +174,124 @@ export default function ReceivablesPage() {
                             );
                           }}
                         >
-                          <div className="bib-field-row">
-                            <input
-                              className="bib-input"
+                          <div className="cluster">
+                            <Input
+                              size="sm"
                               name="why"
+                              aria-label="Why"
                               placeholder="Why (optional)"
-                              style={{ flex: "2 1 160px" }}
                             />
-                            <button className="bib-button-danger" type="submit" name="verdict" value="approve" disabled={busy}>
+                            <Button
+                              size="sm"
+                              variant="destructive-quiet"
+                              type="submit"
+                              name="verdict"
+                              value="approve"
+                              disabled={busy}
+                            >
                               Approve
-                            </button>
-                            <button className="bib-button-quiet" type="submit" name="verdict" value="reject" disabled={busy}>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              type="submit"
+                              name="verdict"
+                              value="reject"
+                              disabled={busy}
+                            >
                               Reject
-                            </button>
+                            </Button>
                           </div>
                         </form>
-                      </td>
+                      </Td>
                     )}
                   </tr>
                 ))}
               </tbody>
-            </table>
-            <p className="bib-hint" style={{ marginBottom: 0 }}>
+              </Table>
+            </TableWrap>
+            <p className="field-hint">
               {mayDecide
                 ? "A decision is final — the database refuses to change one. Rejecting is recorded too: the firm looked and chose not to, which is a fact somebody will want later."
                 : "Deciding these needs tenant:admin."}
             </p>
           </>
         )}
-      </div>
+      </Section>
 
       {/* ── What is owed ───────────────────────────────────────────────── */}
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Outstanding</h2>
+      <Section title="Outstanding">
         {owing.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nothing outstanding. Only ISSUED invoices appear here — a draft has asked nobody for
-            anything, and a cancelled one was withdrawn.
-          </p>
+          <Card>
+            <Empty title="Nothing outstanding" icon="check">
+              Only ISSUED invoices appear here — a draft has asked nobody for anything, and a
+              cancelled one was withdrawn.
+            </Empty>
+          </Card>
         ) : (
-          <table className="bib-table">
+          <TableWrap>
+            <Table>
             <thead>
               <tr>
-                <th>Client</th>
-                <th>Invoice</th>
-                <th>Due</th>
-                <th style={{ textAlign: "right" }}>Invoiced</th>
-                <th style={{ textAlign: "right" }}>Paid</th>
-                <th style={{ textAlign: "right" }}>Credited</th>
-                <th style={{ textAlign: "right" }}>Outstanding</th>
+                <Th>Client</Th>
+                <Th>Invoice</Th>
+                <Th>Due</Th>
+                <Th align="right">Invoiced</Th>
+                <Th align="right">Paid</Th>
+                <Th align="right">Credited</Th>
+                <Th align="right">Outstanding</Th>
               </tr>
             </thead>
             <tbody>
               {owing.map((r) => (
                 <tr key={r.balance.invoiceId}>
-                  <td>{r.party.displayName}</td>
-                  <td className="bib-mono">
-                    <Link href={`/invoices/${r.balance.invoiceId}`}>{r.number}</Link>
-                  </td>
-                  <td className="bib-mono">
-                    {r.balance.dueOn ?? <span className="bib-unstated">no date</span>}
+                  <Td>{r.party.displayName}</Td>
+                  <Td>
+                    <Link href={`/invoices/${r.balance.invoiceId}`} className="mono">
+                      {r.number}
+                    </Link>
+                  </Td>
+                  <Td>
+                    <span className="mono">
+                      {r.balance.dueOn ?? <span className="unstated">no date</span>}
+                    </span>
                     {/* A receivable with no due date is never chased — the firm
                         never said when to pay, and the ladder counts days from
                         a date that does not exist. Worth seeing on this screen
                         rather than wondering why nothing happened. */}
                     {r.balance.dueOn !== null && r.balance.dueOn < today && (
-                      <div className="bib-muted" style={{ fontSize: 13 }}>overdue</div>
+                      <Sub>
+                        <span className="tone-danger">overdue</span>
+                      </Sub>
                     )}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatMoney(r.balance.invoiced, r.balance.currency)}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatMoney(r.balance.paid, r.balance.currency)}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatMoney(r.balance.credited, r.balance.currency)}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    <strong>{formatMoney(r.balance.outstanding, r.balance.currency)}</strong>
-                  </td>
+                  </Td>
+                  <Td align="right">
+                    <span className="mono">
+                      {formatMoney(r.balance.invoiced, r.balance.currency)}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <span className="mono">
+                      {formatMoney(r.balance.paid, r.balance.currency)}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <span className="mono">
+                      {formatMoney(r.balance.credited, r.balance.currency)}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <strong className="mono">
+                      {formatMoney(r.balance.outstanding, r.balance.currency)}
+                    </strong>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
+            </Table>
+          </TableWrap>
         )}
-      </div>
-    </main>
+      </Section>
+    </Page>
   );
 }

@@ -15,6 +15,8 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
+import { LinkButton, Pill, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -117,15 +119,12 @@ export default function LetterPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
   if (record === null) {
     return (
-      <main>
-        <nav className="bib-nav">
-          <Link href="/engagement-letters">← Engagement letters</Link>
-        </nav>
-        <p className="bib-error">{error ?? "No such engagement letter."}</p>
-      </main>
+      <Page>
+        <p className="notice" data-tone="danger" role="alert">{error ?? "No such engagement letter."}</p>
+      </Page>
     );
   }
 
@@ -176,142 +175,144 @@ export default function LetterPage() {
     .join(" · ");
 
   return (
-    <main>
+    <Page>
       {/* The tab says what the caller is holding, for the same reason the header
           does. React hoists this into the document head. */}
       <title>{`${letter.ref} — ${letter.title}`}</title>
-      <nav className="bib-nav">
-        <Link href="/engagement-letters">← Engagement letters</Link>
-        <Link href={`/audit?type=engagement_letter&id=${letterId}`}>History</Link>
-      </nav>
 
-      {/* The reference, first and in the document's own type. This is the string
-          a client reads down the phone; the uuid in the address bar is the
-          system's name for the letter, not the firm's. */}
-      <p className="bib-mono bib-muted" style={{ margin: "0 0 4px", fontSize: 14 }}>
-        {letter.ref}
-      </p>
-      <h1 style={{ marginTop: 0, marginBottom: 4 }}>{letter.title}</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        {record.party.displayName} · issued by {record.issuingEntity.displayName} · written for{" "}
-        {letter.jurisdiction} ·{" "}
-        <span className="bib-pill" data-tone={letter.status === "withdrawn" ? "revoked" : ""}>
-          {letter.status}
-        </span>
-      </p>
+      {/* The reference goes in the eyebrow. This is the string a client reads
+          down the phone; the uuid in the address bar is the system's name for
+          the letter, not the firm's. */}
+      <PageHeader
+        eyebrow={<span className="mono">{letter.ref}</span>}
+        title={<>{letter.title}</>}
+        lede={
+          <>
+            {record.party.displayName} · issued by {record.issuingEntity.displayName} · written
+            for {letter.jurisdiction} ·{" "}
+            <Pill tone={letter.status === "withdrawn" ? "danger" : "neutral"}>
+              {letter.status}
+            </Pill>
+          </>
+        }
+        /* This letter's own timeline, scoped to it. The sidebar's Audit trail
+           is the whole firm's, so it is not a substitute. */
+        aside={
+          <LinkButton size="sm" href={`/audit?type=engagement_letter&id=${letterId}`}>
+            History
+          </LinkButton>
+        }
+      />
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {/* LINEAGE, both directions and by reference. A signed letter is never
           edited — it is replaced — and until this the instruction the model gave
           had nowhere to be recorded and nothing to follow. */}
       {(record.supersededBy !== null || record.supersedes !== null) && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+        <div className="card">
           {record.supersededBy !== null && (
-            <p style={{ marginTop: 0, marginBottom: record.supersedes === null ? 0 : 8 }}>
-              <span className="bib-pill" data-tone="revoked">
+            <p style={{ marginBottom: record.supersedes === null ? 0 : 8 }}>
+              <span className="pill" data-tone="danger">
                 superseded
               </span>{" "}
               Replaced by{" "}
-              <Link className="bib-mono" href={`/engagement-letters/${record.supersededBy.id}`}>
+              <Link className="mono" href={`/engagement-letters/${record.supersededBy.id}`}>
                 {record.supersededBy.ref}
               </Link>
-              . <span className="bib-muted">This is no longer the agreement in force.</span>
+              . <span className="muted">This is no longer the agreement in force.</span>
             </p>
           )}
           {record.supersedes !== null && (
-            <p style={{ margin: 0 }}>
+            <p>
               Replaces{" "}
-              <Link className="bib-mono" href={`/engagement-letters/${record.supersedes.id}`}>
+              <Link className="mono" href={`/engagement-letters/${record.supersedes.id}`}>
                 {record.supersedes.ref}
               </Link>
-              . <span className="bib-muted">That letter stays exactly as it was signed.</span>
+              . <span className="muted">That letter stays exactly as it was signed.</span>
             </p>
           )}
         </div>
       )}
 
       {/* THE DOCUMENT — the half a client reads before the table of fees. */}
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>The document</h2>
-        <div className="bib-field-row"
-             style={{ alignItems: "flex-start", marginBottom: "var(--bib-gap-3)" }}>
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">The document</h2>
+        <div className="field-row"
+             style={{ alignItems: "flex-start", marginBottom: "var(--s-5)" }}>
           <div>
-            <p className="bib-label" style={{ marginBottom: 2 }}>
+            <p className="label" style={{ marginBottom: 2 }}>
               Addressed to
             </p>
             {/* A named PERSON, care-of the client — not who is BILLED, which is
                 the client and is unchanged. Until the letter could store an
                 individual there was no individual to address. */}
             {record.addressedTo === null ? (
-              <p className="bib-muted" style={{ margin: 0 }}>
+              <p className="muted">
                 {record.party.displayName} — no individual named
               </p>
             ) : (
               <>
-                <p style={{ margin: 0 }}>{record.addressedTo.displayName}</p>
-                <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+                <p>{record.addressedTo.displayName}</p>
+                <p className="muted text-md">
                   care of {record.party.displayName}
                 </p>
               </>
             )}
           </div>
           <div>
-            <p className="bib-label" style={{ marginBottom: 2 }}>
+            <p className="label" style={{ marginBottom: 2 }}>
               Issued by
             </p>
             {/* WHICH of the firm's own entities is contracting. The
                 jurisdiction says WHERE the work is; this says WHO on our side
                 is bound by it, and the two are not the same question. */}
-            <p style={{ margin: 0 }}>{record.issuingEntity.displayName}</p>
-            <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+            <p>{record.issuingEntity.displayName}</p>
+            <p className="muted text-md">
               under {letter.jurisdiction} law
             </p>
           </div>
           <div>
-            <p className="bib-label" style={{ marginBottom: 2 }}>
+            <p className="label" style={{ marginBottom: 2 }}>
               Dated
             </p>
             {/* The document's OWN date, distinct from when this system
                 transmitted it. Null defaults to the day it is sent, so the page
                 says which of the two it is showing. */}
             {letter.issuedOn !== null ? (
-              <p style={{ margin: 0 }}>{letter.issuedOn}</p>
+              <p>{letter.issuedOn}</p>
             ) : letter.sentAt === null ? (
-              <p className="bib-muted" style={{ margin: 0 }}>
+              <p className="muted">
                 the day it is sent
               </p>
             ) : (
               <>
-                <p style={{ margin: 0 }}>{letter.sentAt.slice(0, 10)}</p>
-                <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+                <p>{letter.sentAt.slice(0, 10)}</p>
+                <p className="muted text-md">
                   the day it was sent
                 </p>
               </>
             )}
           </div>
           <div>
-            <p className="bib-label" style={{ marginBottom: 2 }}>
+            <p className="label" style={{ marginBottom: 2 }}>
               Work begins
             </p>
-            <p style={{ margin: 0 }}>
+            <p>
               {letterBegins.day ?? (
-                <span className="bib-muted">on the day it is signed</span>
+                <span className="muted">on the day it is signed</span>
               )}
             </p>
             {letterBeginsNote !== "" && (
-              <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+              <p className="muted text-md">
                 {letterBeginsNote}
               </p>
             )}
           </div>
         </div>
-        <h3 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.04em" }}
-            className="bib-muted">
-          Background
-        </h3>
+        <h3 className="eyebrow">Background</h3>
         {letter.background === null ? (
-          <p className="bib-muted" style={{ marginBottom: 0, fontSize: 14 }}>
+          <p className="muted text-md">
             None written. The letter opens straight at the services — which is a choice, and one
             that cannot be changed after it is sent.
           </p>
@@ -319,24 +320,24 @@ export default function LetterPage() {
           // Prose, as prose: this is the paragraph the client reads first, and
           // it is a TERM — inside the canonical content the signature commits
           // to, not presentation around it.
-          <p style={{ marginBottom: 0, whiteSpace: "pre-wrap" }}>{letter.background}</p>
+          <p style={{ whiteSpace: "pre-wrap" }}>{letter.background}</p>
         )}
       </div>
 
       {isSigned && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Signed</h2>
-          <div className="bib-field-row" style={{ alignItems: "flex-start" }}>
+        <div className="card">
+          <h2 className="card-title">Signed</h2>
+          <div className="field-row" style={{ alignItems: "flex-start" }}>
             {/* The CLIENT's half. */}
             <div>
-              <p className="bib-label" style={{ marginBottom: 2 }}>
+              <p className="label" style={{ marginBottom: 2 }}>
                 For {record.party.displayName}
               </p>
-              <p style={{ margin: 0 }}>{letter.signedByName}</p>
-              <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+              <p>{letter.signedByName}</p>
+              <p className="muted text-md">
                 {letter.signedByTitle ?? "capacity not recorded"}
               </p>
-              <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+              <p className="muted text-md">
                 {signatureDay} · {letter.signatureMethod}
                 {letter.signatureReference !== null && ` · ref ${letter.signatureReference}`}
               </p>
@@ -346,27 +347,27 @@ export default function LetterPage() {
                 SNAPSHOT taken at send: naming a successor next year must not
                 restate who signed a letter in 2026. */}
             <div>
-              <p className="bib-label" style={{ marginBottom: 2 }}>
+              <p className="label" style={{ marginBottom: 2 }}>
                 For {record.issuingEntity.displayName}
               </p>
               {record.firmSignatory === null ? (
-                <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+                <p className="muted text-md">
                   No signature block — the firm had named no signatory when this letter went out.
                 </p>
               ) : (
                 <>
-                  <p style={{ margin: 0 }}>
+                  <p>
                     {record.firmSignatory.displayName ?? (
                       // The name is a read-time join; the title is what the
                       // document said. An erased account stops resolving, and
                       // that is the record being right rather than a bug.
-                      <span className="bib-muted">name no longer on record</span>
+                      <span className="muted">name no longer on record</span>
                     )}
                   </p>
-                  <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+                  <p className="muted text-md">
                     {record.firmSignatory.title}
                   </p>
-                  <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+                  <p className="muted text-md">
                     {record.firmSignatory.signedAt.slice(0, 10)}
                   </p>
                 </>
@@ -376,11 +377,11 @@ export default function LetterPage() {
           {/* The fingerprint of exactly what was signed. On the page because
               verifying it should not need a database session — recompute the
               canonical rendering and compare. */}
-          <p className="bib-mono bib-muted"
-             style={{ marginBottom: 0, fontSize: 11, wordBreak: "break-all" }}>
+          <p className="mono muted text-xs"
+             style={{ wordBreak: "break-all" }}>
             {letter.signedContentHash}
           </p>
-          <p className="bib-muted" style={{ marginBottom: 0, fontSize: 13 }}>
+          <p className="muted text-sm">
             This letter can no longer be changed — the database refuses it. A change is a new
             letter that supersedes this one, which is what keeps this readable as what was
             actually agreed.
@@ -388,17 +389,17 @@ export default function LetterPage() {
         </div>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Services</h2>
-        <table className="bib-table">
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">Services</h2>
+        <table className="table">
           <thead>
             <tr>
-              <th>Line</th>
-              <th>Begins</th>
-              <th style={{ textAlign: "right" }}>Qty</th>
-              <th style={{ textAlign: "right" }}>Rate</th>
-              <th style={{ textAlign: "right" }}>Net</th>
-              {isDraft && <th />}
+              <Th>Line</Th>
+              <Th>Begins</Th>
+              <Th style={{ textAlign: "right" }}>Qty</Th>
+              <Th style={{ textAlign: "right" }}>Rate</Th>
+              <Th style={{ textAlign: "right" }}>Net</Th>
+              {isDraft && <Th />}
             </tr>
           </thead>
           <tbody>
@@ -406,36 +407,36 @@ export default function LetterPage() {
               const start = begins(l.effectiveFrom);
               return (
                 <tr key={l.id}>
-                  <td>
+                  <Td>
                     <div>{l.description}</div>
                     {/* WHOSE entity the work is for. One line per group company
                         is the whole reason a letter has more than one. */}
-                    {l.entity !== null && <div className="bib-muted">{l.entity.displayName}</div>}
+                    {l.entity !== null && <div className="muted">{l.entity.displayName}</div>}
                     {l.service !== null && (
-                      <div className="bib-muted bib-mono">
+                      <div className="mono muted">
                         {l.service.key}@{l.service.version}
                       </div>
                     )}
-                  </td>
-                  <td>
-                    {start.day ?? <span className="bib-muted">on signature</span>}
-                    <div className="bib-muted" style={{ fontSize: 12 }}>
+                  </Td>
+                  <Td>
+                    {start.day ?? <span className="muted">on signature</span>}
+                    <div className="muted text-xs">
                       {start.from}
                     </div>
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
+                  </Td>
+                  <Td style={{ textAlign: "right" }} className="mono">
                     {formatCount(l.quantity)}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
+                  </Td>
+                  <Td style={{ textAlign: "right" }} className="mono">
                     {formatMoney(l.unitAmount, l.currency)}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
+                  </Td>
+                  <Td style={{ textAlign: "right" }} className="mono">
                     {formatMoney(l.net, l.currency)}
-                  </td>
+                  </Td>
                   {isDraft && (
-                    <td style={{ textAlign: "right" }}>
+                    <Td style={{ textAlign: "right" }}>
                       <button
-                        className="bib-button-quiet"
+                        className="btn" data-variant="secondary" data-size="sm"
                         disabled={busy !== null}
                         onClick={() => {
                           void act(l.id, () =>
@@ -447,26 +448,26 @@ export default function LetterPage() {
                       >
                         Remove
                       </button>
-                    </td>
+                    </Td>
                   )}
                 </tr>
               );
             })}
             {lines.length === 0 && (
               <tr>
-                <td colSpan={6} className="bib-muted">
+                <Td colSpan={6} className="muted">
                   Nothing agreed yet.
-                </td>
+                </Td>
               </tr>
             )}
           </tbody>
         </table>
-        <div style={{ textAlign: "right", marginTop: "var(--bib-gap-2)" }}>
-          <div className="bib-mono" style={{ fontSize: 20 }}>
+        <div style={{ textAlign: "right", marginTop: "var(--s-4)" }}>
+          <div className="mono text-lg">
             {formatMoney(totals.net, totals.currency)}
           </div>
           {letter.advanceRequired && (
-            <div className="bib-muted" style={{ fontSize: 14 }}>
+            <div className="muted text-md">
               advance {formatMoney(letter.advanceAmount, totals.currency)}
               {letter.advanceRecordedAt === null
                 ? " · outstanding"
@@ -483,22 +484,26 @@ export default function LetterPage() {
           letter was drafted, and this letter's from then on. Editing the
           standard set changes the next letter and never this one. */}
       {record.blocks.length > 0 && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Exclusions, notes and team</h2>
+        <div className="card">
+          <h2 className="card-title">Exclusions, notes and team</h2>
           {(["exclusion", "commercial", "team"] as const).map((kind) => {
             const mine = record.blocks.filter((b) => b.kind === kind);
             if (mine.length === 0) return null;
             return (
-              <div key={kind} style={{ marginBottom: "var(--bib-gap-2)" }}>
-                <div className="bib-label">{BLOCK_KIND_LABELS[kind]}</div>
+              <div key={kind} style={{ marginBottom: "var(--s-4)" }}>
+                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
                 <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                   {mine.map((b) => (
-                    <li key={b.id} style={{ fontSize: 14, listStyle: b.isHeading ? "none" : undefined, marginLeft: b.isHeading ? -18 : 0 }}>
+                    <li
+                      key={b.id}
+                      className="text-md"
+                      style={{ listStyle: b.isHeading ? "none" : undefined, marginLeft: b.isHeading ? -18 : 0 }}
+                    >
                       {b.isHeading ? <strong>{b.body}</strong> : b.body}
                       {/* Written on this document rather than copied from the
                           firm's standard set — what this client negotiated. */}
                       {b.sourceId === null && (
-                        <span className="bib-muted" style={{ fontSize: 12 }}> · this letter&apos;s own</span>
+                        <span className="muted text-xs"> · this letter&apos;s own</span>
                       )}
                     </li>
                   ))}
@@ -509,25 +514,25 @@ export default function LetterPage() {
         </div>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Terms</h2>
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <h2 className="card-title">Terms</h2>
         {record.clauses.length === 0 ? (
-          <p className="bib-muted" style={{ marginTop: 0 }}>
+          <p className="muted">
             None yet. A letter cannot be sent without terms — a signed contract with none is
             enforceable as whatever a court reads into it.
           </p>
         ) : (
           record.clauses.map((c) => (
-            <div key={c.id} style={{ marginBottom: "var(--bib-gap-2)" }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
+            <div key={c.id} style={{ marginBottom: "var(--s-4)" }}>
+              <div className="text-md strong">
                 {c.title}{" "}
                 {/* The version that was PINNED. On a signed letter this is the
                     wording the client agreed to, not today's. */}
-                <span className="bib-muted bib-mono" style={{ fontWeight: 400 }}>
+                <span className="mono annot">
                   {c.key}@{c.version}
                 </span>
               </div>
-              <div style={{ fontSize: 14 }}>{c.text}</div>
+              <div className="text-md">{c.text}</div>
               {/* WHOSE LAW, structured. The prose above prints it; these are the
                   comparable halves, and the API refuses a clause whose law is
                   not the ISSUING ENTITY's — the exact mistake the firm caught
@@ -535,18 +540,18 @@ export default function LetterPage() {
                   Shown so a reader can see the letter is internally consistent,
                   rather than trusting that it is. */}
               {(c.governingLaw !== null || c.courts !== null) && (
-                <div className="bib-muted" style={{ fontSize: 13, marginTop: 4 }}>
+                <div className="muted text-sm" style={{ marginTop: 4 }}>
                   {c.governingLaw !== null && (
                     <span>
                       Governed by {c.governingLaw.text}{" "}
-                      <span className="bib-pill" data-tone="code">{c.governingLaw.jurisdiction}</span>
+                      <span className="pill" data-tone="code">{c.governingLaw.jurisdiction}</span>
                     </span>
                   )}
                   {c.governingLaw !== null && c.courts !== null && " · "}
                   {c.courts !== null && (
                     <span>
                       Heard by {c.courts.text}{" "}
-                      <span className="bib-pill" data-tone="code">{c.courts.jurisdiction}</span>
+                      <span className="pill" data-tone="code">{c.courts.jurisdiction}</span>
                     </span>
                   )}
                 </div>
@@ -557,7 +562,7 @@ export default function LetterPage() {
 
         {isDraft && (
           <form
-            style={{ marginTop: "var(--bib-gap-2)" }}
+            style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
               void act("clause", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/clauses", {
@@ -567,12 +572,12 @@ export default function LetterPage() {
               );
             }}
           >
-            <div className="bib-field-row">
+            <div className="field-row">
               <div style={{ flex: "2 1 240px" }}>
-                <label className="bib-label" htmlFor="clauseVersionId">
+                <label className="label" htmlFor="clauseVersionId">
                   Add a term
                 </label>
-                <select className="bib-select" id="clauseVersionId" name="clauseVersionId"
+                <select className="select" id="clauseVersionId" name="clauseVersionId"
                         required style={{ width: "100%" }} disabled={available.length === 0}>
                   {available.map((entry) => {
                     const body = readClauseBody(entry.published?.body);
@@ -585,14 +590,14 @@ export default function LetterPage() {
                 </select>
               </div>
               <div>
-                <button className="bib-button" type="submit"
+                <button className="btn" type="submit"
                         disabled={busy !== null || available.length === 0}>
                   Add
                 </button>
               </div>
             </div>
             {available.length === 0 && (
-              <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              <p className="muted text-sm">
                 No published clause applies to {letter.jurisdiction} that is not already on this
                 letter. Publish one in the catalogue.
               </p>
@@ -602,8 +607,8 @@ export default function LetterPage() {
       </div>
 
       {isDraft && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Agree a service</h2>
+        <div className="card">
+          <h2 className="card-title">Agree a service</h2>
           <form
             action={(form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
@@ -626,13 +631,13 @@ export default function LetterPage() {
               );
             }}
           >
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div style={{ flex: "2 1 200px" }}>
-                <label className="bib-label" htmlFor="entityPartyId">
+                <label className="label" htmlFor="entityPartyId">
                   Delivered to
                 </label>
                 <select
-                  className="bib-select"
+                  className="select"
                   id="entityPartyId"
                   name="entityPartyId"
                   required
@@ -646,10 +651,10 @@ export default function LetterPage() {
                 </select>
               </div>
               <div style={{ flex: "2 1 200px" }}>
-                <label className="bib-label" htmlFor="serviceVersionId">
+                <label className="label" htmlFor="serviceVersionId">
                   From the catalogue
                 </label>
-                <select className="bib-select" id="serviceVersionId" name="serviceVersionId"
+                <select className="select" id="serviceVersionId" name="serviceVersionId"
                         required style={{ width: "100%" }}>
                   {services.map((entry) => {
                     const body = readServiceBody(entry.published?.body);
@@ -662,49 +667,49 @@ export default function LetterPage() {
                 </select>
               </div>
               <div style={{ flex: "2 1 200px" }}>
-                <label className="bib-label" htmlFor="description">
+                <label className="label" htmlFor="description">
                   As it reads on the letter
                 </label>
-                <input className="bib-input" id="description" name="description" required />
+                <input className="input" id="description" name="description" required />
               </div>
             </div>
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div>
-                <label className="bib-label" htmlFor="quantity">
+                <label className="label" htmlFor="quantity">
                   Quantity
                 </label>
-                <input className="bib-input" id="quantity" name="quantity" defaultValue="1"
+                <input className="input" id="quantity" name="quantity" defaultValue="1"
                        required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="unitAmount">
+                <label className="label" htmlFor="unitAmount">
                   Agreed price ({letter.currency})
                 </label>
-                <input className="bib-input" id="unitAmount" name="unitAmount" required />
+                <input className="input" id="unitAmount" name="unitAmount" required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="discountPercent">
+                <label className="label" htmlFor="discountPercent">
                   Discount %
                 </label>
-                <input className="bib-input" id="discountPercent" name="discountPercent"
+                <input className="input" id="discountPercent" name="discountPercent"
                        defaultValue="0" required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="effectiveFrom">
+                <label className="label" htmlFor="effectiveFrom">
                   Begins
                 </label>
                 {/* Per line as well as per document, because per line can
                     express a single shared date and the reverse cannot: an
                     Incorporation line starts the day it is signed while the GST
                     line beside it starts next period. */}
-                <input className="bib-input" id="effectiveFrom" name="effectiveFrom"
+                <input className="input" id="effectiveFrom" name="effectiveFrom"
                        type="date" />
-                <p className="bib-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
                   Blank follows the letter.
                 </p>
               </div>
             </div>
-            <button className="bib-button" type="submit" disabled={busy !== null}>
+            <button className="btn" type="submit" disabled={busy !== null}>
               Add line
             </button>
           </form>
@@ -712,36 +717,36 @@ export default function LetterPage() {
       )}
 
       {engagements.length > 0 && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Engagements</h2>
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+        <div className="card">
+          <h2 className="card-title">Engagements</h2>
+          <p className="muted text-md">
             One per line, created when the letter was signed. These are what the delivery side
             schedules against, and each carries the start date resolved from its line, then this
             letter, then the signature.
           </p>
-          <table className="bib-table">
+          <table className="table">
             <tbody>
               {engagements.map((e) => (
                 <tr key={e.id}>
-                  <td>
+                  <Td>
                     {lines.find((l) => l.id === e.engagementLetterLineId)?.description ??
                       e.engagementLetterLineId}
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     {/* `state`, not `status`: the stored status is the
                         COMMERCIAL gate, and `pending_start` is the calendar
                         narrowing it. An engagement that begins in October is
                         agreed, paid for and not started. */}
                     <span
-                      className="bib-pill"
+                      className="pill"
                       data-tone={
-                        e.status === "pending_advance" || e.status === "cancelled" ? "revoked" : ""
+                        e.status === "pending_advance" || e.status === "cancelled" ? "danger" : ""
                       }
                     >
                       {e.state.replace("_", " ")}
                     </span>
-                  </td>
-                  <td className="bib-muted">from {e.effectiveFrom}</td>
+                  </Td>
+                  <Td className="muted">from {e.effectiveFrom}</Td>
                 </tr>
               ))}
             </tbody>
@@ -749,15 +754,15 @@ export default function LetterPage() {
         </div>
       )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>
+      <div className="card">
+        <h2 className="card-title">
           {isDraft ? "Send it" : "Where it stands"}
         </h2>
 
         {isDraft && (
           // Whose name will be under "Yours sincerely" — read from the firm's
           // standing signatory, because the letter has none until it is sent.
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <p className="muted text-md">
             {standing === null
               ? "The firm has named no standing signatory, so this letter goes out with the firm's half of the signature block blank — nobody is recorded as having bound it."
               : `Sending snapshots the firm's signature block onto this letter: ${
@@ -766,9 +771,9 @@ export default function LetterPage() {
           </p>
         )}
 
-        <div className="bib-nav" style={{ marginBottom: 0, flexWrap: "wrap" }}>
+        <div className="cluster" style={{ marginBottom: 0, flexWrap: "wrap" }}>
           {isDraft && (
-            <button className="bib-button" disabled={busy !== null}
+            <button className="btn" disabled={busy !== null}
                     onClick={() => {
                       void act("send", () =>
                         api.POST("/api/v1/engagement-letters/{letterId}/send", {
@@ -780,7 +785,7 @@ export default function LetterPage() {
             </button>
           )}
           {(isDraft || letter.status === "sent") && (
-            <button className="bib-button-quiet bib-button-danger" disabled={busy !== null}
+            <button className="btn" data-variant="destructive-quiet" data-size="sm" disabled={busy !== null}
                     onClick={() => {
                       void act("withdraw", () =>
                         api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
@@ -792,7 +797,7 @@ export default function LetterPage() {
             </button>
           )}
           {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
-            <button className="bib-button" disabled={busy !== null}
+            <button className="btn" disabled={busy !== null}
                     onClick={() => {
                       void act("advance", () =>
                         api.POST("/api/v1/engagement-letters/{letterId}/advance", {
@@ -807,7 +812,7 @@ export default function LetterPage() {
 
         {letter.status === "sent" && (
           <form
-            style={{ marginTop: "var(--bib-gap-2)" }}
+            style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
               const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
               void act("sign", () =>
@@ -825,36 +830,36 @@ export default function LetterPage() {
               );
             }}
           >
-            <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+            <p className="muted text-md">
               {/* Said plainly, because the audit trail will say it too: this
                   records an attestation by somebody at the firm, not a
                   cryptographic signature. */}
               Recording that the client signed — on paper, or through a provider the firm
               already uses. This is a colleague&apos;s attestation, and the audit trail says so.
             </p>
-            <div className="bib-field-row">
+            <div className="field-row">
               <div>
-                <label className="bib-label" htmlFor="signedByName">
+                <label className="label" htmlFor="signedByName">
                   Who signed
                 </label>
-                <input className="bib-input" id="signedByName" name="signedByName" required />
+                <input className="input" id="signedByName" name="signedByName" required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="signedByTitle">
+                <label className="label" htmlFor="signedByTitle">
                   In what capacity
                 </label>
-                <input className="bib-input" id="signedByTitle" name="signedByTitle"
+                <input className="input" id="signedByTitle" name="signedByTitle"
                        placeholder="Director" />
               </div>
               <div>
-                <label className="bib-label" htmlFor="reference">
+                <label className="label" htmlFor="reference">
                   Reference
                 </label>
-                <input className="bib-input" id="reference" name="reference"
+                <input className="input" id="reference" name="reference"
                        placeholder="paper-001" />
               </div>
               <div>
-                <button className="bib-button" type="submit" disabled={busy !== null}>
+                <button className="btn" type="submit" disabled={busy !== null}>
                   Record the signature
                 </button>
               </div>
@@ -863,7 +868,7 @@ export default function LetterPage() {
         )}
 
         {letter.status === "withdrawn" && (
-          <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+          <p className="muted text-md">
             This letter was withdrawn on {letter.withdrawnAt?.slice(0, 10)} and stays that way,
             so the interval in which it was off the table is still on the record.
           </p>
@@ -880,6 +885,6 @@ export default function LetterPage() {
         renderable="engagement_letter"
         emptyHint="Nothing attached yet. The signed copy belongs here — its content hash is what proves the file a client holds is the one the firm issued."
       />
-    </main>
+    </Page>
   );
 }

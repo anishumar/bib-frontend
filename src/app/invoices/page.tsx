@@ -5,6 +5,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { InvoiceSummary, PartySummary } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Icon,
+  Input,
+  LinkButton,
+  Pill,
+  Select,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  type PillTone,
+} from "@/components/ui";
 
 /**
  * What the firm has BILLED, and to whom.
@@ -94,166 +115,155 @@ export default function InvoicesPage() {
     router.push(`/invoices/${result.data.id}`);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading invoices" />;
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-        <Link href="/receivables">Receivables →</Link>
-      </nav>
-      <h1>Invoices</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Invoices"
+        lede="What the firm has billed. The number is allocated by the write itself and cannot be chosen."
+        aside={
+          <LinkButton
+            size="sm"
+            href="/receivables"
+            iconAfter={<Icon name="arrowRight" size={15} />}
+          >
+            Receivables
+          </LinkButton>
+        }
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        {invoices.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nothing billed yet.
-          </p>
-        ) : (
-          <table className="bib-table">
+      <ErrorNotice error={error} />
+
+      {invoices.length === 0 ? (
+        <Card>
+          <Empty title="Nothing billed yet" icon="invoices">
+            Raise the first invoice below. It is numbered from the issuing entity’s own series.
+          </Empty>
+        </Card>
+      ) : (
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
-                <th>Number</th>
-                <th>Client</th>
-                <th>Status</th>
-                <th>Due</th>
-                <th style={{ textAlign: "right" }}>Total</th>
+                <Th>Number</Th>
+                <Th>Client</Th>
+                <Th>Status</Th>
+                <Th>Due</Th>
+                <Th align="right">Total</Th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((i) => (
                 <tr key={i.invoice.id}>
-                  <td className="bib-mono">
-                    <Link href={`/invoices/${i.invoice.id}`}>{i.invoice.number}</Link>
+                  <Td>
+                    <Link href={`/invoices/${i.invoice.id}`} className="mono">
+                      {i.invoice.number}
+                    </Link>
                     {/* An IRN is the government registry's identifier for this
                         document. Shown here because a firm chasing an e-invoice
                         failure wants to see at a glance which are registered. */}
-                    {i.invoice.irn !== null && (
-                      <div className="bib-muted" style={{ fontSize: 13 }}>
-                        IRN {i.invoice.irn}
-                      </div>
+                    {i.invoice.irn !== null && <Sub>IRN {i.invoice.irn}</Sub>}
+                  </Td>
+                  <Td>{i.party.displayName}</Td>
+                  <Td>
+                    <Pill tone={toneOf(i.invoice.status)}>{i.invoice.status}</Pill>
+                  </Td>
+                  <Td>
+                    {i.invoice.dueOn === null ? (
+                      <span className="empty">—</span>
+                    ) : (
+                      <span className="mono">{i.invoice.dueOn}</span>
                     )}
-                  </td>
-                  <td>{i.party.displayName}</td>
-                  <td>
-                    <span className="bib-pill" data-tone={toneOf(i.invoice.status)}>
-                      {i.invoice.status}
+                  </Td>
+                  <Td align="right">
+                    <span className="mono">
+                      {formatMoney(i.totals.total, i.totals.currency)}
                     </span>
-                  </td>
-                  <td className="bib-muted" style={{ fontSize: 13 }}>
-                    {i.invoice.dueOn ?? "—"}
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatMoney(i.totals.total, i.totals.currency)}
                     {/* The line count is what tells a zero total apart from an
                         empty draft — the API refuses to issue the second. */}
-                    <div className="bib-muted" style={{ fontSize: 13 }}>
+                    <Sub>
                       {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
-                    </div>
-                  </td>
+                    </Sub>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </Table>
+        </TableWrap>
+      )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>New invoice</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-          The number is allocated by the write itself, from the issuing entity&apos;s series.
-          It cannot be chosen, and once allocated it cannot be changed — a wrong invoice is
-          cancelled and a new one issued, and both stay readable.
-        </p>
+      <Card>
+        <CardHead title="New invoice">
+          <p className="lede">
+            The number is allocated by the write itself, from the issuing entity&apos;s series.
+            It cannot be chosen, and once allocated it cannot be changed — a wrong invoice is
+            cancelled and a new one issued, and both stay readable.
+          </p>
+        </CardHead>
         <form
           action={(form) => {
             void raise(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-            <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="partyId">
-                Bill to
-              </label>
-              <select className="bib-select" id="partyId" name="partyId" required style={{ width: "100%" }}>
-                {parties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="entityPartyId">
-                Charged by
-              </label>
-              <select
-                className="bib-select"
-                id="entityPartyId"
-                name="entityPartyId"
-                required
-                style={{ width: "100%" }}
-              >
-                {entities.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.displayName}
-                  </option>
-                ))}
-              </select>
-              <p className="bib-hint">Each of the firm&apos;s entities owns its own series.</p>
+          <div className="stack">
+            <FieldRow>
+              <Field label="Bill to">
+                <Select name="partyId" required>
+                  {parties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Charged by" hint="Each of the firm’s entities owns its own series.">
+                <Select name="entityPartyId" required>
+                  {entities.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            <FieldRow>
+              <Field label="Billed in">
+                <Input name="currency" defaultValue="INR" maxLength={3} required />
+              </Field>
+              <Field label="Rate to the firm&apos;s currency">
+                <Input name="fxRate" defaultValue="1" required />
+              </Field>
+              <Field label="Rate dated">
+                <Input name="fxRateDate" type="date" defaultValue={today} required />
+              </Field>
+              <Field label="Due" optional hint="No due date is never chased.">
+                <Input name="dueOn" type="date" />
+              </Field>
+              <Field label="Series date" hint="Which financial year’s series.">
+                <Input name="seriesDate" type="date" defaultValue={today} />
+              </Field>
+            </FieldRow>
+
+            <div>
+              <Button type="submit" loading={busy}>
+                Raise invoice
+              </Button>
             </div>
           </div>
-
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-            <div>
-              <label className="bib-label" htmlFor="currency">
-                Billed in
-              </label>
-              <input className="bib-input" id="currency" name="currency" defaultValue="INR" maxLength={3} required />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="fxRate">
-                Rate to the firm&apos;s currency
-              </label>
-              <input className="bib-input" id="fxRate" name="fxRate" defaultValue="1" required />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="fxRateDate">
-                Rate dated
-              </label>
-              <input className="bib-input" id="fxRateDate" name="fxRateDate" type="date" defaultValue={today} required />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="dueOn">
-                Due
-              </label>
-              <input className="bib-input" id="dueOn" name="dueOn" type="date" />
-              <p className="bib-hint">No due date is never chased.</p>
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="seriesDate">
-                Series date
-              </label>
-              <input className="bib-input" id="seriesDate" name="seriesDate" type="date" defaultValue={today} />
-              <p className="bib-hint">Which financial year&apos;s series.</p>
-            </div>
-          </div>
-
-          <button className="bib-button" type="submit" disabled={busy}>
-            {busy ? "Raising…" : "Raise invoice"}
-          </button>
         </form>
-      </div>
-    </main>
+      </Card>
+    </Page>
   );
 }
 
 /** A cancelled invoice wears the same pill a revoked membership does: it is
  *  still there, still numbered, and no longer in force. */
-function toneOf(status: InvoiceSummary["invoice"]["status"]): string {
-  if (status === "cancelled") return "revoked";
-  return status === "issued" ? "live" : "neutral";
+function toneOf(status: InvoiceSummary["invoice"]["status"]): PillTone {
+  if (status === "cancelled") return "danger";
+  return status === "issued" ? "accent" : "neutral";
 }

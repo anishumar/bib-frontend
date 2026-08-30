@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { WorkItemPriority, WorkItemState } from "@/lib/api/client";
+import { Button, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * The firm's own words for work — the states a task moves through and how
@@ -87,42 +89,39 @@ export default function WorkVocabularyPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   return (
-    <main>
-      <div className="bib-nav">
-        <Link href="/">← Home</Link>
-        <Link href="/work-items">The board →</Link>
-      </div>
-      <h1>Work states and priorities</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        The words your firm uses for work. Rename any of them, add your own, or change what
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Work states and priorities"
+        lede="The words your firm uses for work. Rename any of them, add your own, or change what
         they mean — the product reads the TICK BOXES and never the names, so nothing breaks
-        when you rename one.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+        when you rename one."
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>States</h2>
-        <table className="bib-table">
+      <div className="card">
+        <h2 className="card-title">States</h2>
+        <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th style={{ width: 90 }}>Order</th>
-              <th>Starting</th>
-              <th>Finished</th>
-              <th>Done, not dropped</th>
-              <th>Blocked</th>
-              <th>Status</th>
-              <th />
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th style={{ width: 90 }}>Order</Th>
+              <Th>Starting</Th>
+              <Th>Finished</Th>
+              <Th>Done, not dropped</Th>
+              <Th>Blocked</Th>
+              <Th>Status</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {states.map((s) => (
               <tr key={s.id} data-inactive={!s.isActive}>
-                <td>
+                <Td>
                   <CommitText
                     key={`${s.id}:${s.name}`}
                     value={s.name}
@@ -132,12 +131,12 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { name }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* The code never changes. It is the firm's stable handle, and
                     an audit event or an import that recorded it would stop
                     resolving if it moved. */}
-                <td className="bib-muted bib-mono">{s.code}</td>
-                <td>
+                <Td className="mono muted">{s.code}</Td>
+                <Td>
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
                     value={s.sortOrder}
@@ -147,8 +146,8 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { sortOrder }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="radio"
                     name="initial"
@@ -159,8 +158,8 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { isInitial: true }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${s.name} means finished`}
@@ -170,14 +169,14 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { isTerminal: e.target.checked }));
                     }}
                   />
-                </td>
+                </Td>
                 {/* Only meaningful on a state the firm calls finished, and
                     disabled otherwise rather than hidden — the API refuses the
                     pair and a control that vanishes reads as a bug. This is
                     what tells Completed from Cancelled: the compliance calendar
                     marks a filing filed from it, so ticking it on the wrong row
                     records a statutory return nobody made. */}
-                <td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${s.name} means the work was actually done`}
@@ -192,8 +191,8 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { isSuccess: e.target.checked }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="checkbox"
                     aria-label={`${s.name} means blocked, and needs a reason`}
@@ -203,28 +202,29 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { isBlocked: e.target.checked }));
                     }}
                   />
-                </td>
-                <td>
-                  <span className="bib-pill" data-tone={s.isActive ? "live" : "revoked"}>
+                </Td>
+                <Td>
+                  <span className="pill" data-tone={s.isActive ? "accent" : "danger"}>
                     {s.isActive ? "in use" : "retired"}
                   </span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className={`bib-button-quiet${s.isActive ? " bib-button-danger" : ""}`}
-                    disabled={busy === s.id}
+                </Td>
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant={s.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === s.id}
                     onClick={() => {
                       void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
                     }}
                   >
                     {s.isActive ? "Retire" : "Bring back"}
-                  </button>
-                </td>
+                  </Button>
+                </Td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="bib-hint">
+        <p className="field-hint">
           <strong>Starting</strong> is where new work begins — exactly one, and marking another
           moves it. <strong>Finished</strong> stamps the completion time and takes the task off
           the open board. <strong>Blocked</strong> makes a written reason mandatory the moment
@@ -242,24 +242,24 @@ export default function WorkVocabularyPage() {
         />
       </div>
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Priorities</h2>
-        <table className="bib-table">
+      <div className="card">
+        <h2 className="card-title">Priorities</h2>
+        <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th style={{ width: 90 }}>Rank</th>
-              <th>Default</th>
-              <th>Statutory</th>
-              <th>Status</th>
-              <th />
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th style={{ width: 90 }}>Rank</Th>
+              <Th>Default</Th>
+              <Th>Statutory</Th>
+              <Th>Status</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {priorities.map((p) => (
               <tr key={p.id} data-inactive={!p.isActive}>
-                <td>
+                <Td>
                   <CommitText
                     key={`${p.id}:${p.name}`}
                     value={p.name}
@@ -269,9 +269,9 @@ export default function WorkVocabularyPage() {
                       void act(p.id, () => patchPriority(p.id, { name }));
                     }}
                   />
-                </td>
-                <td className="bib-muted bib-mono">{p.code}</td>
-                <td>
+                </Td>
+                <Td className="mono muted">{p.code}</Td>
+                <Td>
                   <CommitNumber
                     key={`${p.id}:${String(p.rank)}`}
                     value={p.rank}
@@ -281,8 +281,8 @@ export default function WorkVocabularyPage() {
                       void act(p.id, () => patchPriority(p.id, { rank }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="radio"
                     name="default-priority"
@@ -293,8 +293,8 @@ export default function WorkVocabularyPage() {
                       void act(p.id, () => patchPriority(p.id, { isDefault: true }));
                     }}
                   />
-                </td>
-                <td>
+                </Td>
+                <Td>
                   <input
                     type="radio"
                     name="statutory-priority"
@@ -305,28 +305,29 @@ export default function WorkVocabularyPage() {
                       void act(p.id, () => patchPriority(p.id, { isStatutoryDefault: true }));
                     }}
                   />
-                </td>
-                <td>
-                  <span className="bib-pill" data-tone={p.isActive ? "live" : "revoked"}>
+                </Td>
+                <Td>
+                  <span className="pill" data-tone={p.isActive ? "accent" : "danger"}>
                     {p.isActive ? "in use" : "retired"}
                   </span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    className={`bib-button-quiet${p.isActive ? " bib-button-danger" : ""}`}
-                    disabled={busy === p.id}
+                </Td>
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant={p.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === p.id}
                     onClick={() => {
                       void act(p.id, () => patchPriority(p.id, { isActive: !p.isActive }));
                     }}
                   >
                     {p.isActive ? "Retire" : "Bring back"}
-                  </button>
-                </td>
+                  </Button>
+                </Td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="bib-hint">
+        <p className="field-hint">
           Rank <strong>1 is the most urgent</strong>, and it is what the board sorts by — the
           names are yours. <strong>Default</strong> is what ordinary work is created with.{" "}
           <strong>Statutory</strong> is what work with a date set by LAW gets, which is your own
@@ -342,7 +343,7 @@ export default function WorkVocabularyPage() {
           }}
         />
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -414,7 +415,7 @@ function CommitText({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -455,7 +456,7 @@ function CommitNumber({
 
   return (
     <input
-      className="bib-input"
+      className="input"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -492,30 +493,30 @@ function AddState({
   const [isSuccess, setIsSuccess] = useState(false);
 
   return (
-    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+    <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a state</summary>
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <label className="bib-label">
+      <div className="field-row">
+        <label className="label">
           Name
           <input
-            className="bib-input"
+            className="input"
             value={name}
             onChange={(e) => { setName(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Code
           <input
-            className="bib-input"
+            className="input"
             value={code}
             placeholder="with_auditor"
             onChange={(e) => { setCode(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Order
           <input
-            className="bib-input"
+            className="input"
             value={sortOrder}
             inputMode="numeric"
             onChange={(e) => { setSortOrder(e.target.value); }}
@@ -526,8 +527,8 @@ function AddState({
           as the one work begins in would silently move it off whatever holds it
           today — a real change, and one somebody should make on the row where
           they can see what it replaces. */}
-      <div className="bib-field-row">
-        <label className="bib-check">
+      <div className="field-row">
+        <label className="check">
           <input
             type="checkbox"
             checked={isTerminal}
@@ -541,7 +542,7 @@ function AddState({
             obligation OPEN and visible, rather than recording a filing that
             never happened. */}
         {isTerminal && (
-          <label className="bib-check">
+          <label className="check">
             <input
               type="checkbox"
               checked={isSuccess}
@@ -550,7 +551,7 @@ function AddState({
             <span>&hellip; and the work was DONE, not dropped</span>
           </label>
         )}
-        <label className="bib-check">
+        <label className="check">
           <input
             type="checkbox"
             checked={isBlocked}
@@ -560,8 +561,8 @@ function AddState({
         </label>
       </div>
       <button
-        className="bib-button"
-        style={{ marginTop: "var(--bib-gap-2)" }}
+        className="btn"
+        style={{ marginTop: "var(--s-4)" }}
         disabled={busy || name.trim() === "" || code.trim() === ""}
         onClick={() => {
           onAdd({
@@ -595,37 +596,37 @@ function AddPriority({
   const [rank, setRank] = useState("5");
 
   return (
-    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+    <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a priority</summary>
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <label className="bib-label">
+      <div className="field-row">
+        <label className="label">
           Name
           <input
-            className="bib-input"
+            className="input"
             value={name}
             onChange={(e) => { setName(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Code
           <input
-            className="bib-input"
+            className="input"
             value={code}
             placeholder="urgent"
             onChange={(e) => { setCode(e.target.value); }}
           />
         </label>
-        <label className="bib-label">
+        <label className="label">
           Rank
           <input
-            className="bib-input"
+            className="input"
             value={rank}
             inputMode="numeric"
             onChange={(e) => { setRank(e.target.value); }}
           />
         </label>
         <button
-          className="bib-button"
+          className="btn"
           disabled={busy || name.trim() === "" || code.trim() === ""}
           onClick={() => {
             onAdd({ code: code.trim(), name: name.trim(), rank: Number(rank) });
@@ -639,7 +640,7 @@ function AddPriority({
       {/* Neither default is offered here, for the same reason "Starting" is not
           on the state form: moving one silently changes what every task created
           afterwards gets, and that belongs on the row beside what it replaces. */}
-      <p className="bib-hint">
+      <p className="field-hint">
         Ranks need not be consecutive, and two priorities may share one — nothing compares
         within a rank, only across.
       </p>

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, apiError, formatCount, formatMoney } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { ErrorState, Loading } from "@/components/states";
+import { Stat, Strip, Table, TableWrap, Td, Th } from "@/components/ui";
 import type { SharedProposal } from "@/lib/api/client";
 
 /**
@@ -53,42 +56,43 @@ export default function SharedProposalPage() {
     };
   }, [token]);
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading />;
 
   if (shared === null) {
     return (
-      <main>
-        <div className="bib-card">
-          <p className="bib-error" style={{ margin: 0 }}>
-            {error ?? "This link is not one we recognise."}
-          </p>
-        </div>
-      </main>
+      <Page width="narrow">
+        <ErrorState
+          title="This link does not open anything"
+          message={error ?? "This link is not one we recognise."}
+        />
+      </Page>
     );
   }
 
   return (
-    <main>
-      <p className="bib-muted" style={{ marginBottom: 4, fontSize: 14 }}>
-        {shared.firmName}
-      </p>
-      <h1 style={{ marginTop: 0, marginBottom: 4 }}>{shared.title}</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        {/* The number the RECIPIENT quotes back down the phone. They have no
-            account and no other way to name this document. */}
-        <span className="bib-mono">{shared.ref}</span> · Prepared for {shared.addressedTo}
-        {shared.validUntil !== null && ` · valid until ${shared.validUntil}`}
-      </p>
+    <Page width="narrow">
+      <PageHeader
+        eyebrow={shared.firmName}
+        title={shared.title}
+        lede={
+          <>
+            {/* The number the RECIPIENT quotes back down the phone. They have
+                no account and no other way to name this document. */}
+            <span className="mono">{shared.ref}</span> · Prepared for {shared.addressedTo}
+            {shared.validUntil !== null && ` · valid until ${shared.validUntil}`}
+          </>
+        }
+      />
 
-      <div className="bib-card">
-        <table className="bib-table">
+      <TableWrap>
+        <Table>
           <thead>
             <tr>
-              <th>Service</th>
-              <th style={{ textAlign: "right" }}>Qty</th>
-              <th style={{ textAlign: "right" }}>Rate</th>
-              <th style={{ textAlign: "right" }}>Discount</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <Th>Service</Th>
+              <Th align="right">Qty</Th>
+              <Th align="right">Rate</Th>
+              <Th align="right">Discount</Th>
+              <Th align="right">Amount</Th>
             </tr>
           </thead>
           <tbody>
@@ -96,44 +100,48 @@ export default function SharedProposalPage() {
               // The API returns lines in document order and gives the recipient
               // no internal ids — deliberately — so position is the key.
               <tr key={`${String(i)}-${l.description}`}>
-                <td>{l.description}</td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
-                  {formatCount(l.quantity)}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
-                  {formatMoney(l.unitAmount, shared.currency)}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
-                  {Number(l.discountPercent) === 0 ? "—" : `${formatCount(l.discountPercent)}%`}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
-                  {formatMoney(l.net, shared.currency)}
-                </td>
+                <Td>{l.description}</Td>
+                <Td align="right">
+                  <span className="mono">{formatCount(l.quantity)}</span>
+                </Td>
+                <Td align="right">
+                  <span className="mono">{formatMoney(l.unitAmount, shared.currency)}</span>
+                </Td>
+                <Td align="right">
+                  <span className="mono">
+                    {Number(l.discountPercent) === 0
+                      ? "—"
+                      : `${formatCount(l.discountPercent)}%`}
+                  </span>
+                </Td>
+                <Td align="right">
+                  <span className="mono">{formatMoney(l.net, shared.currency)}</span>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
+      </TableWrap>
 
-        <div style={{ textAlign: "right", marginTop: "var(--bib-gap-2)" }}>
-          {shared.totals.discount !== "0" && (
-            <div className="bib-muted" style={{ fontSize: 14 }}>
-              {formatMoney(shared.totals.gross, shared.currency)} less{" "}
-              {formatMoney(shared.totals.discount, shared.currency)}
-            </div>
-          )}
-          <div className="bib-mono" style={{ fontSize: 22 }}>
-            {formatMoney(shared.totals.net, shared.currency)}
-          </div>
-        </div>
-      </div>
+      <Strip>
+        <Stat
+          label="Total"
+          value={formatMoney(shared.totals.net, shared.currency)}
+          {...(shared.totals.discount !== "0"
+            ? {
+                note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
+              }
+            : {})}
+        />
+      </Strip>
 
-      <p className="bib-muted" style={{ fontSize: 14 }}>
+      <p className="muted">
         {shared.status === "accepted"
           ? "You have accepted this proposal."
           : shared.status === "rejected"
             ? "This proposal was declined."
             : `To accept or discuss this proposal, reply to ${shared.firmName}.`}
       </p>
-    </main>
+    </Page>
   );
 }

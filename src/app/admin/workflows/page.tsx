@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -231,20 +232,21 @@ export default function WorkflowsPage() {
     await load();
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   return (
-    <main>
-      <h1>How the firm works</h1>
-      <p className="bib-muted" style={{ maxWidth: "64ch" }}>
-        A process is the steps a piece of work goes through, in the order they have to happen.
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="How the firm works"
+        lede="A process is the steps a piece of work goes through, in the order they have to happen.
         Write it once and every job for that service follows it — and every step can be a
-        person&apos;s, so this works today with nothing automated at all.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+        person&apos;s, so this works today with nothing automated at all."
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {templates.length === 0 ? (
-        <p className="bib-muted" style={{ maxWidth: "64ch" }}>
+        <p className="muted" style={{ maxWidth: "64ch" }}>
           No process written yet. Until one is, a signed engagement creates work that WAITS —
           visibly, on the work board — rather than running a process nobody wrote.
         </p>
@@ -263,12 +265,12 @@ export default function WorkflowsPage() {
 
       <NewTemplate onSaved={() => void load()} onError={setError} />
 
-      <p className="bib-muted" style={{ fontSize: 13, maxWidth: "64ch" }}>
+      <p className="muted text-sm" style={{ maxWidth: "64ch" }}>
         A published process is <strong>frozen</strong>, and that is what makes it trustworthy: a
         job records which version it started on and keeps walking that one. Editing a process
         never changes work already under way — it changes what happens next time.
       </p>
-    </main>
+    </Page>
   );
 }
 
@@ -293,15 +295,15 @@ function TemplateCard({
   const shown = fromBody((draft ?? inForce)?.body ?? {});
 
   return (
-    <article className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }}>
+    <article className="card" style={{ marginBottom: "var(--s-4)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>
+        <h2 className="card-title">
           {shown.label || entry.entry.key}{" "}
-          <span className="bib-muted bib-mono" style={{ fontSize: 12 }}>
+          <span className="mono muted text-xs">
             {entry.entry.key}
           </span>
         </h2>
-        <span className="bib-muted" style={{ fontSize: 13 }}>
+        <span className="muted text-sm">
           {inForce === null ? "not in use yet" : `v${String(inForce.version)} in force`}
         </span>
       </div>
@@ -311,7 +313,7 @@ function TemplateCard({
           and a job will not touch it — which is worth saying out loud, because
           it looks finished on this screen otherwise. */}
       {draft !== null && (
-        <p className="bib-muted" style={{ fontSize: 13 }}>
+        <p className="muted text-sm">
           Draft v{draft.version} is written but <strong>not in force</strong>. No job is
           following it.
         </p>
@@ -319,10 +321,10 @@ function TemplateCard({
 
       <StepList steps={shown.steps} />
 
-      <div style={{ display: "flex", gap: "var(--bib-gap-1)", marginTop: "var(--bib-gap-2)" }}>
+      <div style={{ display: "flex", gap: "var(--s-2)", marginTop: "var(--s-4)" }}>
         {draft !== null && (
           <button
-            className="bib-button"
+            className="btn"
             disabled={busy === `publish:${entry.entry.key}`}
             onClick={() => {
               onPublish(entry.entry.key, draft.version);
@@ -332,7 +334,7 @@ function TemplateCard({
           </button>
         )}
         <button
-          className="bib-button-quiet"
+          className="btn" data-variant="secondary" data-size="sm"
           onClick={() => {
             setEditing((e) => !e);
           }}
@@ -361,13 +363,13 @@ function TemplateCard({
 /** The process as a person reads it: each step, who does it, and what it waits
  *  for. Read-only — editing is a deliberate act behind a button. */
 function StepList({ steps }: { steps: readonly StepDraft[] }) {
-  if (steps.length === 0) return <p className="bib-muted">No steps.</p>;
+  if (steps.length === 0) return <p className="muted">No steps.</p>;
   return (
-    <ol style={{ margin: "var(--bib-gap-1) 0 0", paddingLeft: "1.2rem" }}>
+    <ol style={{ margin: "var(--s-2) 0 0", paddingLeft: "1.2rem" }}>
       {steps.map((s) => (
         <li key={s.key} style={{ marginBottom: 6 }}>
           <strong>{s.label || s.key}</strong>{" "}
-          <span className="bib-muted" style={{ fontSize: 13 }}>
+          <span className="muted text-sm">
             · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
             {s.dependsOn.length > 0 && <> · after {s.dependsOn.join(", ")}</>}
             {s.conditionFact !== "" && (
@@ -408,7 +410,7 @@ function NewTemplate({
   if (!open) {
     return (
       <button
-        className="bib-button"
+        className="btn"
         onClick={() => {
           setOpen(true);
         }}
@@ -418,8 +420,8 @@ function NewTemplate({
     );
   }
   return (
-    <div className="bib-card">
-      <h2 style={{ marginTop: 0, fontSize: 16 }}>A new process</h2>
+    <div className="card">
+      <h2 className="card-title">A new process</h2>
       <StepEditor
         templateKey={null}
         initialLabel=""
@@ -443,7 +445,7 @@ function NewTemplate({
         onError={onError}
       />
       <button
-        className="bib-button-quiet"
+        className="btn" data-variant="secondary" data-size="sm"
         onClick={() => {
           setOpen(false);
         }}
@@ -560,15 +562,15 @@ function StepEditor({
   }
 
   return (
-    <div style={{ marginTop: "var(--bib-gap-2)" }}>
-      <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+    <div style={{ marginTop: "var(--s-4)" }}>
+      <div className="field-row">
         {templateKey === null && (
           <div style={{ flex: "1 1 200px" }}>
-            <label className="bib-label" htmlFor="wf-key">
+            <label className="label" htmlFor="wf-key">
               Handle
             </label>
             <input
-              className="bib-input"
+              className="input"
               id="wf-key"
               value={key}
               placeholder="gst-monthly"
@@ -576,18 +578,18 @@ function StepEditor({
                 setKey(e.target.value);
               }}
             />
-            <p className="bib-hint">
+            <p className="field-hint">
               Lower case, permanent. A service points at this, and every job that ever ran
               resolves through it.
             </p>
           </div>
         )}
         <div style={{ flex: "2 1 260px" }}>
-          <label className="bib-label" htmlFor="wf-label">
+          <label className="label" htmlFor="wf-label">
             Name
           </label>
           <input
-            className="bib-input"
+            className="input"
             id="wf-label"
             value={label}
             placeholder="GST monthly filing"
@@ -595,7 +597,7 @@ function StepEditor({
               setLabel(e.target.value);
             }}
           />
-          <p className="bib-hint">What a partner picks this process by.</p>
+          <p className="field-hint">What a partner picks this process by.</p>
         </div>
       </div>
 
@@ -615,12 +617,12 @@ function StepEditor({
         />
       ))}
 
-      <div style={{ display: "flex", gap: "var(--bib-gap-1)", marginTop: "var(--bib-gap-2)" }}>
-        <button className="bib-button-quiet" onClick={addStep}>
+      <div style={{ display: "flex", gap: "var(--s-2)", marginTop: "var(--s-4)" }}>
+        <button className="btn" data-variant="secondary" data-size="sm" onClick={addStep}>
           Add a step
         </button>
         <button
-          className="bib-button"
+          className="btn"
           disabled={busy}
           onClick={() => {
             void save();
@@ -629,7 +631,7 @@ function StepEditor({
           Save as a draft
         </button>
       </div>
-      <p className="bib-muted" style={{ fontSize: 13 }}>
+      <p className="muted text-sm">
         {note}
       </p>
     </div>
@@ -654,16 +656,16 @@ function StepFields({
   const id = `step-${String(index)}`;
   return (
     <div
-      className="bib-card"
-      style={{ marginBottom: "var(--bib-gap-1)", background: "var(--bib-surface-2, transparent)" }}
+      className="card"
+      style={{ marginBottom: "var(--s-2)", background: "var(--surface-sunk)" }}
     >
-      <div className="bib-field-row">
+      <div className="field-row">
         <div style={{ flex: "3 1 240px" }}>
-          <label className="bib-label" htmlFor={`${id}-label`}>
+          <label className="label" htmlFor={`${id}-label`}>
             Step
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-label`}
             value={step.label}
             placeholder="Reconcile against the books"
@@ -673,11 +675,11 @@ function StepFields({
           />
         </div>
         <div style={{ flex: "1 1 150px" }}>
-          <label className="bib-label" htmlFor={`${id}-key`}>
+          <label className="label" htmlFor={`${id}-key`}>
             Handle
           </label>
           <input
-            className="bib-input"
+            className="input"
             id={`${id}-key`}
             value={step.key}
             placeholder="reconcile"
@@ -685,14 +687,14 @@ function StepFields({
               onChange({ key: e.target.value });
             }}
           />
-          <p className="bib-hint">Lower case. Never changes once work has run.</p>
+          <p className="field-hint">Lower case. Never changes once work has run.</p>
         </div>
         <div style={{ flex: "1 1 200px" }}>
-          <label className="bib-label" htmlFor={`${id}-executor`}>
+          <label className="label" htmlFor={`${id}-executor`}>
             Who does it
           </label>
           <select
-            className="bib-select"
+            className="select"
             id={`${id}-executor`}
             value={step.executor}
             style={{ width: "100%" }}
@@ -706,18 +708,18 @@ function StepFields({
               </option>
             ))}
           </select>
-          <p className="bib-hint">
+          <p className="field-hint">
             {EXECUTORS.find((x) => x.value === step.executor)?.hint}
           </p>
         </div>
       </div>
 
       {others.length > 0 && (
-        <div style={{ marginTop: "var(--bib-gap-1)" }}>
-          <span className="bib-label">Waits for</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--bib-gap-1)" }}>
+        <div style={{ marginTop: "var(--s-2)" }}>
+          <span className="label">Waits for</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--s-2)" }}>
             {others.map((other) => (
-              <label key={other} style={{ fontSize: 13 }}>
+              <label className="text-sm" key={other}>
                 <input
                   type="checkbox"
                   checked={step.dependsOn.includes(other)}
@@ -733,20 +735,20 @@ function StepFields({
               </label>
             ))}
           </div>
-          <p className="bib-hint">
+          <p className="field-hint">
             Nothing ticked means it starts as soon as the work does. Two steps waiting for the
             same thing both start together.
           </p>
         </div>
       )}
 
-      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-1)" }}>
+      <div className="field-row">
         <div style={{ flex: "2 1 240px" }}>
-          <label className="bib-label" htmlFor={`${id}-fact`}>
+          <label className="label" htmlFor={`${id}-fact`}>
             Only do this step when…
           </label>
           <select
-            className="bib-select"
+            className="select"
             id={`${id}-fact`}
             value={step.conditionFact}
             style={{ width: "100%" }}
@@ -770,11 +772,11 @@ function StepFields({
                   OPTIONS carry the words; they are still real labels rather
                   than a bare "…", because a screen reader gets nothing from an
                   ellipsis. */}
-              <label className="bib-label" htmlFor={`${id}-op`}>
+              <label className="label" htmlFor={`${id}-op`}>
                 …it
               </label>
               <select
-                className="bib-select"
+                className="select"
                 id={`${id}-op`}
                 value={step.conditionOp}
                 style={{ width: "100%" }}
@@ -790,11 +792,11 @@ function StepFields({
               </select>
             </div>
             <div style={{ flex: "1 1 160px" }}>
-              <label className="bib-label" htmlFor={`${id}-value`}>
+              <label className="label" htmlFor={`${id}-value`}>
                 {takesList(step.conditionOp) ? "…these" : "…this"}
               </label>
               <input
-                className="bib-input"
+                className="input"
                 id={`${id}-value`}
                 value={step.conditionValue}
                 placeholder={
@@ -812,12 +814,12 @@ function StepFields({
         )}
       </div>
       {/* BELOW the row, not inside one of its columns. Inside, this paragraph
-          made its own column six lines tall, and `.bib-field-row`'s flex-end
+          made its own column six lines tall, and `.field-row`'s end-alignment
           alignment then pushed the two selects to the bottom of it — the three
           parts of one sentence stopped being on one line. Found by looking at
           the page, not by the types. */}
       {step.conditionFact !== "" && (
-        <p className="bib-hint" style={{ maxWidth: "62ch" }}>
+        <p className="field-hint" style={{ maxWidth: "62ch" }}>
           {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
           If the service does not state this at all, the step is KEPT — under every one of these,
           including the negative ones. A blank field must not quietly remove a step from a
@@ -825,12 +827,12 @@ function StepFields({
         </p>
       )}
 
-      <div style={{ marginTop: "var(--bib-gap-1)", maxWidth: 360 }}>
-        <label className="bib-label" htmlFor={`${id}-check`}>
+      <div style={{ marginTop: "var(--s-2)", maxWidth: 360 }}>
+        <label className="label" htmlFor={`${id}-check`}>
           When it is done, who checks it?
         </label>
         <select
-          className="bib-select"
+          className="select"
           id={`${id}-check`}
           value={step.verificationPolicyKey}
           style={{ width: "100%" }}
@@ -857,14 +859,14 @@ function StepFields({
               </option>
             )}
         </select>
-        <p className="bib-hint">
+        <p className="field-hint">
           {policies.length === 0
             ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
             : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."}
         </p>
       </div>
 
-      <button className="bib-button-quiet bib-button-danger" onClick={onRemove}>
+      <button className="btn" data-variant="destructive-quiet" data-size="sm" onClick={onRemove}>
         Remove this step
       </button>
     </div>
