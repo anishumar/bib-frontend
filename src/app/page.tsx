@@ -112,6 +112,14 @@ export default function HomePage() {
                 the invoice itself. */}
             <Link href="/invoices">Invoices →</Link>
             <Link href="/receivables">Receivables →</Link>
+            {/* The FEE AXIS, not the role. Commercial visibility is a flag on
+                the membership and is orthogonal to what somebody may reach — a
+                manager who may read every client is not automatically somebody
+                who may see what the firm earns. The API refuses this route
+                without it, so offering the link would just be a slower 403. */}
+            {principal.commercialVisibility && (
+              <Link href="/dashboard">The firm&rsquo;s numbers →</Link>
+            )}
             {/* Reading the catalogue is config:read — an associate quotes from
                 it, so it is not an admin screen. Changing it is tenant:admin,
                 and that half of the page appears only for somebody who holds it. */}

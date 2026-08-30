@@ -833,6 +833,48 @@ export async function downloadDocument(
   return null;
 }
 
+// ── The leadership figures (T3.7) ───────────────────────────────────────────
+
+/** MRR, receivables ageing and DSO. Every figure is derived from rows at read
+ *  time, never a cached column, and already converted to the one currency named
+ *  on the response. */
+export type DashboardOverview =
+  paths["/api/v1/dashboard/overview"]["get"]["responses"][200]["content"]["application/json"];
+
+/** One row of a grouped figure — a client, a service. Carries the NAME. */
+export type DashboardSlice =
+  paths["/api/v1/dashboard/mrr/{axis}"]["get"]["responses"][200]["content"]["application/json"]["slices"][number];
+
+/** Why an engagement's fee is not in MRR. The firm sees these BESIDE the
+ *  headline number, never instead of it. */
+export type MrrGapReason = DashboardOverview["mrr"]["gaps"][number]["reason"];
+
+export const MRR_GAP_LABELS: Readonly<Record<string, string>> = {
+  unpriced: "not yet priced",
+  no_frequency_stated: "no billing frequency stated",
+  one_time: "one-off fees",
+  custom_frequency: "custom billing",
+};
+
+export const MRR_GAP_HINTS: Readonly<Record<string, string>> = {
+  unpriced: "The firm agreed to the work and has not set a price. There is no revenue to count.",
+  no_frequency_stated:
+    "Nobody said whether this is billed monthly, quarterly or annually — so it cannot be turned into a monthly figure.",
+  one_time: "Charged once. Real revenue, but not RECURRING revenue.",
+  custom_frequency: "The firm said 'custom' because no standard period fits. Guessing one would invent revenue.",
+};
+
+export type AgeingBucket = DashboardOverview["receivables"]["bands"][number]["bucket"];
+
+export const AGEING_LABELS: Readonly<Record<string, string>> = {
+  current: "Not yet due",
+  d1_30: "1–30 days",
+  d31_60: "31–60 days",
+  d61_90: "61–90 days",
+  d90_plus: "Over 90 days",
+  no_due_date: "No due date set",
+};
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;

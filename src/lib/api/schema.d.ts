@@ -10581,6 +10581,173 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MRR, receivables ageing and DSO — the firm's own numbers
+         * @description Every figure is derived from rows at read time, never from a cached column, so it reconciles to the invoices and engagements underneath it. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The figures */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardOverview"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/mrr/{axis}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** MRR split by client or by service, biggest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    axis: "client" | "service";
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Slices */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardSlicesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/receivables/by-client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who owes the firm money, biggest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Slices */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardSlicesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12747,6 +12914,47 @@ export interface components {
         SetBrandAssetRequest: {
             /** Format: uuid */
             documentVersionId: string;
+        };
+        DashboardOverview: {
+            /** @description The firm's reporting currency. Stated ONCE: every figure below is already converted to it, at the rate stored on the document it came from — never a rate looked up today. */
+            currency: string;
+            mrr: {
+                /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                monthly: string;
+                countedEngagements: number;
+                /** @description What the headline number could NOT count, and why. Never empty by design and never hidden: a total that silently drops what it does not understand is worse than no total. An engagement with no billing frequency stated, or one whose fee is not yet priced, contributes nothing to MRR and the firm is entitled to know. */
+                gaps: {
+                    /** @enum {string} */
+                    reason: "unpriced" | "no_frequency_stated" | "one_time" | "custom_frequency";
+                    engagementCount: number;
+                }[];
+            };
+            receivables: {
+                /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                outstanding: string;
+                bands: {
+                    /** @enum {string} */
+                    bucket: "current" | "d1_30" | "d31_60" | "d61_90" | "d90_plus" | "no_due_date";
+                    /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                    amount: string;
+                    invoiceCount: number;
+                }[];
+            };
+            /** @description Days Sales Outstanding over the window below. NULL — never zero — when the firm billed nothing in that window: '0 days' reads as excellent collections when the truth is that there is not enough billing to say. */
+            dsoDays: number | null;
+            dsoWindowDays: number;
+        };
+        DashboardSlice: {
+            key: string;
+            /** @description The name, never the uuid. */
+            label: string;
+            /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+            amount: string;
+            count: number;
+        };
+        DashboardSlicesResponse: {
+            currency: string;
+            slices: components["schemas"]["DashboardSlice"][];
         };
     };
     responses: never;

@@ -84,6 +84,7 @@ not before.
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
+| `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
 | `/work-items` | the board — what is owed, whose desk it is on, and what is late |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
@@ -555,6 +556,44 @@ an event-driven rule, "30 days after the period ends" when an event rule has no 
 were grammatical nonsense and the second was factually wrong; the types were perfectly happy with
 both.
 
+
+## `/dashboard` — and the gaps that are the point of it (T3.7)
+
+**The MRR figure is not the feature. The list of what MRR could not count is.**
+
+A headline number that silently drops what it does not understand is worse than no number:
+a partner reads it, acts on it, and never learns that most of the firm's engagements
+contributed nothing to it. So the API returns every exclusion with its reason, and this
+screen shows them immediately beside the figure — not behind a disclosure, not in a footnote.
+The first run against real data found **1,490 engagements stating no billing frequency against
+34 that counted**. A tidier screen would have shown ₹31.2 lakh and looked complete.
+
+Each reason gets its own sentence, because they are not the same problem: `unpriced` means the
+firm agreed to work it has not priced; `no_frequency_stated` means nobody said whether it is
+monthly or annual; `one_time` is real revenue that is simply not RECURRING. Only the second is
+something to go and fix.
+
+**DSO can be null, and null is not zero.** "0 days" reads as excellent collections. The truth
+when a firm has billed nothing in the window is that there is not enough billing to say, and
+the two render as different sentences.
+
+**Every ageing band is shown, including the empty ones.** "Nothing is more than 90 days
+overdue" is the most reassuring row on that table and it has to be visible rather than absent
+— and a table that changed shape as debt moved would be unreadable week to week.
+
+**The currency is stated once, at the top.** Every figure arrives already converted at the rate
+stored on the document it came from — never a rate looked up today, which would change last
+quarter's MRR every morning. Repeating it per row would be noise on a table where it cannot
+differ.
+
+**This screen is behind the FEE AXIS, not a role**, and it is the first place in the product
+where that axis GATES rather than redacts. Everywhere else commercial visibility nulls an
+amount and leaves the record, so "you may not see this" never looks like "there is no fee".
+Here the whole page is money: a redacted version would be a page of nulls, which communicates
+"the firm has no revenue" — worse than a refusal. So the API answers 403 and names the fix,
+and the home page offers the link only to `principal.commercialVisibility`. Note that this is
+NOT implied by being a partner: it is a separate flag on the membership, and a partner without
+it is refused, correctly.
 
 ## Money never becomes a number
 
