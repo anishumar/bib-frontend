@@ -134,7 +134,13 @@ export default function HomePage() {
             far each piece of work has got.
           </p>
           <div className="bib-nav" style={{ marginBottom: 0 }}>
-            <Link href="/work">Work →</Link>
+            {/* TWO screens, and they answer two questions. The board is what is
+                owed and whose it is — a client, a due date, a name. The engine
+                is HOW it gets done: which process a job is walking and which
+                step it is on. A firm that has published no process still has
+                work, which is why the board comes first. */}
+            <Link href="/work-items">Work board →</Link>
+            <Link href="/work">The engine →</Link>
           </div>
         </div>
       )}
@@ -168,6 +174,12 @@ export default function HomePage() {
             <Link href="/admin/people">People →</Link>
             <Link href="/admin/roles">Roles →</Link>
             <Link href="/admin/grades">Grades →</Link>
+            {/* The words the firm uses for work — the states a task moves
+                through and how urgent it can be. An admin screen because the
+                TICK BOXES on those rows decide what every task in that state
+                must carry, and moving the statutory default changes the urgency
+                of every filing raised afterwards. */}
+            <Link href="/admin/work-vocabulary">Work states →</Link>
             {/* How the firm does its work — the steps a job walks. Without this
                 screen the engine has no way in, which is what T2.7 shipped
                 without and this closes. */}

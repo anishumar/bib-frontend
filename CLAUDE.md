@@ -84,6 +84,9 @@ not before.
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
 | `/admin/territories` | whose desk covers which country |
+| `/work-items` | the board — what is owed, whose desk it is on, and what is late |
+| `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
+| `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
@@ -366,6 +369,70 @@ needs for its two pickers are `tenant:admin` reads. So a manager can be permitte
 be shown no form — the same shape `/leads`'s owner dropdown already has, and left consistent
 with it rather than fixed here, because widening either read is a decision about who may see the
 firm's roster and it belongs in one place for both screens.
+
+## `/work-items` and `/admin/work-vocabulary` — the board, and the words on it (T3.1)
+
+`/work` shows the ENGINE: which process a job is walking and which step it is on. `/work-items`
+shows the work as a person experiences it — a client, a due date, a name, and a state in the
+firm's own words. **They are two screens because they answer two questions**, and because a
+firm that has published no process still has work: ad hoc work has no job at all and is still
+owned, still due and still reviewable.
+
+**THREE TABS ARE THREE DIFFERENT JOBS.** Mine is what somebody opens in the morning. Everything
+is the delivery meeting. **Unassigned is the one that matters most and would not exist on a
+naive board**: when the router cannot find the client's SPOC for a Dept, or finds two, it
+refuses to guess and the item lands here **with a sentence saying which**. A dash in that
+column would make "two SPOCs for FRC, pick one" and "nobody has got to it" look identical, and
+only one of them is somebody's to fix.
+
+**NOTHING ON THESE SCREENS COMPARES A STATE'S CODE.** States and priorities are rows the firm
+owns and may rename from `/admin/work-vocabulary` without a deploy, so every branch reads the
+FLAGS — `isBlocked`, `isTerminal`, `isInitial` — and prints the NAME. The state picker offers
+only ACTIVE states (a retired one still renders where it is held), and the **reason box appears
+when the SELECTED state is flagged blocked**, for whatever the firm has called it — including a
+second state the firm flagged itself. Asking for the reason before the API refuses is not a
+duplicated rule: the API refuses regardless, and a person who has already pressed Save has lost
+the sentence they were about to write.
+
+**`/admin/work-vocabulary` is the standing directive made visible.** The names came from a
+previous vendor and are still unconfirmed even for 10x, so renaming one has to be a tick and a
+blur — not a migration somebody asks an engineer for. Each box says **what it turns on** rather
+than naming itself ("Means blocked — needs a written reason"), because `is_blocked` tells a
+partner nothing. Neither "Starting" nor either default is on the ADD form, deliberately: taking
+one silently moves it off whatever holds it today, and that belongs on the row where somebody
+can see what it replaces. Name and rank commit on **blur or Enter**, like `/admin/grades`, because
+every commit writes an audit event.
+
+There is no Delete on either table, because there is no delete endpoint and no DELETE grant:
+a hundred tasks sitting in a state would lose it. Retiring keeps it readable everywhere it is
+held.
+
+**TODAY IS THE BROWSER'S CALENDAR DAY, on the board as on `/clients`.** The API takes `asOf` to
+decide what is overdue, and `toISOString()` here would be the UTC day — which calls a filing due
+today "late" for anybody west of Greenwich and "not yet" for anybody east.
+
+**There is no "approve and mark done" button, and that is a decision.** Nothing says which of the
+firm's terminal states an approval should move work into — a firm has at least two, Completed and
+Cancelled — so picking one would be this product deciding what approval MEANS. The two acts are
+separate and the page shows both. The review section lists **every** review including the
+rejections: a list of only the open one makes work that came back twice read as work that sailed
+through.
+
+### What building these screens found
+
+**PATCH was missing from the backend's CORS `allowMethods`, and had been since CORS was added.**
+These are the first routes in the product that use it. The browser answers the preflight 204,
+reads the header, sees PATCH is absent and DISCARDS the request — no server log, no status code,
+surfacing as "TypeError: Failed to fetch" and reading as a dead endpoint. **The backend's smoke
+walk could never have caught it: curl does not preflight**, and every one of those PATCH calls
+passed. Found by clicking a checkbox. There is a backend test over it now.
+
+**Two rendering faults the types were perfectly happy with.** The Owner fact printed the
+assignment note in full AND the callout below repeated it verbatim, making the fact grid six
+lines tall and saying one sentence twice. And a two-word state name wrapped inside its pill and
+rendered as a broken circle — the firm names these, so a two-word name is the ordinary case.
+`.bib-field-row > *` is `flex: 1 1 160px`, which is right for a control and turns a Save button
+into a banner; the buttons opt out.
 
 ## Money never becomes a number
 

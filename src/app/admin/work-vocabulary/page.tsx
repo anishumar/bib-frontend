@@ -1,0 +1,605 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { api, apiError } from "@/lib/api/client";
+import type { WorkItemPriority, WorkItemState } from "@/lib/api/client";
+
+/**
+ * The firm's own words for work — the states a task moves through and how
+ * urgent it can be (T3.1).
+ *
+ * ── THIS SCREEN IS THE WHOLE REASON THESE ARE ROWS ──────────────────────────
+ *
+ * The names came from a previous vendor's list and are still unconfirmed, even
+ * for 10x. Asked about them the client said to get the system working and
+ * settle the naming later — which costs nothing precisely because this is a
+ * table: renaming a state, adding a ninth, or deciding statutory work is
+ * Critical is an UPDATE somebody makes here, not a migration they ask an
+ * engineer for.
+ *
+ * ── AND THE TICK BOXES ARE NOT LABELS ───────────────────────────────────────
+ *
+ * They are the MEANING. Every rule in the product reads these flags and never
+ * the name beside them, which is what makes the renaming safe:
+ *
+ *   Starting   where new work begins. Exactly one, always.
+ *   Finished   nothing further happens; the completion time is stamped.
+ *   Blocked    a REASON becomes mandatory the moment anything enters it.
+ *
+ * So ticking "Blocked" on "Waiting for Client" starts demanding a sentence
+ * there too, with no deploy — and each box says what it turns on rather than
+ * naming itself, because "is_blocked" tells a partner nothing.
+ *
+ * ── WHAT IT REFUSES, AND WHY IT SAYS SO UP FRONT ────────────────────────────
+ *
+ * A firm may never end up with no starting state, no default priority, or no
+ * statutory default — each would leave it unable to create a single task. The
+ * API refuses those, and the screen explains the move that works instead
+ * (marking another one) rather than letting somebody find out by being told no.
+ *
+ * There is no Delete, because there is no delete endpoint and no DELETE grant
+ * behind it: a hundred tasks sitting in a state would lose it. Retiring keeps
+ * the state readable everywhere it is held and only stops it being offered.
+ */
+export default function WorkVocabularyPage() {
+  const router = useRouter();
+  const [states, setStates] = useState<WorkItemState[]>([]);
+  const [priorities, setPriorities] = useState<WorkItemPriority[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async (): Promise<void> => {
+    const result = await api.GET("/api/v1/work-vocabulary", {});
+    if (result.response.status === 401) {
+      router.push("/login");
+      return;
+    }
+    if (result.error) {
+      setError(apiError(result.error).message);
+      setLoaded(true);
+      return;
+    }
+    setStates(result.data.states);
+    setPriorities(result.data.priorities);
+    setError(null);
+    setLoaded(true);
+  }, [router]);
+
+  useEffect(() => {
+    void (async () => {
+      await load();
+    })();
+  }, [load]);
+
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+    setBusy(key);
+    setError(null);
+    const result = await call();
+    if (result.error) {
+      setError(apiError(result.error).message);
+      setBusy(null);
+      return;
+    }
+    await load();
+    setBusy(null);
+  }
+
+  if (!loaded) return <p className="bib-muted">Loading…</p>;
+
+  return (
+    <main>
+      <div className="bib-nav">
+        <Link href="/">← Home</Link>
+        <Link href="/work-items">The board →</Link>
+      </div>
+      <h1>Work states and priorities</h1>
+      <p className="bib-muted" style={{ marginTop: 0 }}>
+        The words your firm uses for work. Rename any of them, add your own, or change what
+        they mean — the product reads the TICK BOXES and never the names, so nothing breaks
+        when you rename one.
+      </p>
+      {error !== null && <p className="bib-error">{error}</p>}
+
+      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>States</h2>
+        <table className="bib-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th style={{ width: 90 }}>Order</th>
+              <th>Starting</th>
+              <th>Finished</th>
+              <th>Blocked</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {states.map((s) => (
+              <tr key={s.id} data-inactive={!s.isActive}>
+                <td>
+                  <CommitText
+                    key={`${s.id}:${s.name}`}
+                    value={s.name}
+                    label="State name"
+                    disabled={busy === s.id}
+                    onCommit={(name) => {
+                      void act(s.id, () => patchState(s.id, { name }));
+                    }}
+                  />
+                </td>
+                {/* The code never changes. It is the firm's stable handle, and
+                    an audit event or an import that recorded it would stop
+                    resolving if it moved. */}
+                <td className="bib-muted bib-mono">{s.code}</td>
+                <td>
+                  <CommitNumber
+                    key={`${s.id}:${String(s.sortOrder)}`}
+                    value={s.sortOrder}
+                    label="Sort order"
+                    disabled={busy === s.id}
+                    onCommit={(sortOrder) => {
+                      void act(s.id, () => patchState(s.id, { sortOrder }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="radio"
+                    name="initial"
+                    aria-label={`${s.name} is the starting state`}
+                    checked={s.isInitial}
+                    disabled={busy === s.id || !s.isActive}
+                    onChange={() => {
+                      void act(s.id, () => patchState(s.id, { isInitial: true }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${s.name} means finished`}
+                    checked={s.isTerminal}
+                    disabled={busy === s.id}
+                    onChange={(e) => {
+                      void act(s.id, () => patchState(s.id, { isTerminal: e.target.checked }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${s.name} means blocked, and needs a reason`}
+                    checked={s.isBlocked}
+                    disabled={busy === s.id}
+                    onChange={(e) => {
+                      void act(s.id, () => patchState(s.id, { isBlocked: e.target.checked }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <span className="bib-pill" data-tone={s.isActive ? "live" : "revoked"}>
+                    {s.isActive ? "in use" : "retired"}
+                  </span>
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    className={`bib-button-quiet${s.isActive ? " bib-button-danger" : ""}`}
+                    disabled={busy === s.id}
+                    onClick={() => {
+                      void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
+                    }}
+                  >
+                    {s.isActive ? "Retire" : "Bring back"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="bib-hint">
+          <strong>Starting</strong> is where new work begins — exactly one, and marking another
+          moves it. <strong>Finished</strong> stamps the completion time and takes the task off
+          the open board. <strong>Blocked</strong> makes a written reason mandatory the moment
+          anything enters that state, which is the only thing that ever explains a delay later.
+          Retiring keeps a state readable on every task already in it; it just stops being
+          offered.
+        </p>
+        <AddState
+          busy={busy === "new-state"}
+          onAdd={(body) => {
+            void act("new-state", () =>
+              api.POST("/api/v1/work-vocabulary/states", { body }),
+            );
+          }}
+        />
+      </div>
+
+      <div className="bib-card">
+        <h2 style={{ marginTop: 0, fontSize: 16 }}>Priorities</h2>
+        <table className="bib-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code</th>
+              <th style={{ width: 90 }}>Rank</th>
+              <th>Default</th>
+              <th>Statutory</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {priorities.map((p) => (
+              <tr key={p.id} data-inactive={!p.isActive}>
+                <td>
+                  <CommitText
+                    key={`${p.id}:${p.name}`}
+                    value={p.name}
+                    label="Priority name"
+                    disabled={busy === p.id}
+                    onCommit={(name) => {
+                      void act(p.id, () => patchPriority(p.id, { name }));
+                    }}
+                  />
+                </td>
+                <td className="bib-muted bib-mono">{p.code}</td>
+                <td>
+                  <CommitNumber
+                    key={`${p.id}:${String(p.rank)}`}
+                    value={p.rank}
+                    label="Rank"
+                    disabled={busy === p.id}
+                    onCommit={(rank) => {
+                      void act(p.id, () => patchPriority(p.id, { rank }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="radio"
+                    name="default-priority"
+                    aria-label={`${p.name} is what ordinary work gets`}
+                    checked={p.isDefault}
+                    disabled={busy === p.id || !p.isActive}
+                    onChange={() => {
+                      void act(p.id, () => patchPriority(p.id, { isDefault: true }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="radio"
+                    name="statutory-priority"
+                    aria-label={`${p.name} is what statutory work gets`}
+                    checked={p.isStatutoryDefault}
+                    disabled={busy === p.id || !p.isActive}
+                    onChange={() => {
+                      void act(p.id, () => patchPriority(p.id, { isStatutoryDefault: true }));
+                    }}
+                  />
+                </td>
+                <td>
+                  <span className="bib-pill" data-tone={p.isActive ? "live" : "revoked"}>
+                    {p.isActive ? "in use" : "retired"}
+                  </span>
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    className={`bib-button-quiet${p.isActive ? " bib-button-danger" : ""}`}
+                    disabled={busy === p.id}
+                    onClick={() => {
+                      void act(p.id, () => patchPriority(p.id, { isActive: !p.isActive }));
+                    }}
+                  >
+                    {p.isActive ? "Retire" : "Bring back"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="bib-hint">
+          Rank <strong>1 is the most urgent</strong>, and it is what the board sorts by — the
+          names are yours. <strong>Default</strong> is what ordinary work is created with.{" "}
+          <strong>Statutory</strong> is what work with a date set by LAW gets, which is your own
+          rule made automatic — a filing does not need somebody to remember to mark it urgent.
+          The two may be the same row if you do not want statutory work treated differently.
+        </p>
+        <AddPriority
+          busy={busy === "new-priority"}
+          onAdd={(body) => {
+            void act("new-priority", () =>
+              api.POST("/api/v1/work-vocabulary/priorities", { body }),
+            );
+          }}
+        />
+      </div>
+    </main>
+  );
+}
+
+function patchState(
+  stateId: string,
+  body: {
+    name?: string;
+    sortOrder?: number;
+    isInitial?: boolean;
+    isTerminal?: boolean;
+    isBlocked?: boolean;
+    isActive?: boolean;
+  },
+): Promise<{ error?: unknown }> {
+  return api.PATCH("/api/v1/work-vocabulary/states/{stateId}", {
+    params: { path: { stateId } },
+    body,
+  });
+}
+
+function patchPriority(
+  priorityId: string,
+  body: {
+    name?: string;
+    rank?: number;
+    isDefault?: boolean;
+    isStatutoryDefault?: boolean;
+    isActive?: boolean;
+  },
+): Promise<{ error?: unknown }> {
+  return api.PATCH("/api/v1/work-vocabulary/priorities/{priorityId}", {
+    params: { path: { priorityId } },
+    body,
+  });
+}
+
+/**
+ * Text that commits on blur or Enter, not on every keystroke.
+ *
+ * Per-keystroke saving would write a row per letter into an append-only ledger,
+ * which is how a rename becomes twelve audit events nobody can read past. The
+ * same arrangement `/admin/grades` uses, for the same reason.
+ */
+function CommitText({
+  value,
+  label,
+  disabled,
+  onCommit,
+}: {
+  value: string;
+  label: string;
+  disabled: boolean;
+  onCommit: (next: string) => void;
+}) {
+  // Seeded once. The caller gives this a `key` derived from the committed
+  // value, so a successful rename remounts it rather than syncing back through
+  // an effect that would fight the user's typing.
+  const [draft, setDraft] = useState(value);
+
+  function commit(): void {
+    const next = draft.trim();
+    if (next === "" || next === value) {
+      setDraft(value);
+      return;
+    }
+    onCommit(next);
+  }
+
+  return (
+    <input
+      className="bib-input"
+      value={draft}
+      disabled={disabled}
+      aria-label={label}
+      onChange={(e) => { setDraft(e.target.value); }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setDraft(value);
+      }}
+    />
+  );
+}
+
+/** The same, for a whole number. */
+function CommitNumber({
+  value,
+  label,
+  disabled,
+  onCommit,
+}: {
+  value: number;
+  label: string;
+  disabled: boolean;
+  onCommit: (next: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  function commit(): void {
+    const next = Number(draft);
+    // The API decides what a valid number is and says so in its own words; this
+    // only avoids sending an obvious non-number back at it.
+    if (!Number.isInteger(next) || next === value) {
+      setDraft(String(value));
+      return;
+    }
+    onCommit(next);
+  }
+
+  return (
+    <input
+      className="bib-input"
+      value={draft}
+      disabled={disabled}
+      aria-label={label}
+      inputMode="numeric"
+      onChange={(e) => { setDraft(e.target.value); }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setDraft(String(value));
+      }}
+    />
+  );
+}
+
+function AddState({
+  busy,
+  onAdd,
+}: {
+  busy: boolean;
+  onAdd: (body: {
+    code: string;
+    name: string;
+    sortOrder?: number;
+    isTerminal?: boolean;
+    isBlocked?: boolean;
+  }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [sortOrder, setSortOrder] = useState("90");
+  const [isTerminal, setIsTerminal] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  return (
+    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+      <summary>Add a state</summary>
+      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <label className="bib-label">
+          Name
+          <input
+            className="bib-input"
+            value={name}
+            onChange={(e) => { setName(e.target.value); }}
+          />
+        </label>
+        <label className="bib-label">
+          Code
+          <input
+            className="bib-input"
+            value={code}
+            placeholder="with_auditor"
+            onChange={(e) => { setCode(e.target.value); }}
+          />
+        </label>
+        <label className="bib-label">
+          Order
+          <input
+            className="bib-input"
+            value={sortOrder}
+            inputMode="numeric"
+            onChange={(e) => { setSortOrder(e.target.value); }}
+          />
+        </label>
+      </div>
+      {/* "Starting" is deliberately absent from this form. Marking a NEW state
+          as the one work begins in would silently move it off whatever holds it
+          today — a real change, and one somebody should make on the row where
+          they can see what it replaces. */}
+      <div className="bib-field-row">
+        <label className="bib-check">
+          <input
+            type="checkbox"
+            checked={isTerminal}
+            onChange={(e) => { setIsTerminal(e.target.checked); }}
+          />
+          <span>Means finished</span>
+        </label>
+        <label className="bib-check">
+          <input
+            type="checkbox"
+            checked={isBlocked}
+            onChange={(e) => { setIsBlocked(e.target.checked); }}
+          />
+          <span>Means blocked — needs a written reason</span>
+        </label>
+      </div>
+      <button
+        className="bib-button"
+        style={{ marginTop: "var(--bib-gap-2)" }}
+        disabled={busy || name.trim() === "" || code.trim() === ""}
+        onClick={() => {
+          onAdd({
+            code: code.trim(),
+            name: name.trim(),
+            sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 90,
+            isTerminal,
+            isBlocked,
+          });
+          setName("");
+          setCode("");
+        }}
+      >
+        Add
+      </button>
+    </details>
+  );
+}
+
+function AddPriority({
+  busy,
+  onAdd,
+}: {
+  busy: boolean;
+  onAdd: (body: { code: string; name: string; rank: number }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [rank, setRank] = useState("5");
+
+  return (
+    <details style={{ marginTop: "var(--bib-gap-2)" }}>
+      <summary>Add a priority</summary>
+      <div className="bib-field-row" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <label className="bib-label">
+          Name
+          <input
+            className="bib-input"
+            value={name}
+            onChange={(e) => { setName(e.target.value); }}
+          />
+        </label>
+        <label className="bib-label">
+          Code
+          <input
+            className="bib-input"
+            value={code}
+            placeholder="urgent"
+            onChange={(e) => { setCode(e.target.value); }}
+          />
+        </label>
+        <label className="bib-label">
+          Rank
+          <input
+            className="bib-input"
+            value={rank}
+            inputMode="numeric"
+            onChange={(e) => { setRank(e.target.value); }}
+          />
+        </label>
+        <button
+          className="bib-button"
+          disabled={busy || name.trim() === "" || code.trim() === ""}
+          onClick={() => {
+            onAdd({ code: code.trim(), name: name.trim(), rank: Number(rank) });
+            setName("");
+            setCode("");
+          }}
+        >
+          Add
+        </button>
+      </div>
+      {/* Neither default is offered here, for the same reason "Starting" is not
+          on the state form: moving one silently changes what every task created
+          afterwards gets, and that belongs on the row beside what it replaces. */}
+      <p className="bib-hint">
+        Ranks need not be consecutive, and two priorities may share one — nothing compares
+        within a rank, only across.
+      </p>
+    </details>
+  );
+}

@@ -2172,6 +2172,1496 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The work board
+         * @description What is owed, whose it is, and what is late. Overdue first, then by urgency, then by due date — because overdue is the only thing anybody is actually looking for. Every row carries the client, the state and the assignee BY NAME, so nothing has to be fetched per line to render it.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    mine?: "true" | "false";
+                    unassigned?: "true" | "false";
+                    clientPartyId?: string;
+                    jobId?: string;
+                    includeDone?: "true" | "false";
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The board */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkBoardResponse"];
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Raise a work item by hand
+         * @description Ad hoc work, which is real work — 'prepare the board minutes' has no engagement, no process and no template, and is still owned, due and reviewable. It is created UNASSIGNED unless somebody is named: routing needs a Dept, and a hand-raised item has none until the firm says which.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateWorkItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Raised */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItem"];
+                    };
+                };
+                /** @description No title, or a due date that is not a calendar day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such client, or no such priority at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is archived, the named person is not active staff, or the firm has no starting state or default priority */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One work item, its checklist, its dependencies and every review it has had */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The work item */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemDetailResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a work item's title, description, priority, due date or client visibility
+         * @description Assignment and state are deliberately NOT here — each is its own call writing its own event, and folding them in would make one PATCH able to reassign work silently.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateWorkItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItem"];
+                    };
+                };
+                /** @description An empty title, or a due date that is not a calendar day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item, or no such priority at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The priority has been retired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a work item to another of the firm's states
+         * @description The timestamps follow the state's FLAGS, not its name: a state marked BLOCKED demands a reason and stamps the time; a TERMINAL one stamps the completion, and leaving it clears that again. Starting is refused while the item is still waiting on unfinished work — which is what a dependency says — but moving straight to a terminal state is allowed, because cancelling something that never started is a real act.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MoveWorkItemStateRequest"];
+                };
+            };
+            responses: {
+                /** @description Moved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItem"];
+                    };
+                };
+                /** @description Moving into a blocked state with no reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item, or no such state at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is already in that state, the state has been retired, or it is still waiting on unfinished work */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/assignee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a work item on somebody's desk, or take it off */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignWorkItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Assigned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItem"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The named person is not active staff at this firm */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a line to a work item's checklist */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddChecklistItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChecklistItem"];
+                    };
+                };
+                /** @description An empty label */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/checklist/{checklistItemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick or untick a checklist line
+         * @description No ledger event, deliberately: a tick is somebody's working note on their own task, the row already carries who and when, and twelve events per filing would bury the transitions that matter in a log that cannot be pruned.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                    checklistItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TickChecklistItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Ticked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChecklistItem"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such checklist line on this task */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Remove an unticked checklist line
+         * @description A TICKED line cannot be removed — the tick is the record that somebody did it and it lives nowhere else. Untick it first if it was ticked by mistake. A trigger refuses it too, so a script cannot walk past this.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                    checklistItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such checklist line on this task */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The line is ticked */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make this work item wait on another
+         * @description 'This cannot start until that is finished' — the annual filing waits on twelve monthly ones. A dependency that would close a loop, directly or through a chain, is refused: neither item could ever start, and nothing on the screen would say why.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddWorkItemDependencyRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemDependency"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It already waits on that one, or the dependency would close a loop */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/dependencies/{dependencyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Lift a dependency */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                    dependencyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Lifted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such dependency on this task */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a work item to be checked
+         * @description The MAKER is not a parameter and cannot be: the database derives it from the item's assignee and freezes it, because a maker the caller could choose is not a maker-checker control. The state is deliberately not moved to 'Under Review' — there is no flag saying which of the firm's states means that, and comparing the name is the one thing this module never does.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestWorkItemReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description Waiting to be checked */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemReview"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A review is already open on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-item-checks/{approvalId}/checkers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who may check this, and what to say to everybody who may not
+         * @description The same rule a process step's check uses — maker != checker first and regardless of policy, then `work:write`, then the firm's own published rule. One answer to 'who checks whose work' at this firm, whether the work is a step or a task.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approvalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The candidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemCheckersResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such review at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-item-checks/{approvalId}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a work item, or send it back */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approvalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DecideWorkItemReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description Decided */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemReview"];
+                    };
+                };
+                /** @description A rejection with no note saying what for */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description You did the work, or the firm's published rule says somebody else checks this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such review at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Somebody else already decided it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-item-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every work item waiting to be checked at this firm
+         * @description The WHOLE firm's, oldest first — not filtered to what the viewer can act on. Under a rank threshold there is no 'mine', and a filtered list hides that six tasks have waited a week because nobody senior enough has looked.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The queue */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemChecksResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's own work-item states and priorities
+         * @description ROWS, not an enum — so a firm may rename 'Waiting Internal', add a ninth state, or decide that statutory work is Critical, all without a deploy. Every rule in the product reads the FLAGS on these rows and never their codes, which is what makes that promise real rather than advertised. Retired rows are included: an admin needs to see what the firm stopped using and be able to bring it back.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The vocabulary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkVocabularyResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-vocabulary/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a work-item state */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateWorkItemStateRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemState"];
+                    };
+                };
+                /** @description Not a valid code, or two flags that contradict each other */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A state with that code already exists here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-vocabulary/states/{stateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, re-flag, reorder or retire a work-item state
+         * @description Marking one as the STARTING state un-marks the previous holder in the same statement. Un-marking the only one is refused: the firm would be unable to create any work at all, and a partial unique index can enforce at most one but never at least one.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    stateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateWorkItemStateRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemState"];
+                    };
+                };
+                /** @description Two flags that contradict each other */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such state at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It would leave the firm with no starting state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/work-vocabulary/priorities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a work-item priority */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateWorkItemPriorityRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemPriority"];
+                    };
+                };
+                /** @description Not a valid code or rank */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A priority with that code already exists here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-vocabulary/priorities/{priorityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, re-rank, re-default or retire a work-item priority
+         * @description Moving the STATUTORY default changes the urgency of every filing created afterwards, which is exactly why who moved it is recorded. Leaving the firm with no default or no statutory default is refused — new work would have nothing to be created with.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    priorityId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateWorkItemPriorityRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemPriority"];
+                    };
+                };
+                /** @description Not a valid rank */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such priority at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It would leave the firm with no default or no statutory default */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps": {
         parameters: {
             query?: never;
@@ -8867,6 +10357,239 @@ export interface components {
         };
         MyClientsResponse: {
             clients: components["schemas"]["OwnedClient"][];
+        };
+        WorkItemState: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description What a new work item starts in. At most one per firm — and the product refuses to leave a firm with none, because nothing could then be created at all. */
+            isInitial: boolean;
+            /** @description Nothing further happens. Entering one stamps the completion time; leaving one clears it again, because the row says what is true NOW and the history is in the ledger. */
+            isTerminal: boolean;
+            /** @description The work is STUCK, and a reason becomes mandatory. This FLAG is what every rule reads — never the code — so a firm may rename 'Blocked' to anything it likes and keep the behaviour, or tick it on 'Waiting for Client' to start demanding a reason there too. */
+            isBlocked: boolean;
+            sortOrder: number;
+            /** @description Whether the firm still moves work into it. A retired state still renders everywhere it is already held — retiring is not deleting. */
+            isActive: boolean;
+        };
+        WorkItemPriority: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description 1 = MOST urgent. What code compares; the name is display. Note this runs the opposite way from a staff grade's rank, where 1 is the most junior — both read the way a firm says them out loud. */
+            rank: number;
+            /** @description What ordinary work gets. */
+            isDefault: boolean;
+            /** @description What STATUTORY work gets — the firm's rule 'statutory due dates are high priority anyway', made mechanical. May be the same row as the ordinary default, which is a real setting and not a mistake. */
+            isStatutoryDefault: boolean;
+            isActive: boolean;
+        };
+        WorkItemPerson: {
+            /** Format: uuid */
+            userId: string;
+            email: string;
+            displayName: string | null;
+        } | null;
+        WorkItemBlocker: {
+            /** Format: uuid */
+            workItemId: string;
+            title: string;
+        };
+        WorkItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            clientPartyId: string;
+            clientName: string;
+            /** Format: uuid */
+            entityPartyId: string | null;
+            /** @description WHICH of the client's companies owes this. Null for relationship-level work that belongs to no single entity; a filing always has one. */
+            entityName: string | null;
+            /** Format: uuid */
+            engagementId: string | null;
+            /**
+             * Format: uuid
+             * @description The process automating it, when there is one. Null for ad hoc work and for a firm that has published no workflow — both real states, and the work is still owned, still due and still reviewable.
+             */
+            jobId: string | null;
+            title: string;
+            description: string | null;
+            state: components["schemas"]["WorkItemState"];
+            priority: components["schemas"]["WorkItemPriority"];
+            assignee: components["schemas"]["WorkItemPerson"];
+            /** @description Why NOBODY has this, set only while it is unassigned. The difference between 'not got to yet' and 'the router found two SPOCs for FRC and would not guess'. It is what makes an unassigned queue something a person can act on. */
+            assignmentNote: string | null;
+            deptName: string | null;
+            /** @description The firm's own calendar day, never an instant. Computed once at creation as the engagement's start date plus the service's SLA, and stored — a later catalogue revision must not make finished work retroactively late. */
+            dueOn: string | null;
+            /** @description True when the date comes from a STATUTE rather than from the firm. This is what makes priority derivable. Work spawned from an engagement is NOT statutory — an engagement's SLA is the firm's own promise. */
+            isStatutoryDue: boolean;
+            slaDaysSnapshot: number | null;
+            isClientVisible: boolean;
+            blockedReason: string | null;
+            blockedAt: string | null;
+            startedAt: string | null;
+            completedAt: string | null;
+            createdAt: string;
+            checklistDone: number;
+            checklistTotal: number;
+            hasOpenReview: boolean;
+            /** @description Unfinished items this one is waiting on. Starting is refused while this is non-empty — that is what a dependency SAYS. Moving straight to a terminal state is still allowed, because cancelling something that never started is a real act. */
+            blockedByOpen: components["schemas"]["WorkItemBlocker"][];
+        };
+        WorkBoardResponse: {
+            items: components["schemas"]["WorkItem"][];
+        };
+        ChecklistItem: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            sortOrder: number;
+            doneAt: string | null;
+            /** Format: uuid */
+            doneByUserId: string | null;
+        };
+        WorkItemDependency: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workItemId: string;
+            /** Format: uuid */
+            dependsOnWorkItemId: string;
+        };
+        WorkItemReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workItemId: string;
+            workItemTitle: string;
+            clientName: string;
+            /** Format: uuid */
+            submittedBy: string | null;
+            /** @description Who made the work. DERIVED by the database from the item's assignee and frozen — the application cannot set it, because a maker a writer could choose is not a maker-checker control. Null when the item was unassigned: then there is no self to be, and the rule is vacuous rather than blocking. */
+            submittedByName: string | null;
+            submittedAt: string;
+            policyKey: string | null;
+            /** @description The rule's own label as it was PINNED when the check opened — so a firm raising its review bar in April never restates what was allowed in March. */
+            policyLabel: string | null;
+            /** @enum {string} */
+            decision: "pending" | "approved" | "rejected";
+            notes: string | null;
+            /** Format: uuid */
+            decidedBy: string | null;
+            decidedAt: string | null;
+        };
+        WorkItemDetailResponse: {
+            item: components["schemas"]["WorkItem"];
+            checklist: components["schemas"]["ChecklistItem"][];
+            dependencies: components["schemas"]["WorkItemDependency"][];
+            /** @description Every review this item has ever had, newest first. The REJECTIONS are the point: a list of only open ones makes work that came back twice read as work that sailed through. */
+            reviews: components["schemas"]["WorkItemReview"][];
+        };
+        CreateWorkItemRequest: {
+            /** Format: uuid */
+            clientPartyId: string;
+            /** Format: uuid */
+            entityPartyId?: string | null;
+            title: string;
+            description?: string | null;
+            /** Format: uuid */
+            priorityId?: string;
+            /** Format: uuid */
+            assigneeUserId?: string | null;
+            dueOn?: string | null;
+            isStatutoryDue?: boolean;
+            isClientVisible?: boolean;
+        };
+        UpdateWorkItemRequest: {
+            title?: string;
+            description?: string | null;
+            /** Format: uuid */
+            priorityId?: string;
+            dueOn?: string | null;
+            isClientVisible?: boolean;
+        };
+        MoveWorkItemStateRequest: {
+            /** Format: uuid */
+            stateId: string;
+            /** @description Required when the target state is one the firm has marked as BLOCKED, and refused otherwise. 'Blocked' on its own records that work is stuck and never why — and a year later 'are our delays ours or the client's' has no query that can answer it. */
+            blockedReason?: string | null;
+        };
+        AssignWorkItemRequest: {
+            /** Format: uuid */
+            assigneeUserId: string | null;
+        };
+        AddChecklistItemRequest: {
+            label: string;
+            sortOrder?: number;
+        };
+        TickChecklistItemRequest: {
+            done: boolean;
+        };
+        AddWorkItemDependencyRequest: {
+            /** Format: uuid */
+            dependsOnWorkItemId: string;
+        };
+        RequestWorkItemReviewRequest: {
+            /** @description Which of the firm's published verification policies decides who may check this. OPTIONAL, and no default is invented: there is no template step here to name one, and picking a rule on the firm's behalf would be this product deciding who signs off its work. Absent means maker != checker alone. */
+            policyKey?: string | null;
+        };
+        WorkItemCheckerOption: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string;
+            gradeName: string | null;
+            eligible: boolean;
+            /** @description What to SAY when they may not. A refusal with no reason is how a person concludes the button is broken. */
+            reason: string | null;
+        };
+        WorkItemCheckersResponse: {
+            checkers: components["schemas"]["WorkItemCheckerOption"][];
+        };
+        DecideWorkItemReviewRequest: {
+            /** @enum {string} */
+            decision: "approved" | "rejected";
+            /** @description Mandatory on a rejection. WHY work came back is the only signal that ever explains rework — marking the task Completed later erases the fact that it was rejected. */
+            notes?: string | null;
+        };
+        WorkItemChecksResponse: {
+            checks: components["schemas"]["WorkItemReview"][];
+        };
+        WorkVocabularyResponse: {
+            states: components["schemas"]["WorkItemState"][];
+            priorities: components["schemas"]["WorkItemPriority"][];
+        };
+        CreateWorkItemStateRequest: {
+            code: string;
+            name: string;
+            isInitial?: boolean;
+            isTerminal?: boolean;
+            isBlocked?: boolean;
+            sortOrder?: number;
+        };
+        UpdateWorkItemStateRequest: {
+            name?: string;
+            isInitial?: boolean;
+            isTerminal?: boolean;
+            isBlocked?: boolean;
+            sortOrder?: number;
+            isActive?: boolean;
+        };
+        CreateWorkItemPriorityRequest: {
+            code: string;
+            name: string;
+            rank: number;
+            isDefault?: boolean;
+            isStatutoryDefault?: boolean;
+        };
+        UpdateWorkItemPriorityRequest: {
+            name?: string;
+            rank?: number;
+            isDefault?: boolean;
+            isStatutoryDefault?: boolean;
+            isActive?: boolean;
         };
         /** @description What a machine produced for this step, if it did and nobody has decided yet. Null for a human step, for a machine step nobody built an agent for, and for one that committed on its own — in that last case the work is simply done. */
         AgentProposal: {

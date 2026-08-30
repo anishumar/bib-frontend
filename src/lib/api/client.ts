@@ -169,6 +169,50 @@ export const VERIFICATION_RULES: readonly {
   },
 ];
 
+/**
+ * One row on the work board — what is owed and whose it is (T3.1).
+ *
+ * The other half of `Job`. A JOB is HOW work gets done: which template, which
+ * steps, which agent. A WORK ITEM is WHAT is owed and WHOSE it is — a client, a
+ * due date, a person, and a state in the firm's OWN words. They are linked by
+ * `jobId` and either can be null: ad hoc work has no process, and a merged job
+ * puts several work items on several desks.
+ */
+export type WorkItem =
+  paths["/api/v1/work-items"]["get"]["responses"][200]["content"]["application/json"]["items"][number];
+
+/** A work item with everything its own page shows. */
+export type WorkItemDetail =
+  paths["/api/v1/work-items/{workItemId}"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ChecklistItem = WorkItemDetail["checklist"][number];
+export type WorkItemReview = WorkItemDetail["reviews"][number];
+
+/**
+ * A state a work item can be in — ONE ROW of the firm's own vocabulary.
+ *
+ * Read the FLAGS, never the code. `isBlocked` is what makes a reason mandatory,
+ * `isTerminal` is what "finished" means, `isInitial` is where new work starts —
+ * and the firm may rename any of them from /admin/work-vocabulary without a
+ * deploy, which is the whole reason these are rows. A screen that branched on
+ * `code === "blocked"` would break the first time somebody used that freedom.
+ */
+export type WorkItemState = WorkItem["state"];
+
+/** How urgent, as a row. `rank` is what sorts — 1 is most urgent — and the name
+ *  is display. */
+export type WorkItemPriority = WorkItem["priority"];
+
+/** The firm's whole vocabulary, retired rows included: an admin needs to see
+ *  what was stopped and be able to bring it back. */
+export type WorkVocabulary =
+  paths["/api/v1/work-vocabulary"]["get"]["responses"][200]["content"]["application/json"];
+
+/** A member of staff, and whether they may check one particular work item. The
+ *  same rule a process step's check uses. */
+export type WorkItemChecker =
+  paths["/api/v1/work-item-checks/{approvalId}/checkers"]["get"]["responses"][200]["content"]["application/json"]["checkers"][number];
+
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
 export type ConfigEntry =
