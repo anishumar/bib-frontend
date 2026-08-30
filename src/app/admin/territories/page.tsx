@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Input,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import type { Member, TerritoryRule } from "@/lib/api/client";
 
 /**
@@ -77,7 +94,7 @@ export default function TerritoriesPage() {
     setBusy(false);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading territories" />;
 
   // Only somebody who can actually take a lead. The API applies the same test,
   // twice — here and again when the rule fires.
@@ -88,98 +105,88 @@ export default function TerritoriesPage() {
   };
 
   return (
-    <main>
-      <h1>Territories</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        A lead from one of these countries goes to that desk, whatever its load. Everywhere else
-        falls through to the rotation — there is no wildcard rule, because the rotation is a
-        better fallback than a row somebody has to remember to maintain.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Territories"
+        lede="A lead from one of these countries goes to that desk, whatever its load. Everywhere else falls through to the rotation — there is no wildcard rule, because the rotation is a better fallback than a row somebody has to remember to maintain."
+        aside={<Pill tone="quiet">{rules.length} set</Pill>}
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }}>
-        {rules.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            No territories. Every lead is assigned by the rotation — to whoever holds the fewest
-            open leads.
-          </p>
-        ) : (
-          <table className="bib-table">
+      <ErrorNotice error={error} />
+
+      {rules.length === 0 ? (
+        <Card>
+          <Empty title="No territories" icon="territories">
+            Every lead is assigned by the rotation — to whoever holds the fewest open leads.
+          </Empty>
+        </Card>
+      ) : (
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
-                <th style={{ width: 90 }}>Country</th>
-                <th>Desk</th>
-                <th>Why</th>
+                <Th>Country</Th>
+                <Th>Desk</Th>
+                <Th>Why</Th>
               </tr>
             </thead>
             <tbody>
               {rules.map((r) => (
                 <tr key={r.id}>
-                  <td>
-                    <span className="bib-pill" data-tone="code">{r.jurisdiction}</span>
-                  </td>
+                  <Td>
+                    <Pill tone="code">{r.jurisdiction}</Pill>
+                  </Td>
                   {/* The roster is already loaded for the picker, so naming the
                       desk costs nothing extra here. If this list ever outgrows
                       the roster read, the join belongs in the API. */}
-                  <td>{nameOf(r.ownerUserId)}</td>
-                  <td className="bib-muted">{r.note ?? "—"}</td>
+                  <Td>{nameOf(r.ownerUserId)}</Td>
+                  <Td>{r.note === null ? <span className="empty">—</span> : r.note}</Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </Table>
+        </TableWrap>
+      )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>Set a territory</h2>
-        <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
-          One desk per country. Setting a country that already has one MOVES it — the rule keeps
-          its identity, and leads assigned under the old one are not re-assigned.
-        </p>
+      <Card>
+        <CardHead title="Set a territory">
+          <p className="lede">
+            One desk per country. Setting a country that already has one MOVES it — the rule
+            keeps its identity, and leads assigned under the old one are not re-assigned.
+          </p>
+        </CardHead>
         <form
           action={(form) => {
             void set(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+          <div className="stack">
+            <FieldRow>
+              <Field label="Country">
+                <Input name="jurisdiction" maxLength={2} placeholder="GB" required />
+              </Field>
+              <Field label="Desk">
+                <Select name="ownerUserId" required>
+                  {desks.map((m) => (
+                    <option key={m.membership.userId} value={m.membership.userId}>
+                      {m.displayName ?? m.email}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Why" optional>
+                <Input name="note" placeholder="Ravi covers the UK" />
+              </Field>
+            </FieldRow>
             <div>
-              <label className="bib-label" htmlFor="jurisdiction">
-                Country
-              </label>
-              <input
-                className="bib-input"
-                id="jurisdiction"
-                name="jurisdiction"
-                maxLength={2}
-                placeholder="GB"
-                required
-                style={{ width: 90 }}
-              />
-            </div>
-            <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="ownerUserId">
-                Desk
-              </label>
-              <select className="bib-select" id="ownerUserId" name="ownerUserId" required style={{ width: "100%" }}>
-                {desks.map((m) => (
-                  <option key={m.membership.userId} value={m.membership.userId}>
-                    {m.displayName ?? m.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ flex: "2 1 220px" }}>
-              <label className="bib-label" htmlFor="note">
-                Why
-              </label>
-              <input className="bib-input" id="note" name="note" placeholder="Ravi covers the UK" />
+              <Button type="submit" loading={busy}>
+                Set territory
+              </Button>
             </div>
           </div>
-          <button className="bib-button" type="submit" disabled={busy}>
-            Set territory
-          </button>
         </form>
-      </div>
-    </main>
+      </Card>
+    </Page>
   );
 }

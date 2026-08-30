@@ -34,6 +34,7 @@ import {
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
 import type { BrandAsset, BrandAssetKind } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
 
 interface FirmEntity {
   readonly id: string;
@@ -143,28 +144,29 @@ export default function BrandPage() {
     await load();
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   return (
-    <main>
-      <h1 style={{ marginBottom: 4 }}>Brand</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        What each of the firm&rsquo;s companies prints on what it sends.
-      </p>
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Brand"
+        lede="What each of the firm&rsquo;s companies prints on what it sends."
+      />
 
       {/* The honest banner. It comes out when T3.8 lands. */}
-      <p className="bib-hint" style={{ marginTop: 0 }}>
+      <p className="field-hint">
         <strong>Nothing renders these yet.</strong> They are stored, versioned and audited
         today, and the renderer that puts them on a letter or an invoice is still to be
         built. Uploading one now means it is ready and correct when that lands — it does not
         change any document the firm sends today.
       </p>
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {entities.length === 0 ? (
-        <div className="bib-card">
-          <p className="bib-muted" style={{ margin: 0 }}>
+        <div className="card">
+          <p className="muted">
             This firm has no companies on its issuing list yet, so there is nothing to give a
             logo to. A company appears here once it is named on{" "}
             <Link href="/invoices">the issuing table</Link> as serving clients somewhere —
@@ -173,8 +175,8 @@ export default function BrandPage() {
         </div>
       ) : (
         entities.map((entity) => (
-          <div className="bib-card" key={entity.id} style={{ marginBottom: "var(--bib-gap-3)" }}>
-            <h2 style={{ marginTop: 0, fontSize: 16 }}>{entity.displayName}</h2>
+          <div className="card" key={entity.id} style={{ marginBottom: "var(--s-5)" }}>
+            <h2 className="card-title">{entity.displayName}</h2>
             {BRAND_ASSET_KINDS.map((kind) => (
               <Slot
                 key={kind}
@@ -189,7 +191,7 @@ export default function BrandPage() {
           </div>
         ))
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -241,35 +243,40 @@ function Slot({
   }, [asset]);
 
   return (
-    <div style={{ borderTop: "1px solid var(--bib-line)", paddingTop: "var(--bib-gap-2)", marginTop: "var(--bib-gap-2)" }}>
-      <div className="bib-record-head">
-        <h3>{BRAND_ASSET_LABELS[kind]}</h3>
-        <span className="bib-muted" style={{ fontSize: 13 }}>
+    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "var(--s-4)", marginTop: "var(--s-4)" }}>
+      <div className="card-head">
+        <h3 className="card-title">{BRAND_ASSET_LABELS[kind]}</h3>
+        <span className="muted text-sm">
           {BRAND_ASSET_HINTS[kind]}
         </span>
       </div>
 
       {asset === undefined ? (
-        <p className="bib-unstated" style={{ margin: "0 0 var(--bib-gap-2)" }}>
+        <p className="unstated" style={{ margin: "0 0 var(--s-4)" }}>
           none set
         </p>
       ) : (
-        <div className="bib-chips" style={{ alignItems: "center", marginBottom: "var(--bib-gap-2)" }}>
+        <div className="cluster" style={{ alignItems: "center", marginBottom: "var(--s-4)" }}>
           {preview !== null && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
               alt={`${entity.displayName} ${kind}`}
-              style={{ maxHeight: 48, maxWidth: 200, background: "#fff", padding: 4 }}
+              style={{
+                maxHeight: 48,
+                maxWidth: 200,
+                background: "var(--logo-plate)",
+                padding: "var(--s-1)",
+              }}
             />
           )}
-          <span className="bib-muted" style={{ fontSize: 13 }}>
+          <span className="muted text-sm">
             {asset.version.filename} · {formatBytes(asset.version.byteSize)} · since{" "}
             {asset.createdAt.slice(0, 10)}
           </span>
           <button
             type="button"
-            className="bib-button-quiet"
+            className="btn" data-variant="secondary" data-size="sm"
             onClick={() => {
               // The VERSION, named explicitly rather than "latest": a
               // superseded mark is still downloadable, and the latest version
@@ -294,16 +301,16 @@ function Slot({
           onSubmit(fd);
           formRef.current?.reset();
         }}
-        className="bib-chips"
+        className="cluster"
         style={{ alignItems: "center" }}
       >
-        <input name="file" type="file" className="bib-input" accept="image/*,application/pdf" required />
-        <button type="submit" className="bib-button" disabled={busy}>
+        <input name="file" type="file" className="input" accept="image/*,application/pdf" required />
+        <button type="submit" className="btn" disabled={busy}>
           {busy ? "Saving…" : asset === undefined ? "Set" : "Replace"}
         </button>
       </form>
       {asset !== undefined && (
-        <p className="bib-hint" style={{ marginBottom: 0 }}>
+        <p className="field-hint">
           Replacing supersedes — the current one stays stored, so a document issued under it
           still resolves what it carried.
         </p>

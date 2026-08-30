@@ -12,6 +12,8 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
+import { LinkButton, Pill, Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * One proposal: what was quoted, from which catalogue version, at what price.
@@ -128,15 +130,12 @@ export default function ProposalPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
   if (record === null) {
     return (
-      <main>
-        <nav className="bib-nav">
-          <Link href="/proposals">← Proposals</Link>
-        </nav>
-        <p className="bib-error">{error ?? "No such proposal."}</p>
-      </main>
+      <Page>
+        <p className="notice" data-tone="danger" role="alert">{error ?? "No such proposal."}</p>
+      </Page>
     );
   }
 
@@ -149,70 +148,76 @@ export default function ProposalPage() {
   const canApprove = permissions.includes("proposal:approve");
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/proposals">← Proposals</Link>
-        {/* There is no history table: the ledger IS this proposal's timeline —
-            drafted, approved, sent, viewed, decided, each naming its actor. */}
-        {permissions.includes("ledger:read") && (
-          <Link href={`/audit?type=proposal&id=${proposalId}`}>History</Link>
-        )}
-      </nav>
+    <Page>
 
       {/* The tab carries the reference for the same reason the header does: it
           is how a person names this document to anybody else. */}
       <title>{`${proposal.ref} — ${proposal.title}`}</title>
-      {/* The firm's own number for this quote. The uuid in the address bar is
-          the system's name for it; this is the one a client quotes back. */}
-      <p className="bib-mono bib-muted" style={{ margin: "0 0 4px", fontSize: 14 }}>
-        {proposal.ref}
-      </p>
-      <h1 style={{ marginTop: 0, marginBottom: 4 }}>{proposal.title}</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        {record.party.displayName} · <span className="bib-pill">{proposal.status}</span>
-        {proposal.validUntil !== null && ` · valid until ${proposal.validUntil}`}
-      </p>
+      {/* The firm's own number for this quote goes in the eyebrow. The uuid in
+          the address bar is the system's name for it; this is the one a client
+          quotes back. */}
+      <PageHeader
+        eyebrow={<span className="mono">{proposal.ref}</span>}
+        title={<>{proposal.title}</>}
+        lede={
+          <>
+            {record.party.displayName} · <Pill>{proposal.status}</Pill>
+            {proposal.validUntil !== null && ` · valid until ${proposal.validUntil}`}
+          </>
+        }
+        /* There is no history table: the ledger IS this proposal's timeline —
+           drafted, approved, sent, viewed, decided, each naming its actor. The
+           sidebar's Audit trail is the WHOLE firm's; this one is scoped to this
+           document, which is why it cannot live there. */
+        aside={
+          permissions.includes("ledger:read") ? (
+            <LinkButton size="sm" href={`/audit?type=proposal&id=${proposalId}`}>
+              History
+            </LinkButton>
+          ) : undefined
+        }
+      />
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {shareLink !== null && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>The link to send</h2>
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+        <div className="card">
+          <h2 className="card-title">The link to send</h2>
+          <p className="muted text-md">
             Shown once. Only its fingerprint is stored, so this page is the only place it can
             ever be read — send it again to issue a new one.
           </p>
-          <p className="bib-mono" style={{ wordBreak: "break-all", margin: 0 }}>{shareLink}</p>
+          <p className="mono" style={{ wordBreak: "break-all" }}>{shareLink}</p>
         </div>
       )}
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        <table className="bib-table">
+      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+        <table className="table">
           <thead>
             <tr>
-              <th>Line</th>
-              <th style={{ textAlign: "right" }}>Qty</th>
-              <th style={{ textAlign: "right" }}>List then</th>
-              <th style={{ textAlign: "right" }}>Quoted</th>
-              <th style={{ textAlign: "right" }}>Disc.</th>
-              <th style={{ textAlign: "right" }}>Net</th>
-              <th />
+              <Th>Line</Th>
+              <Th style={{ textAlign: "right" }}>Qty</Th>
+              <Th style={{ textAlign: "right" }}>List then</Th>
+              <Th style={{ textAlign: "right" }}>Quoted</Th>
+              <Th style={{ textAlign: "right" }}>Disc.</Th>
+              <Th style={{ textAlign: "right" }}>Net</Th>
+              <Th />
             </tr>
           </thead>
           <tbody>
             {lines.map((l) => (
               <tr key={l.id}>
-                <td>
+                <Td>
                   <div>{l.description}</div>
                   {l.service !== null && (
-                    <div className="bib-muted bib-mono">
+                    <div className="mono muted">
                       {l.service.key}@{l.service.version}
                     </div>
                   )}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
+                </Td>
+                <Td style={{ textAlign: "right" }} className="mono">
                   {formatCount(l.quantity)}
-                </td>
+                </Td>
                 {/* The catalogue's price AS IT WAS — the thing the pin exists
                     to preserve. Null means the firm never listed one (a service
                     it quotes case by case), which is not the same as free, so it
@@ -224,31 +229,31 @@ export default function ProposalPage() {
                     though they are. Converting here would need a rate between
                     them, and the only rate this proposal carries goes to the
                     firm's reporting currency, not to the catalogue's. */}
-                <td style={{ textAlign: "right" }} className="bib-mono bib-muted">
+                <Td style={{ textAlign: "right" }} className="mono muted">
                   {l.service?.listPrice ? (
                     <>
                       {formatMoney(l.service.listPrice.amount, l.service.listPrice.currency)}
                       {l.service.listPrice.currency !== l.currency && (
-                        <div style={{ fontSize: 11 }}>not comparable</div>
+                        <div className="text-xs">not comparable</div>
                       )}
                     </>
                   ) : (
                     "—"
                   )}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
+                </Td>
+                <Td style={{ textAlign: "right" }} className="mono">
                   {formatMoney(l.unitAmount, l.currency)}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
+                </Td>
+                <Td style={{ textAlign: "right" }} className="mono">
                   {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
-                </td>
-                <td style={{ textAlign: "right" }} className="bib-mono">
+                </Td>
+                <Td style={{ textAlign: "right" }} className="mono">
                   {formatMoney(l.net, l.currency)}
-                </td>
-                <td style={{ textAlign: "right" }}>
+                </Td>
+                <Td style={{ textAlign: "right" }}>
                   {isDraft && (
                     <button
-                      className="bib-button-quiet"
+                      className="btn" data-variant="secondary" data-size="sm"
                       disabled={busy !== null}
                       onClick={() => {
                         void act(l.id, () =>
@@ -261,25 +266,25 @@ export default function ProposalPage() {
                       Remove
                     </button>
                   )}
-                </td>
+                </Td>
               </tr>
             ))}
             {lines.length === 0 && (
               <tr>
-                <td colSpan={7} className="bib-muted">
+                <Td colSpan={7} className="muted">
                   Nothing quoted yet.
-                </td>
+                </Td>
               </tr>
             )}
           </tbody>
         </table>
 
-        <div style={{ textAlign: "right", marginTop: "var(--bib-gap-2)" }}>
-          <div className="bib-muted" style={{ fontSize: 14 }}>
+        <div style={{ textAlign: "right", marginTop: "var(--s-4)" }}>
+          <div className="muted text-md">
             Gross {formatMoney(totals.gross, totals.currency)} · discount{" "}
             {formatMoney(totals.discount, totals.currency)}
           </div>
-          <div className="bib-mono" style={{ fontSize: 20 }}>
+          <div className="mono text-lg">
             {formatMoney(totals.net, totals.currency)}
           </div>
         </div>
@@ -291,27 +296,26 @@ export default function ProposalPage() {
           Indian tax note: the copy filters by the client's country, so what is
           missing here is a decision rather than an omission. */}
       {record.blocks.length > 0 && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Exclusions and notes</h2>
+        <div className="card">
+          <h2 className="card-title">Exclusions and notes</h2>
           {(["exclusion", "commercial", "team"] as const).map((kind) => {
             const mine = record.blocks.filter((b) => b.kind === kind);
             if (mine.length === 0) return null;
             return (
-              <div key={kind} style={{ marginBottom: "var(--bib-gap-2)" }}>
-                <div className="bib-label">{BLOCK_KIND_LABELS[kind]}</div>
+              <div key={kind} style={{ marginBottom: "var(--s-4)" }}>
+                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
                 <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                   {mine.map((b) => (
                     <li
                       key={b.id}
                       style={{
-                        fontSize: 14,
                         listStyle: b.isHeading ? "none" : undefined,
                         marginLeft: b.isHeading ? -18 : 0,
                       }}
                     >
                       {b.isHeading ? <strong>{b.body}</strong> : b.body}
                       {b.sourceId === null && (
-                        <span className="bib-muted" style={{ fontSize: 12 }}>
+                        <span className="muted text-xs">
                           {" "}
                           · this proposal&apos;s own
                         </span>
@@ -326,20 +330,20 @@ export default function ProposalPage() {
       )}
 
       {isDraft && (
-        <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Quote a service</h2>
+        <div className="card">
+          <h2 className="card-title">Quote a service</h2>
           <form
             action={(form) => {
               addLine(form);
             }}
           >
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div style={{ flex: "2 1 220px" }}>
-                <label className="bib-label" htmlFor="serviceVersionId">
+                <label className="label" htmlFor="serviceVersionId">
                   From the catalogue
                 </label>
                 <select
-                  className="bib-select"
+                  className="select"
                   id="serviceVersionId"
                   name="serviceVersionId"
                   required
@@ -358,64 +362,64 @@ export default function ProposalPage() {
                 </select>
               </div>
               <div style={{ flex: "2 1 220px" }}>
-                <label className="bib-label" htmlFor="description">
+                <label className="label" htmlFor="description">
                   As it reads on the document
                 </label>
-                <input className="bib-input" id="description" name="description" required />
+                <input className="input" id="description" name="description" required />
               </div>
             </div>
-            <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
               <div>
-                <label className="bib-label" htmlFor="quantity">
+                <label className="label" htmlFor="quantity">
                   Quantity
                 </label>
-                <input className="bib-input" id="quantity" name="quantity" defaultValue="1"
+                <input className="input" id="quantity" name="quantity" defaultValue="1"
                        required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="unitAmount">
+                <label className="label" htmlFor="unitAmount">
                   Unit price ({proposal.currency})
                 </label>
-                <input className="bib-input" id="unitAmount" name="unitAmount" required />
+                <input className="input" id="unitAmount" name="unitAmount" required />
               </div>
               <div>
-                <label className="bib-label" htmlFor="discountPercent">
+                <label className="label" htmlFor="discountPercent">
                   Discount %
                 </label>
-                <input className="bib-input" id="discountPercent" name="discountPercent"
+                <input className="input" id="discountPercent" name="discountPercent"
                        defaultValue="0" required />
               </div>
             </div>
-            <button className="bib-button" type="submit" disabled={busy !== null}>
+            <button className="btn" type="submit" disabled={busy !== null}>
               Add line
             </button>
           </form>
         </div>
       )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>
+      <div className="card">
+        <h2 className="card-title">
           {isDraft ? "Send it" : "Where it stands"}
         </h2>
 
         {proposal.discountApprovedAt !== null && (
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <p className="muted text-md">
             Discount signed off by{" "}
             {record.approvedBy?.displayName ?? record.approvedBy?.email ?? "a colleague"} on{" "}
             {proposal.discountApprovedAt.slice(0, 10)}.
           </p>
         )}
         {proposal.firstViewedAt !== null && (
-          <p className="bib-muted" style={{ marginTop: 0, fontSize: 14 }}>
+          <p className="muted text-md">
             First opened {proposal.firstViewedAt.slice(0, 10)} · {proposal.viewCount}{" "}
             {proposal.viewCount === 1 ? "view" : "views"}.
           </p>
         )}
 
-        <div className="bib-nav" style={{ marginBottom: 0, flexWrap: "wrap" }}>
+        <div className="cluster" style={{ marginBottom: 0, flexWrap: "wrap" }}>
           {isDraft && canApprove && (
             <button
-              className="bib-button-quiet"
+              className="btn" data-variant="secondary" data-size="sm"
               disabled={busy !== null}
               onClick={() => {
                 void act("approve", () =>
@@ -429,14 +433,14 @@ export default function ProposalPage() {
             </button>
           )}
           {isDraft && (
-            <button className="bib-button" disabled={busy !== null} onClick={() => void send()}>
+            <button className="btn" disabled={busy !== null} onClick={() => void send()}>
               {busy === "send" ? "Sending…" : "Send"}
             </button>
           )}
           {proposal.status === "sent" && !declining && (
             <>
               <button
-                className="bib-button"
+                className="btn"
                 disabled={busy !== null}
                 onClick={() => {
                   void act("accepted", () =>
@@ -450,7 +454,7 @@ export default function ProposalPage() {
                 Client accepted
               </button>
               <button
-                className="bib-button-quiet bib-button-danger"
+                className="btn" data-variant="destructive-quiet" data-size="sm"
                 disabled={busy !== null}
                 onClick={() => {
                   setDeclining(true);
@@ -461,7 +465,7 @@ export default function ProposalPage() {
             </>
           )}
           {!isDraft && proposal.status !== "sent" && (
-            <p className="bib-muted" style={{ margin: 0, fontSize: 14 }}>
+            <p className="muted text-md">
               This proposal is {proposal.status}. A client who comes back is a new quote — which
               is what keeps this one readable as what they were actually shown.
             </p>
@@ -470,7 +474,7 @@ export default function ProposalPage() {
 
         {proposal.status === "sent" && declining && (
           <form
-            style={{ marginTop: "var(--bib-gap-2)" }}
+            style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
               const declinedReason = String(form.get("declinedReason") ?? "").trim();
               void act("rejected", () =>
@@ -488,19 +492,19 @@ export default function ProposalPage() {
               );
             }}
           >
-            <label className="bib-label" htmlFor="declinedReason">
+            <label className="label" htmlFor="declinedReason">
               Why did they say no?
             </label>
-            <textarea className="bib-input" id="declinedReason" name="declinedReason" rows={2}
+            <textarea className="input" id="declinedReason" name="declinedReason" rows={2}
                       autoFocus
                       placeholder="Went with their existing auditor on price." />
-            <div className="bib-nav" style={{ marginTop: "var(--bib-gap-1)", marginBottom: 0 }}>
-              <button className="bib-button-quiet bib-button-danger" type="submit"
+            <div className="cluster" style={{ marginTop: "var(--s-2)", marginBottom: 0 }}>
+              <button className="btn" data-variant="destructive-quiet" data-size="sm" type="submit"
                       disabled={busy !== null}>
                 Record the decline
               </button>
               <button
-                className="bib-button-quiet"
+                className="btn" data-variant="secondary" data-size="sm"
                 type="button"
                 disabled={busy !== null}
                 onClick={() => {
@@ -510,7 +514,7 @@ export default function ProposalPage() {
                 Cancel
               </button>
             </div>
-            <p className="bib-muted" style={{ fontSize: 13, marginBottom: 0 }}>
+            <p className="muted text-sm">
               In the firm&apos;s own words. The status already says the quote was lost; this is
               the half worth anything next quarter, and it cannot be added later.
             </p>
@@ -519,19 +523,19 @@ export default function ProposalPage() {
 
         {proposal.status === "rejected" && (
           <>
-            <p className="bib-label" style={{ marginBottom: 2 }}>
+            <p className="label" style={{ marginBottom: 2 }}>
               Why they said no
             </p>
-            <p style={{ marginTop: 0, marginBottom: 0, fontSize: 14 }}>
+            <p className="text-md">
               {proposal.declinedReason ?? (
                 // Null on a rejection means nobody wrote one down, which is a
                 // different silence from a quote that was never decided.
-                <span className="bib-muted">Not recorded — nobody was asked.</span>
+                <span className="muted">Not recorded — nobody was asked.</span>
               )}
             </p>
           </>
         )}
       </div>
-    </main>
+    </Page>
   );
 }

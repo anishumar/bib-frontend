@@ -1,10 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { CalendarRow, CoverageGap, CoverageReason } from "@/lib/api/client";
+import { Cluster, Page, PageHeader, Stack } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  Checkbox,
+  ErrorNotice,
+  LinkButton,
+  Pill,
+  Select,
+  Sub,
+  TabPanel,
+  Table,
+  TableWrap,
+  Tabs,
+  Td,
+  Th,
+  Tooltip,
+} from "@/components/ui";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -39,6 +59,7 @@ export default function CalendarPage() {
   const [rows, setRows] = useState<CalendarRow[]>([]);
   const [gaps, setGaps] = useState<CoverageGap[]>([]);
   const [tab, setTab] = useState<"due" | "coverage">("due");
+  const tabsId = useId();
   const [includeSettled, setIncludeSettled] = useState(false);
   const [module, setModule] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -91,108 +112,87 @@ export default function CalendarPage() {
   const today = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">Home</Link>
-        <Link href="/work-items">Board</Link>
-        <Link href="/clients">Clients</Link>
-        <Link href="/admin/obligation-rules">Compliance rules</Link>
-      </nav>
+    <Page>
+      <PageHeader
+        eyebrow="Delivery"
+        title="Compliance calendar"
+        lede="What each company owes, generated from the firm’s rules and the engagements it holds. Nobody types a row into this calendar — if anyone could, it could disagree with the statute."
+      />
 
-      <h1>Compliance calendar</h1>
-      <p className="bib-muted">
-        What each company owes, generated from the firm&rsquo;s rules and the engagements it
-        holds. Nobody types a row into this calendar &mdash; if anyone could, it could disagree
-        with the statute.
-      </p>
+      <ErrorNotice error={error} />
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      <Tabs
+        id={tabsId}
+        label="Calendar views"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: "due", label: "Due", count: rows.length },
+          { value: "coverage", label: "Not covered", count: gaps.length },
+        ]}
+      />
 
-      <div className="bib-nav" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <button
-          type="button"
-          className="bib-pill"
-          data-tone={tab === "due" ? "live" : undefined}
-          onClick={() => { setTab("due"); }}
-        >
-          Due ({rows.length})
-        </button>
-        <button
-          type="button"
-          className="bib-pill"
-          // The gap count is TONED only when there is something to look at, so
-          // a clean firm does not carry a permanent amber badge.
-          data-tone={tab === "coverage" ? "live" : undefined}
-          onClick={() => { setTab("coverage"); }}
-        >
-          Not covered ({gaps.length})
-        </button>
-      </div>
-
+      <TabPanel tabsId={tabsId} value={tab}>
       {tab === "due" ? (
-        <>
-          <div style={{ display: "flex", gap: "var(--bib-gap-2)", alignItems: "center", margin: "var(--bib-gap-2) 0" }}>
-            <label className="bib-check">
-              <input
-                type="checkbox"
-                checked={includeSettled}
-                onChange={(e) => { setIncludeSettled(e.target.checked); }}
-              />
-              <span>
-                Include filed and resolved. Off by default &mdash; within a year those are
-                almost the whole table and never the answer.
-              </span>
-            </label>
+        <Stack>
+          <Cluster gap="loose">
+            <Checkbox
+              label="Include filed and resolved"
+              note="off by default — within a year those are almost the whole table and never the answer."
+              checked={includeSettled}
+              onChange={(e) => { setIncludeSettled(e.target.checked); }}
+            />
             {modules.length > 0 && (
-              <select value={module} onChange={(e) => { setModule(e.target.value); }}>
+              <Select
+                size="sm"
+                aria-label="Authority"
+                value={module}
+                onChange={(e) => { setModule(e.target.value); }}
+              >
                 <option value="">Every authority</option>
                 {modules.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
+              </Select>
             )}
-          </div>
+          </Cluster>
 
           {!loaded ? (
-            <p className="bib-muted">Loading&hellip;</p>
+            <Loading label="Loading the calendar" />
           ) : shown.length === 0 ? (
-            <div className="bib-callout">
-              <p style={{ marginTop: 0 }}>
-                <strong>Nothing is on the calendar.</strong>
-              </p>
-              <p style={{ marginBottom: 0 }}>
+            <Card>
+              <Empty title="Nothing is on the calendar" icon="calendar">
+                {gaps.length > 0
+                  ? `${String(gaps.length)} live ${gaps.length === 1 ? "engagement" : "engagements"} produced no filings.`
+                  : "No live engagement is covered by a rule that can compute a date. Most of the shipped India pack is waiting on a fact the firm has not given yet."}
+              </Empty>
+              <Cluster align="end">
                 {gaps.length > 0 ? (
-                  <>
-                    {gaps.length} live {gaps.length === 1 ? "engagement" : "engagements"} produced
-                    no filings.{" "}
-                    <button
-                      type="button"
-                      className="bib-pill"
-                      onClick={() => { setTab("coverage"); }}
-                    >
-                      See why &rarr;
-                    </button>
-                  </>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => { setTab("coverage"); }}
+                  >
+                    See why
+                  </Button>
                 ) : (
-                  <>
-                    No live engagement is covered by a rule that can compute a date. Check{" "}
-                    <Link href="/admin/obligation-rules">the rules</Link> &mdash; most of the
-                    shipped India pack is waiting on a fact the firm has not given yet.
-                  </>
+                  <LinkButton size="sm" href="/admin/obligation-rules">
+                    Open the rules
+                  </LinkButton>
                 )}
-              </p>
-            </div>
+              </Cluster>
+            </Card>
           ) : (
-            <div className="bib-card">
-              <table className="bib-table">
+            <TableWrap>
+              <Table>
                 <thead>
                   <tr>
-                    <th>Filing</th>
-                    <th>Company</th>
-                    <th>Period</th>
-                    <th>Start by</th>
-                    <th>Legal deadline</th>
-                    <th>State</th>
+                    <Th>Filing</Th>
+                    <Th>Company</Th>
+                    <Th>Period</Th>
+                    <Th>Start by</Th>
+                    <Th>Legal deadline</Th>
+                    <Th>State</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -200,14 +200,15 @@ export default function CalendarPage() {
                     <CalendarLine key={row.id} row={row} today={today} />
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableWrap>
           )}
-        </>
+        </Stack>
       ) : (
         <CoverageTab gaps={gaps} loaded={loaded} />
       )}
-    </main>
+      </TabPanel>
+    </Page>
   );
 }
 
@@ -217,69 +218,65 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
 
   return (
     <tr>
-      <td>
+      <Td>
         {row.name}
-        {row.authority !== null && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
-            {row.authority}
-          </span>
-        )}
+        {row.authority !== null && <Sub>{row.authority}</Sub>}
         {/* SHOWN, never hidden. The date came from a document rather than from a
             partner ticking it against the statute, and a plausible-looking wrong
             due date is the dangerous kind precisely because nobody re-reads it. */}
         {row.ruleUnconfirmed && (
-          <span className="bib-pill" style={{ marginLeft: 6 }} title={`Rule pack ${row.rulePack}`}>
-            unconfirmed rule
-          </span>
+          <Sub>
+            <Tooltip text={`Rule pack ${row.rulePack}`}>
+              <Pill tone="warn">unconfirmed rule</Pill>
+            </Tooltip>
+          </Sub>
         )}
-      </td>
-      <td>
-        {row.entityName ?? <span className="bib-muted">&mdash;</span>}
+      </Td>
+      <Td>
+        {row.entityName ?? <span className="empty">&mdash;</span>}
         {/* The CLIENT under the entity, because a group of four companies files
             four sets of returns and the rows would otherwise be identical. */}
         {row.clientName !== null && row.clientName !== row.entityName && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
-            {row.clientName}
-          </span>
+          <Sub>{row.clientName}</Sub>
         )}
-      </td>
-      <td className="bib-mono">{row.periodLabel}</td>
-      <td>
-        <span className={lateInternally ? "bib-mono bib-error" : "bib-mono"} style={{ margin: 0 }}>
+      </Td>
+      <Td>
+        <span className="mono">{row.periodLabel}</span>
+      </Td>
+      <Td>
+        <span className={lateInternally ? "mono tone-danger" : "mono"}>
           {row.internalTargetOn}
         </span>
         {row.workItemId !== null && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+          <Sub>
             <Link href={`/work-items/${row.workItemId}`}>on the board &rarr;</Link>
-          </span>
+          </Sub>
         )}
-      </td>
-      <td>
-        <span className={lateLegally ? "bib-mono bib-error" : "bib-mono"} style={{ margin: 0 }}>
+      </Td>
+      <Td>
+        <span className={lateLegally ? "mono tone-danger" : "mono"}>
           {row.statutoryDueOn}
           {lateLegally && " · missed"}
         </span>
-      </td>
-      <td>
-        <span
-          className="bib-pill"
-          style={{ whiteSpace: "nowrap" }}
-          data-tone={row.needsDecision ? "revoked" : row.isTerminal ? undefined : "live"}
-        >
+      </Td>
+      <Td>
+        <Pill tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "accent"}>
           {row.stateName}
-        </span>
+        </Pill>
         {/* WHEN, not just that. A row that says only "Filed" is one somebody
             has to open a task to date, and the gap between the legal deadline
             and this line is the whole question anybody asks of a closed filing.
             Nothing wrote this date until 0054 — every row read "Pending"
             forever, and this cell is where that shows. */}
         {row.filedOn !== null && (
-          <span className="bib-muted bib-mono" style={{ display: "block", fontSize: 12 }}>
-            {row.filedOn}
-            {row.filedOn > row.statutoryDueOn ? " · late" : ""}
-          </span>
+          <Sub>
+            <span className="mono">
+              {row.filedOn}
+              {row.filedOn > row.statutoryDueOn ? " · late" : ""}
+            </span>
+          </Sub>
         )}
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -294,13 +291,15 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
  * would otherwise never see.
  */
 function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean }) {
-  if (!loaded) return <p className="bib-muted">Loading&hellip;</p>;
+  if (!loaded) return <Loading label="Checking coverage" />;
   if (gaps.length === 0) {
     return (
-      <p className="bib-muted" style={{ marginTop: "var(--bib-gap-2)" }}>
-        Every live engagement produces filings. That means every service the firm is delivering
-        is named by a rule that can compute a date.
-      </p>
+      <Card>
+        <Empty title="Everything is covered" icon="check">
+          Every live engagement produces filings. That means every service the firm is
+          delivering is named by a rule that can compute a date.
+        </Empty>
+      </Card>
     );
   }
 
@@ -313,8 +312,8 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
   }
 
   return (
-    <div style={{ marginTop: "var(--bib-gap-2)" }}>
-      <p className="bib-muted">
+    <Stack>
+      <p className="lede">
         These engagements are live and the calendar produced nothing for them.{" "}
         <strong>None of this is an error.</strong> Most advisory work has no compliance rule and
         never will; what matters is the ones that should have.
@@ -322,48 +321,50 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
       {[...byReason.entries()]
         .sort((a, b) => REASON_ORDER.indexOf(a[0]) - REASON_ORDER.indexOf(b[0]))
         .map(([reason, rows]) => (
-          <div className="bib-card" key={reason} style={{ marginTop: "var(--bib-gap-2)" }}>
-            <h2 style={{ marginTop: 0 }}>
-              {REASONS[reason].title} <span className="bib-muted">({rows.length})</span>
-            </h2>
-            <p className="bib-hint">{REASONS[reason].what}</p>
-            <table className="bib-table">
+          <Card key={reason}>
+            <CardHead
+              title={REASONS[reason].title}
+              aside={<Pill tone="quiet">{rows.length}</Pill>}
+            />
+            <p className="field-hint">{REASONS[reason].what}</p>
+            <TableWrap>
+              <Table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Company</th>
-                  <th>Service</th>
-                  <th>Country</th>
+                  <Th>Client</Th>
+                  <Th>Company</Th>
+                  <Th>Service</Th>
+                  <Th>Country</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((g) => (
                   <tr key={g.engagementId}>
-                    <td>{g.clientName ?? <span className="bib-muted">&mdash;</span>}</td>
-                    <td>{g.entityName ?? <span className="bib-muted">&mdash;</span>}</td>
-                    <td>
+                    <Td>{g.clientName ?? <span className="empty">&mdash;</span>}</Td>
+                    <Td>{g.entityName ?? <span className="empty">&mdash;</span>}</Td>
+                    <Td>
                       {g.serviceName ?? (
-                        <span className="bib-muted" title="The catalogue version this engagement pinned could not be resolved">
-                          unresolved service
-                        </span>
+                        <Tooltip text="The catalogue version this engagement pinned could not be resolved">
+                          <span className="unstated">unresolved service</span>
+                        </Tooltip>
                       )}
-                    </td>
-                    <td className="bib-mono">
-                      {g.jurisdiction ?? (
-                        <span
-                          className="bib-muted"
-                          title="This company has no registered jurisdiction, so no rule can match it"
-                        >
-                          none
-                        </span>
+                    </Td>
+                    <Td>
+                      {g.jurisdiction === null ? (
+                        <Tooltip text="This company has no registered jurisdiction, so no rule can match it">
+                          <span className="unstated">none</span>
+                        </Tooltip>
+                      ) : (
+                        <Pill tone="code">{g.jurisdiction}</Pill>
                       )}
-                    </td>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </Table>
+            </TableWrap>
             {REASONS[reason].fix !== null && (
-              <p className="bib-hint">
+              <p className="field-hint">
                 {REASONS[reason].fix}
                 {/* The link goes where the FIX is, which is not always the rules
                     screen: an unregistered company is fixed on its own client
@@ -379,9 +380,9 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                 )}
               </p>
             )}
-          </div>
+          </Card>
         ))}
-    </div>
+    </Stack>
   );
 }
 

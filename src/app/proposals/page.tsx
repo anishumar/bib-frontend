@@ -5,6 +5,25 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { PartySummary, ProposalSummary } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Input,
+  Pill,
+  Select,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  type PillTone,
+} from "@/components/ui";
 
 /**
  * What the firm has quoted, and to whom.
@@ -79,33 +98,38 @@ export default function ProposalsPage() {
     router.push(`/proposals/${result.data.id}`);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading proposals" />;
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">← Workspace</Link>
-      </nav>
-      <h1>Proposals</h1>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Commercial"
+        title="Proposals"
+        lede="What the firm has quoted, and whether the client has looked at it."
+        aside={<Pill tone="quiet">{proposals.length}</Pill>}
+      />
 
-      <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-        {proposals.length === 0 ? (
-          <p className="bib-muted" style={{ margin: 0 }}>
-            Nothing quoted yet.
-          </p>
-        ) : (
-          <table className="bib-table">
+      <ErrorNotice error={error} />
+
+      {proposals.length === 0 ? (
+        <Card>
+          <Empty title="Nothing quoted yet" icon="proposals">
+            A proposal is the priced document a prospect receives. Draft the first one below.
+          </Empty>
+        </Card>
+      ) : (
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
-                <th>Ref</th>
-                <th>Proposal</th>
-                <th>Client</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-                <th>Opened</th>
+                <Th>Ref</Th>
+                <Th>Proposal</Th>
+                <Th>Client</Th>
+                <Th>Status</Th>
+                <Th align="right">Total</Th>
+                <Th>Opened</Th>
               </tr>
             </thead>
             <tbody>
@@ -113,123 +137,93 @@ export default function ProposalsPage() {
                 <tr key={p.proposal.id}>
                   {/* The firm's own number for the document, first: it is what
                       a client quotes back and what an audit cites. */}
-                  <td className="bib-mono">
-                    <Link href={`/proposals/${p.proposal.id}`}>{p.proposal.ref}</Link>
-                  </td>
-                  <td>
+                  <Td>
+                    <Link href={`/proposals/${p.proposal.id}`} className="mono">
+                      {p.proposal.ref}
+                    </Link>
+                  </Td>
+                  <Td>
                     <Link href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</Link>
-                    <div className="bib-muted" style={{ fontSize: 13 }}>
+                    <Sub>
                       {p.lineCount} {p.lineCount === 1 ? "line" : "lines"}
-                    </div>
-                  </td>
+                    </Sub>
+                  </Td>
                   {/* The client by NAME. The API returns a joined read model, so
                       a list of quotes is not a column of uuids. */}
-                  <td>{p.party.displayName}</td>
-                  <td>
-                    <span className="bib-pill" data-tone={toneOf(p.proposal.status)}>
-                      {p.proposal.status}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right" }} className="bib-mono">
-                    {formatMoney(p.totals.net, p.totals.currency)}
-                  </td>
+                  <Td>{p.party.displayName}</Td>
+                  <Td>
+                    <Pill tone={toneOf(p.proposal.status)}>{p.proposal.status}</Pill>
+                  </Td>
+                  <Td align="right">
+                    <span className="mono">{formatMoney(p.totals.net, p.totals.currency)}</span>
+                  </Td>
                   {/* The TRACK half of send/track: has the client looked at it. */}
-                  <td className="bib-muted" style={{ fontSize: 13 }}>
-                    {p.proposal.viewCount === 0 ? "not yet" : `${p.proposal.viewCount}×`}
-                  </td>
+                  <Td>
+                    {p.proposal.viewCount === 0 ? (
+                      <span className="empty">not yet</span>
+                    ) : (
+                      <span className="mono">{p.proposal.viewCount}×</span>
+                    )}
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        )}
-      </div>
+          </Table>
+        </TableWrap>
+      )}
 
-      <div className="bib-card">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>New proposal</h2>
+      <Card>
+        <CardHead title="New proposal" />
         <form
           action={(form) => {
             void draft(form);
           }}
         >
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-            <div style={{ flex: "2 1 240px" }}>
-              <label className="bib-label" htmlFor="title">
-                Title
-              </label>
-              <input className="bib-input" id="title" name="title" required />
-            </div>
+          <div className="stack">
+            <FieldRow>
+              <Field label="Title">
+                <Input name="title" required />
+              </Field>
+              <Field label="Client">
+                <Select name="partyId" required>
+                  {parties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            <FieldRow>
+              <Field label="Quoted in">
+                <Input name="currency" defaultValue="INR" maxLength={3} required />
+              </Field>
+              <Field label="Rate to the firm&apos;s currency">
+                <Input name="fxRate" defaultValue="1" required />
+              </Field>
+              <Field label="Rate dated">
+                <Input name="fxRateDate" type="date" defaultValue={today} required />
+              </Field>
+              <Field label="Valid until" optional>
+                <Input name="validUntil" type="date" />
+              </Field>
+            </FieldRow>
+
             <div>
-              <label className="bib-label" htmlFor="partyId">
-                Client
-              </label>
-              <select
-                className="bib-select"
-                id="partyId"
-                name="partyId"
-                required
-                style={{ width: "100%" }}
-              >
-                {parties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName}
-                  </option>
-                ))}
-              </select>
+              <Button type="submit" loading={busy}>
+                Draft proposal
+              </Button>
             </div>
           </div>
-
-          <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
-            <div>
-              <label className="bib-label" htmlFor="currency">
-                Quoted in
-              </label>
-              <input
-                className="bib-input"
-                id="currency"
-                name="currency"
-                defaultValue="INR"
-                maxLength={3}
-                required
-              />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="fxRate">
-                Rate to the firm&apos;s currency
-              </label>
-              <input className="bib-input" id="fxRate" name="fxRate" defaultValue="1" required />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="fxRateDate">
-                Rate dated
-              </label>
-              <input
-                className="bib-input"
-                id="fxRateDate"
-                name="fxRateDate"
-                type="date"
-                defaultValue={today}
-                required
-              />
-            </div>
-            <div>
-              <label className="bib-label" htmlFor="validUntil">
-                Valid until
-              </label>
-              <input className="bib-input" id="validUntil" name="validUntil" type="date" />
-            </div>
-          </div>
-
-          <button className="bib-button" type="submit" disabled={busy}>
-            {busy ? "Drafting…" : "Draft proposal"}
-          </button>
         </form>
-      </div>
-    </main>
+      </Card>
+    </Page>
   );
 }
 
 /** Which pill a status wears. `rejected` and `expired` are the same kind of
  *  fact — this one is not going anywhere — and the rest are neutral. */
-function toneOf(status: ProposalSummary["proposal"]["status"]): string {
-  return status === "rejected" || status === "expired" ? "revoked" : "neutral";
+function toneOf(status: ProposalSummary["proposal"]["status"]): PillTone {
+  return status === "rejected" || status === "expired" ? "danger" : "neutral";
 }

@@ -1,0 +1,1175 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENTS — one block per component, and one component per idea.
+
+   Every block here has exactly one React component in `src/components/` in
+   front of it. That pairing is the point: a developer never types these class
+   names, they import `<Button>` and get them. The classes are an
+   implementation detail, and keeping them so is what stops a sixth button
+   appearing the week after the fifth was consolidated.
+
+   Variants are DATA ATTRIBUTES rather than extra classes — `[data-variant]`,
+   `[data-tone]`, `[data-size]`. Two reasons. A variant is a closed set, and an
+   attribute selector says so in a way a space-separated class list does not;
+   and the TypeScript union that produces it reads the same as the CSS that
+   consumes it, so a typo is a compile error rather than an unstyled button.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Button ───────────────────────────────────────────────────────────────
+   THE button. There is no other.
+
+   The primary is INK, not accent — colour is reserved for status, and a page
+   with four accent-coloured buttons has spent its one signal on furniture.
+   The loud button is loud because it is dark, which works without needing a
+   hue at all. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: var(--t-md);
+  font-weight: 600;
+  padding: 0 1.1rem;
+  min-height: var(--control-h);
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-bg);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  transition: background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+  border-color: var(--btn-bg-hover);
+  color: var(--btn-ink);
+}
+
+/* Disabled is not busy. A disabled control cannot be used and says so with
+   `not-allowed`; a busy one is working and says so with `progress`. The old
+   stylesheet gave both `cursor: progress`, which told somebody to wait for a
+   button that was never going to become available. */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn[data-loading="true"] {
+  cursor: progress;
+}
+
+.btn[data-variant="secondary"],
+.btn[data-variant="outline"] {
+  background: var(--surface);
+  color: var(--ink-2);
+  border-color: var(--line);
+}
+.btn[data-variant="secondary"]:hover:not(:disabled),
+.btn[data-variant="outline"]:hover:not(:disabled) {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn[data-variant="ghost"] {
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+.btn[data-variant="ghost"]:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: transparent;
+  color: var(--ink);
+}
+
+/* Destructive is red because destruction is a status. */
+.btn[data-variant="destructive"] {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+.btn[data-variant="destructive"]:hover:not(:disabled) {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+  color: #ffffff;
+}
+
+/* A quiet destructive: the row action that must read as dangerous without
+   turning a column of rows into a wall of red.
+
+   The BORDER stays neutral and only the text carries the tone, so the signal
+   is there when the eye lands on the row but the table still reads as data.
+   Hover brings the red edge in — by then it is one row, not twelve. */
+.btn[data-variant="destructive-quiet"] {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: var(--line);
+}
+.btn[data-variant="destructive-quiet"]:hover:not(:disabled) {
+  background: var(--danger-wash);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* A button that is really a link — "forgot password", "show versions". Keeps
+   button SEMANTICS (it performs an action, it is not a destination) while
+   spending none of a button's visual weight. */
+.btn[data-variant="link"] {
+  background: none;
+  border-color: transparent;
+  padding: 0;
+  min-height: 0;
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-weight: 400;
+}
+.btn[data-variant="link"]:hover:not(:disabled) {
+  background: none;
+  border-color: transparent;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn[data-size="sm"] {
+  min-height: var(--control-h-sm);
+  padding: 0 0.7rem;
+  font-size: var(--t-sm);
+}
+.btn[data-size="lg"] {
+  min-height: 3rem;
+  padding: 0 1.5rem;
+  font-size: var(--t-base);
+}
+.btn[data-block="true"] {
+  display: flex;
+  width: 100%;
+}
+
+/* A button that is only an icon still has to meet the pointer-target floor,
+   so it is square at the control height rather than shrink-wrapped. */
+.btn[data-icon-only="true"] {
+  padding: 0;
+  width: var(--control-h);
+}
+.btn[data-icon-only="true"][data-size="sm"] {
+  width: var(--control-h-sm);
+}
+
+.btn .icon {
+  flex: none;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────────
+   Also the button's loading state, which is why it inherits `currentColor`. */
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: bib-spin 0.6s linear infinite;
+}
+@keyframes bib-spin {
+  to { transform: rotate(360deg); }
+}
+/* Under reduced motion the ring stops turning, so it becomes a static mark
+   rather than nothing at all. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: currentColor;
+    opacity: 0.5;
+  }
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────
+   The container everything sits in. `flush` for a card whose content brings
+   its own padding — a table, most often. */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s-5);
+  min-width: 0;
+}
+.card[data-flush="true"] {
+  padding: 0;
+  overflow: hidden;
+}
+.card[data-pad="sm"] {
+  padding: var(--s-4);
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-4);
+}
+.card-head > :first-child {
+  min-width: 0;
+}
+/* A card's own heading. This is the shape that was copy-pasted 59 times as
+   `<h2 style={{ marginTop: 0, fontSize: 16 }}>` before it had a name. */
+.card-title {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+.card-foot {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ── Table ────────────────────────────────────────────────────────────────
+   The wrapper is not optional. A seven-column table on a phone has to scroll
+   INSIDE its own box; without this the whole page scrolls sideways and the
+   navigation goes with it. */
+
+.tablewrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow-x: auto;
+  min-width: 0;
+  /*
+   * `contain: layout paint` is what actually keeps a wide table's width off
+   * the page, and `overflow-x: auto` alone is NOT enough.
+   *
+   * Without it the wrapper scrolls correctly and the document ALSO gains
+   * horizontal scroll, so the whole page slides sideways to a blank band.
+   * Measured on a 390px viewport: /admin/people 554px, /admin/grades 251px,
+   * and /admin/people still 176px at 768px. With it, every route is 0 at 390,
+   * 768 and 1440 — and the table keeps its own internal scroll.
+   *
+   * Layout containment is the half that matters: it stops the table's
+   * intrinsic width participating in the viewport's scrollable overflow.
+   * Paint containment comes along because the two are almost always wanted
+   * together and it costs nothing here.
+   */
+  contain: layout paint;
+}
+/* Inside a flush card the wrapper is already framed. */
+.card[data-flush="true"] > .tablewrap {
+  border: 0;
+  border-radius: 0;
+}
+
+.table {
+  width: 100%;
+  /*
+   * `min-width: max-content` is what makes `.tablewrap`'s scrolling actually
+   * happen. Without it a narrow viewport does not overflow the wrapper — it
+   * CRUSHES the columns instead, and a cell holding a `<select>` collapses to
+   * about thirty pixels. With it the table keeps the width its content needs
+   * and the wrapper scrolls, which is the behaviour the wrapper exists for.
+   *
+   * On a wide screen `width: 100%` still wins, because it is the larger of
+   * the two.
+   */
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: var(--t-md);
+}
+.table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 400;
+  padding: var(--s-3) 1.125rem;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.table td {
+  padding: 0.875rem 1.125rem;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover td {
+  background: var(--surface-sunk);
+}
+/* A quiet second line under something — an email under a name, a code under a
+   label, the reason a value is absent.
+ *
+ * NOT scoped to table cells, though that is where it is commonest. It was, and
+ * the first use outside one rendered unstyled: a class that only works in one
+ * container is a trap, because nothing about the name says so. */
+.sub {
+  display: block;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  margin-top: 0.15rem;
+  line-height: 1.4;
+}
+.table td a {
+  font-weight: 500;
+}
+.table td a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Numbers right, and in the mono face, so a column of them reads as a column.
+   Set by the column's `align` prop rather than by hand per cell. */
+.table [data-align="right"] {
+  text-align: right;
+}
+.table [data-align="center"] {
+  text-align: center;
+}
+/* A row for something no longer in force — a revoked membership, a retired
+   grade. Dimmed rather than hidden: it is still a fact about the firm. */
+.table tbody tr[data-inactive="true"] td {
+  opacity: 0.55;
+}
+
+/* ── Pill ─────────────────────────────────────────────────────────────────
+   One neutral chip for state, and three that mean something. Every tone here
+   is DEFINED — the old stylesheet had screens asking for `active` and
+   `neutral`, which existed nowhere, so a revoked membership and a live one
+   rendered identically. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  padding: 0.15rem var(--s-2);
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.pill[data-tone="accent"],
+.pill[data-tone="ok"] {
+  border-color: transparent;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+.pill[data-tone="warn"] {
+  border-color: transparent;
+  background: var(--warn-wash);
+  color: var(--warn);
+}
+.pill[data-tone="danger"] {
+  border-color: transparent;
+  background: var(--danger-wash);
+  color: var(--danger);
+}
+.pill[data-tone="quiet"] {
+  background: transparent;
+  color: var(--muted);
+}
+/* An identifier, not a word: a role key, a service code, a jurisdiction. */
+.pill[data-tone="code"] {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  background: transparent;
+  color: var(--muted);
+}
+
+/* ── Form controls ────────────────────────────────────────────────────────
+   Every control is the same height, the same radius and the same type, so a
+   row of them lines up without anybody measuring. */
+
+.label {
+  display: block;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: var(--s-2);
+}
+.label .optional {
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.6rem var(--s-3);
+  min-height: var(--control-h);
+  font: inherit;
+  font-size: var(--t-base);
+  color: var(--ink);
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--faint);
+}
+.input:hover:not(:disabled),
+.select:hover:not(:disabled),
+.textarea:hover:not(:disabled) {
+  border-color: var(--input-border-hover);
+}
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  background: var(--surface-sunk);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+/* The error state is a BORDER, not a background — a tinted field is hard to
+   read at the moment somebody most needs to read it. The message underneath
+   carries the colour. */
+.input[aria-invalid="true"],
+.select[aria-invalid="true"],
+.textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.textarea {
+  resize: vertical;
+  min-height: 3.5rem;
+  line-height: 1.55;
+}
+/*
+ * `appearance: none` is not cosmetic here.
+ *
+ * On macOS the platform paints a `<select>` itself and IGNORES its
+ * `background-color` — so in dark mode the computed style is right and the
+ * control still renders as a white box. Taking the native appearance away is
+ * the only way the theme reaches it, and the chevron then has to be drawn
+ * back, which is what `--select-arrow` is.
+ *
+ * The right padding leaves room for it; `background-image` is positioned
+ * rather than sized so the same rule works at both control heights.
+ */
+.select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: var(--s-6);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right var(--s-2) center;
+  background-size: 1rem 1rem;
+}
+/* A multi-row select is a list box, not a dropdown — no chevron, and it must
+   keep the height its rows ask for. */
+.select[multiple] {
+  background-image: none;
+  padding-right: var(--s-3);
+}
+.input[data-size="sm"],
+.select[data-size="sm"] {
+  min-height: var(--control-h-sm);
+  padding: 0.25rem var(--s-2);
+  font-size: var(--t-md);
+}
+
+/* A field: label, control, hint, error. One shape, so the gap between a label
+   and its input is the same on every screen in the product. */
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.field-hint {
+  font-size: var(--t-sm);
+  color: var(--muted);
+  margin: var(--s-1) 0 0;
+}
+.field-error {
+  font-size: var(--t-sm);
+  color: var(--danger);
+  margin: var(--s-1) 0 0;
+}
+/* Fields down a form. */
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+/* Fields across a row, wrapping on their own rather than at a breakpoint. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s-4);
+  align-items: end;
+}
+
+/* Checkbox and radio: the control, and a label that can be a whole sentence.
+   `align-items: flex-start` because the option's own explanation belongs
+   beside it — this is the choice deciding who may sign off a statutory
+   filing, and the trade-off has to be readable where it is made. */
+.check {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  font-size: var(--t-md);
+  cursor: pointer;
+  min-width: 0;
+}
+.check input[type="checkbox"],
+.check input[type="radio"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  min-height: 0;
+  margin: 0;
+  margin-top: 0.2rem;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.check input:disabled {
+  cursor: not-allowed;
+}
+.check input:disabled ~ * {
+  opacity: 0.6;
+}
+.check .note {
+  color: var(--muted);
+}
+/* A row of a radio group, with enough padding to be a comfortable target. */
+.check[data-row="true"] {
+  padding: var(--s-2) 0;
+}
+
+.fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.fieldset > legend {
+  padding: 0;
+  margin-bottom: var(--s-2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* ── Switch ───────────────────────────────────────────────────────────────
+   A real checkbox underneath, sized to cover the track, so it keeps every
+   keyboard and screen-reader behaviour a checkbox already has. */
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  cursor: pointer;
+  min-width: 0;
+}
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background var(--dur) var(--ease);
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(15 26 32 / 0.25);
+  transition: transform var(--dur) var(--ease);
+  pointer-events: none;
+}
+.switch input:checked ~ .switch-track {
+  background: var(--accent);
+}
+.switch input:checked ~ .switch-track .switch-thumb {
+  transform: translateX(1rem);
+}
+.switch input:focus-visible ~ .switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switch input:disabled ~ .switch-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Notice ───────────────────────────────────────────────────────────────
+   Used for one thing: something needs you.
+
+   Also the shape a REFUSAL takes. The API's messages are paragraphs — the
+   config validator names the field, the value it got and the form it wanted —
+   so this has to wrap, and `pre-wrap` keeps the line breaks it sent. */
+
+.notice {
+  display: flex;
+  gap: 0.875rem;
+  padding: var(--s-4) 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--r-sm);
+  min-width: 0;
+}
+.notice[data-tone="danger"] { border-left-color: var(--danger); }
+.notice[data-tone="warn"]   { border-left-color: var(--warn); }
+.notice[data-tone="accent"],
+.notice[data-tone="ok"]     { border-left-color: var(--accent); }
+.notice p {
+  margin: 0;
+  font-size: var(--t-md);
+  white-space: pre-wrap;
+  min-width: 0;
+}
+.notice .eyebrow {
+  margin-bottom: var(--s-1);
+}
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Definition rows ──────────────────────────────────────────────────────
+   Label-and-value pairs. A record is a handful of short facts, and a table
+   cell is where a fact goes to become unreadable. */
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1.25rem var(--s-6);
+  margin: 0;
+  min-width: 0;
+}
+.meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.meta dt {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.meta dd {
+  margin: 0;
+  font-size: 0.9375rem;
+  min-width: 0;
+}
+/* Stacked rather than gridded, for a record with two facts — `auto-fit` would
+   spread two items across the full width and leave them stranded. */
+.meta[data-layout="list"] {
+  display: block;
+}
+.meta[data-layout="list"] > div {
+  margin-top: var(--s-3);
+}
+.meta[data-layout="list"] > div:first-child {
+  margin-top: 0;
+}
+
+/* ── Stat strip ───────────────────────────────────────────────────────────
+   Counts, in one band rather than four hero tiles. The number is the loud part
+   and the word is small, because the number is what changes. */
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: var(--s-3);
+  margin: 0;
+}
+.strip > div {
+  padding: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  min-width: 0;
+}
+.strip dt {
+  font-size: var(--t-sm);
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: var(--s-1);
+}
+.strip dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+/* Tone reaches the card's border too, so a count that matters is visible
+   before the number is read. */
+.strip dd[data-tone="danger"] { color: var(--danger); }
+.strip > div:has(dd[data-tone="danger"]) {
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+.strip dd[data-tone="warn"] { color: var(--warn); }
+.strip > div:has(dd[data-tone="warn"]) {
+  border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
+}
+.strip dd[data-tone="ok"] { color: var(--accent); }
+.strip dd small {
+  font-family: var(--sans);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--faint);
+  margin-left: 0.35rem;
+  letter-spacing: 0;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────
+   One implementation. There were three: buttons styled as primary/secondary on
+   `/work-items`, the same trick inside a different wrapper on `/work`, and
+   pills with a tone attribute on `/calendar`. None was a tablist, so none was
+   reachable the way a tablist is. */
+
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  min-width: 0;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  margin-bottom: -1px;
+  font: inherit;
+  font-size: var(--t-md);
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.tab .count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--faint);
+}
+.tab[aria-selected="true"] .count {
+  color: var(--accent);
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────────────
+   Native `<dialog>`. The browser already owns the focus trap, the Escape key,
+   the inert background and the top layer — reimplementing those in React is
+   how a modal ends up keyboard-inaccessible. */
+
+.dialog {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+}
+.dialog::backdrop {
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+}
+.dialog[data-size="lg"] {
+  width: min(52rem, calc(100vw - 2rem));
+}
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) 0;
+}
+.dialog-body {
+  padding: var(--s-4) var(--s-5);
+}
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding: 0 var(--s-5) var(--s-5);
+}
+
+/* ── Menu ─────────────────────────────────────────────────────────────────
+   Built on `<details>`, so it opens, closes and takes focus without a line of
+   JavaScript and without a click-outside handler that misses the Escape key. */
+
+.menu {
+  position: relative;
+  display: inline-block;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu-panel {
+  position: absolute;
+  top: calc(100% + var(--s-1));
+  right: 0;
+  z-index: var(--z-dropdown);
+  min-width: 12rem;
+  padding: var(--s-1);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+.menu-panel[data-align="left"] {
+  right: auto;
+  left: 0;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  font: inherit;
+  font-size: var(--t-md);
+  color: var(--ink-2);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.menu-item[data-tone="danger"] {
+  color: var(--danger);
+}
+.menu-sep {
+  height: 1px;
+  margin: var(--s-1) 0;
+  background: var(--line-soft);
+  border: 0;
+}
+
+/* ── Tooltip ──────────────────────────────────────────────────────────────
+   CSS-only, and it never carries anything that is not also available another
+   way: a tooltip is invisible to touch and to most assistive technology, so
+   what it says has to be a nicety. */
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.tooltip > .tooltip-text {
+  position: absolute;
+  bottom: calc(100% + var(--s-1));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-dropdown);
+  padding: 0.3rem var(--s-2);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-radius: var(--r-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.tooltip:hover > .tooltip-text,
+.tooltip:focus-within > .tooltip-text {
+  opacity: 1;
+}
+
+/* ── States ───────────────────────────────────────────────────────────────
+   Empty, loading, error and denied, so they look the same everywhere. Before
+   this there were thirty-three hand-written "Loading…" strings and about as
+   many empty states, each a different sentence in a different wrapper. */
+
+/* The one-liner: an empty cell in a table, a list with nothing in it yet. */
+.empty {
+  color: var(--faint);
+  font-size: var(--t-sm);
+  margin: 0;
+}
+
+/* The full-height version, for when the empty thing IS the screen. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: var(--s-7) var(--s-5);
+  text-align: center;
+  min-width: 0;
+}
+.state .state-icon {
+  color: var(--faint);
+  margin-bottom: var(--s-1);
+}
+.state h3 {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.state p {
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: var(--t-md);
+  white-space: pre-wrap;
+}
+.state[data-tone="danger"] .state-icon {
+  color: var(--danger);
+}
+
+/* Skeleton. Sized by the caller in `ch`/`rem` so it occupies roughly what the
+   real content will, which is what stops the page jumping when it arrives. */
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--line-soft) 25%,
+    var(--line) 37%,
+    var(--line-soft) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--r-sm);
+  animation: bib-shimmer 1.4s ease infinite;
+}
+@keyframes bib-shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--line-soft);
+  }
+}
+
+/* ── Prose ────────────────────────────────────────────────────────────────
+   The firm's OWN words — a scope paragraph, an exclusions list. `pre-wrap`
+   keeps the line breaks they typed: these blocks are semicolon-separated lists
+   at least as often as they are sentences, and re-flowing them would be the
+   screen quietly editing what the firm wrote. */
+
+.prose h4 {
+  margin: 0 0 var(--s-1);
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.prose p {
+  margin: 0;
+  font-size: var(--t-md);
+  white-space: pre-wrap;
+  max-width: var(--measure);
+}
+.prose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--s-4) var(--s-5);
+}
+
+/* Absent is absent. Italic and faint — never an empty cell, and never a zero.
+   Every optional field means "the firm has not stated this", and a screen
+   showing that as blank is claiming something the record does not say. */
+.unstated {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/* ── Disclosure ───────────────────────────────────────────────────────── */
+
+.disclosure > summary {
+  cursor: pointer;
+  font-weight: 500;
+  font-size: var(--t-md);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::before {
+  content: "+";
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: var(--t-md);
+}
+.disclosure[open] > summary::before {
+  content: "−";
+}
+.disclosure > summary + * {
+  margin-top: var(--s-4);
+}
+
+/* ── Theme switch ─────────────────────────────────────────────────────────
+   Three states, not two: light, dark, and FOLLOW THE SYSTEM. A two-way toggle
+   cannot express the last one, so somebody whose laptop turns dark at sunset
+   has no way to ask for that here. */
+
+.themeswitch {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.themeswitch button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.themeswitch button:hover {
+  color: var(--ink);
+}
+.themeswitch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(15 26 32 / 0.08);
+}
+
+/* ── Utilities ────────────────────────────────────────────────────────────
+   A deliberately SHORT list. This is not a utility framework; each one exists
+   because it is genuinely a one-off property with no component behind it. */
+
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+
+/* Status as TEXT, for the places a pill is too much furniture — "overdue"
+   under a date, a figure that has gone the wrong way. Same three tones as
+   everything else, so there is never a reason to reach for an inline colour. */
+.tone-danger { color: var(--danger); }
+.tone-warn { color: var(--warn); }
+.tone-ok { color: var(--accent); }
+
+/* The type scale, as classes.
+ *
+ * These exist so that `fontSize: 13` never has to be typed again. They are the
+ * SAME four rungs as the tokens — there is no fifth, and a screen that wants
+ * one has left the system. Body is 16 and needs no class at all. */
+.text-xs { font-size: var(--t-xs); }
+.text-sm { font-size: var(--t-sm); }
+.text-md { font-size: var(--t-md); }
+.text-lg { font-size: var(--t-lg); }
+
+/* A quiet aside INSIDE a heading — a count, a key, a pinned version.
+ *
+ * It drops everything the heading is doing to be a heading: the weight, the
+ * ink, and — because it is used inside `.eyebrow` too — the tracking and the
+ * uppercasing. `.muted` alone was never enough, which is why four screens had
+ * reached for an inline `fontWeight: 400` and one for `letterSpacing: 0`. */
+.annot {
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The one weight that is ever set outside a component: a line of body copy
+   acting as a label for what follows. Anything heavier is a heading. */
+.strong { font-weight: 600; }
+
+/* A headline number — the same treatment `<Stat>` gives one, for the two
+   places on the dashboard that show a figure without a card around it.
+   `tabular-nums` is the point: a figure that ticks over must not jitter. */
+.figure {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: var(--s-1);
+}
+.measure { max-width: var(--measure); }
+.nowrap { white-space: nowrap; }
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Visible to a screen reader, not to the eye. For the label a control needs
+   and the layout cannot show. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

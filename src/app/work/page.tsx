@@ -1,10 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { Job, StepCheck } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Card,
+  ErrorNotice,
+  LinkButton,
+  Pill,
+  Sub,
+  TabPanel,
+  Table,
+  TableWrap,
+  Tabs,
+  Td,
+  Th,
+} from "@/components/ui";
 
 /**
  * The work board — what the engine currently has in hand (T2.6, T2.7).
@@ -65,6 +80,9 @@ export default function WorkPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [checks, setChecks] = useState<StepCheck[]>([]);
   const [tab, setTab] = useState<"work" | "checks">("work");
+  // Shared with every `<TabPanel>` below — it is what ties a tab to the panel
+  // it controls, so `aria-controls` points at something real.
+  const tabsId = useId();
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -100,64 +118,64 @@ export default function WorkPage() {
     })();
   }, [load]);
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <Loading label="Loading the engine" />;
 
   return (
-    <main>
-      <h1>Work</h1>
-      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
-        Everything the engine has in hand: work a signed engagement created, and how far each
-        piece has got. Work whose window has not opened yet is not listed.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+    <Page>
+      <PageHeader
+        eyebrow="Delivery"
+        title="The engine"
+        lede="Everything the engine has in hand: work a signed engagement created, and how far each piece has got. Work whose window has not opened yet is not listed."
+      />
 
-      <div className="bib-chips" style={{ marginBottom: "var(--bib-gap-2)" }}>
-        <button
-          type="button"
-          className={tab === "work" ? "bib-button" : "bib-button-quiet"}
-          onClick={() => { setTab("work"); }}
-        >
-          In hand ({jobs.length})
-        </button>
-        <button
-          type="button"
-          className={tab === "checks" ? "bib-button" : "bib-button-quiet"}
-          onClick={() => { setTab("checks"); }}
-        >
-          To check ({checks.length})
-        </button>
-      </div>
+      <ErrorNotice error={error} />
 
+      <Tabs
+        id={tabsId}
+        label="Engine views"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: "work", label: "In hand", count: jobs.length },
+          { value: "checks", label: "To check", count: checks.length },
+        ]}
+      />
+
+      <TabPanel tabsId={tabsId} value={tab}>
       {tab === "checks" ? (
         <CheckQueue checks={checks} />
       ) : jobs.length === 0 ? (
-        <p className="bib-muted">
-          Nothing is ready to run. Work appears here once an engagement letter is signed and its
-          advance is recorded — that is what starts the engine.
-        </p>
+        <Card>
+          <Empty title="Nothing is ready to run" icon="engine">
+            Work appears here once an engagement letter is signed and its advance is recorded —
+            that is what starts the engine.
+          </Empty>
+        </Card>
       ) : (
-        <div className="bib-card">
-          <table className="bib-table">
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
-                <th>Work</th>
-                <th>For</th>
-                <th>State</th>
-                <th>Ready since</th>
-                <th />
+                <Th>Work</Th>
+                <Th>For</Th>
+                <Th>State</Th>
+                <Th>Ready since</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
               </tr>
             </thead>
             <tbody>
               {jobs.map((j) => (
                 <tr key={j.id}>
-                  <td>
+                  <Td>
                     {/* The services this job delivers — one for an unmerged
                         job, several for a merged one. The team or Dept it was
                         cut under sits beside them, because "why are there two
                         FinCompliance cards" is only answerable if each says
                         what is in it. */}
                     {j.services.length === 0 ? (
-                      <span className="bib-muted">no services listed</span>
+                      <span className="empty">no services listed</span>
                     ) : (
                       <>
                         {j.services.map((sv) => (
@@ -166,42 +184,40 @@ export default function WorkPage() {
                       </>
                     )}
                     {j.splitCode !== null && (
-                      <span className="bib-pill" data-tone="neutral" style={{ marginTop: 4 }}>
-                        {j.splitCode}
-                      </span>
+                      <Sub>
+                        <Pill tone="code">{j.splitCode}</Pill>
+                      </Sub>
                     )}
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     {/* The COMPANY the work is delivered to, which is the one a
                         filing belongs to — not the client who is billed. A group
                         of four companies has four of these, and putting the
                         billed client here would make them look identical. */}
-                    {j.entityName ?? <span className="bib-muted">—</span>}
+                    {j.entityName ?? <span className="empty">—</span>}
                     {j.clientName !== null && j.clientName !== j.entityName && (
-                      <>
-                        <br />
-                        <span className="bib-muted" style={{ fontSize: 12 }}>
-                          billed to {j.clientName}
-                        </span>
-                      </>
+                      <Sub>billed to {j.clientName}</Sub>
                     )}
-                  </td>
-                  <td>
+                  </Td>
+                  <Td>
                     <JobState job={j} />
-                  </td>
-                  <td className="bib-muted">{new Date(j.runnableAt).toLocaleDateString()}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <Link className="bib-button-quiet" href={`/work/${j.id}`}>
+                  </Td>
+                  <Td>
+                    <span className="mono">{new Date(j.runnableAt).toLocaleDateString()}</span>
+                  </Td>
+                  <Td align="right">
+                    <LinkButton size="sm" href={`/work/${j.id}`}>
                       Open
-                    </Link>
-                  </td>
+                    </LinkButton>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
       )}
-    </main>
+      </TabPanel>
+    </Page>
   );
 }
 
@@ -220,62 +236,65 @@ export default function WorkPage() {
 function CheckQueue({ checks }: { checks: StepCheck[] }) {
   if (checks.length === 0) {
     return (
-      <p className="bib-muted" style={{ maxWidth: "62ch" }}>
-        Nothing is waiting to be checked. Work lands here when somebody finishes a step whose
-        process says it is reviewed — set on <strong>How the firm works</strong>, with the rule
-        about who may review it on <strong>Who checks the work</strong>.
-      </p>
+      <Card>
+        <Empty title="Nothing is waiting to be checked" icon="verification">
+          Work lands here when somebody finishes a step whose process says it is reviewed — set
+          on Processes, with the rule about who may review it on Who checks work.
+        </Empty>
+      </Card>
     );
   }
   return (
-    <div className="bib-card">
-      <table className="bib-table">
+    <TableWrap>
+      <Table>
         <thead>
           <tr>
-            <th>Step</th>
-            <th>Done by</th>
-            <th>Waiting since</th>
-            <th>You</th>
-            <th />
+            <Th>Step</Th>
+            <Th>Done by</Th>
+            <Th>Waiting since</Th>
+            <Th>You</Th>
+            <Th>
+              <span className="sr-only">Actions</span>
+            </Th>
           </tr>
         </thead>
         <tbody>
           {checks.map((c) => (
             <tr key={c.id}>
-              <td>{c.stepLabel}</td>
-              <td>
+              <Td>{c.stepLabel}</Td>
+              <Td>
                 {/* Null means a machine committed it unattended — no person made
                     it, so there is no maker to be, and anybody eligible may
                     check it. "—" is the honest cell. */}
-                {c.submittedByName ?? <span className="bib-unstated">a machine</span>}
-              </td>
-              <td className="bib-muted">{new Date(c.submittedAt).toLocaleDateString()}</td>
-              <td>
+                {c.submittedByName ?? <span className="unstated">a machine</span>}
+              </Td>
+              <Td>
+                <span className="mono">{new Date(c.submittedAt).toLocaleDateString()}</span>
+              </Td>
+              <Td>
                 {c.viewer.eligible ? (
-                  <span className="bib-pill" data-tone="live">
-                    you can check this
-                  </span>
+                  <Pill tone="accent">you can check this</Pill>
                 ) : (
-                  <span className="bib-muted" style={{ fontSize: 12 }}>
+                  <span className="empty">
                     {c.viewer.reason === null
                       ? "not yours to check"
                       : CHECK_INELIGIBILITY[c.viewer.reason]}
                   </span>
                 )}
-              </td>
-              <td style={{ textAlign: "right" }}>
+              </Td>
+              <Td align="right">
                 {/* Open the JOB, not a modal. Approving somebody's filing without
                     seeing what the rest of the job did is the kind of sign-off
                     this whole feature exists to make real. */}
-                <Link className="bib-button-quiet" href={`/work/${c.jobId}`}>
+                <LinkButton size="sm" href={`/work/${c.jobId}`}>
                   Open
-                </Link>
-              </td>
+                </LinkButton>
+              </Td>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </TableWrap>
   );
 }
 
@@ -291,19 +310,14 @@ function JobState({ job }: { job: Job }) {
   if (job.status === "pending" && job.templateVersionId === null) {
     return (
       <>
-        <span className="bib-pill" data-tone="revoked">
-          waiting for a process
-        </span>
-        <br />
-        <span className="bib-muted" style={{ fontSize: 12 }}>
-          nobody has written how this service is delivered
-        </span>
+        <Pill tone="danger">waiting for a process</Pill>
+        <Sub>nobody has written how this service is delivered</Sub>
       </>
     );
   }
   return (
-    <span className="bib-pill" data-tone={job.status === "blocked" ? "revoked" : "active"}>
+    <Pill tone={job.status === "blocked" ? "danger" : "accent"}>
       {job.status === "blocked" ? "waiting for someone" : job.status}
-    </span>
+    </Pill>
   );
 }

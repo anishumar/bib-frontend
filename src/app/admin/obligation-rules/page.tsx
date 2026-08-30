@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
+import { Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2).
@@ -116,25 +118,20 @@ export default function ObligationRulesPage() {
     .filter((r) => filter === "" || r.coverage === filter);
 
   return (
-    <main>
-      <nav className="bib-nav">
-        <Link href="/">Home</Link>
-        <Link href="/calendar">Calendar</Link>
-        <Link href="/admin/work-vocabulary">Work vocabulary</Link>
-      </nav>
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Compliance rules"
+        lede="What the law asks of a client, and when. The calendar is generated from these &mdash;
+        nobody types a filing in, which is what stops it drifting from the statute."
+      />
 
-      <h1>Compliance rules</h1>
-      <p className="bib-muted">
-        What the law asks of a client, and when. The calendar is generated from these &mdash;
-        nobody types a filing in, which is what stops it drifting from the statute.
-      </p>
-
-      {error !== null && <p className="bib-error">{error}</p>}
-      {notice !== null && <p className="bib-hint">{notice}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {notice !== null && <p className="field-hint">{notice}</p>}
 
       {loaded && rules.length === 0 && (
-        <div className="bib-callout">
-          <p style={{ marginTop: 0 }}>
+        <div className="notice">
+          <p>
             <strong>This firm has no compliance rules, so its calendar is empty.</strong>
           </p>
           <p>
@@ -148,8 +145,8 @@ export default function ObligationRulesPage() {
 
       {rules.length > 0 && (
         <>
-          <div className="bib-callout" style={{ marginTop: "var(--bib-gap-2)" }}>
-            <p style={{ margin: 0 }}>
+          <div className="notice" style={{ marginTop: "var(--s-4)" }}>
+            <p>
               <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
               <strong>{counts.get("needs_formula") ?? 0}</strong>{" "}
               {(counts.get("needs_formula") ?? 0) === 1 ? "is" : "are"} waiting on a fact this
@@ -157,7 +154,7 @@ export default function ObligationRulesPage() {
               {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by something
               happening rather than by a period.
             </p>
-            <p className="bib-hint" style={{ marginBottom: 0 }}>
+            <p className="field-hint">
               That second number is not a fault list &mdash; it is the honest state of the
               firm&rsquo;s own specification. Each of those rules names the one thing it still
               needs.
@@ -167,9 +164,9 @@ export default function ObligationRulesPage() {
           <div
             style={{
               display: "flex",
-              gap: "var(--bib-gap-2)",
+              gap: "var(--s-4)",
               alignItems: "center",
-              margin: "var(--bib-gap-2) 0",
+              margin: "var(--s-4) 0",
             }}
           >
             <select
@@ -182,7 +179,7 @@ export default function ObligationRulesPage() {
               <option value="event_driven">Event-driven</option>
               <option value="retired">Retired</option>
             </select>
-            <label className="bib-check">
+            <label className="check">
               <input
                 type="checkbox"
                 checked={showRetired}
@@ -195,16 +192,16 @@ export default function ObligationRulesPage() {
             </label>
           </div>
 
-          <div className="bib-card">
-            <table className="bib-table">
+          <div className="card">
+            <table className="table">
               <thead>
                 <tr>
-                  <th>Filing</th>
-                  <th>Authority</th>
-                  <th>When</th>
-                  <th>Start early</th>
-                  <th>Confirmed</th>
-                  <th />
+                  <Th>Filing</Th>
+                  <Th>Authority</Th>
+                  <Th>When</Th>
+                  <Th>Start early</Th>
+                  <Th>Confirmed</Th>
+                  <Th />
                 </tr>
               </thead>
               <tbody>
@@ -216,7 +213,7 @@ export default function ObligationRulesPage() {
           </div>
         </>
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -233,43 +230,43 @@ function RuleRow({
 
   return (
     <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
-      <td>
+      <Td>
         {rule.name}
         {rule.module !== null && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+          <span className="muted text-xs" style={{ display: "block" }}>
             {rule.module}
           </span>
         )}
         {/* THE REASON, in place of a date. This is what a partner reads and
             answers; without it an undated rule is indistinguishable from a
             broken import. */}
-        {rule.unresolvedReason !== null && <p className="bib-hint">{rule.unresolvedReason}</p>}
+        {rule.unresolvedReason !== null && <p className="field-hint">{rule.unresolvedReason}</p>}
         {rule.exceptions.length > 0 && (
-          <p className="bib-hint">
+          <p className="field-hint">
             {rule.exceptions.map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`).join(" · ")}
           </p>
         )}
-      </td>
-      <td>
-        {rule.authority ?? <span className="bib-muted">&mdash;</span>}
-        <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+      </Td>
+      <Td>
+        {rule.authority ?? <span className="muted">&mdash;</span>}
+        <span className="muted text-xs" style={{ display: "block" }}>
           {rule.jurisdiction}
         </span>
-      </td>
-      <td>
-        <span className="bib-pill" style={{ whiteSpace: "nowrap" }} data-tone={TONE[rule.coverage]}>
+      </Td>
+      <Td>
+        <span className="pill" style={{ whiteSpace: "nowrap" }} data-tone={TONE[rule.coverage]}>
           {LABEL[rule.coverage]}
         </span>
-        <span className="bib-mono" style={{ display: "block", fontSize: 12, margin: 0 }}>
+        <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
           {describe(rule)}
         </span>
         {rule.instanceCount > 0 && (
-          <span className="bib-muted" style={{ display: "block", fontSize: 12 }}>
+          <span className="muted text-xs" style={{ display: "block" }}>
             {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
           </span>
         )}
-      </td>
-      <td>
+      </Td>
+      <Td>
         {/* T–X, and it is a BLANK rather than a guess. Every shipped rule is at
             zero, which means the task appears on the statutory date itself —
             visibly useless, and deliberately so: this is the firm's own working
@@ -289,12 +286,12 @@ function RuleRow({
           style={{ width: 64 }}
           title="Days before the legal deadline that the work should start"
         />
-        <span className="bib-muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}> days</span>
-      </td>
-      <td>
+        <span className="muted text-xs" style={{ whiteSpace: "nowrap" }}> days</span>
+      </Td>
+      <Td>
         {/* The moment a date stops coming from a document and starts coming
             from the firm. Everything ships unconfirmed, India included. */}
-        <label className="bib-check">
+        <label className="check">
           <input
             type="checkbox"
             checked={rule.status === "confirmed"}
@@ -307,8 +304,8 @@ function RuleRow({
               column reads as a stack of fragments. The sentence lives in the
               tooltip; the cell says which of the two states this is. */}
           <span
-            className="bib-muted"
-            style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            className="muted text-xs"
+            style={{ whiteSpace: "nowrap" }}
             title={
               rule.status === "confirmed"
                 ? "A partner has checked this date against the statute."
@@ -318,11 +315,11 @@ function RuleRow({
             {rule.status === "confirmed" ? "confirmed" : "not yet"}
           </span>
         </label>
-      </td>
-      <td style={{ textAlign: "right" }}>
+      </Td>
+      <Td style={{ textAlign: "right" }}>
         <button
           type="button"
-          className="bib-pill"
+          className="pill"
           disabled={busy}
           onClick={() => { void onPatch(rule.id, { isActive: !rule.isActive }); }}
           title={
@@ -333,7 +330,7 @@ function RuleRow({
         >
           {rule.isActive ? "Retire" : "Reactivate"}
         </button>
-      </td>
+      </Td>
     </tr>
   );
 }
@@ -352,9 +349,9 @@ const LABEL: Record<RuleCoverage, string> = {
  *  there is nothing for anybody to do about it yet. */
 const TONE: Record<RuleCoverage, string | undefined> = {
   generating: undefined,
-  needs_formula: "live",
+  needs_formula: "accent",
   event_driven: undefined,
-  retired: "revoked",
+  retired: "danger",
 };
 
 /**

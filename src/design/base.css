@@ -1,0 +1,161 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE — the element defaults every component is built on top of.
+
+   Element selectors only. Anything that needs a class belongs in
+   `components.css`; anything that needs a value belongs in `tokens.css`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--t-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────────────
+   Sized here so a heading is correct with no class on it. A screen that wants
+   a different size wants a different LEVEL — the scale is the hierarchy. */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-weight: 600;
+}
+h1 {
+  font-size: var(--t-2xl);
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+h2 {
+  font-size: var(--t-xl);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+h3 {
+  font-size: var(--t-lg);
+  line-height: 1.3;
+}
+h4 {
+  font-size: var(--t-base);
+  line-height: 1.4;
+}
+
+p {
+  margin: 0;
+}
+
+/* ── Links ────────────────────────────────────────────────────────────────
+   Inherit the ink. A link inside a table cell that announced itself in accent
+   would spend colour on navigation, and colour is reserved for status. */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-ink);
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────────
+   ONE ring, on everything, so a keyboard user learns it once. `:focus-visible`
+   rather than `:focus` so a mouse click does not leave a ring behind. */
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ── Figures ──────────────────────────────────────────────────────────────
+   Every figure in this app is a date, a count, an amount or an identifier, and
+   they are read in COLUMNS. Lining them up is not a flourish.
+
+   `tabular-nums` is the whole point: it makes 1 as wide as 8, so a column of
+   money scans as a column instead of a ragged edge. */
+
+.mono,
+time,
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-sm);
+  letter-spacing: -0.01em;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+/* ── Media ────────────────────────────────────────────────────────────── */
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inherit the type rather than the browser's, so a control in a form does not
+   silently reset to 13px Arial. */
+input,
+button,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--s-5) 0;
+}
+
+::selection {
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   Honoured globally, so no component has to remember to. */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

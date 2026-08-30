@@ -1,210 +1,22 @@
 /*
- * Design tokens.
+ * The stylesheet, assembled.
  *
- * Colour, type and spacing are named here and used by name everywhere else, so
- * a change lands in one place. This is the smallest thing that deserves to be
- * called a design system: enough that no component hardcodes a hex value, not
- * so much that it has opinions nobody has needed yet.
+ * Four files, in this order, and the order is the architecture:
+ *
+ *   tokens      the values. Nothing else may invent one.
+ *   base        element defaults, built only from tokens.
+ *   layout      the app shell, and the primitives pages compose with.
+ *   components  one block per component, each with a React component in front.
+ *
+ * There was a fifth — `legacy.css`, which re-expressed the old `.bib-*`
+ * vocabulary in the new tokens so that unmigrated screens looked right while
+ * the migration ran. It is gone, and its absence is the proof: no screen names
+ * a `.bib-*` class or a `--bib-*` variable any more, so there is nothing left
+ * for it to hold up.
+ *
+ * See `src/design/README.md` for how to use any of it.
  */
-:root {
-  --bib-bg: #fbfbfa;
-  --bib-surface: #ffffff;
-  --bib-border: #e4e2dd;
-  --bib-ink: #1c1b19;
-  --bib-ink-muted: #6b6862;
-  --bib-accent: #1f5f4f;
-  --bib-accent-ink: #ffffff;
-  --bib-danger: #9b2c2c;
-  --bib-danger-bg: #fdf2f2;
-
-  --bib-radius: 6px;
-  --bib-gap-1: 8px;
-  --bib-gap-2: 16px;
-  --bib-gap-3: 24px;
-  --bib-gap-4: 40px;
-
-  --bib-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --bib-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  background: var(--bib-bg);
-  color: var(--bib-ink);
-  font-family: var(--bib-font);
-  line-height: 1.5;
-}
-
-.bib-shell { max-width: 880px; margin: 0 auto; padding: var(--bib-gap-4) var(--bib-gap-2); }
-.bib-card {
-  background: var(--bib-surface);
-  border: 1px solid var(--bib-border);
-  border-radius: var(--bib-radius);
-  padding: var(--bib-gap-3);
-}
-.bib-label { display: block; font-size: 13px; color: var(--bib-ink-muted); margin-bottom: 4px; }
-.bib-input {
-  width: 100%; padding: 10px 12px; font: inherit;
-  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
-  background: var(--bib-surface); color: var(--bib-ink);
-}
-.bib-button {
-  padding: 10px 18px; font: inherit; font-weight: 550; cursor: pointer;
-  border: 1px solid transparent; border-radius: var(--bib-radius);
-  background: var(--bib-accent); color: var(--bib-accent-ink);
-}
-.bib-button[disabled] { opacity: 0.6; cursor: progress; }
-.bib-error {
-  background: var(--bib-danger-bg); color: var(--bib-danger);
-  border: 1px solid currentColor; border-radius: var(--bib-radius);
-  padding: var(--bib-gap-1) var(--bib-gap-2); font-size: 14px;
-}
-.bib-muted { color: var(--bib-ink-muted); }
-.bib-mono { font-family: var(--bib-mono); font-size: 13px; }
-
-/*
- * Added for the admin screens. A roster is a table and there was not one yet;
- * these are the smallest additions that carry it, in the same spirit as the
- * rest of this file — grown because a real screen needed them.
- */
-.bib-nav { display: flex; gap: var(--bib-gap-2); margin-bottom: var(--bib-gap-3); }
-.bib-nav a { color: var(--bib-ink-muted); text-decoration: none; font-size: 14px; }
-.bib-nav a:hover { color: var(--bib-ink); }
-.bib-nav a[aria-current="page"] { color: var(--bib-ink); font-weight: 600; }
-
-.bib-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.bib-table th {
-  text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--bib-ink-muted);
-  padding: 0 var(--bib-gap-2) var(--bib-gap-1) 0; border-bottom: 1px solid var(--bib-border);
-}
-.bib-table td {
-  padding: var(--bib-gap-1) var(--bib-gap-2) var(--bib-gap-1) 0;
-  border-bottom: 1px solid var(--bib-border); vertical-align: middle;
-}
-.bib-table tr:last-child td { border-bottom: none; }
-.bib-table tr[data-inactive="true"] td { opacity: 0.55; }
-
-.bib-select {
-  padding: 6px 8px; font: inherit; font-size: 14px;
-  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
-  background: var(--bib-surface); color: var(--bib-ink);
-}
-.bib-button-quiet {
-  padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer;
-  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
-  background: var(--bib-surface); color: var(--bib-ink);
-}
-.bib-button-quiet:hover { border-color: var(--bib-ink-muted); }
-.bib-button-quiet[disabled] { opacity: 0.6; cursor: progress; }
-.bib-button-danger { color: var(--bib-danger); border-color: var(--bib-danger); }
-
-.bib-pill {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 12px; border: 1px solid var(--bib-border); color: var(--bib-ink-muted);
-}
-.bib-pill[data-tone="revoked"] {
-  color: var(--bib-danger); border-color: var(--bib-danger); background: var(--bib-danger-bg);
-}
-.bib-field-row { display: flex; gap: var(--bib-gap-2); flex-wrap: wrap; align-items: flex-end; }
-.bib-field-row > * { flex: 1 1 160px; }
-.bib-check { display: flex; gap: var(--bib-gap-1); align-items: flex-start; font-size: 14px; }
-.bib-check input { margin-top: 3px; }
-
-/*
- * Added for the catalogue's RECORD layout. A service is a dozen short facts and
- * four blocks of the firm's own prose, and prose in a table cell is prose
- * nobody reads — so a definition grid for the facts and a real paragraph for
- * the blocks. Same spirit as everything above: grown because a screen needed it.
- */
-.bib-facts {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--bib-gap-2); margin: 0 0 var(--bib-gap-3);
-}
-.bib-fact dd { margin: 0; font-size: 14px; }
-/* Absent is absent. Italic muted, never an empty cell and never a zero. */
-.bib-unstated { color: var(--bib-ink-muted); font-style: italic; }
-
-.bib-prose-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--bib-gap-2) var(--bib-gap-3);
-}
-.bib-prose h4 {
-  margin: 0 0 4px; font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--bib-ink-muted);
-}
-.bib-prose h4 .bib-mono { text-transform: none; letter-spacing: 0; font-size: 12px; }
-/* pre-wrap keeps the line breaks the firm typed: these blocks are
-   semicolon-separated lists as often as sentences. */
-.bib-prose p { margin: 0; font-size: 14px; white-space: pre-wrap; }
-
-.bib-textarea {
-  width: 100%; padding: 10px 12px; font: inherit; font-size: 14px;
-  border: 1px solid var(--bib-border); border-radius: var(--bib-radius);
-  background: var(--bib-surface); color: var(--bib-ink); resize: vertical;
-}
-
-.bib-record { margin-bottom: var(--bib-gap-2); }
-.bib-record-head {
-  display: flex; flex-wrap: wrap; align-items: baseline;
-  gap: var(--bib-gap-1) var(--bib-gap-2); margin-bottom: var(--bib-gap-2);
-}
-.bib-record-head h3 { margin: 0; font-size: 16px; }
-.bib-group-head {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--bib-gap-1);
-  margin: var(--bib-gap-3) 0 var(--bib-gap-1); font-size: 13px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.06em;
-}
-.bib-chips { display: flex; flex-wrap: wrap; gap: var(--bib-gap-1); }
-.bib-pill[data-tone="live"] { color: var(--bib-accent); border-color: var(--bib-accent); }
-.bib-pill[data-tone="code"] { font-family: var(--bib-mono); color: var(--bib-ink); }
-
-/* An API refusal is a paragraph, not a word — the config validator names the
-   field, the value it got and the form it wanted. It has to be able to wrap. */
-.bib-error { white-space: pre-wrap; margin: var(--bib-gap-2) 0; }
-.bib-hint { font-size: 12px; color: var(--bib-ink-muted); margin: 4px 0 0; }
-summary { cursor: pointer; font-size: 14px; }
-
-/*
- * Added for the verification queue (T2.9). Three shapes the earlier screens
- * never needed, and each one exists because of something this feature has to
- * SAY rather than merely show.
- */
-
-/* A statement the reader must not mistake for a setting. Used for "nobody can
-   approve their own work" — a control somebody thinks is configurable is one
-   they will look for a way around — and for a draft rule that is not in force. */
-.bib-callout {
-  border: 1px solid var(--bib-border); border-left: 3px solid var(--bib-accent);
-  border-radius: var(--bib-radius); background: var(--bib-surface);
-  padding: var(--bib-gap-2); margin: var(--bib-gap-2) 0; font-size: 14px;
-}
-.bib-callout[data-tone="danger"] { border-left-color: var(--bib-danger); }
-
-/* A radio whose OPTION carries the trade-off, not a help link beside it. This
-   is the choice that decides who may sign off a statutory filing, and "the
-   reporting line stalls when that person is on leave" has to be readable at the
-   moment somebody picks it. */
-.bib-fieldset { border: 0; padding: 0; margin: 0; }
-.bib-fieldset legend { padding: 0; margin-bottom: var(--bib-gap-1); }
-.bib-radio-row {
-  display: flex; gap: var(--bib-gap-1); align-items: flex-start;
-  padding: var(--bib-gap-1) 0; font-size: 14px; cursor: pointer;
-}
-.bib-radio-row input { margin-top: 3px; }
-
-/* Label-and-value pairs read down the page rather than across a grid — a rule
-   has two facts, and `bib-facts` spreads two items across the full width. */
-.bib-deflist { margin: 0; font-size: 14px; }
-.bib-deflist dt {
-  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--bib-ink-muted); margin-top: var(--bib-gap-1);
-}
-.bib-deflist dd { margin: 2px 0 0; }
-
-.bib-row-between {
-  display: flex; flex-wrap: wrap; align-items: baseline;
-  justify-content: space-between; gap: var(--bib-gap-1) var(--bib-gap-2);
-}
+@import "../design/tokens.css";
+@import "../design/base.css";
+@import "../design/layout.css";
+@import "../design/components.css";

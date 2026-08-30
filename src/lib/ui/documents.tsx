@@ -24,6 +24,26 @@ import {
   DOCUMENT_KINDS,
   DOCUMENT_KIND_LABELS,
 } from "@/lib/api/client";
+import { Cluster } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  CardHead,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Icon,
+  Input,
+  Pill,
+  Select,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  Tooltip,
+} from "@/components/ui";
 import type {
   DocumentSubjectKind,
   StoredDocument,
@@ -217,119 +237,105 @@ export function Documents({
   }
 
   return (
-    <div className="bib-card" style={{ marginBottom: "var(--bib-gap-3)" }}>
-      <div className="bib-record-head">
-        <h2 style={{ marginTop: 0, fontSize: 16 }}>
-          {title}
-          {documents.length > 0 && (
-            <span className="bib-muted" style={{ fontWeight: 400 }}>
-              {" "}
-              · {String(documents.length)}
-            </span>
-          )}
-        </h2>
-        <div className="bib-chips">
-          {canWrite && renderable !== undefined && (
-            <button
-              type="button"
-              className="bib-button-quiet"
-              disabled={busy}
-              onClick={() => void generate()}
-            >
-              {busy ? "Generating…" : "Generate PDF"}
-            </button>
-          )}
-          {canWrite && !adding && (
-            <button
-              type="button"
-              className="bib-button-quiet"
-              onClick={() => {
-                setAdding(true);
-              }}
-            >
-              Add a file
-            </button>
-          )}
-        </div>
-      </div>
+    <Card>
+      <CardHead
+        title={title}
+        aside={
+          <>
+            {documents.length > 0 && <Pill tone="quiet">{documents.length}</Pill>}
+            {canWrite && renderable !== undefined && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy}
+                icon={<Icon name="files" size={15} />}
+                onClick={() => void generate()}
+              >
+                Generate PDF
+              </Button>
+            )}
+            {canWrite && !adding && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="plus" size={15} />}
+                onClick={() => {
+                  setAdding(true);
+                }}
+              >
+                Add a file
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      <ErrorNotice error={error} />
 
       {canWrite && adding && (
-        <form
-          ref={formRef}
-          action={(fd) => void upload(fd)}
-          style={{ marginBottom: "var(--bib-gap-3)" }}
-        >
-          <div className="bib-field-row">
-            <label className="bib-label">
-              Title
-              <input
-                name="title"
-                className="bib-input"
-                required
-                placeholder="PAN card"
-                maxLength={200}
-              />
-            </label>
-            <label className="bib-label">
-              What it is
-              <select name="kind" className="bib-select" defaultValue="identity_proof">
-                {DOCUMENT_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {DOCUMENT_KIND_LABELS[k] ?? k}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="bib-label">
-            File
-            <input name="file" type="file" className="bib-input" required />
-          </label>
-          {/* The title is required and deliberately not defaulted from the
-              filename: "scan_0043.pdf" is what a scanner produces and is not a
-              title anybody can find a document by later. */}
-          <p className="bib-hint">
-            The title is what somebody scanning this list reads — the filename often is not.
-          </p>
-          <div className="bib-chips" style={{ marginTop: "var(--bib-gap-2)" }}>
-            <button type="submit" className="bib-button" disabled={busy}>
-              {busy ? "Uploading…" : "Upload"}
-            </button>
-            <button
-              type="button"
-              className="bib-button-quiet"
-              disabled={busy}
-              onClick={() => {
-                setAdding(false);
-                setError(null);
-              }}
+        <form ref={formRef} action={(fd) => void upload(fd)}>
+          <div className="stack">
+            <FieldRow>
+              <Field label="Title">
+                <Input name="title" required placeholder="PAN card" maxLength={200} />
+              </Field>
+              <Field label="What it is">
+                <Select name="kind" defaultValue="identity_proof">
+                  {DOCUMENT_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {DOCUMENT_KIND_LABELS[k] ?? k}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+            {/* The title is required and deliberately not defaulted from the
+                filename: "scan_0043.pdf" is what a scanner produces and is not
+                a title anybody can find a document by later. */}
+            <Field
+              label="File"
+              hint="The title is what somebody scanning this list reads — the filename often is not."
             >
-              Cancel
-            </button>
+              <Input name="file" type="file" required />
+            </Field>
+            <Cluster>
+              <Button type="submit" loading={busy}>
+                Upload
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setAdding(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </Cluster>
           </div>
         </form>
       )}
 
       {!loaded ? (
-        <p className="bib-muted" style={{ margin: 0 }}>
-          Loading…
-        </p>
+        <Loading label="Loading files" />
       ) : documents.length === 0 ? (
-        <p className="bib-muted" style={{ margin: 0 }}>
+        <Empty title="Nothing attached yet" icon="files">
           {emptyHint}
-        </p>
+        </Empty>
       ) : (
-        <table className="bib-table">
+        <TableWrap>
+        <Table>
           <thead>
             <tr>
-              <th>Title</th>
-              <th>What</th>
-              <th>Size</th>
-              <th>Added</th>
-              <th>By</th>
-              <th />
+              <Th>Title</Th>
+              <Th>What</Th>
+              <Th>Size</Th>
+              <Th>Added</Th>
+              <Th>By</Th>
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
@@ -344,9 +350,10 @@ export function Documents({
               />
             ))}
           </tbody>
-        </table>
+        </Table>
+        </TableWrap>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -367,87 +374,102 @@ function FileRows({
   return (
     <>
       <tr>
-        <td>
+        <Td>
           {doc.title}
-          <div className="bib-muted" style={{ fontSize: 12 }}>
-            {v.filename}
-          </div>
-        </td>
-        <td>
-          <span className="bib-pill">{DOCUMENT_KIND_LABELS[doc.kind] ?? doc.kind}</span>
-          {/* A generated document could be produced again; an uploaded one is
-              the only copy that exists. Worth saying on a row somebody might be
-              deciding whether to chase a client for. */}
-          {doc.origin === "generated" && (
-            <span className="bib-pill" style={{ marginLeft: 6 }}>
-              generated
-            </span>
-          )}
-        </td>
-        <td className="bib-muted">{formatBytes(v.byteSize)}</td>
-        <td className="bib-muted">{when(v.createdAt)}</td>
-        <td className="bib-muted">{uploader(doc)}</td>
-        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-          {/* More than one version is a fact worth surfacing on the row rather
-              than hiding behind the toggle: "which version did they sign" is
-              the question this table exists to answer. */}
-          {doc.versionCount > 1 && (
-            <button type="button" className="bib-button-quiet" onClick={onToggle}>
-              {expanded ? "Hide" : `${String(doc.versionCount)} versions`}
-            </button>
-          )}
-          <button
-            type="button"
-            className="bib-button-quiet"
-            style={{ marginLeft: 6 }}
-            onClick={() => {
-              onDownload(undefined, v.filename);
-            }}
-          >
-            Download
-          </button>
-        </td>
+          <Sub>{v.filename}</Sub>
+        </Td>
+        <Td>
+          <span className="cluster tight">
+            <Pill>{DOCUMENT_KIND_LABELS[doc.kind] ?? doc.kind}</Pill>
+            {/* A generated document could be produced again; an uploaded one is
+                the only copy that exists. Worth saying on a row somebody might
+                be deciding whether to chase a client for. */}
+            {doc.origin === "generated" && <Pill tone="quiet">generated</Pill>}
+          </span>
+        </Td>
+        <Td>
+          <span className="mono">{formatBytes(v.byteSize)}</span>
+        </Td>
+        <Td>
+          <span className="mono">{when(v.createdAt)}</span>
+        </Td>
+        <Td>
+          <span className="muted">{uploader(doc)}</span>
+        </Td>
+        <Td align="right" className="nowrap">
+          <span className="cluster tight end">
+            {/* More than one version is a fact worth surfacing on the row
+                rather than hiding behind the toggle: "which version did they
+                sign" is the question this table exists to answer. */}
+            {doc.versionCount > 1 && (
+              <Button variant="secondary" size="sm" onClick={onToggle}>
+                {expanded ? "Hide" : `${String(doc.versionCount)} versions`}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Icon name="download" size={15} />}
+              onClick={() => {
+                onDownload(undefined, v.filename);
+              }}
+            >
+              Download
+            </Button>
+          </span>
+        </Td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} style={{ paddingTop: 0 }}>
-            <table className="bib-table">
+          <Td colSpan={6} style={{ paddingTop: 0 }}>
+            <Table>
               <tbody>
                 {versions === undefined ? (
                   <tr>
-                    <td className="bib-muted">Loading versions…</td>
+                    <Td>
+                      <span className="empty">Loading versions…</span>
+                    </Td>
                   </tr>
                 ) : (
                   versions.map((ver) => (
                     <tr key={ver.id}>
-                      <td className="bib-mono">v{String(ver.versionNo)}</td>
-                      <td>{ver.filename}</td>
-                      <td className="bib-muted">{formatBytes(ver.byteSize)}</td>
-                      <td className="bib-muted">{when(ver.createdAt)}</td>
+                      <Td>
+                        <span className="mono">v{String(ver.versionNo)}</span>
+                      </Td>
+                      <Td>{ver.filename}</Td>
+                      <Td>
+                        <span className="mono">{formatBytes(ver.byteSize)}</span>
+                      </Td>
+                      <Td>
+                        <span className="mono">{when(ver.createdAt)}</span>
+                      </Td>
                       {/* The hash is what proves the file a client holds is the
                           one the firm issued. Truncated because 64 characters
-                          is unreadable, and `title` carries the whole thing for
-                          anybody who needs to compare one. */}
-                      <td className="bib-mono bib-muted" title={ver.contentHash}>
-                        {ver.contentHash.slice(0, 12)}…
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          type="button"
-                          className="bib-button-quiet"
+                          is unreadable, and the tooltip carries the whole thing
+                          for anybody who needs to compare one. */}
+                      <Td>
+                        <Tooltip text={ver.contentHash}>
+                          <span className="mono muted">{ver.contentHash.slice(0, 12)}…</span>
+                        </Tooltip>
+                      </Td>
+                      <Td align="right">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Icon name="download" size={15} />}
                           onClick={() => {
                             onDownload(ver.id, ver.filename);
                           }}
                         >
                           Download
-                        </button>
-                      </td>
+                        </Button>
+                      </Td>
                     </tr>
                   ))
                 )}
               </tbody>
-            </table>
-          </td>
+            </Table>
+          </Td>
         </tr>
       )}
     </>

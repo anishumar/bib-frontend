@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, VERIFICATION_RULES } from "@/lib/api/client";
 import type { ConfigEntry, StaffGrade, VerificationRule } from "@/lib/api/client";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * Who may check somebody else's work.
@@ -116,30 +117,31 @@ export default function VerificationPage() {
     await load();
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   return (
-    <main>
-      <h1>Who checks the work</h1>
-      <p className="bib-muted" style={{ maxWidth: "64ch" }}>
-        A rule here says who is allowed to approve a finished step. Steps name the rule that
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Who checks the work"
+        lede={<>A rule here says who is allowed to approve a finished step. Steps name the rule that
         applies to them on <strong>How the firm works</strong>, so a process can have an
-        ordinary manager review and an independent partner sign-off with different rules.
-      </p>
+        ordinary manager review and an independent partner sign-off with different rules.</>}
+      />
 
       {/* NOT a setting, and the screen has to say so where somebody would look
           for the switch. */}
-      <div className="bib-callout" style={{ maxWidth: "64ch" }}>
+      <div className="notice" style={{ maxWidth: "64ch" }}>
         <strong>Nobody can ever approve their own work.</strong> That is not a setting on this
         page and there is no way to switch it off — the database refuses it, so an import, a
         script or an automated agent cannot get past it either. What you choose below is who
         <em> else</em> may check it.
       </div>
 
-      {error !== null && <p className="bib-error">{error}</p>}
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {policies.length === 0 ? (
-        <p className="bib-muted" style={{ maxWidth: "64ch" }}>
+        <p className="muted" style={{ maxWidth: "64ch" }}>
           No rule written yet. Until one is, a step that names no rule is simply finished by
           whoever did it — nothing is held for checking, which is how the product behaved
           before this page existed.
@@ -159,8 +161,8 @@ export default function VerificationPage() {
       )}
 
       {adding ? (
-        <div className="bib-card" style={{ marginTop: "var(--bib-gap-3)" }}>
-          <h2 style={{ marginTop: 0 }}>A new rule</h2>
+        <div className="card" style={{ marginTop: "var(--s-5)" }}>
+          <h2 className="card-title">A new rule</h2>
           <PolicyForm
             policyKey={null}
             grades={grades}
@@ -175,14 +177,14 @@ export default function VerificationPage() {
       ) : (
         <button
           type="button"
-          className="bib-button"
-          style={{ marginTop: "var(--bib-gap-3)" }}
+          className="btn"
+          style={{ marginTop: "var(--s-5)" }}
           onClick={() => { setAdding(true); }}
         >
           Write a rule
         </button>
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -211,13 +213,13 @@ function PolicyCard({
   const draft = entry.pendingDraft;
 
   return (
-    <div className="bib-card" style={{ marginTop: "var(--bib-gap-3)" }}>
-      <div className="bib-row-between">
+    <div className="card" style={{ marginTop: "var(--s-5)" }}>
+      <div className="row">
         <div>
-          <h2 style={{ marginTop: 0, marginBottom: 4 }}>
+          <h2 className="card-title">
             {inForce?.label ?? readBody(draft?.body)?.label ?? entry.entry.key}
           </h2>
-          <p className="bib-muted" style={{ margin: 0, fontSize: 13 }}>
+          <p className="muted text-sm">
             <code>{entry.entry.key}</code> — this is what a step names to say it is checked
             under this rule.
           </p>
@@ -227,12 +229,12 @@ function PolicyCard({
       {inForce === null ? (
         // A rule somebody wrote and never published is a real state, and hiding
         // it would leave a partner sure they had set something they had not.
-        <p className="bib-muted" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <p className="muted" style={{ marginTop: "var(--s-4)" }}>
           <strong>Not in force.</strong> A step naming this rule is checked by anybody except
           the person who did the work, because nothing is published for it yet.
         </p>
       ) : (
-        <dl className="bib-deflist" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <dl className="meta" data-layout="list" style={{ marginTop: "var(--s-4)" }}>
           <dt>Who may check</dt>
           <dd>{ruleLabel(inForce.rule)}</dd>
           {inForce.minGradeRank !== null && (
@@ -242,7 +244,7 @@ function PolicyCard({
                 {grades.find((g) => g.code === inForce.minGradeCode)?.name ??
                   inForce.minGradeCode ??
                   `rank ${String(inForce.minGradeRank)}`}{" "}
-                <span className="bib-muted">and above</span>
+                <span className="muted">and above</span>
               </dd>
             </>
           )}
@@ -250,13 +252,13 @@ function PolicyCard({
       )}
 
       {draft && (
-        <div className="bib-callout" style={{ marginTop: "var(--bib-gap-2)" }}>
+        <div className="notice" style={{ marginTop: "var(--s-4)" }}>
           <strong>A change is written and not yet in force.</strong> Checks opened from now on
           use it only once it is published; ones already open keep the rule they opened under.
-          <div style={{ marginTop: "var(--bib-gap-1)" }}>
+          <div style={{ marginTop: "var(--s-2)" }}>
             <button
               type="button"
-              className="bib-button"
+              className="btn"
               disabled={busy === `publish:${entry.entry.key}`}
               onClick={() => { onPublish(entry.entry.key, draft.version); }}
             >
@@ -281,8 +283,8 @@ function PolicyCard({
       ) : (
         <button
           type="button"
-          className="bib-button-quiet"
-          style={{ marginTop: "var(--bib-gap-2)" }}
+          className="btn" data-variant="secondary" data-size="sm"
+          style={{ marginTop: "var(--s-4)" }}
           onClick={() => { setEditing(true); }}
         >
           Change it
@@ -365,33 +367,33 @@ function PolicyForm({
     (needsGrade && chosen === null);
 
   return (
-    <div style={{ marginTop: "var(--bib-gap-2)" }}>
-      <div className="bib-field-row">
+    <div style={{ marginTop: "var(--s-4)" }}>
+      <div className="field-row">
         {policyKey === null && (
           <div style={{ flex: "1 1 200px" }}>
-            <label className="bib-label" htmlFor="vp-key">
+            <label className="label" htmlFor="vp-key">
               Short name
             </label>
             <input
               id="vp-key"
-              className="bib-input"
+              className="input"
               value={key}
               placeholder="manager_review"
               onChange={(e) => { setKey(e.target.value); }}
             />
-            <p className="bib-muted" style={{ fontSize: 12, marginBottom: 0 }}>
+            <p className="muted text-xs">
               What a step names to say it is checked under this rule. It cannot be changed
               later — every step pointing at it would stop pointing anywhere.
             </p>
           </div>
         )}
         <div style={{ flex: "2 1 260px" }}>
-          <label className="bib-label" htmlFor="vp-label">
+          <label className="label" htmlFor="vp-label">
             What to call it
           </label>
           <input
             id="vp-label"
-            className="bib-input"
+            className="input"
             value={label}
             placeholder="Manager review"
             onChange={(e) => { setLabel(e.target.value); }}
@@ -399,10 +401,10 @@ function PolicyForm({
         </div>
       </div>
 
-      <fieldset className="bib-fieldset" style={{ marginTop: "var(--bib-gap-2)" }}>
-        <legend className="bib-label">Who may check it</legend>
+      <fieldset className="fieldset">
+        <legend className="label">Who may check it</legend>
         {VERIFICATION_RULES.map((r) => (
-          <label key={r.value} className="bib-radio-row">
+          <label key={r.value} className="check" data-row="true">
             <input
               type="radio"
               name={`rule-${policyKey ?? "new"}`}
@@ -414,7 +416,7 @@ function PolicyForm({
               {/* The trade-off in the option itself, not in help text somebody
                   has to go looking for. This is the choice that decides who may
                   sign off a statutory filing. */}
-              <span className="bib-muted" style={{ display: "block", fontSize: 13 }}>
+              <span className="muted text-sm" style={{ display: "block" }}>
                 {r.detail}
               </span>
             </span>
@@ -423,19 +425,19 @@ function PolicyForm({
       </fieldset>
 
       {needsGrade && (
-        <div style={{ marginTop: "var(--bib-gap-2)", maxWidth: 360 }}>
-          <label className="bib-label" htmlFor="vp-grade">
+        <div style={{ marginTop: "var(--s-4)", maxWidth: 360 }}>
+          <label className="label" htmlFor="vp-grade">
             From which grade up
           </label>
           {offered.length === 0 ? (
-            <p className="bib-muted" style={{ marginBottom: 0 }}>
+            <p className="muted">
               This firm has no active grades, so there is nothing to compare. Add rungs on{" "}
               <strong>Grades</strong> first, or choose the reporting-line rule.
             </p>
           ) : (
             <select
               id="vp-grade"
-              className="bib-input"
+              className="input"
               value={gradeCode}
               onChange={(e) => { setGradeCode(e.target.value); }}
             >
@@ -456,27 +458,27 @@ function PolicyForm({
         // Said before they choose it, not discovered when the queue turns out to
         // be unactionable. Every firm is in exactly this state the day the
         // feature ships, because nothing has filled the column in.
-        <p className="bib-muted" style={{ marginTop: "var(--bib-gap-2)", maxWidth: "60ch" }}>
+        <p className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "60ch" }}>
           This rule reads <strong>who reports to whom</strong>, which is set on{" "}
           <strong>People</strong>. Anybody whose manager is not recorded there has nobody who
           may check their work, and the queue will say so.
         </p>
       )}
 
-      <div style={{ marginTop: "var(--bib-gap-2)", display: "flex", gap: "var(--bib-gap-1)" }}>
+      <div style={{ marginTop: "var(--s-4)", display: "flex", gap: "var(--s-2)" }}>
         <button
           type="button"
-          className="bib-button"
+          className="btn"
           disabled={busy || incomplete}
           onClick={() => void save()}
         >
           {policyKey === null ? "Save as a draft" : "Save the change"}
         </button>
-        <button type="button" className="bib-button-quiet" onClick={onCancel}>
+        <button type="button" className="btn" data-variant="secondary" data-size="sm" onClick={onCancel}>
           Cancel
         </button>
       </div>
-      <p className="bib-muted" style={{ fontSize: 12, marginTop: "var(--bib-gap-1)", marginBottom: 0 }}>
+      <p className="muted text-xs">
         Saved as a draft. It governs nothing until you put it in force, and checks already open
         keep the rule they were opened under.
       </p>

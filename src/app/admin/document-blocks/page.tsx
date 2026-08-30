@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BLOCK_KINDS, BLOCK_KIND_LABELS, api, apiError } from "@/lib/api/client";
 import type { BlockKind, StandardBlock } from "@/lib/api/client";
+import { Td, Th } from "@/components/ui";
+import { Page, PageHeader } from "@/components/layout";
 
 /**
  * The firm's STANDARD prose — the exclusions, the commercial notes, and the
@@ -69,61 +71,62 @@ export default function DocumentBlocksPage() {
     setBusy(false);
   }
 
-  if (!loaded) return <p className="bib-muted">Loading…</p>;
+  if (!loaded) return <p className="muted">Loading…</p>;
 
   return (
-    <main>
-      <h1>Standard prose</h1>
-      <p className="bib-muted" style={{ marginTop: 0 }}>
-        Copied onto every new proposal and engagement letter. Editing a line changes the next
+    <Page>
+      <PageHeader
+        eyebrow="Administration"
+        title="Standard prose"
+        lede="Copied onto every new proposal and engagement letter. Editing a line changes the next
         document and nothing already issued — a document owns its copy from the moment it is
-        drafted.
-      </p>
-      {error !== null && <p className="bib-error">{error}</p>}
+        drafted."
+      />
+      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {BLOCK_KINDS.map((kind) => {
         const mine = blocks.filter((b) => b.kind === kind);
         return (
-          <div className="bib-card" style={{ marginBottom: "var(--bib-gap-2)" }} key={kind}>
-            <h2 style={{ marginTop: 0, fontSize: 16 }}>{BLOCK_KIND_LABELS[kind]}</h2>
+          <div className="card" style={{ marginBottom: "var(--s-4)" }} key={kind}>
+            <h2 className="card-title">{BLOCK_KIND_LABELS[kind]}</h2>
             {mine.length === 0 ? (
-              <p className="bib-muted" style={{ margin: 0 }}>
+              <p className="muted">
                 Nothing standard. Documents drafted now carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
               </p>
             ) : (
-              <table className="bib-table">
+              <table className="table">
                 <thead>
                   <tr>
-                    <th style={{ width: 70 }}>Order</th>
-                    <th>Line</th>
-                    <th style={{ width: 110 }}>Prints in</th>
-                    <th style={{ width: 120 }} />
+                    <Th style={{ width: 70 }}>Order</Th>
+                    <Th>Line</Th>
+                    <Th style={{ width: 110 }}>Prints in</Th>
+                    <Th style={{ width: 120 }} />
                   </tr>
                 </thead>
                 <tbody>
                   {mine.map((b) => (
                     <tr key={b.id} style={b.isActive ? undefined : { opacity: 0.55 }}>
-                      <td className="bib-mono">{b.sortOrder}</td>
-                      <td>
+                      <Td className="mono">{b.sortOrder}</Td>
+                      <Td>
                         {/* A HEADING is a section title, not an item — the team
                             block is a table with headings, and without the
                             distinction it goes back to being one text blob. */}
                         {b.isHeading ? <strong>{b.body}</strong> : b.body}
                         {b.isHeading && (
-                          <span className="bib-muted" style={{ fontSize: 13 }}> · heading</span>
+                          <span className="muted text-sm"> · heading</span>
                         )}
-                      </td>
-                      <td>
+                      </Td>
+                      <Td>
                         {b.jurisdiction === null ? (
-                          <span className="bib-muted">everywhere</span>
+                          <span className="muted">everywhere</span>
                         ) : (
-                          <span className="bib-pill" data-tone="code">{b.jurisdiction}</span>
+                          <span className="pill" data-tone="code">{b.jurisdiction}</span>
                         )}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
+                      </Td>
+                      <Td style={{ textAlign: "right" }}>
                         {b.isActive ? (
                           <button
-                            className="bib-button-quiet"
+                            className="btn" data-variant="secondary" data-size="sm"
                             disabled={busy}
                             onClick={() =>
                               void act(() =>
@@ -138,9 +141,9 @@ export default function DocumentBlocksPage() {
                           </button>
                         ) : (
                           <>
-                            <span className="bib-pill" data-tone="revoked">retired</span>{" "}
+                            <span className="pill" data-tone="danger">retired</span>{" "}
                             <button
-                              className="bib-button-quiet"
+                              className="btn" data-variant="secondary" data-size="sm"
                               disabled={busy}
                               onClick={() =>
                                 void act(() =>
@@ -155,7 +158,7 @@ export default function DocumentBlocksPage() {
                             </button>
                           </>
                         )}
-                      </td>
+                      </Td>
                     </tr>
                   ))}
                 </tbody>
@@ -163,7 +166,7 @@ export default function DocumentBlocksPage() {
             )}
 
             <form
-              style={{ marginTop: "var(--bib-gap-2)" }}
+              style={{ marginTop: "var(--s-4)" }}
               action={(form) => {
                 const jurisdiction = String(form.get(`${kind}-jurisdiction`) ?? "").toUpperCase();
                 void act(() =>
@@ -181,19 +184,19 @@ export default function DocumentBlocksPage() {
                 );
               }}
             >
-              <div className="bib-field-row" style={{ marginBottom: "var(--bib-gap-2)" }}>
+              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
                 <div style={{ flex: "3 1 260px" }}>
-                  <label className="bib-label" htmlFor={`${kind}-body`}>
+                  <label className="label" htmlFor={`${kind}-body`}>
                     New line
                   </label>
-                  <input className="bib-input" id={`${kind}-body`} name={`${kind}-body`} required />
+                  <input className="input" id={`${kind}-body`} name={`${kind}-body`} required />
                 </div>
                 <div>
-                  <label className="bib-label" htmlFor={`${kind}-order`}>
+                  <label className="label" htmlFor={`${kind}-order`}>
                     Order
                   </label>
                   <input
-                    className="bib-input"
+                    className="input"
                     id={`${kind}-order`}
                     name={`${kind}-order`}
                     type="number"
@@ -203,33 +206,33 @@ export default function DocumentBlocksPage() {
                   />
                 </div>
                 <div>
-                  <label className="bib-label" htmlFor={`${kind}-jurisdiction`}>
+                  <label className="label" htmlFor={`${kind}-jurisdiction`}>
                     Only in
                   </label>
                   <input
-                    className="bib-input"
+                    className="input"
                     id={`${kind}-jurisdiction`}
                     name={`${kind}-jurisdiction`}
                     maxLength={2}
                     placeholder="all"
                     style={{ width: 90 }}
                   />
-                  <p className="bib-hint">Blank prints everywhere.</p>
+                  <p className="field-hint">Blank prints everywhere.</p>
                 </div>
                 <div style={{ alignSelf: "center" }}>
-                  <label className="bib-check">
+                  <label className="check">
                     <input type="checkbox" name={`${kind}-heading`} /> Heading
                   </label>
                 </div>
               </div>
-              <button className="bib-button" type="submit" disabled={busy}>
+              <button className="btn" type="submit" disabled={busy}>
                 Add line
               </button>
             </form>
           </div>
         );
       })}
-    </main>
+    </Page>
   );
 }
 
