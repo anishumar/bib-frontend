@@ -482,6 +482,11 @@ the firm's own `sortOrder`, and a state with no items still gets its column, bec
 under review" is a fact worth seeing and a board that changed shape as work moved would be
 unreadable week to week.
 
+**The columns are proven, not asserted:** this firm renamed "Blocked" to "Stuck" in an earlier
+session, and the board's column says Stuck. Ticking "include finished work" is what produces the
+Completed and Cancelled columns; the rest of the time a terminal state has none, or "Completed"
+is the widest column on every board.
+
 **There is no drag-and-drop, deliberately.** Moving an item into a state the firm has flagged
 blocked REQUIRES a written reason — the service refuses without one and so does a trigger — so a
 drag would produce a refusal with nowhere to type the answer, and every state change writes an
@@ -546,6 +551,12 @@ rendered as a broken circle — the firm names these, so a two-word name is the 
 `.bib-field-row > *` is `flex: 1 1 160px`, which is right for a control and turns a Save button
 into a banner; the buttons opt out.
 
+**A HINT NEVER GOES INSIDE A `<FieldRow>` COLUMN.** `.field-row` is `align-items: end`, so a
+field carrying a hint stands taller and its INPUT rides up above the ones beside it — four fields
+at four different heights. `/admin/workflows` learnt this and the paragraph below records it; the
+compliance-rules editor re-made it in T6.4 and it was found by looking at the page again. Put the
+hint in a `<p className="field-hint">` under the row.
+
 ## `/calendar` and `/admin/obligation-rules` — the calendar, and the rules behind it (T3.2)
 
 **`/calendar` IS READ-ONLY AND MUST STAY THAT WAY.** There is no "add a filing" button because
@@ -572,6 +583,13 @@ is the longest list at every firm, which is why it sorts LAST. The reasons are g
 listed flat, because they are four different jobs, and each group's "what to do next" links to
 where the fix actually is — an unregistered company is fixed on its client page, not on the rules
 screen.
+
+**The deep link into the rules screen is offered only where there is something to FIX.**
+`blockedRuleIds` is populated for every reason, `nothing_due_yet` included — but there the rules
+match, can compute dates, and simply have no period in the window yet. A "47 rules →" link beside
+"covered, with nothing due yet", landing on a banner reading "the rules that blocked this
+engagement's calendar", was a false sentence about a healthy engagement. The `REASONS` table
+already recorded which reasons have a fix; the link now reads it.
 
 **`entity_not_registered` exists because opening this screen found it.** Three engagements were
 reported as "no rule names this service" at a firm that had just loaded fifty-seven rules; the real
@@ -687,6 +705,12 @@ August's return is August's law even though it falls due in September), prefills
 and shows BOTH formulas side by side, because an amendment is a comparison. A rule that already
 hands over is not offered the button: it shows the date it hands over on and points at its
 successor, which is what the API would answer anyway.
+
+**A NEW rule defaults to COMPUTING A DATE.** Found by writing one: the form opened on "it
+depends on something this system does not hold" with an empty reason, so the first press of Write
+was always a refusal. "Waiting on a fact" is the shipped pack's condition — forty-seven rules
+imported from a document nobody has answered — not the state somebody typing a rule from scratch
+is in. They are writing it because they know when it is due.
 
 **Writing a rule prefills the pack as `firm@<year>`**, editable, kept clear of the shipped
 `gst-in@…` namespace so re-seeding a vendor pack can never collide with an answer the firm wrote

@@ -90,10 +90,7 @@ export function Supersede({
         </Notice>
 
         <FieldRow>
-          <Field
-            label="First PERIOD that uses the new rule"
-            hint="The period's start, not the due date: August's return is August's law even though it falls due on 20 September."
-          >
+          <Field label="First PERIOD that uses the new rule">
             <Input
               type="date"
               value={effectiveFrom}
@@ -103,11 +100,18 @@ export function Supersede({
           <Field
             label="New rule pack"
             error={samePack ? "The successor needs a pack of its own — this is the one it replaces." : null}
-            hint={`Replacing ${rule.rulePack}.`}
           >
             <Input value={rulePack} onChange={(e) => { setRulePack(e.target.value); }} />
           </Field>
         </FieldRow>
+        {/* BELOW THE ROW, not inside a column of it — `.field-row` is
+            `align-items: end`, so a field carrying a hint stands taller and its
+            input sits higher than the ones beside it. */}
+        <p className="field-hint">
+          The period&rsquo;s START, not the due date: August&rsquo;s return is August&rsquo;s law
+          even though it falls due on 20 September. Replacing{" "}
+          <span className="mono">{rule.rulePack}</span>.
+        </p>
 
         <FieldRow>
           <Field label="Counted as">

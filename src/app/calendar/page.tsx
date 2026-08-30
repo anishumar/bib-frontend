@@ -391,8 +391,19 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                           and nothing read it, so every engagement here sent a
                           partner to a list of fifty-seven rules to find the two
                           that concerned them. The rules screen reads `?rules=`
-                          and shows exactly those. */}
-                      {g.blockedRuleIds.length > 0 && (
+                          and shows exactly those.
+
+                          OFFERED ONLY WHERE THERE IS SOMETHING TO FIX, which
+                          is what `where` already says. `nothing_due_yet` is
+                          COVERED — its rules match and can compute dates, and
+                          the window simply has not reached a period yet — so a
+                          link calling them "the rules that blocked this" was a
+                          false sentence about a healthy engagement. Found by
+                          clicking it: the row said "covered, with nothing due
+                          yet" and the link beside it said forty-seven rules
+                          blocked it. */}
+                      {g.blockedRuleIds.length > 0 &&
+                        REASONS[reason].where?.href === "/admin/obligation-rules" && (
                         <LinkButton
                           variant="ghost"
                           size="sm"

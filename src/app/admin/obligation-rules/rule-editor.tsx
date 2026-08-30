@@ -90,7 +90,14 @@ export function draftOf(rule: ObligationRule | null): RuleDraft {
   return {
     recurrence: rule?.recurrence ?? "monthly",
     fiscalYearStartMonth: rule?.fiscalYearStartMonth ?? 4,
-    hasFormula: rule?.dueRule != null,
+    // A NEW rule defaults to computing a date; an existing one reads its own
+    // state. Found by writing one: the form opened on "it depends on something
+    // this system does not hold" with an empty reason, so the first press of
+    // Write was always a refusal. "Waiting on a fact" is the SHIPPED PACK's
+    // condition — forty-seven rules imported from a document nobody has
+    // answered — not the state somebody typing a rule from scratch is in. They
+    // are writing it because they know when it is due.
+    hasFormula: rule === null ? true : rule.dueRule != null,
     kind: rule?.dueRule?.kind ?? "day_of_month",
     dueMonthOffset: rule?.dueRule?.dueMonthOffset ?? 1,
     dueDayOfMonth: rule?.dueRule?.dueDayOfMonth ?? 20,
@@ -236,10 +243,7 @@ export function RuleEditor({
                   onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
                 />
               </Field>
-              <Field
-                label="Rule pack"
-                hint="The firm's own, kept clear of the shipped packs."
-              >
+              <Field label="Rule pack">
                 <Input
                   value={draft.rulePack}
                   onChange={(e) => { set("rulePack", e.target.value); }}
@@ -257,14 +261,7 @@ export function RuleEditor({
         )}
 
         <FieldRow>
-          <Field
-            label="How often"
-            hint={
-              shapeLocked
-                ? undefined
-                : "April for India: a quarter runs Apr–Jun, so leaving the year at January would put every quarterly filing in the wrong period."
-            }
-          >
+          <Field label="How often">
             <Select
               value={draft.recurrence}
               disabled={shapeLocked}
@@ -289,6 +286,19 @@ export function RuleEditor({
             </Select>
           </Field>
         </FieldRow>
+
+        {/* THE HINT SITS BELOW THE ROW, NOT INSIDE A COLUMN OF IT.
+            `.field-row` is `align-items: end`, so a field carrying a hint is
+            taller and its INPUT ends up higher than the ones beside it — four
+            fields at four different heights. `/admin/workflows` learnt this and
+            it is written in CLAUDE.md; this screen re-made it, and looking at
+            the page is what found it again. */}
+        {!shapeLocked && (
+          <p className="field-hint">
+            April for India: a quarter runs Apr&ndash;Jun, so leaving the year at January would put
+            every quarterly filing in the wrong period.
+          </p>
+        )}
 
         {/* DISABLED WITH THE SENTENCE, never silently. A partner meets an
             explanation rather than the API's 409. */}
@@ -378,21 +388,14 @@ export function RuleEditor({
               onChange={(e) => { set("authority", e.target.value); }}
             />
           </Field>
-          <Field
-            label="Statute grouping"
-            hint="The law's — GST, TDS, MCA — not the firm's revenue Dept, which is a different axis."
-          >
+          <Field label="Statute grouping">
             <Input
               value={draft.module}
               placeholder="TDS"
               onChange={(e) => { set("module", e.target.value); }}
             />
           </Field>
-          <Field
-            label="Only for entity type"
-            optional
-            hint="Blank means every kind of company, which is the ordinary case: GST does not care what shape a client is."
-          >
+          <Field label="Only for entity type" optional>
             <Input
               value={draft.entityType}
               placeholder="private_limited"
@@ -411,6 +414,12 @@ export function RuleEditor({
             </Select>
           </Field>
         </FieldRow>
+        <p className="field-hint">
+          <strong>Statute grouping</strong> is the law&rsquo;s &mdash; GST, TDS, MCA &mdash; not
+          the firm&rsquo;s revenue Dept, which is a different axis. Leaving{" "}
+          <strong>entity type</strong> blank means every kind of company, which is the ordinary
+          case: GST does not care what shape a client is.
+        </p>
 
         {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
             rather than after. `dueMonthOffset: 1` is not proofreadable. */}
@@ -514,10 +523,7 @@ export function Exceptions({
         {open && mayWrite && rule.recurrence !== "event" && (
           <Stack>
             <FieldRow>
-              <Field
-                label="Month the PERIOD ends in"
-                hint="Never the month it is due — the due month is exactly what this changes."
-              >
+              <Field label="Month the PERIOD ends in">
                 <Select value={month} onChange={(e) => { setMonth(e.target.value); }}>
                   {MONTHS.map((m, i) => (
                     <option key={m} value={String(i + 1)}>{m}</option>
@@ -560,6 +566,10 @@ export function Exceptions({
                 </Field>
               )}
             </FieldRow>
+            <p className="field-hint">
+              The month the PERIOD ends in, never the month it is due &mdash; the due month is
+              exactly what this changes.
+            </p>
             <Field
               label="Why this period is different"
               hint="Required. A partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo."

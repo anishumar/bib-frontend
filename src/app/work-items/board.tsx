@@ -97,11 +97,14 @@ export function WorkBoard({
         const inColumn = items.filter((i) => i.state.id === state.id);
         return (
           <section key={state.id} role="listitem" aria-label={state.name}>
+            {/* The count sits NEXT TO the name, not at the far edge of the
+                column. `space-between` put it there, and on a wide column the
+                number ended up disconnected from the thing it counts — found by
+                looking at the board, which is the only way this shows. */}
             <header
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
                 gap: "var(--s-2)",
                 marginBottom: "var(--s-2)",
               }}
@@ -177,7 +180,12 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
               {overdue && " · late"}
             </span>
           )}
-          <span className="faint">{item.priority.name}</span>
+          {/* THE SEPARATOR IS LOAD-BEARING. Without it the line read
+              "2026-05-22 · late High" — one phrase, with the priority looking
+              like part of the lateness. The list view never showed this because
+              its two facts sit in two table cells; on a card they share a line,
+              and a card is what somebody scans fastest. */}
+          <span className="faint">· {item.priority.name}</span>
         </span>
 
         {item.assignee === null ? (
