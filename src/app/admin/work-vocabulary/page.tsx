@@ -113,6 +113,7 @@ export default function WorkVocabularyPage() {
               <th style={{ width: 90 }}>Order</th>
               <th>Starting</th>
               <th>Finished</th>
+              <th>Done, not dropped</th>
               <th>Blocked</th>
               <th>Status</th>
               <th />
@@ -167,6 +168,28 @@ export default function WorkVocabularyPage() {
                     disabled={busy === s.id}
                     onChange={(e) => {
                       void act(s.id, () => patchState(s.id, { isTerminal: e.target.checked }));
+                    }}
+                  />
+                </td>
+                {/* Only meaningful on a state the firm calls finished, and
+                    disabled otherwise rather than hidden — the API refuses the
+                    pair and a control that vanishes reads as a bug. This is
+                    what tells Completed from Cancelled: the compliance calendar
+                    marks a filing filed from it, so ticking it on the wrong row
+                    records a statutory return nobody made. */}
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${s.name} means the work was actually done`}
+                    checked={s.isSuccess}
+                    disabled={busy === s.id || !s.isTerminal}
+                    title={
+                      s.isTerminal
+                        ? "The work was done, rather than abandoned. A filing is only marked filed from a state ticked here."
+                        : "Only a finished state can mean the work was done."
+                    }
+                    onChange={(e) => {
+                      void act(s.id, () => patchState(s.id, { isSuccess: e.target.checked }));
                     }}
                   />
                 </td>
@@ -331,6 +354,7 @@ function patchState(
     isInitial?: boolean;
     isTerminal?: boolean;
     isBlocked?: boolean;
+    isSuccess?: boolean;
     isActive?: boolean;
   },
 ): Promise<{ error?: unknown }> {
@@ -457,6 +481,7 @@ function AddState({
     sortOrder?: number;
     isTerminal?: boolean;
     isBlocked?: boolean;
+    isSuccess?: boolean;
   }) => void;
 }) {
   const [name, setName] = useState("");
@@ -464,6 +489,7 @@ function AddState({
   const [sortOrder, setSortOrder] = useState("90");
   const [isTerminal, setIsTerminal] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   return (
     <details style={{ marginTop: "var(--bib-gap-2)" }}>
@@ -509,6 +535,21 @@ function AddState({
           />
           <span>Means finished</span>
         </label>
+        {/* Offered only once "finished" is ticked, because the API refuses the
+            other pair — and left unticked by default, which is the safe
+            direction: a new terminal state nobody classified leaves an
+            obligation OPEN and visible, rather than recording a filing that
+            never happened. */}
+        {isTerminal && (
+          <label className="bib-check">
+            <input
+              type="checkbox"
+              checked={isSuccess}
+              onChange={(e) => { setIsSuccess(e.target.checked); }}
+            />
+            <span>&hellip; and the work was DONE, not dropped</span>
+          </label>
+        )}
         <label className="bib-check">
           <input
             type="checkbox"
@@ -529,9 +570,11 @@ function AddState({
             sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 90,
             isTerminal,
             isBlocked,
+            isSuccess: isTerminal && isSuccess,
           });
           setName("");
           setCode("");
+          setIsSuccess(false);
         }}
       >
         Add

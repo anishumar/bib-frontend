@@ -2301,7 +2301,7 @@ export interface paths {
                     to?: string;
                     entityPartyId?: string;
                     module?: string;
-                    includeSettled?: boolean | null;
+                    includeSettled?: "true" | "false";
                     limit?: number;
                 };
                 header?: never;
@@ -11097,6 +11097,8 @@ export interface components {
             isTerminal: boolean;
             /** @description The work is STUCK, and a reason becomes mandatory. This FLAG is what every rule reads — never the code — so a firm may rename 'Blocked' to anything it likes and keep the behaviour, or tick it on 'Waiting for Client' to start demanding a reason there too. */
             isBlocked: boolean;
+            /** @description Reaching it means the work was actually DONE, not abandoned. Only a terminal state may carry it. A firm starts with TWO terminal states — Completed and Cancelled — and this is what tells them apart: the compliance calendar marks a filing filed from this flag, and cancelling a task must never record that a statutory return was filed. */
+            isSuccess: boolean;
             sortOrder: number;
             /** @description Whether the firm still moves work into it. A retired state still renders everywhere it is already held — retiring is not deleting. */
             isActive: boolean;
@@ -11295,6 +11297,7 @@ export interface components {
             isInitial?: boolean;
             isTerminal?: boolean;
             isBlocked?: boolean;
+            isSuccess?: boolean;
             sortOrder?: number;
         };
         UpdateWorkItemStateRequest: {
@@ -11302,6 +11305,7 @@ export interface components {
             isInitial?: boolean;
             isTerminal?: boolean;
             isBlocked?: boolean;
+            isSuccess?: boolean;
             sortOrder?: number;
             isActive?: boolean;
         };

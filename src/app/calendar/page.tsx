@@ -51,7 +51,11 @@ export default function CalendarPage() {
     // job is to be noticed.
     const [calendar, coverage] = await Promise.all([
       api.GET("/api/v1/calendar", {
-        params: { query: { includeSettled, limit: 500 } },
+        // The STRING the API documents, not a boolean. It used to take
+        // `z.coerce.boolean()`, where "false" coerces to TRUE — so unticking
+        // this box changed nothing at all, and the only reason nobody saw it is
+        // that no calendar row could be terminal until filings could close.
+        params: { query: { includeSettled: includeSettled ? "true" : "false", limit: 500 } },
       }),
       api.GET("/api/v1/calendar/coverage", {}),
     ]);
@@ -264,6 +268,17 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         >
           {row.stateName}
         </span>
+        {/* WHEN, not just that. A row that says only "Filed" is one somebody
+            has to open a task to date, and the gap between the legal deadline
+            and this line is the whole question anybody asks of a closed filing.
+            Nothing wrote this date until 0054 — every row read "Pending"
+            forever, and this cell is where that shows. */}
+        {row.filedOn !== null && (
+          <span className="bib-muted bib-mono" style={{ display: "block", fontSize: 12 }}>
+            {row.filedOn}
+            {row.filedOn > row.statutoryDueOn ? " · late" : ""}
+          </span>
+        )}
       </td>
     </tr>
   );
