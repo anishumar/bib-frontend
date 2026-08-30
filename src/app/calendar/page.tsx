@@ -389,6 +389,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                   <th>Company</th>
                   <th>Service</th>
                   <th>Country</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -411,6 +412,23 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                         >
                           none
                         </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {/* STRAIGHT TO THE RULES THAT BLOCKED THIS ONE ROW.
+                          `blockedRuleIds` has been on this response since T3.2
+                          and nothing read it, so every engagement here sent a
+                          partner to a list of fifty-seven to find the two that
+                          concerned them. The rules screen reads `?rules=` and
+                          shows exactly those. */}
+                      {g.blockedRuleIds.length > 0 && (
+                        <Link
+                          className="bib-pill"
+                          href={`/admin/obligation-rules?rules=${g.blockedRuleIds.join(",")}`}
+                        >
+                          {g.blockedRuleIds.length} rule
+                          {g.blockedRuleIds.length === 1 ? "" : "s"} &rarr;
+                        </Link>
                       )}
                     </td>
                   </tr>

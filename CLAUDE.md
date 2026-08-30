@@ -91,7 +91,7 @@ not before.
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
 | `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
 | `/admin/obligation-vocabulary` | the firm's own words for that calendar — the states a filing moves through, and what may be decided about one that was missed |
-| `/admin/obligation-rules` | what the law asks of a client, and when — confirm a date, set T–X, retire a rule |
+| `/admin/obligation-rules` | what the law asks of a client, and when — write the due formula, add a carve-out, confirm a date, set T–X, retire a rule |
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
@@ -596,11 +596,45 @@ statutory date itself — visibly useless, and deliberately so: T–X is the fir
 practice and a guessed one is a commitment it never made. It commits on **blur**, like
 `/admin/grades`, because every commit writes an audit event.
 
-**Only three things are editable, and what is NOT is the design.** Jurisdiction, name and rule pack
-are a rule's identity and every filing already generated pins the row; moving them would silently
-restate why those filings were due when they were. A revision is a new rule under a new pack with
-the old one retired — and the old one stays readable, which is what lets a filing made last year
-explain its own date. There is no Delete for the same reason there is none on `/admin/grades`.
+**WHAT IS NOT EDITABLE IS THE DESIGN.** Jurisdiction, name and rule pack are a rule's identity and
+every filing already generated pins the row; moving them would silently restate why those filings
+were due when they were. There is no Delete, for the same reason there is none on
+`/admin/grades`. **How often** and **the financial-year start** are editable only while the rule
+has produced nothing: between them they decide where a period BEGINS, and the screen disables them
+with the sentence rather than letting the API answer 409 — a partner meets an explanation, not a
+rejection.
+
+**Everything else is now editable, and that is T6.4.** For three tasks this screen wrote three
+fields while the API had taken a full formula, a new rule and exceptions since T3.2 with no caller
+— so the forty-seven rules waiting on a fact were never going to start generating, however well
+the firm knew the answer. The editor is `rule-editor.tsx`.
+
+**The formula and its reason are ONE control, not two fields.** A CHECK refuses a rule holding
+both and refuses one holding neither, so as two inputs the commonest edit on this screen —
+answering a rule — fails unless the partner also remembers to clear the reason. It is a radio:
+either this rule computes a date, or it says what it is waiting for. The form cannot express what
+the database refuses.
+
+**EVERY WRITE REPORTS WHAT IT DID TO THE CALENDAR**, and says which half is which: "4 filings
+added; 14 already there moved to the new date; 3 left as they are — somebody has already started
+them". That third number is the one nobody would ask for and the one that matters — a partial
+change reported as a whole one is how a deadline moves without anybody being told. It comes from
+the API's `RuleEffect` rather than being inferred from a 200: an edit that moved fourteen filings
+and one that moved none look identical otherwise.
+
+**The "47 waiting on a fact" count is a BUTTON.** It was a number for three tasks while the list
+it described was four clicks away — so the one thing this screen exists to get answered was the
+hardest thing on it to reach. A separate "answer these 47" checklist was considered and refused: a
+checklist measures COMPLETION, and most firms will rightly never answer rules their clients do not
+owe, so a permanent 12/47 reads as a product nagging about work nobody should do. The
+outcome-linked surface already existed and was unread — `/calendar`'s coverage tab now deep-links
+`?rules=…` from `blockedRuleIds`, and this screen focuses exactly those with a banner.
+
+**Writing a rule prefills the pack as `firm@<year>`**, editable, kept clear of the shipped
+`gst-in@…` namespace so re-seeding a vendor pack can never collide with an answer the firm wrote
+itself. And the form SAYS that a new rule generates nothing yet: the API deliberately does not
+materialise a half-written rule, so leaving somebody watching an empty calendar would be this
+screen's silence rather than the API's.
 
 **The formula is rendered as a sentence a partner can check against the statute** — "Every month ·
 the 20th of the following month" — never as `dueMonthOffset: 1`. The first version of that function

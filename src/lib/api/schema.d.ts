@@ -1933,7 +1933,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ObligationRule"];
+                        "application/json": {
+                            rule: components["schemas"]["ObligationRule"];
+                            effect: components["schemas"]["ObligationRuleEffect"];
+                        };
                     };
                 };
                 /** @description A half-stated due formula, or a rule with neither a formula nor a reason for not having one */
@@ -2086,7 +2089,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ObligationRule"];
+                        "application/json": {
+                            rule: components["schemas"]["ObligationRule"];
+                            effect: components["schemas"]["ObligationRuleEffect"];
+                        };
                     };
                 };
                 /** @description A half-stated formula, or a formula and an unresolved reason together */
@@ -2163,7 +2169,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ObligationException"];
+                        "application/json": {
+                            exception: components["schemas"]["ObligationException"];
+                            effect: components["schemas"]["ObligationRuleEffect"];
+                        };
                     };
                 };
                 /** @description A half-stated formula, a missing note, or an event-driven rule */
@@ -2242,12 +2251,16 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Withdrawn */
-                204: {
+                /** @description Withdrawn, and what that did to the calendar */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            effect: components["schemas"]["ObligationRuleEffect"];
+                        };
+                    };
                 };
                 /** @description No authenticated session */
                 401: {
@@ -11752,6 +11765,14 @@ export interface components {
             exceptions: components["schemas"]["ObligationException"][];
             /** @description How many calendar rows this rule has produced, ever. */
             instanceCount: number;
+        };
+        ObligationRuleEffect: {
+            /** @description Filings already on the calendar whose dates this edit MOVED. The sweep materialises a year ahead and generation is idempotent, so an edit that did not restate would be invisible until next year — this number is how the screen proves it was not. */
+            restated: number;
+            /** @description Filings this edit could NOT touch, because somebody has already picked them up or filed them. A task on a desk keeps the date its owner is working to. Shown rather than hidden: a partial change reported as a whole one is how a deadline moves without anybody being told. */
+            locked: number;
+            /** @description Filings this rule newly put on the calendar. Non-zero when a rule that was waiting on a fact has just been given its formula — which is the whole point of the screen. */
+            spawned: number;
         };
         CreateObligationRuleRequest: {
             jurisdiction: string;

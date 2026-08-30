@@ -1,13 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
+import type { ConfigEntry, ObligationRule, RuleCoverage } from "@/lib/api/client";
+import {
+  bodyOf,
+  draftOf,
+  Exceptions,
+  MONTHS,
+  ordinal,
+  RuleEditor,
+  type RuleDraft,
+} from "./rule-editor";
 
 /**
- * What the law asks of the firm's clients, and when (T3.2).
+ * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
  *
  * ── THIS SCREEN IS THE WHOLE REASON THESE ARE ROWS ──────────────────────────
  *
@@ -33,27 +42,78 @@ import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
  * AOC-4" is a far better question to put to a partner than "what is your
  * compliance calendar".
  *
- * ── A REVISION IS A NEW ROW, WHICH IS WHY SO LITTLE IS EDITABLE ─────────────
+ * ── AND UNTIL T6.4 THE FIRM COULD NOT ANSWER IT ─────────────────────────────
  *
- * Jurisdiction, name and rule pack are a rule's IDENTITY, and every filing
- * already generated pins the row. Moving the identity would silently restate
- * why those filings were due when they were — so the form offers the lead time,
- * the confirmation and the retire switch, and a genuine revision is a new rule
- * under a new pack with the old one retired. The old row stays readable
- * forever, which is what lets a filing made last year explain its own date.
+ * The screen offered the lead time, the confirmation tick and the retire
+ * switch, and nothing else — while the API had taken a full formula, a new
+ * rule and exceptions since T3.2 with no caller anywhere. So the forty-seven
+ * were never going to start generating however well the firm knew the answer,
+ * and "config a partner can edit without a deploy" was true of three fields out
+ * of twelve. The editor is `rule-editor.tsx`; what stays absent from it, and
+ * why, is written there.
+ *
+ * ── THE COUNT IS A BUTTON, AND THAT IS THE WHOLE ONBOARDING DESIGN ──────────
+ *
+ * The alternative considered was a separate "answer these 47" checklist. It was
+ * refused: a checklist measures COMPLETION, and completing this one is not the
+ * goal — most firms will never answer rules their clients do not owe, so a
+ * permanent 12/47 would read as a product nagging about work nobody should do.
+ * What matters is the OUTCOME, and that already has a home: `/calendar`'s
+ * coverage panel names the live engagements producing nothing and links here
+ * with the exact blocked rules in `?rules=`. So the count filters, the deep
+ * link focuses, and there is no third surface to keep true.
  */
 export default function ObligationRulesPage() {
+  // `useSearchParams` suspends during prerender; the boundary is the framework's
+  // requirement, not a loading state anybody will see.
+  return (
+    <Suspense fallback={<main><h1>Compliance rules</h1></main>}>
+      <Rules />
+    </Suspense>
+  );
+}
+
+/** What a write did to the calendar that already exists. Never inferred from a
+ *  200: an edit that moved fourteen filings and one that moved none look
+ *  identical otherwise, and only one of them is worth telling somebody about. */
+interface Effect {
+  restated: number;
+  locked: number;
+  spawned: number;
+}
+
+function Rules() {
   const router = useRouter();
+  const params = useSearchParams();
   const [rules, setRules] = useState<ObligationRule[]>([]);
+  const [services, setServices] = useState<ConfigEntry[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showRetired, setShowRetired] = useState(false);
   const [filter, setFilter] = useState<RuleCoverage | "">("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RuleDraft>(draftOf(null));
+  const [creating, setCreating] = useState(false);
+
+  /** Rule ids the caller arrived focused on — `/calendar`'s coverage panel
+   *  linking to the exact rules blocking one engagement. */
+  const focused = useMemo(() => {
+    const raw = params.get("rules");
+    return raw === null ? [] : raw.split(",").filter((s) => s.length > 0);
+  }, [params]);
 
   const load = useCallback(async (): Promise<void> => {
-    const res = await api.GET("/api/v1/obligation-rules", {});
+    const [res, me, catalogue] = await Promise.all([
+      api.GET("/api/v1/obligation-rules", {}),
+      api.GET("/api/v1/auth/me", {}),
+      // `tenant:admin`, like the form it feeds. A reader without it gets no
+      // list and no form, which is the same answer — `?? []` is the whole
+      // handling, deliberately.
+      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
+    ]);
     if (res.response.status === 401) {
       router.push("/login");
       return;
@@ -64,6 +124,8 @@ export default function ObligationRulesPage() {
       return;
     }
     setRules(res.data.rules);
+    setPermissions(me.data?.permissions ?? []);
+    setServices(catalogue.data?.entries ?? []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -74,7 +136,35 @@ export default function ObligationRulesPage() {
     })();
   }, [load]);
 
-  async function patch(ruleId: string, body: Record<string, unknown>): Promise<void> {
+  const mayWrite = permissions.includes("tenant:admin");
+
+  /** Every write reports what it did, and the wording says which half is which
+   *  — a partner who reads "14 moved" and not "3 were left" has been told a
+   *  partial change was a whole one. */
+  function report(effect: Effect | undefined, prefix: string): void {
+    if (!effect) {
+      setNotice(prefix);
+      return;
+    }
+    const parts: string[] = [];
+    if (effect.spawned > 0) {
+      parts.push(
+        `${String(effect.spawned)} filing${effect.spawned === 1 ? "" : "s"} added to the calendar`,
+      );
+    }
+    if (effect.restated > 0) {
+      parts.push(`${String(effect.restated)} already there moved to the new date`);
+    }
+    if (effect.locked > 0) {
+      parts.push(
+        `${String(effect.locked)} left as ${effect.locked === 1 ? "it is" : "they are"} — ` +
+          `somebody has already started ${effect.locked === 1 ? "it" : "them"}`,
+      );
+    }
+    setNotice(parts.length === 0 ? `${prefix} Nothing on the calendar moved.` : `${prefix} ${parts.join("; ")}.`);
+  }
+
+  async function patch(ruleId: string, body: Record<string, unknown>, said: string): Promise<void> {
     setBusy(true);
     const res = await api.PATCH("/api/v1/obligation-rules/{ruleId}", {
       params: { path: { ruleId } },
@@ -86,6 +176,65 @@ export default function ObligationRulesPage() {
       return;
     }
     setError(null);
+    report(res.data.effect, said);
+    await load();
+  }
+
+  async function create(): Promise<void> {
+    setBusy(true);
+    const res = await api.POST("/api/v1/obligation-rules", {
+      body: {
+        ...bodyOf(draft),
+        name: draft.name.trim(),
+        jurisdiction: draft.jurisdiction.trim().toUpperCase(),
+        rulePack: draft.rulePack.trim(),
+        leadTimeDays: 0,
+      } as never,
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(apiError(res.error).message);
+      return;
+    }
+    setError(null);
+    setCreating(false);
+    // A new rule generates nothing on the way in — see the service. Say so,
+    // rather than leaving somebody watching an empty calendar.
+    setNotice(
+      "Written. It produces no filings yet: add any exceptions first, then the nightly pass " +
+        "puts it on the calendar — or save the formula again to fill it now.",
+    );
+    await load();
+  }
+
+  async function addException(ruleId: string, body: Record<string, unknown>): Promise<void> {
+    setBusy(true);
+    const res = await api.POST("/api/v1/obligation-rules/{ruleId}/exceptions", {
+      params: { path: { ruleId } },
+      body: body as never,
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(apiError(res.error).message);
+      return;
+    }
+    setError(null);
+    report(res.data.effect, "Exception added.");
+    await load();
+  }
+
+  async function withdrawException(ruleId: string, periodEndMonth: number): Promise<void> {
+    setBusy(true);
+    const res = await api.DELETE("/api/v1/obligation-rules/{ruleId}/exceptions/{periodEndMonth}", {
+      params: { path: { ruleId, periodEndMonth } },
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(apiError(res.error).message);
+      return;
+    }
+    setError(null);
+    report(res.data.effect, "Withdrawn, and that period is back under the rule's own formula.");
     await load();
   }
 
@@ -112,17 +261,12 @@ export default function ObligationRulesPage() {
   }, [rules]);
 
   const shown = rules
+    .filter((r) => (focused.length === 0 ? true : focused.includes(r.id)))
     .filter((r) => showRetired || r.isActive)
     .filter((r) => filter === "" || r.coverage === filter);
 
   return (
     <main>
-      <nav className="bib-nav">
-        <Link href="/">Home</Link>
-        <Link href="/calendar">Calendar</Link>
-        <Link href="/admin/work-vocabulary">Work vocabulary</Link>
-      </nav>
-
       <h1>Compliance rules</h1>
       <p className="bib-muted">
         What the law asks of a client, and when. The calendar is generated from these &mdash;
@@ -132,17 +276,30 @@ export default function ObligationRulesPage() {
       {error !== null && <p className="bib-error">{error}</p>}
       {notice !== null && <p className="bib-hint">{notice}</p>}
 
+      {focused.length > 0 && (
+        <div className="bib-callout">
+          <p style={{ margin: 0 }}>
+            <strong>
+              Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
+              engagement&rsquo;s calendar.
+            </strong>{" "}
+            Give each one a formula and its filings appear.
+          </p>
+          <Link href="/admin/obligation-rules">Show every rule</Link>
+        </div>
+      )}
+
       {loaded && rules.length === 0 && (
         <div className="bib-callout">
           <p style={{ marginTop: 0 }}>
             <strong>This firm has no compliance rules, so its calendar is empty.</strong>
           </p>
-          <p>
-            New firms are given the India pack automatically. This one predates it.
-          </p>
-          <button type="button" onClick={() => void seed()} disabled={busy}>
-            Load the India rule pack
-          </button>
+          <p>New firms are given the India pack automatically. This one predates it.</p>
+          {mayWrite && (
+            <button type="button" onClick={() => void seed()} disabled={busy}>
+              Load the India rule pack
+            </button>
+          )}
         </div>
       )}
 
@@ -151,16 +308,27 @@ export default function ObligationRulesPage() {
           <div className="bib-callout" style={{ marginTop: "var(--bib-gap-2)" }}>
             <p style={{ margin: 0 }}>
               <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
-              <strong>{counts.get("needs_formula") ?? 0}</strong>{" "}
-              {(counts.get("needs_formula") ?? 0) === 1 ? "is" : "are"} waiting on a fact this
-              system does not hold, and <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
+              {/* THE COUNT IS THE CONTROL. It was a number for three tasks and
+                  the list it described was four clicks away — so the one thing
+                  this screen exists to get answered was the hardest thing on it
+                  to reach. */}
+              <button
+                type="button"
+                className="bib-pill"
+                data-tone={(counts.get("needs_formula") ?? 0) > 0 ? "live" : undefined}
+                onClick={() => { setFilter(filter === "needs_formula" ? "" : "needs_formula"); }}
+              >
+                {counts.get("needs_formula") ?? 0} waiting on a fact
+              </button>{" "}
+              &mdash; each names the one thing it still needs, and you can answer it here. And{" "}
+              <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
               {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by something
               happening rather than by a period.
             </p>
             <p className="bib-hint" style={{ marginBottom: 0 }}>
               That second number is not a fault list &mdash; it is the honest state of the
-              firm&rsquo;s own specification. Each of those rules names the one thing it still
-              needs.
+              firm&rsquo;s own specification, and a firm whose clients never owe those filings is
+              right to leave them unanswered.
             </p>
           </div>
 
@@ -173,6 +341,7 @@ export default function ObligationRulesPage() {
             }}
           >
             <select
+              className="bib-select"
               value={filter}
               onChange={(e) => { setFilter(e.target.value as RuleCoverage | ""); }}
             >
@@ -193,7 +362,34 @@ export default function ObligationRulesPage() {
                 it is never deleted.
               </span>
             </label>
+            {mayWrite && (
+              <button
+                type="button"
+                className="bib-button-quiet"
+                style={{ marginLeft: "auto" }}
+                onClick={() => {
+                  setEditing(null);
+                  setDraft(draftOf(null));
+                  setCreating((c) => !c);
+                }}
+              >
+                {creating ? "Cancel" : "Write a rule"}
+              </button>
+            )}
           </div>
+
+          {creating && (
+            <RuleEditor
+              draft={draft}
+              onChange={setDraft}
+              services={services}
+              rule={null}
+              creating
+              busy={busy}
+              onSave={() => void create()}
+              onCancel={() => { setCreating(false); }}
+            />
+          )}
 
           <div className="bib-card">
             <table className="bib-table">
@@ -209,11 +405,61 @@ export default function ObligationRulesPage() {
               </thead>
               <tbody>
                 {shown.map((rule) => (
-                  <RuleRow key={rule.id} rule={rule} busy={busy} onPatch={patch} />
+                  <RuleRow
+                    key={rule.id}
+                    rule={rule}
+                    busy={busy}
+                    mayWrite={mayWrite}
+                    open={editing === rule.id}
+                    onOpen={() => {
+                      setCreating(false);
+                      setEditing(editing === rule.id ? null : rule.id);
+                      setDraft(draftOf(rule));
+                    }}
+                    onPatch={(body, said) => void patch(rule.id, body, said)}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
+
+          {editing !== null && (() => {
+            const rule = rules.find((r) => r.id === editing);
+            if (!rule) return null;
+            return (
+              <>
+                <h3 style={{ marginBottom: 0 }}>{rule.name}</h3>
+                <p className="bib-muted" style={{ marginTop: 4 }}>
+                  {rule.jurisdiction} &middot; <span className="bib-mono">{rule.rulePack}</span>
+                  {rule.status === "confirmed" && (
+                    <>
+                      {" "}&mdash; this rule is <strong>confirmed</strong>. If the law changed for
+                      one period, add an exception rather than editing the formula: an exception
+                      says which period is different and leaves the other eleven explaining
+                      themselves.
+                    </>
+                  )}
+                </p>
+                <RuleEditor
+                  draft={draft}
+                  onChange={setDraft}
+                  services={services}
+                  rule={rule}
+                  creating={false}
+                  busy={busy}
+                  onSave={() => void patch(rule.id, bodyOf(draft), "Saved.")}
+                  onCancel={() => { setEditing(null); }}
+                />
+                <Exceptions
+                  rule={rule}
+                  busy={busy}
+                  mayWrite={mayWrite}
+                  onAdd={(body) => void addException(rule.id, body)}
+                  onWithdraw={(m) => void withdrawException(rule.id, m)}
+                />
+              </>
+            );
+          })()}
         </>
       )}
     </main>
@@ -223,16 +469,22 @@ export default function ObligationRulesPage() {
 function RuleRow({
   rule,
   busy,
+  mayWrite,
+  open,
+  onOpen,
   onPatch,
 }: {
   rule: ObligationRule;
   busy: boolean;
-  onPatch: (ruleId: string, body: Record<string, unknown>) => Promise<void>;
+  mayWrite: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onPatch: (body: Record<string, unknown>, said: string) => void;
 }) {
   const [lead, setLead] = useState(String(rule.leadTimeDays));
 
   return (
-    <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
+    <tr data-inactive={rule.isActive ? undefined : "true"}>
       <td>
         {rule.name}
         {rule.module !== null && (
@@ -246,7 +498,9 @@ function RuleRow({
         {rule.unresolvedReason !== null && <p className="bib-hint">{rule.unresolvedReason}</p>}
         {rule.exceptions.length > 0 && (
           <p className="bib-hint">
-            {rule.exceptions.map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`).join(" · ")}
+            {rule.exceptions
+              .map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`)
+              .join(" · ")}
           </p>
         )}
       </td>
@@ -278,12 +532,12 @@ function RuleRow({
           type="number"
           min={0}
           value={lead}
-          disabled={busy || rule.coverage !== "generating"}
+          disabled={busy || !mayWrite || rule.coverage !== "generating"}
           onChange={(e) => { setLead(e.target.value); }}
           onBlur={() => {
             const n = Number(lead);
             if (Number.isInteger(n) && n >= 0 && n !== rule.leadTimeDays) {
-              void onPatch(rule.id, { leadTimeDays: n });
+              onPatch({ leadTimeDays: n }, "Lead time saved.");
             }
           }}
           style={{ width: 64 }}
@@ -298,9 +552,12 @@ function RuleRow({
           <input
             type="checkbox"
             checked={rule.status === "confirmed"}
-            disabled={busy}
+            disabled={busy || !mayWrite}
             onChange={(e) => {
-              void onPatch(rule.id, { status: e.target.checked ? "confirmed" : "unconfirmed" });
+              onPatch(
+                { status: e.target.checked ? "confirmed" : "unconfirmed" },
+                e.target.checked ? "Confirmed." : "Marked as not yet checked.",
+              );
             }}
           />
           {/* SHORT, because it wrapped to three lines beside the box and the
@@ -319,26 +576,37 @@ function RuleRow({
           </span>
         </label>
       </td>
-      <td style={{ textAlign: "right" }}>
-        <button
-          type="button"
-          className="bib-pill"
-          disabled={busy}
-          onClick={() => { void onPatch(rule.id, { isActive: !rule.isActive }); }}
-          title={
-            rule.isActive
-              ? "Stop generating. Filings already produced stay, because a retired rule still explains their dates."
-              : "Start generating again."
-          }
-        >
-          {rule.isActive ? "Retire" : "Reactivate"}
-        </button>
+      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+        {mayWrite && (
+          <>
+            <button
+              type="button"
+              className="bib-pill"
+              disabled={busy}
+              onClick={onOpen}
+              title="The formula, the exceptions, and what this rule is waiting for."
+            >
+              {open ? "Close" : "Edit"}
+            </button>{" "}
+            <button
+              type="button"
+              className="bib-pill"
+              disabled={busy}
+              onClick={() => { onPatch({ isActive: !rule.isActive }, "Saved."); }}
+              title={
+                rule.isActive
+                  ? "Stop generating. Filings already produced stay, because a retired rule still explains their dates."
+                  : "Start generating again."
+              }
+            >
+              {rule.isActive ? "Retire" : "Reactivate"}
+            </button>
+          </>
+        )}
       </td>
     </tr>
   );
 }
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const LABEL: Record<RuleCoverage, string> = {
   generating: "producing dates",
@@ -366,6 +634,12 @@ const TONE: Record<RuleCoverage, string | undefined> = {
  * 30 days after the period ends" — both grammatical nonsense, and the second
  * one factually wrong as well, because an event-driven rule has no period to
  * count from. Reading the page is what found them; the types were happy.
+ *
+ * The editor shows the same sentence live, from the DRAFT — `describeDraft` in
+ * `rule-editor.tsx` — so a partner reads what they are about to save before
+ * saving it rather than after. Two copies, deliberately: one describes a saved
+ * rule and one an unsaved draft, and merging them would mean building a fake
+ * rule out of form state to render a sentence.
  */
 function describe(rule: ObligationRule): string {
   const every = EVERY[rule.recurrence] ?? rule.recurrence;
@@ -385,15 +659,6 @@ function describe(rule: ObligationRule): string {
   if (offset === 0) return `${every} · the ${day} of the month the period ends in`;
   if (offset === 1) return `${every} · the ${day} of the following month`;
   return `${every} · the ${day}, ${String(offset)} months after ${from}`;
-}
-
-/** "20th", "1st", "3rd". A due date reads as a date to a partner, not as a
- *  field value. */
-function ordinal(n: number): string {
-  const rest = n % 100;
-  if (rest >= 11 && rest <= 13) return `${String(n)}th`;
-  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th";
-  return `${String(n)}${suffix}`;
 }
 
 const EVERY: Record<string, string> = {
