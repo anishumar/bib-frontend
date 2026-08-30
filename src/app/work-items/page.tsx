@@ -10,6 +10,7 @@ import type {
   Principal,
   WorkItem,
   WorkItemReview,
+  WorkItemState,
 } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -35,6 +36,7 @@ import {
   Th,
   Tooltip,
 } from "@/components/ui";
+import { WorkBoard } from "./board";
 
 /**
  * The board — what is owed, whose it is, and what is late (T3.1).
@@ -84,6 +86,22 @@ export default function WorkItemsPage() {
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [staff, setStaff] = useState<Member[]>([]);
   const [includeDone, setIncludeDone] = useState(false);
+  /** The firm's own states, which are the board's COLUMNS. `party:read`, the
+   *  same permission this screen already needs, so every viewer gets them. */
+  const [states, setStates] = useState<WorkItemState[]>([]);
+  /**
+   * BOARD OR LIST, and it is a VIEW rather than a fourth tab.
+   *
+   * The three tabs are three different QUESTIONS — whose desk, nobody's desk,
+   * everybody's desk. Board-and-list is a different axis entirely: the same
+   * question, drawn two ways. A fourth tab would have meant six combinations
+   * expressed as four, and "Mine, as a board" would have had nowhere to live.
+   *
+   * The board is the DEFAULT because that is what this screen is called and
+   * what it is for. The list is what you switch to when you want a hundred rows
+   * sorted by date rather than a picture of where the work is stuck.
+   */
+  const [view, setView] = useState<"board" | "list">("board");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -101,7 +119,7 @@ export default function WorkItemsPage() {
     // signed-in person's id. The API's own `mine=true` filter exists and is not
     // used here on purpose: the tab COUNTS have to agree with each other, and
     // three separate queries would disagree for as long as one was in flight.
-    const [board, queue, principal, book, roster] = await Promise.all([
+    const [board, queue, principal, book, roster, vocabulary] = await Promise.all([
       api.GET("/api/v1/work-items", {
         params: { query: { asOf, includeDone: includeDone ? "true" : "false" } },
       }),
@@ -115,6 +133,10 @@ export default function WorkItemsPage() {
       // form without an assignee picker rather than no form at all; the item is
       // raised unassigned, which is a state the board already has a tab for.
       api.GET("/api/v1/tenancy/members", {}),
+      // The board's COLUMNS. `party:read`, so everybody who can see this screen
+      // gets them — and in the same pass as the items, because a board that
+      // paints its cards before its columns has no shape to paint them into.
+      api.GET("/api/v1/work-vocabulary", {}),
     ]);
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
@@ -139,6 +161,7 @@ export default function WorkItemsPage() {
     // one and not the other is possible in principle — so a refusal here empties
     // the tab rather than blanking the page.
     setChecks(queue.error ? [] : queue.data.checks);
+    setStates(vocabulary.data?.states ?? []);
     setError(null);
     setLoaded(true);
   }, [router, includeDone]);
@@ -154,6 +177,13 @@ export default function WorkItemsPage() {
   // Filtered in the browser rather than re-fetched per tab: the whole board is
   // one query already, and three round trips to move between tabs would make
   // the counts disagree with the rows for as long as one was in flight.
+  // THE BROWSER'S CALENDAR DAY, computed once for the page. `toISOString()`
+  // here would be the UTC day, which calls work due today "late" west of
+  // Greenwich and "not yet" east — and saying what is late is this screen's
+  // whole job. The same value the request already sends as `asOf`.
+  const now = new Date();
+  const localToday = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   const mine = items.filter((i) => i.assignee !== null && i.assignee.userId === me?.userId);
   const unassigned = items.filter((i) => i.assignee === null);
   const shown = tab === "mine" ? mine : tab === "unassigned" ? unassigned : items;
@@ -210,12 +240,36 @@ export default function WorkItemsPage() {
         ]}
       />
 
-      <Checkbox
-        label="Include finished work"
-        note="off by default — a board of everything the firm has ever done is not a board."
-        checked={includeDone}
-        onChange={(e) => { setIncludeDone(e.target.checked); }}
-      />
+      <div className="row">
+        <Checkbox
+          label="Include finished work"
+          note="off by default — a board of everything the firm has ever done is not a board."
+          checked={includeDone}
+          onChange={(e) => { setIncludeDone(e.target.checked); }}
+        />
+        {/* A pair of buttons rather than a `<Tabs>`: this is not navigation
+            between panels, it is the same panel drawn two ways, and a tablist
+            announces itself as a set of pages. `aria-pressed` says what it
+            actually is — a toggle that is currently on. */}
+        <span className="cluster tight">
+          <Button
+            variant={view === "board" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={view === "board"}
+            onClick={() => { setView("board"); }}
+          >
+            Board
+          </Button>
+          <Button
+            variant={view === "list" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={view === "list"}
+            onClick={() => { setView("list"); }}
+          >
+            List
+          </Button>
+        </span>
+      </div>
 
       <TabPanel tabsId={tabsId} value={tab}>
         {shown.length === 0 ? (
@@ -224,6 +278,8 @@ export default function WorkItemsPage() {
               {emptyMessage(tab)}
             </Empty>
           </Card>
+        ) : view === "board" ? (
+          <WorkBoard items={shown} states={states} today={localToday} includeDone={includeDone} />
         ) : (
           <TableWrap>
             <Table>
@@ -239,7 +295,7 @@ export default function WorkItemsPage() {
               </thead>
               <tbody>
                 {shown.map((item) => (
-                  <WorkRow key={item.id} item={item} />
+                  <WorkRow key={item.id} item={item} today={localToday} />
                 ))}
               </tbody>
             </Table>
@@ -276,10 +332,8 @@ function emptyMessage(tab: "mine" | "unassigned" | "all"): string {
  * the checklist, the dependencies, the reviews — is on the item's own page,
  * because a board that showed all of it would be a board nobody reads.
  */
-function WorkRow({ item }: { item: WorkItem }) {
-  const today = new Date();
-  const localToday = `${String(today.getFullYear())}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const overdue = item.dueOn !== null && item.dueOn < localToday && !item.state.isTerminal;
+function WorkRow({ item, today }: { item: WorkItem; today: string }) {
+  const overdue = item.dueOn !== null && item.dueOn < today && !item.state.isTerminal;
 
   return (
     <tr>

@@ -1,0 +1,183 @@
+"use client";
+
+import { useState } from "react";
+import type { ObligationRule } from "@/lib/api/client";
+import { Cluster, Row, Stack } from "@/components/layout";
+import {
+  Button,
+  Card,
+  CardHead,
+  CardTitle,
+  Field,
+  FieldRow,
+  Input,
+  Notice,
+  Select,
+} from "@/components/ui";
+import { describeDraft, draftOf, firmRulePack, type DueRuleKind, type RuleDraft } from "./rule-editor";
+
+/**
+ * The law changed, from a day (migration 0057).
+ *
+ * ── THIS IS NOT THE EDIT FORM, AND THE DIFFERENCE IS THE WHOLE FEATURE ──────
+ *
+ * Editing a rule is a CORRECTION. Every date in the shipped pack came from a
+ * previous vendor's document and ships `unconfirmed`, so a partner supplying
+ * the real formula is not changing the law — they are recording it properly for
+ * the first time. That edits in place and moves the filings already generated,
+ * because those dates were this system's guess.
+ *
+ * This is an AMENDMENT. The old formula was RIGHT for every period before the
+ * cutover, and a return filed under it has to go on explaining its own date
+ * forever. So the old rule is not edited and it is not retired — it is CLOSED
+ * at a day, and a successor opens on the same day, in one transaction.
+ *
+ * ── WHY IT ASKS FOR A PERIOD RATHER THAN "TODAY" ────────────────────────────
+ *
+ * The day is compared against the START of a filing period, never against a due
+ * date. August's return is August's law even though it falls due on 20
+ * September, so a change effective 1 September must not reach back and restate
+ * August. The form says so where the date is typed, because getting it backwards
+ * moves every date by exactly one period and looks entirely plausible.
+ *
+ * ── AND IT DEFAULTS TO NOTHING ──────────────────────────────────────────────
+ *
+ * No prefilled cutover. A date this screen guessed would be a date somebody
+ * accepted, and the day a law changes is a fact about the world rather than a
+ * convenience — the same reason every rule ships with a lead time of zero
+ * rather than a plausible one.
+ */
+export function Supersede({
+  rule,
+  busy,
+  onSupersede,
+  onCancel,
+}: {
+  rule: ObligationRule;
+  busy: boolean;
+  onSupersede: (body: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  // Seeded from the rule being replaced, because an amendment usually changes
+  // one thing — and the partner should be reading the OLD formula while they
+  // decide what the new one is.
+  const [draft, setDraft] = useState<RuleDraft>(draftOf(rule));
+  const [effectiveFrom, setEffectiveFrom] = useState("");
+  const [rulePack, setRulePack] = useState(firmRulePack());
+
+  const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]): void => {
+    setDraft({ ...draft, [key]: value });
+  };
+  const samePack = rulePack.trim() === rule.rulePack;
+
+  return (
+    <Card>
+      <CardHead>
+        <CardTitle>The law changed</CardTitle>
+      </CardHead>
+      <Stack>
+        <Notice tone="warn" eyebrow="THIS KEEPS THE OLD RULE">
+          <p>
+            <strong>{rule.name}</strong> goes on governing every period beginning before the day
+            you give, and goes on explaining the filings it has already produced. A new rule
+            governs everything from that day.
+          </p>
+          <p>
+            If instead the date on this rule was simply <em>wrong</em> — it came from a document
+            rather than from the firm, which is true of everything shipped — close this and edit
+            the formula. That corrects the calendar; this records a change in the law.
+          </p>
+        </Notice>
+
+        <FieldRow>
+          <Field
+            label="First PERIOD that uses the new rule"
+            hint="The period's start, not the due date: August's return is August's law even though it falls due on 20 September."
+          >
+            <Input
+              type="date"
+              value={effectiveFrom}
+              onChange={(e) => { setEffectiveFrom(e.target.value); }}
+            />
+          </Field>
+          <Field
+            label="New rule pack"
+            error={samePack ? "The successor needs a pack of its own — this is the one it replaces." : null}
+            hint={`Replacing ${rule.rulePack}.`}
+          >
+            <Input value={rulePack} onChange={(e) => { setRulePack(e.target.value); }} />
+          </Field>
+        </FieldRow>
+
+        <FieldRow>
+          <Field label="Counted as">
+            <Select
+              value={draft.kind}
+              onChange={(e) => { set("kind", e.target.value as DueRuleKind); }}
+            >
+              <option value="day_of_month">A day of a month</option>
+              <option value="days_after">A number of days</option>
+            </Select>
+          </Field>
+          {draft.kind === "day_of_month" ? (
+            <>
+              <Field label="Day of the month">
+                <Input
+                  inputMode="numeric"
+                  value={String(draft.dueDayOfMonth)}
+                  onChange={(e) => { set("dueDayOfMonth", Number(e.target.value) || 1); }}
+                />
+              </Field>
+              <Field label="Months after the period ends">
+                <Input
+                  inputMode="numeric"
+                  value={String(draft.dueMonthOffset)}
+                  onChange={(e) => { set("dueMonthOffset", Number(e.target.value) || 0); }}
+                />
+              </Field>
+            </>
+          ) : (
+            <Field label="Days after the period ends">
+              <Input
+                inputMode="numeric"
+                value={String(draft.dueDaysAfter)}
+                onChange={(e) => { set("dueDaysAfter", Number(e.target.value) || 0); }}
+              />
+            </Field>
+          )}
+        </FieldRow>
+
+        {/* BOTH FORMULAS, side by side. An amendment is a comparison — "it was
+            the 20th and it is now the 11th" — and a form showing only the new
+            one asks somebody to remember the old. */}
+        <Row>
+          <span className="mono faint">was · {describeDraft({ ...draftOf(rule), hasFormula: true })}</span>
+          <span className="mono">now · {describeDraft({ ...draft, hasFormula: true })}</span>
+        </Row>
+
+        <Cluster>
+          <Button
+            disabled={busy || effectiveFrom === "" || samePack || rulePack.trim() === ""}
+            onClick={() => {
+              onSupersede({
+                effectiveFrom,
+                rulePack: rulePack.trim(),
+                dueRule: {
+                  kind: draft.kind,
+                  dueMonthOffset: draft.kind === "day_of_month" ? draft.dueMonthOffset : null,
+                  dueDayOfMonth: draft.kind === "day_of_month" ? draft.dueDayOfMonth : null,
+                  dueDaysAfter: draft.kind === "days_after" ? draft.dueDaysAfter : null,
+                },
+              });
+            }}
+          >
+            Hand over on this date
+          </Button>
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+        </Cluster>
+      </Stack>
+    </Card>
+  );
+}

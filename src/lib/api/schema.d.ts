@@ -2135,6 +2135,99 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/obligation-rules/{ruleId}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The law changed from a day — hand this rule over to a successor
+         * @description NOT an edit and NOT a retirement. Editing a rule in place is a CORRECTION — the shipped dates came from a document and everything ships `unconfirmed`, so supplying the real formula is recording the law properly for the first time. This is an AMENDMENT: the old formula was RIGHT for every period before the cutover, and a filing made under it has to go on explaining its own date. So the predecessor is closed at the cutover rather than retired — it still governs its own periods — and the successor opens on the same day, in ONE transaction, because either half alone is a silently broken calendar: a missing successor stops the firm's clients being told about a filing they still owe, and an un-closed predecessor puts every later return on the calendar TWICE.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ruleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SupersedeObligationRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description The successor, and what it did to the calendar */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rule: components["schemas"]["ObligationRule"];
+                            effect: components["schemas"]["ObligationRuleEffect"];
+                        };
+                    };
+                };
+                /** @description A cutover that is not a day, one at or before this rule's own start, a half-stated formula, or a successor reusing the predecessor's rule pack */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This rule already hands over on a day, so it is not the one in force */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/obligation-rules/{ruleId}/exceptions": {
         parameters: {
             query?: never;
@@ -11757,6 +11850,10 @@ export interface components {
              */
             status: "unconfirmed" | "confirmed";
             isActive: boolean;
+            /** @description The first period START this rule governs — null means from the beginning. Tested against the period rather than the due date: August's return is August's law even though it falls due on 20 September. */
+            effectiveFrom: string | null;
+            /** @description The first period start this rule does NOT govern — the day its successor takes over. Half-open, so a rule ending on the 1st and its successor starting on the 1st govern one period each and never the same one. Null means forever, which is every rule nobody has had to amend. */
+            effectiveTo: string | null;
             /**
              * @description What this rule is actually doing, derived rather than stored. 'needs_formula' is NOT an error and is the ordinary state of most of the shipped pack — it means the obligation is real and its timing depends on a fact this system does not hold (an AGM date, a State, a turnover). The reason is on the rule.
              * @enum {string}
@@ -11818,6 +11915,20 @@ export interface components {
              */
             status?: "unconfirmed" | "confirmed";
             isActive?: boolean;
+        };
+        SupersedeObligationRuleRequest: {
+            /** @description The day the new rule takes over, as a PERIOD start. Half-open: the predecessor governs every period beginning before this day and the successor every period from it, so exactly one rule governs each return. */
+            effectiveFrom: string;
+            /** @description The successor's OWN pack, and it may not be the predecessor's — a pack is part of a rule's identity, which is what lets a filing made last year still name the version it was due under. */
+            rulePack: string;
+            dueRule: components["schemas"]["ObligationDueRule"];
+            unresolvedReason?: string | null;
+            leadTimeDays?: number;
+            authority?: string | null;
+            module?: string | null;
+            entityType?: string | null;
+            /** Format: uuid */
+            serviceEntryId?: string | null;
         };
         AddObligationExceptionRequest: {
             periodEndMonth: number;

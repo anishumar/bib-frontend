@@ -474,6 +474,22 @@ firm's own words. **They are two screens because they answer two questions**, an
 firm that has published no process still has work: ad hoc work has no job at all and is still
 owned, still due and still reviewable.
 
+**IT IS A BOARD BY DEFAULT, AND THE COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states
+rows precisely so a firm could rename "Blocked" to "Stuck" without a deploy, and a board with
+hardcoded columns takes that back on the screen where it shows most. The columns come from
+`GET /work-vocabulary` — `party:read`, the same permission the board itself needs — ordered by
+the firm's own `sortOrder`, and a state with no items still gets its column, because "nothing is
+under review" is a fact worth seeing and a board that changed shape as work moved would be
+unreadable week to week.
+
+**There is no drag-and-drop, deliberately.** Moving an item into a state the firm has flagged
+blocked REQUIRES a written reason — the service refuses without one and so does a trigger — so a
+drag would produce a refusal with nowhere to type the answer, and every state change writes an
+audit event naming its actor. A card links to the item, where the state picker already opens the
+reason box the moment a blocked state is chosen. **Board or list is a VIEW, not a fourth tab**:
+the tabs are three different questions and drawing is a different axis, so a fourth tab would
+have left "Mine, as a board" nowhere to live.
+
 **THREE TABS ARE THREE DIFFERENT JOBS.** Mine is what somebody opens in the morning. Everything
 is the delivery meeting. **Unassigned is the one that matters most and would not exist on a
 naive board**: when the router cannot find the client's SPOC for a Dept, or finds two, it
@@ -660,6 +676,17 @@ checklist measures COMPLETION, and most firms will rightly never answer rules th
 owe, so a permanent 12/47 reads as a product nagging about work nobody should do. The
 outcome-linked surface already existed and was unread — `/calendar`'s coverage tab now deep-links
 `?rules=…` from `blockedRuleIds`, and this screen focuses exactly those with a banner.
+
+**"THE LAW CHANGED" IS A DIFFERENT BUTTON FROM EDITING, and that is the whole of `supersede.tsx`.**
+Editing a formula is a CORRECTION — the shipped dates came from a document, everything ships
+`unconfirmed`, and supplying the real one is recording the law properly for the first time. The
+amendment form keeps the old rule instead: it governs every period before the cutover and goes on
+explaining the filings it produced. So the panel says both halves in words before anything is
+typed, asks for the first PERIOD that uses the new rule (never "today", and the hint says why —
+August's return is August's law even though it falls due in September), prefills no date at all,
+and shows BOTH formulas side by side, because an amendment is a comparison. A rule that already
+hands over is not offered the button: it shows the date it hands over on and points at its
+successor, which is what the API would answer anyway.
 
 **Writing a rule prefills the pack as `firm@<year>`**, editable, kept clear of the shipped
 `gst-in@…` namespace so re-seeding a vendor pack can never collide with an answer the firm wrote

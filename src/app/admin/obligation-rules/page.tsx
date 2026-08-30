@@ -32,6 +32,7 @@ import {
   RuleEditor,
   type RuleDraft,
 } from "./rule-editor";
+import { Supersede } from "./supersede";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
@@ -130,6 +131,9 @@ function Rules() {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<RuleDraft>(draftOf(null));
   const [creating, setCreating] = useState(false);
+  /** Amending the open rule, rather than correcting it. Two different acts;
+   *  see `supersede.tsx` for which is which. */
+  const [amending, setAmending] = useState(false);
 
   /** Rule ids the caller arrived focused on — `/calendar`'s coverage panel
    *  linking to the exact rules blocking one engagement. */
@@ -272,6 +276,28 @@ function Rules() {
     }
     setError(null);
     report(res.data.effect, "Withdrawn, and that period is back under the rule's own formula.");
+    await load();
+  }
+
+  async function supersede(ruleId: string, body: Record<string, unknown>): Promise<void> {
+    setBusy(true);
+    const res = await api.POST("/api/v1/obligation-rules/{ruleId}/supersede", {
+      params: { path: { ruleId } },
+      body: body as never,
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(apiError(res.error).message);
+      return;
+    }
+    setError(null);
+    setAmending(false);
+    // The successor becomes the open rule, because that is the one a partner is
+    // now looking at — leaving the predecessor open would show the formula that
+    // has just stopped applying.
+    setEditing(res.data.rule.id);
+    setDraft(draftOf(res.data.rule));
+    report(res.data.effect, "Handed over.");
     await load();
   }
 
@@ -452,6 +478,7 @@ function Rules() {
                         open={editing === rule.id}
                         onOpen={() => {
                           setCreating(false);
+                          setAmending(false);
                           setEditing(editing === rule.id ? null : rule.id);
                           setDraft(draftOf(rule));
                         }}
@@ -499,6 +526,37 @@ function Rules() {
                   onAdd={(body) => void addException(open.id, body)}
                   onWithdraw={(m) => void withdrawException(open.id, m)}
                 />
+                {/* AMENDING IS OFFERED ONLY ON A RULE THAT IS STILL IN FORCE.
+                    A rule that already hands over on a day is not the one
+                    governing periods from then on, and superseding it a second
+                    time would leave two successors covering the same periods —
+                    which is two filings for one return. The API refuses it;
+                    this does not offer it, and says why instead. */}
+                {mayWrite &&
+                  (open.effectiveTo !== null ? (
+                    <Notice eyebrow="THIS RULE HANDS OVER">
+                      It governs periods up to {open.effectiveTo}, and a later rule governs from
+                      then on. Amend that one — this row stays exactly as it is, because it is
+                      still why the filings it produced were due when they were.
+                    </Notice>
+                  ) : amending ? (
+                    <Supersede
+                      rule={open}
+                      busy={busy}
+                      onSupersede={(body) => void supersede(open.id, body)}
+                      onCancel={() => { setAmending(false); }}
+                    />
+                  ) : (
+                    <Row>
+                      <span className="faint">
+                        Has the law itself changed from a date? That is not an edit &mdash; it
+                        keeps this rule and starts a new one.
+                      </span>
+                      <Button variant="ghost" onClick={() => { setAmending(true); }}>
+                        The law changed
+                      </Button>
+                    </Row>
+                  ))}
               </Stack>
             )}
           </>
@@ -556,6 +614,12 @@ function RuleRow({
             {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
           </Sub>
         )}
+        {/* THE WINDOW, and it is not decoration. A rule that has handed over
+            still says "producing dates" — correctly, because it governs its own
+            periods — so without this line a partner would read it as live for
+            periods it no longer covers, and go looking for a bug. */}
+        {rule.effectiveTo !== null && <Sub>hands over on {rule.effectiveTo}</Sub>}
+        {rule.effectiveFrom !== null && <Sub>governs periods from {rule.effectiveFrom}</Sub>}
       </Td>
       <Td>
         {/* T–X, and it is a BLANK rather than a guess. Every shipped rule is at
