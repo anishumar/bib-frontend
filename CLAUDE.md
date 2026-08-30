@@ -87,6 +87,8 @@ not before.
 | `/work-items` | the board — what is owed, whose desk it is on, and what is late |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
+| `/calendar` | the compliance calendar — what each company owes and by when, plus WHY an engagement produced nothing |
+| `/admin/obligation-rules` | what the law asks of a client, and when — confirm a date, set T–X, retire a rule |
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
@@ -433,6 +435,65 @@ lines tall and saying one sentence twice. And a two-word state name wrapped insi
 rendered as a broken circle — the firm names these, so a two-word name is the ordinary case.
 `.bib-field-row > *` is `flex: 1 1 160px`, which is right for a control and turns a Save button
 into a banner; the buttons opt out.
+
+## `/calendar` and `/admin/obligation-rules` — the calendar, and the rules behind it (T3.2)
+
+**`/calendar` IS READ-ONLY AND MUST STAY THAT WAY.** There is no "add a filing" button because
+there is no endpoint for one, and there will not be: every row falls out of the firm's rules, its
+entities and its engagements. If a person could type one in, the calendar could disagree with the
+statute — and then it is the Excel this product replaces, only now inside Postgres. What a person
+changes is the RULES.
+
+**Ordered by the INTERNAL target, not the legal deadline.** `statutoryDueOn` is what the law says;
+`internalTargetOn` is the firm's own T–X and is when work has to START. A list sorted by the legal
+date tells you when you are already too late. Both are on the row, and both go red separately.
+
+**Every row is marked "unconfirmed rule" until a partner has ticked it.** The shipped dates came
+from a previous vendor's document, not from the firm. Hiding that would make a plausible wrong due
+date indistinguishable from a checked one, which is the dangerous kind.
+
+### The coverage tab is the point of the screen
+
+An empty calendar has three possible meanings — nothing is owed, a rule is missing a fact, or the
+software is broken — and only one of them is anybody's to fix. So the second tab names every live
+engagement the calendar produced nothing for, WITH A REASON, and **the screen says out loud that
+none of them is an error**: `no_rule_names_this_service` is the ordinary state of advisory work and
+is the longest list at every firm, which is why it sorts LAST. The reasons are grouped rather than
+listed flat, because they are four different jobs, and each group's "what to do next" links to
+where the fix actually is — an unregistered company is fixed on its client page, not on the rules
+screen.
+
+**`entity_not_registered` exists because opening this screen found it.** Three engagements were
+reported as "no rule names this service" at a firm that had just loaded fifty-seven rules; the real
+answer was that nobody had registered the companies as legal entities, and a rule matches an
+entity's jurisdiction exactly. The backend's reason logic was wrong and was fixed there.
+
+### `/admin/obligation-rules` is the standing directive made visible
+
+Forty-seven of the fifty-seven shipped rules cannot produce a date, and **the screen must not
+render that as a fault list.** Each says, in the firm's own words, the one fact it is waiting for —
+which is a question a partner can answer without knowing anything about this system. The counts
+callout leads with the ratio and says in as many words that the second number is the honest state
+of the firm's own specification.
+
+**The lead time is a blank, not a default.** Every rule ships at zero, so the task appears on the
+statutory date itself — visibly useless, and deliberately so: T–X is the firm's own working
+practice and a guessed one is a commitment it never made. It commits on **blur**, like
+`/admin/grades`, because every commit writes an audit event.
+
+**Only three things are editable, and what is NOT is the design.** Jurisdiction, name and rule pack
+are a rule's identity and every filing already generated pins the row; moving them would silently
+restate why those filings were due when they were. A revision is a new rule under a new pack with
+the old one retired — and the old one stays readable, which is what lets a filing made last year
+explain its own date. There is no Delete for the same reason there is none on `/admin/grades`.
+
+**The formula is rendered as a sentence a partner can check against the statute** — "Every month ·
+the 20th of the following month" — never as `dueMonthOffset: 1`. The first version of that function
+was written without looking at the page and produced "Once a year, day 15 3 months after" and, for
+an event-driven rule, "30 days after the period ends" when an event rule has no period at all. Both
+were grammatical nonsense and the second was factually wrong; the types were perfectly happy with
+both.
+
 
 ## Money never becomes a number
 

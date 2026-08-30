@@ -141,6 +141,11 @@ export default function HomePage() {
                 work, which is why the board comes first. */}
             <Link href="/work-items">Work board →</Link>
             <Link href="/work">The engine →</Link>
+            {/* The compliance calendar (T3.2). Under DELIVERY rather than
+                Administration: this is what clients OWE, which is delivery
+                state everybody on the team reads — the rules behind it are the
+                admin half. */}
+            <Link href="/calendar">Compliance calendar →</Link>
           </div>
         </div>
       )}
@@ -184,6 +189,11 @@ export default function HomePage() {
                 screen the engine has no way in, which is what T2.7 shipped
                 without and this closes. */}
             <Link href="/admin/workflows">Processes →</Link>
+            {/* What the LAW asks of the firm's clients (T3.2). An admin screen
+                because a due date is a RULE — a wrong one costs the client a
+                penalty — and confirming one is a partner taking responsibility
+                for it against the statute. */}
+            <Link href="/admin/obligation-rules">Compliance rules →</Link>
             {/* Two more things a firm decides for itself: the prose every new
                 document is written with, and whose desk covers which country. */}
             <Link href="/admin/document-blocks">Standard prose →</Link>

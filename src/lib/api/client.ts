@@ -215,6 +215,46 @@ export type WorkItemChecker =
 
 /** A configured thing and whatever it currently says. `published` is null when
  *  only drafts exist, which is a state the screens have to show. */
+/**
+ * One row of the compliance calendar — what the LAW asks of one entity for one
+ * period (T3.2).
+ *
+ * Two dates, and the difference between them is the whole point:
+ * `statutoryDueOn` is what the law says and missing it is the client's money;
+ * `internalTargetOn` is the firm's own T–X and is the actionable one, which is
+ * why the API orders by it.
+ */
+export type CalendarRow =
+  paths["/api/v1/calendar"]["get"]["responses"][200]["content"]["application/json"]["rows"][number];
+
+/**
+ * A live engagement the calendar produced NOTHING for, and why.
+ *
+ * THE ANSWER TO AN EMPTY CALENDAR, and the reason this type exists at all. None
+ * of the reasons is an error — most advisory work legitimately has no
+ * compliance rule — but a firm looking at a blank screen with no explanation
+ * cannot tell that from broken software.
+ */
+export type CoverageGap =
+  paths["/api/v1/calendar/coverage"]["get"]["responses"][200]["content"]["application/json"]["gaps"][number];
+
+export type CoverageReason = CoverageGap["reason"];
+
+/**
+ * A compliance rule — what the law asks, and when.
+ *
+ * `coverage` is the field to read before anything else: `needs_formula` means
+ * the obligation is REAL and its timing depends on a fact this system does not
+ * hold, and `unresolvedReason` says which. Forty-six of the fifty-seven shipped
+ * India rules are in that state, and rendering them as failures would be
+ * wrong — they are questions for the firm.
+ */
+export type ObligationRule =
+  paths["/api/v1/obligation-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];
+
+export type ObligationException = ObligationRule["exceptions"][number];
+export type RuleCoverage = ObligationRule["coverage"];
+
 export type ConfigEntry =
   paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];
 

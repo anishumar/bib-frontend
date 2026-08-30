@@ -1860,6 +1860,563 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/obligation-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every compliance rule at this firm, retired ones included
+         * @description Retired rules are returned on purpose: a retired rule still explains why an old filing was due when it was. `coverage` says what each rule is actually doing — and a 'needs_formula' rule is a QUESTION for the firm, not a fault.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rules */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rules: components["schemas"]["ObligationRule"][];
+                            ruleCount: number;
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Write a compliance rule */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateObligationRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description Written */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObligationRule"];
+                    };
+                };
+                /** @description A half-stated due formula, or a rule with neither a formula nor a reason for not having one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The named catalogue service does not exist at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This firm already has a rule with that jurisdiction, name and pack */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-rules/seed-india": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load the shipped India rule pack
+         * @description Fifty-seven rules from the firm's own applicability sheet. Ten produce dates; the rest record what they are still waiting on. Idempotent on the rule's identity, so running it twice adds nothing and never overwrites a rule a partner has confirmed or given a lead time to. New firms get this automatically at creation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description How many rules were added */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            created: number;
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit, confirm or retire a rule
+         * @description Jurisdiction, name and rule pack are a rule's IDENTITY and cannot be changed here: every obligation already generated pins this row, so moving the identity would silently restate why those filings were due when they were. A revision is a new rule under a new pack.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ruleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateObligationRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObligationRule"];
+                    };
+                };
+                /** @description A half-stated formula, or a formula and an unresolved reason together */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/obligation-rules/{ruleId}/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The one period a rule does not apply to itself
+         * @description March's TDS deposit is due 30 April while the other eleven months are due on the 7th. A template holds ONE formula, and reading only the normal half gives a rule that is right eleven months a year and quietly wrong every April.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ruleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddObligationExceptionRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ObligationException"];
+                    };
+                };
+                /** @description A half-stated formula, a missing note, or an event-driven rule */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This rule already has an exception for that period month */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-rules/{ruleId}/exceptions/{periodEndMonth}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Withdraw an exception, so the rule's own formula governs that period again */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ruleId: string;
+                    periodEndMonth: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Withdrawn */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule, or no exception for that month */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the firm's clients owe, and by when
+         * @description Ordered by the INTERNAL target rather than the statutory date, because that is the actionable one. Settled rows are excluded unless asked for: within a year they are almost the whole table and never the answer.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    entityPartyId?: string;
+                    module?: string;
+                    includeSettled?: boolean | null;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The calendar */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rows: components["schemas"]["CalendarRow"][];
+                        };
+                    };
+                };
+                /** @description A date that is not YYYY-MM-DD */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live engagements the calendar has produced nothing for, and why
+         * @description THE ANSWER TO AN EMPTY CALENDAR. Every row names a reason, and none of them is an error — most advisory work legitimately has no compliance rule. What this screen prevents is a firm looking at an empty calendar and having to guess whether the software is broken.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The gaps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            gaps: components["schemas"]["CoverageGap"][];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/assignments": {
         parameters: {
             query?: never;
@@ -10289,6 +10846,177 @@ export interface components {
              * @enum {string}
              */
             workSplitAxis: "none" | "dept" | "team";
+        };
+        ObligationDueRule: {
+            /**
+             * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
+             * @enum {string}
+             */
+            kind: "day_of_month" | "days_after";
+            dueMonthOffset: number | null;
+            dueDayOfMonth: number | null;
+            dueDaysAfter: number | null;
+        } | null;
+        ObligationException: {
+            /** @description The calendar month the filed PERIOD ends in. March is 3 — the month of the deduction, never the month it is due, because the due month is exactly what the exception changes. */
+            periodEndMonth: number;
+            /**
+             * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
+             * @enum {string}
+             */
+            kind: "day_of_month" | "days_after";
+            dueMonthOffset: number | null;
+            dueDayOfMonth: number | null;
+            dueDaysAfter: number | null;
+            /** @description Why this period is different, in the firm's own words. Mandatory: a partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo. */
+            note: string;
+        };
+        ObligationRule: {
+            /** Format: uuid */
+            id: string;
+            jurisdiction: string;
+            /** @description Null means every entity type — the common case: GST does not care what shape the company is. */
+            entityType: string | null;
+            /** Format: uuid */
+            serviceEntryId: string | null;
+            serviceName: string | null;
+            /** @description The STATUTE's grouping — 'GST', 'TDS', 'MCA'. Not the firm's revenue Dept, which is a different axis: a client can buy FRC work that produces GST obligations. */
+            module: string | null;
+            name: string;
+            authority: string | null;
+            /**
+             * @description How often the filing comes round. 'event' means it is triggered by something happening — a share allotment, a director change — so it has no period and produces no calendar entries, because nothing in this system yet knows the event occurred. It is still a row so the firm can see that the obligation is known about.
+             * @enum {string}
+             */
+            recurrence: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
+            /** @description 4 for India. An Indian quarter runs Apr-Jun, so leaving this at 1 would put every quarterly filing in the wrong period. */
+            fiscalYearStartMonth: number;
+            dueRule: components["schemas"]["ObligationDueRule"];
+            /** @description Present exactly when there is no due formula: what this system still needs before it can produce a date. This is what the screen shows in place of a deadline. */
+            unresolvedReason: string | null;
+            /** @description T-X, the firm's own practice rather than the law: how many days before the statutory date the task appears. Ships at 0 for every rule, because nobody has told us the firm's lead times and a guessed one is a commitment it never made. */
+            leadTimeDays: number;
+            rulePack: string;
+            /** Format: uuid */
+            supersedesId: string | null;
+            /**
+             * @description Whether a partner has checked this date against the statute. Everything ships 'unconfirmed', India included: the dates came from a document rather than from the firm, and the firm's own practice may be earlier than the law.
+             * @enum {string}
+             */
+            status: "unconfirmed" | "confirmed";
+            isActive: boolean;
+            /**
+             * @description What this rule is actually doing, derived rather than stored. 'needs_formula' is NOT an error and is the ordinary state of most of the shipped pack — it means the obligation is real and its timing depends on a fact this system does not hold (an AGM date, a State, a turnover). The reason is on the rule.
+             * @enum {string}
+             */
+            coverage: "generating" | "needs_formula" | "event_driven" | "retired";
+            exceptions: components["schemas"]["ObligationException"][];
+            /** @description How many calendar rows this rule has produced, ever. */
+            instanceCount: number;
+        };
+        CreateObligationRuleRequest: {
+            jurisdiction: string;
+            entityType?: string | null;
+            /** Format: uuid */
+            serviceEntryId?: string | null;
+            module?: string | null;
+            name: string;
+            authority?: string | null;
+            /**
+             * @description How often the filing comes round. 'event' means it is triggered by something happening — a share allotment, a director change — so it has no period and produces no calendar entries, because nothing in this system yet knows the event occurred. It is still a row so the firm can see that the obligation is known about.
+             * @enum {string}
+             */
+            recurrence: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
+            /** @default 4 */
+            fiscalYearStartMonth: number;
+            dueRule: components["schemas"]["ObligationDueRule"];
+            unresolvedReason?: string | null;
+            /** @default 0 */
+            leadTimeDays: number;
+            rulePack: string;
+            /** Format: uuid */
+            supersedesId?: string | null;
+        };
+        UpdateObligationRuleRequest: {
+            entityType?: string | null;
+            /** Format: uuid */
+            serviceEntryId?: string | null;
+            module?: string | null;
+            authority?: string | null;
+            /**
+             * @description How often the filing comes round. 'event' means it is triggered by something happening — a share allotment, a director change — so it has no period and produces no calendar entries, because nothing in this system yet knows the event occurred. It is still a row so the firm can see that the obligation is known about.
+             * @enum {string}
+             */
+            recurrence?: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
+            fiscalYearStartMonth?: number;
+            dueRule?: components["schemas"]["ObligationDueRule"];
+            unresolvedReason?: string | null;
+            leadTimeDays?: number;
+            /**
+             * @description Whether a partner has checked this date against the statute. Everything ships 'unconfirmed', India included: the dates came from a document rather than from the firm, and the firm's own practice may be earlier than the law.
+             * @enum {string}
+             */
+            status?: "unconfirmed" | "confirmed";
+            isActive?: boolean;
+        };
+        AddObligationExceptionRequest: {
+            periodEndMonth: number;
+            /**
+             * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
+             * @enum {string}
+             */
+            kind: "day_of_month" | "days_after";
+            dueMonthOffset?: number | null;
+            dueDayOfMonth?: number | null;
+            dueDaysAfter?: number | null;
+            note: string;
+        };
+        CalendarRow: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            authority: string | null;
+            module: string | null;
+            /** Format: uuid */
+            entityPartyId: string;
+            entityName: string | null;
+            clientName: string | null;
+            /** @description 'Aug 2026', 'Q2 FY2026-27'. Stored rather than derived, so a rule retired later cannot change how a filing already made is described. */
+            periodLabel: string;
+            /** @description What the LAW says. Missing it is the client's money. */
+            statutoryDueOn: string;
+            /** @description What the FIRM gave itself, T-X earlier. This is the actionable date and the one the list is ordered by — a list sorted by the legal deadline tells you when you are already too late. */
+            internalTargetOn: string;
+            stateCode: string;
+            stateName: string;
+            isTerminal: boolean;
+            needsDecision: boolean;
+            /**
+             * Format: uuid
+             * @description The task raised for it, once T-X has arrived. Null is 'known, not yet started' — a year of those is the calendar's normal state, not a backlog.
+             */
+            workItemId: string | null;
+            filedOn: string | null;
+            /** @description The rule behind this date has not been confirmed by the firm. Shown rather than hidden: a plausible-looking wrong due date is the dangerous kind. */
+            ruleUnconfirmed: boolean;
+            rulePack: string;
+        };
+        CoverageGap: {
+            /** Format: uuid */
+            engagementId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            entityName: string | null;
+            clientName: string | null;
+            serviceName: string | null;
+            jurisdiction: string | null;
+            /**
+             * @description Why the calendar produced nothing for this engagement. NONE of these is an error: 'no_rule_names_this_service' is the ordinary state of advisory work. Each names something a partner can do next, which is the point — an empty calendar with no explanation is indistinguishable from broken software.
+             * @enum {string}
+             */
+            reason: "entity_not_registered" | "no_rule_names_this_service" | "no_rule_for_jurisdiction" | "rules_need_a_formula" | "rules_retired" | "nothing_due_yet";
+            /** @description Rules that name this service but could not be used, so the screen can link straight to them. */
+            blockedRuleIds: string[];
         };
         /** @description The Dept or delivery team a SPOC covers. Always null for a Key Manager. */
         AssignmentAxis: {

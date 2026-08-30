@@ -42,6 +42,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Link href="/admin/grades">Grades</Link>
         <Link href="/admin/structure">Structure</Link>
         <Link href="/admin/workflows">Processes</Link>
+        <Link href="/admin/obligation-rules">Compliance rules</Link>
         <Link href="/admin/verification">Who checks work</Link>
         <Link href="/admin/document-blocks">Standard prose</Link>
         <Link href="/admin/territories">Territories</Link>
