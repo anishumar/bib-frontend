@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -66,17 +67,27 @@ interface NavItem {
 
 interface NavGroup {
   label: string;
+  /**
+   * The group's own icon, shown on the row that opens it.
+   *
+   * A collapsed group is one line, and a line of text with no mark is the
+   * hardest thing on a sidebar to find twice. The icon is what somebody aims
+   * at the second time they come looking for the same section.
+   */
+  icon: IconName;
   items: NavItem[];
 }
 
 const GROUPS: NavGroup[] = [
   {
     label: "Workspace",
+    icon: "home",
     items: [{ href: "/", label: "Home", icon: "home" }],
   },
   {
     /* The book, the pipeline, what the firm has quoted and what it has agreed. */
     label: "Commercial",
+    icon: "pipeline",
     items: [
       { href: "/clients", label: "Clients", icon: "clients", needs: "party:read" },
       { href: "/leads", label: "Pipeline", icon: "pipeline", needs: "party:read" },
@@ -117,6 +128,7 @@ const GROUPS: NavGroup[] = [
   {
     /* What a signed engagement turned into. */
     label: "Delivery",
+    icon: "board",
     items: [
       { href: "/work-items", label: "Work board", icon: "board", needs: "party:read" },
       { href: "/work", label: "The engine", icon: "engine", needs: "party:read" },
@@ -130,10 +142,35 @@ const GROUPS: NavGroup[] = [
   },
   {
     label: "Record",
+    icon: "audit",
     items: [{ href: "/audit", label: "Audit trail", icon: "audit", needs: "ledger:read" }],
   },
   {
-    label: "Administration",
+    /*
+     * ── THE ADMIN SCREENS ARE THREE SUBJECTS, NOT ONE ────────────────────
+     *
+     * They were one group of thirteen, on the true but unhelpful ground that
+     * every one of them needs `tenant:admin`. That is a fact about the API and
+     * not about what a partner is looking for: thirteen labels in a column is
+     * read top to bottom every time, because "Grades" and "Calendar words" sit
+     * the same distance apart as "Grades" and "Roles".
+     *
+     * And the permission is not lost by splitting. It was never carrying the
+     * information anyway — somebody who can see any of these can see all of
+     * them, and somebody who cannot sees none. Grouping by it grouped by the
+     * one thing every reader already knows about themselves.
+     *
+     * THREE and not four: the compliance rules belong with the process rather
+     * than in a calendar group of their own, because at a CA firm a rule IS
+     * how work runs — it is the thing that puts the work on the board.
+     *
+     * They stay TOP-LEVEL rather than becoming a third tier under
+     * Administration. Three levels in a sidebar means two clicks to reach a
+     * screen and a chevron whose meaning changes with depth; the whole point
+     * of this change was making the map shallower.
+     */
+    label: "The firm",
+    icon: "people",
     items: [
       { href: "/admin/people", label: "People", icon: "people", needs: "tenant:admin" },
       { href: "/admin/roles", label: "Roles", icon: "roles", needs: "tenant:admin" },
@@ -144,18 +181,24 @@ const GROUPS: NavGroup[] = [
         icon: "structure",
         needs: "tenant:admin",
       },
+      /* Whose desk covers which country. Here rather than under Commercial
+         because it is the firm describing ITSELF — the same axis Structure is
+         on — even though what reads it is lead assignment. */
       {
-        href: "/admin/work-vocabulary",
-        label: "Work states",
-        icon: "prose",
+        href: "/admin/territories",
+        label: "Territories",
+        icon: "territories",
         needs: "tenant:admin",
       },
-      {
-        href: "/admin/workflows",
-        label: "Processes",
-        icon: "processes",
-        needs: "tenant:admin",
-      },
+    ],
+  },
+  {
+    /* In the order the work actually moves: what puts it on the board, what it
+       is called while it is there, and who signs it off or hears that nobody
+       has. */
+    label: "How work runs",
+    icon: "processes",
+    items: [
       {
         href: "/admin/obligation-rules",
         label: "Compliance rules",
@@ -172,11 +215,41 @@ const GROUPS: NavGroup[] = [
         needs: "tenant:admin",
       },
       {
+        href: "/admin/workflows",
+        label: "Processes",
+        icon: "processes",
+        needs: "tenant:admin",
+      },
+      {
+        href: "/admin/work-vocabulary",
+        label: "Work states",
+        icon: "prose",
+        needs: "tenant:admin",
+      },
+      {
         href: "/admin/verification",
         label: "Who checks work",
         icon: "verification",
         needs: "tenant:admin",
       },
+      // T4.5. Beside "Who checks work" rather than under Delivery, and for the
+      // same reason: both are the firm writing down a rule about its own
+      // people, not a view of its work.
+      {
+        href: "/admin/escalation-ladder",
+        label: "Escalation ladder",
+        icon: "alert",
+        needs: "tenant:admin",
+      },
+    ],
+  },
+  {
+    /* What a client actually receives: the words on it and the mark at the top
+       of it. Two screens, and a real subject — small is not the same as
+       miscellaneous. */
+    label: "Documents",
+    icon: "prose",
+    items: [
       {
         href: "/admin/document-blocks",
         label: "Standard prose",
@@ -184,12 +257,6 @@ const GROUPS: NavGroup[] = [
         needs: "tenant:admin",
       },
       { href: "/admin/brand", label: "Brand", icon: "brand", needs: "tenant:admin" },
-      {
-        href: "/admin/territories",
-        label: "Territories",
-        icon: "territories",
-        needs: "tenant:admin",
-      },
     ],
   },
 ];
@@ -232,6 +299,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+  /**
+   * What the sidebar's search box holds.
+   *
+   * It filters the map of the product rather than searching the firm's DATA —
+   * this is "where is the screen that does X", which is the question twenty-six
+   * links in a column cannot answer. A client, a filing or an invoice is found
+   * on the screen that lists them.
+   */
+  const [query, setQuery] = useState("");
+  /**
+   * Groups the reader has opened or closed BY HAND, keyed by label.
+   *
+   * Absent means "not touched", which is not the same as closed: an untouched
+   * group opens on its own when the page you are on lives inside it. That
+   * asymmetry is the whole behaviour — the sidebar shows you where you are
+   * without being told to, and stops guessing the moment you disagree with it.
+   */
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const bare = isBare(pathname);
 
@@ -261,6 +347,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       live = false;
     };
   }, [bare, pathname]);
+
+  /* Ctrl/Cmd+K puts the cursor in the search box from anywhere in the product.
+     The shortcut is in the placeholder rather than only here, because a
+     shortcut nobody is told about is one nobody uses. */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); };
+  }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
     await api.POST("/api/v1/auth/logout", {});
@@ -323,10 +424,47 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const groups = GROUPS.map((g) => ({
-    label: g.label,
-    items: g.items.filter((i) => visible(i, principal)),
-  })).filter((g) => g.items.length > 0);
+  const needle = query.trim().toLowerCase();
+  const groups = GROUPS.map((g) => {
+    const allowed = g.items.filter((i) => visible(i, principal));
+    return {
+      label: g.label,
+      icon: g.icon,
+      /**
+       * How many screens this section holds for this reader, BEFORE the search.
+       *
+       * The search must not restructure the sidebar. Deciding "is this a
+       * dropdown or a plain link" from the FILTERED count did exactly that:
+       * typing "escal" turned Administration into a top-level "Escalation
+       * ladder" link, so the one thing a result should tell you — which
+       * section it lives in — was the thing the search removed. Found by
+       * typing into it.
+       */
+      size: allowed.length,
+      items: allowed.filter(
+        (i) =>
+          needle === "" ||
+          i.label.toLowerCase().includes(needle) ||
+          // THE PATH IS A NAME TOO, and matching it costs no data to keep in
+          // step. Renaming the sections left "admin" finding NOTHING while
+          // thirteen screens still lived at /admin/*, which is the word half
+          // the firm will reach for first; "obligation" likewise finds
+          // Calendar words, whose label says nothing about obligations.
+          i.href.toLowerCase().includes(needle) ||
+          // The GROUP's name matches too, so typing "admin" finds the whole of
+          // Administration rather than the two screens whose own labels happen
+          // to contain the word.
+          //
+          // BUT ONLY WHERE THE NAME IS ON SCREEN. A one-screen group renders as
+          // a plain link and its label is never drawn, so matching it produced
+          // a result the reader could not account for: typing "work" returned
+          // Home, because Home lives in a section called "Workspace". A search
+          // hit that cannot explain itself is the same fault as one that moves
+          // the furniture.
+          (allowed.length > 1 && g.label.toLowerCase().includes(needle)),
+      ),
+    };
+  }).filter((g) => g.items.length > 0);
 
   return (
     <SessionContext.Provider value={principal}>
@@ -342,27 +480,93 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
+          <div className="nav-search">
+            <Icon name="search" size={15} aria-hidden="true" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); }}
+              placeholder="Search menu…  Ctrl+K"
+              aria-label="Search the menu"
+            />
+          </div>
+
           <nav className="nav" aria-label="Sections">
-            {groups.map((group) => (
-              <div key={group.label} className="nav">
-                <p className="nav-label">{group.label}</p>
-                {group.items.map((item) => (
+            {groups.map((group) => {
+              const here = group.items.some((i) => isCurrent(pathname, i.href));
+              /* A SEARCH OPENS EVERYTHING, and it has to: a result hidden
+                 inside a collapsed group is a search that answered and did not
+                 show you. Otherwise the reader's own choice wins, and where
+                 they have not made one, the group holding the current page is
+                 open. */
+              const expanded = needle !== "" || (toggled[group.label] ?? here);
+
+              /* A group with ONE screen is not a dropdown. Home behind a
+                 chevron is a click added to reach the thing a sidebar is most
+                 often used to reach. Read from `size` and never from what the
+                 search left behind — see the note on `size`. */
+              const solo = group.size === 1 ? group.items[0] : undefined;
+              if (solo !== undefined) {
+                return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className="nav-link"
-                    /* The current page is stated with `aria-current`, so the
-                       styling and the announcement cannot drift apart. */
-                    {...(isCurrent(pathname, item.href)
+                    key={group.label}
+                    href={solo.href}
+                    className="nav-link nav-top"
+                    {...(isCurrent(pathname, solo.href)
                       ? { "aria-current": "page" as const }
                       : {})}
                   >
-                    <Icon name={item.icon} className="nav-icon" />
-                    <span className="label">{item.label}</span>
+                    <Icon name={solo.icon} className="nav-icon" />
+                    <span className="label">{solo.label}</span>
                   </Link>
-                ))}
-              </div>
-            ))}
+                );
+              }
+
+              return (
+                <div key={group.label} className="nav-group" data-here={here || undefined}>
+                  <button
+                    type="button"
+                    className="nav-link nav-top nav-group-head"
+                    aria-expanded={expanded}
+                    aria-controls={`nav-${group.label}`}
+                    onClick={() => {
+                      setToggled((t) => ({ ...t, [group.label]: !expanded }));
+                    }}
+                  >
+                    <Icon name={group.icon} className="nav-icon" />
+                    <span className="label">{group.label}</span>
+                    <Icon name="chevronDown" size={14} className="nav-chevron" />
+                  </button>
+                  {expanded && (
+                    <div className="nav-children" id={`nav-${group.label}`}>
+                      {group.items.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className="nav-link"
+                          /* The current page is stated with `aria-current`, so
+                             the styling and the announcement cannot drift
+                             apart. */
+                          {...(isCurrent(pathname, item.href)
+                            ? { "aria-current": "page" as const }
+                            : {})}
+                        >
+                          <span className="label">{item.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* A search that found nothing has to SAY so. An empty column reads
+                as a sidebar that broke. */}
+            {groups.length === 0 && (
+              <p className="nav-empty">
+                No screen matches <b>{query.trim()}</b>.
+              </p>
+            )}
           </nav>
 
           <div className="sidebar-foot">

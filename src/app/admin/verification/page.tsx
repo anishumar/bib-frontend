@@ -122,7 +122,7 @@ export default function VerificationPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="How work runs"
         title="Who checks the work"
         lede={<>A rule here says who is allowed to approve a finished step. Steps name the rule that
         applies to them on <strong>How the firm works</strong>, so a process can have an

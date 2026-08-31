@@ -72,7 +72,7 @@ export default function RolesPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="The firm"
         title="Roles"
         lede="What each role MEANS. Changing one publishes a new version rather than editing the old one — the version beside each name is the registry's design, not decoration."
         aside={<Pill tone="quiet">{roles.length} defined</Pill>}

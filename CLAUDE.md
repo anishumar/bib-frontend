@@ -70,8 +70,15 @@ The rules, in short:
   `<Table>`, `<Tabs>`, `<Dialog>` — all from `@/components/ui`. The class names are an
   implementation detail, and keeping them so is what stops a sixth button appearing the week
   after the fifth was consolidated.
-- **Colour is spent in one place and means one thing: status.** A button is not coloured
-  because a button is not a status. The primary button is ink, not accent.
+- **Colour means one thing: status — and `--brand` is the ONE exception, deliberately.**
+  `--accent` is also `--ok`, so it says "done / in force / this held"; `--warn` and `--danger`
+  say the other two things. Nothing else may touch those three. `--brand` (maroon) is not a
+  status at all — it says whose product this is, and it is spent in exactly three places: the
+  mark, the sidebar, and a screen's one committing action. **The primary button is brand, not
+  ink and never accent** (that reverses an earlier rule and the reason is written in
+  `tokens.css`). Destructive stays `--danger`, which is why the brand is plum rather than
+  brick: an escalation queue puts maroon chrome around red "nobody" pills, and if those blur
+  the one that stops mattering is the one that means something.
 - **Nothing invents a value.** Type comes off the scale (`--t-xs`…`--t-2xl`, or the
   `.text-*` classes), spacing off `--s-1`…`--s-7`, shape off `--r`/`--r-sm`. `13px`, `15px`
   and `17px` are not on the ladder.
@@ -81,7 +88,36 @@ The rules, in short:
 - **A component never branches on theme.** Light and dark redefine only the semantic colour
   tokens; everything else appears once. If you want a dark-mode rule inside a component, the
   token is missing — add it to `tokens.css`.
-- **Navigation lives in `AppShell`, once.** A page does not list its own links.
+- **Navigation lives in `AppShell`, once.** A page does not list its own links. It is
+  **collapsible groups over a search box**, not a flat column: twenty-six links in one list is
+  something a reader scans top to bottom every time, because nothing in it is nearer than
+  anything else. Four rules make it work, and each was a decision:
+  - **The group holding the current page opens on its own**, until the reader toggles
+    something — absent from the toggle map is "untouched", which is not the same as closed. So
+    the sidebar shows you where you are without being asked, and stops guessing the moment you
+    disagree.
+  - **A search opens everything and hides non-matches — it never restructures the nav.** The
+    first version decided "dropdown or plain link" from the FILTERED count, so typing "escal"
+    turned Administration into a top-level "Escalation ladder" link and the one thing a result
+    should tell you (which section it lives in) was what the search removed.
+  - **The search matches a label, its PATH, and its section name — but the section only when
+    that name is drawn.** The path costs no data to keep in step and is what makes `admin` find
+    all thirteen settings screens after the sections were renamed, and `obligation` find
+    Calendar words, whose label says nothing about obligations. The section is excluded for a
+    one-screen group because its name is never on screen: typing `work` returned Home, which
+    lives in a section called Workspace, and a hit that cannot explain itself is the same fault
+    as one that moves the furniture.
+  - **A group of one is a plain link.** Home behind a chevron is a click added to reach the
+    thing a sidebar is most used to reach.
+  - **Children carry no icon.** An icon separates things sitting beside each other at the same
+    level; inside an open group they would be five marks in a column repeating what the head
+    already said.
+  - **Below 60rem the sidebar folds into a horizontal strip, and the groups FLATTEN into it**
+    (`display: contents`) rather than rendering a vertical block inside a row. A collapsed
+    group still renders no children, so tapping its head is how the strip reveals them — which
+    is why the chevron stays. Watch `width` rules here: `.nav-top { width: 100% }` was
+    invisible in the column (a flex column stretches its items anyway) and made every row
+    2100px wide in the strip. One rule, two layouts, wrong only in the one nobody looks at.
 - **Accessibility comes from the components.** `<Field>` wires label/hint/error and the ARIA
   that goes with them; `<Tabs>` is a real tablist with arrow keys; `<Dialog>` is the native
   element. Do not hand-roll any of the three.
@@ -101,6 +137,7 @@ in one place, for everybody. Do not solve it locally.
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
+| `/admin/escalation-ladder` | when the firm hears that its own work has gone quiet — the rungs, and who each one tells |
 | `/clients` | the firm's book — every counterparty, and the caller's OWN clients |
 | `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
@@ -117,7 +154,7 @@ in one place, for everybody. Do not solve it locally.
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
-| `/work-items` | the board — what is owed, whose desk it is on, and what is late |
+| `/work-items` | the board — what is owed, whose desk it is on, what is late, and what the ladder has escalated |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
 | `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
@@ -127,9 +164,30 @@ in one place, for everybody. Do not solve it locally.
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 
-The admin screens are one subject deliberately split: the API needs `tenant:admin` for
-all of them, because between them they decide what every role can do, who holds it, and who is
-senior enough to sign off somebody else's work.
+**The admin screens all need `tenant:admin`, and the sidebar deliberately does NOT group them by
+that.** They were one section of thirteen on exactly that ground, and it was the wrong axis: a
+permission every one of them shares is a fact about the API, not about what a partner is looking
+for, and thirteen labels in a column get read top to bottom every time because "Grades" and
+"Calendar words" sit the same distance apart as "Grades" and "Roles".
+
+Nothing is lost by splitting, because the permission was never carrying information for any
+reader: somebody who can see one of these can see all of them, and somebody who cannot sees none.
+So they are three top-level sections, each a subject a partner would recognise:
+
+| Section | Is | Screens |
+|---|---|---|
+| **The firm** | who works here and how it is shaped | People · Roles · Grades · Structure · Territories |
+| **How work runs** | what puts work on the board, what it is called there, and who signs it off | Compliance rules · Calendar words · Processes · Work states · Who checks work · Escalation ladder |
+| **Documents** | what a client actually receives | Standard prose · Brand |
+
+**Three and not four:** the compliance rules do not get a calendar section of their own, because
+at a CA firm a rule IS how work runs — it is the thing that puts the work there. **And they are
+TOP-LEVEL rather than a third tier under Administration:** three levels means two clicks to reach
+a screen and a chevron whose meaning changes with depth, which is the opposite of what collapsing
+the nav was for.
+
+`Territories` sits under **The firm** even though lead assignment is what reads it — it is the
+firm describing itself, the same axis `Structure` is on.
 
 **Roles and grades are not the same screen, and must not become one.** A role is what somebody
 may REACH and it grants permissions; a grade is how SENIOR they are and it grants nothing —
@@ -725,6 +783,68 @@ an event-driven rule, "30 days after the period ends" when an event rule has no 
 were grammatical nonsense and the second was factually wrong; the types were perfectly happy with
 both.
 
+
+## The Escalated tab, and the ladder behind it (T4.5)
+
+`/work-items` has a fourth tab and it is **not the board sliced**. The other three are the same
+work filtered three ways; this one is a different KIND of row — the record that somebody was
+TOLD about work — so it has its own renderer and the Board/List toggle is hidden while it is
+open.
+
+**THERE IS NOTHING TO CLICK ON A ROW, AND THAT IS THE DESIGN.** No dismiss, no snooze, no
+acknowledge. A notice ends when the WORK moves — the task is finished, somebody picks up an
+unassigned one, the filing is filed or decided about — which the API resolves as a join rather
+than a column anybody can clear. A button that emptied this list without anything actually
+happening would turn the one screen whose whole value is being believed into decoration. The
+only control is a link to the thing itself: the way to clear an escalation is to do the work.
+
+**AN EMPTY QUEUE HAS TWO MEANINGS AND THE SCREEN SAYS WHICH.** Nothing escalated because
+everything is on time, and nothing escalated because the firm has never published a ladder, look
+identical — and only one of them means the product is doing anything. `ladderPublished` is why
+the empty state has two versions, and the second links to the screen that fixes it. `/calendar`'s
+coverage tab exists for exactly this reason.
+
+**"NOBODY" IS THE MOST IMPORTANT ROW ON IT.** A rung can fire and reach no one: nobody holds the
+work, nobody is recorded above them, or no active member holds the rank it names. Those rows are
+marked in danger tone with the reason in the tooltip, and counted above the table, because every
+other row already has a name against it. The first real sweep raised fourteen notices and seven
+of them reached nobody.
+
+**A rung addressed to a GRADE shows as a rank, not a person** — an escalation routed to one
+partner dies while that partner is on leave, so the notice belongs to everybody senior enough.
+
+**And a person is rendered `displayName ?? email`.** `display_name` is nullable on an account and
+is genuinely empty at real firms, which is how the first walk produced a row saying somebody was
+told and a blank space where the name should be. The API sends both halves for that reason — the
+audit trail's rule, applied a second time.
+
+### What walking these two screens found
+
+**THE `For` COLUMN READ AS WRONG, AND THE DATA WAS RIGHT.** A row titled *"TDS deposit — Lakeview
+LOGISTICS Private Limited"* sat over a cell saying *"Lakeview Foods Private Limited"* — one is who
+is billed, the other is which company files, and on screen it looked like a mismatch. `WorkRow`
+already solves this and this screen had not copied it: **G0.1 — a group of four companies files
+four sets of returns**, so the entity now sits beneath the client, and a row where they are the
+same shows one line. A FILING shows an em dash for the client, because an obligation has no client
+at all and backfilling the entity into that cell would have been the API inventing one.
+
+**A HINT INSIDE A `<FieldRow>` COLUMN — THE THIRD TIME.** The ladder form's "What to call this
+rung" and "Short name" boxes sat at two different heights with the Remove button floating between
+them. `.field-row` is `align-items: end`, so a field carrying a `hint` stands taller and its INPUT
+rides up above its neighbours. This file records it under `/admin/workflows`, T6.4 re-made it, and
+T4.5 makes three. **A hint goes in a `<p className="field-hint">` UNDER the row**, and a button
+gets its own line, because `.field-row > *` is `flex: 1 1 160px` and turns one into a banner.
+
+Neither was visible to `tsc` or to `eslint`, and neither would have shown in a test.
+
+`/admin/escalation-ladder` is where the numbers come from, and **nothing is set by default**: a
+firm with no published ladder escalates nobody, deliberately, because a threshold this product
+invented would be one nobody agreed to. Draft and publish are separate, like `/catalogue` and
+`/admin/verification`. The grade rung offers the firm's own ACTIVE rungs and stores the RANK, not
+the code, because a published body is frozen and re-resolving a code later would answer an old
+question with today's ladder. The one impossible combination — watch unassigned work, notify its
+assignee, where there is never one — moves the picker off it rather than leaving somebody to meet
+a 400.
 
 ## `/dashboard` — and the gaps that are the point of it (T3.7)
 

@@ -105,7 +105,7 @@ export default function ObligationVocabularyPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="How work runs"
         title="Compliance states and decisions"
         lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what they mean — the product reads the TICK BOXES and never the names, so nothing breaks when you rename one."
       />

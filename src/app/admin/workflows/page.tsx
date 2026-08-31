@@ -237,7 +237,7 @@ export default function WorkflowsPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="How work runs"
         title="How the firm works"
         lede="A process is the steps a piece of work goes through, in the order they have to happen.
         Write it once and every job for that service follows it — and every step can be a

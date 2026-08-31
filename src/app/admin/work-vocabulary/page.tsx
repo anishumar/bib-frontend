@@ -94,7 +94,7 @@ export default function WorkVocabularyPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="How work runs"
         title="Work states and priorities"
         lede="The words your firm uses for work. Rename any of them, add your own, or change what
         they mean — the product reads the TICK BOXES and never the names, so nothing breaks

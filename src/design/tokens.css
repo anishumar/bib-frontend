@@ -137,6 +137,28 @@
   --accent-ink: #075049;
   --accent-wash: #e9f2f0;
 
+  /* ── Brand ───────────────────────────────────────────────────────────────
+     WHERE THE PRODUCT PUTS ITS NAME: the mark, the sidebar, the section you
+     are in, and the button that commits the thing a screen is for.
+
+     A SEPARATE TOKEN FROM `--accent`, AND THAT IS THE WHOLE POINT. `--accent`
+     is also `--ok`, so it MEANS something — "done", "in force", "this held".
+     Painting the navigation with it would spend a status colour on furniture,
+     and then a maroon "Completed" pill and a maroon active nav item would be
+     the same colour saying two unrelated things.
+
+     Kept plum rather than brick so it is not read as `--danger` (#b4382c) in
+     the corner of an eye. Those two appear together constantly — an escalation
+     queue has maroon chrome around red "nobody" pills — and if they blur, the
+     one that stops mattering is the one that means something. */
+  --brand: #7a2338;
+  --brand-ink: #5c1a2a;
+  --brand-wash: #f8ecef;
+  --brand-hover: #661d2f;
+  /* Ink ON the brand — the label of a filled button. Its own token rather than
+     `--surface`, because the two diverge the moment a theme changes one. */
+  --brand-on: #ffffff;
+
   /* ── Status ──────────────────────────────────────────────────────────────
      Two tones, and they are INFORMATIONAL rather than decorative. Amber is
      "this needs attention"; red is "this is wrong, refused, or overdue".
@@ -158,12 +180,25 @@
   --ok-wash: var(--accent-wash);
 
   /* ── Component grounds ───────────────────────────────────────────────────
-     Named separately because they diverge between themes. A primary button is
-     INK in light and near-white in dark; writing that as `var(--ink)` at the
-     call site would look right until the day dark mode landed. */
-  --btn-bg: var(--ink);
-  --btn-ink: #ffffff;
-  --btn-bg-hover: #1d2c35;
+     Named separately because they diverge between themes. Writing a colour at
+     the call site would look right until the day dark mode landed.
+
+     THE PRIMARY BUTTON IS THE BRAND, and this reverses an earlier decision
+     that was written down and is worth restating rather than quietly
+     dropping. It used to be INK, on the argument that "a button is not
+     coloured because a button is not a status" — which is still true, and is
+     why the button does not take `--accent`: accent is `--ok`, and a green
+     Save button really would be a status colour spent on furniture.
+
+     `--brand` is not a status. It says whose product this is, and a screen's
+     one committing action is the other place besides the mark and the sidebar
+     where that belongs. Everything else stays as it was: secondary is a line,
+     ghost is nothing, and DESTRUCTIVE IS STILL `--danger` — the one button
+     whose colour is a warning keeps it, and it has to stay distinguishable
+     from the brand, which is why the brand is plum rather than brick. */
+  --btn-bg: var(--brand);
+  --btn-ink: var(--brand-on);
+  --btn-bg-hover: var(--brand-hover);
 
   --input-bg: var(--surface);
   --input-border-hover: #d3d9dc;
@@ -221,6 +256,15 @@
     --accent-ink: #8fd9c6;
     --accent-wash: #10302b;
 
+    /* Maroon does not survive a dark ground — #7a2338 on #12181c is nearly
+       black. It lifts and keeps its plum bias, which is what holds it apart
+       from the salmon `--danger` (#e0776a) up there. */
+    --brand: #c96b87;
+    --brand-ink: #eda9bc;
+    --brand-wash: #351a22;
+    --brand-hover: #d67e97;
+    --brand-on: #1a0f13;
+
     --warn: #d99a3d;
     --warn-wash: #2e2413;
     --danger: #e0776a;
@@ -231,9 +275,9 @@
     --ok-wash: var(--accent-wash);
 
     /* Inverted: on a dark ground the loud button is the light one. */
-    --btn-bg: #e6ecee;
-    --btn-ink: #0c1417;
-    --btn-bg-hover: #ffffff;
+    --btn-bg: var(--brand);
+    --btn-ink: var(--brand-on);
+    --btn-bg-hover: var(--brand-hover);
 
     --input-bg: #101a1e;
     --input-border-hover: #38474e;
@@ -267,6 +311,12 @@
   --accent-ink: #8fd9c6;
   --accent-wash: #10302b;
 
+  --brand: #c96b87;
+  --brand-ink: #eda9bc;
+  --brand-wash: #351a22;
+  --brand-hover: #d67e97;
+  --brand-on: #1a0f13;
+
   --warn: #d99a3d;
   --warn-wash: #2e2413;
   --danger: #e0776a;
@@ -276,9 +326,9 @@
   --ok: var(--accent);
   --ok-wash: var(--accent-wash);
 
-  --btn-bg: #e6ecee;
-  --btn-ink: #0c1417;
-  --btn-bg-hover: #ffffff;
+  --btn-bg: var(--brand);
+  --btn-ink: var(--brand-on);
+  --btn-bg-hover: var(--brand-hover);
 
   --input-bg: #101a1e;
   --input-border-hover: #38474e;

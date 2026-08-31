@@ -47,8 +47,11 @@
   width: 1.875rem;
   height: 1.875rem;
   border-radius: 8px;
-  background: var(--ink);
-  color: var(--surface);
+  /* THE ONE PLACE THE PRODUCT PUTS ITS NAME. `--brand` and not `--accent`,
+     because accent is also `--ok` and painting the mark with it would spend a
+     status colour on a logo. */
+  background: var(--brand);
+  color: var(--brand-on);
   font-weight: 600;
   font-size: var(--t-sm);
   letter-spacing: -0.04em;
@@ -73,7 +76,19 @@
   letter-spacing: 0.02em;
 }
 
-/* ── Sidebar navigation ─────────────────────────────────────────────────── */
+/* ── Sidebar navigation ───────────────────────────────────────────────────
+   TWO LEVELS, AND ONLY ONE OF THEM IS USUALLY ON SCREEN.
+
+   Twenty-six links in one column is a list somebody reads top to bottom every
+   time, because nothing in it is closer than anything else. Collapsed, the
+   same map is five rows — and the row you want is the one you already know the
+   name of. What is open is the section you are IN, which the shell works out
+   rather than asking.
+
+   The children carry no icon. An icon distinguishes things that sit beside
+   each other at the same level; inside an open group the icons would be five
+   marks in a column saying "these are all administration", which the head of
+   the group already said. */
 
 .nav {
   display: flex;
@@ -81,18 +96,45 @@
   gap: 2px;
   min-width: 0;
 }
-.nav-label {
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+
+/* ── The search box ─────────────────────────────────────────────────────── */
+
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
   color: var(--faint);
-  padding: 0 var(--s-2);
-  margin: var(--s-3) 0 0.4rem;
+  transition: border-color var(--dur-fast) var(--ease);
 }
-.nav-label:first-child {
-  margin-top: 0;
+.nav-search:focus-within {
+  border-color: var(--brand);
+  color: var(--brand);
 }
+.nav-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  padding: 0.45rem 0;
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+.nav-search input::placeholder {
+  color: var(--faint);
+}
+/* Safari draws its own clear button and it lands on top of the placeholder. */
+.nav-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────── */
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -110,10 +152,43 @@
 /* The current page is stated with `aria-current="page"`, so the styling and
    the screen-reader announcement cannot drift apart. */
 .nav-link[aria-current="page"] {
-  background: var(--accent-wash);
-  color: var(--accent-ink);
+  background: var(--brand-wash);
+  color: var(--brand-ink);
   font-weight: 500;
 }
+
+/* A top-level row: a group's head, or a section that holds one screen.
+   NO `width: 100%`. A flex column stretches its items across the cross axis
+   already, so it bought nothing here — and in the FOLDED bar, where `.nav`
+   turns into a row, 100% resolved against the whole scroller and made every
+   top-level row 2100px wide. One rule, two layouts, and it was only wrong in
+   the one nobody looks at. */
+.nav-top {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.nav-group-head {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+/* The section you are IN, whether or not it is open. Closed, this is the only
+   thing on the sidebar telling you where you are. */
+.nav-group[data-here] > .nav-group-head {
+  color: var(--brand-ink);
+}
+.nav-chevron {
+  flex: none;
+  color: var(--faint);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.nav-group-head[aria-expanded="true"] .nav-chevron {
+  transform: rotate(180deg);
+}
+
 .nav-icon {
   flex: none;
   width: 1.25rem;
@@ -133,7 +208,31 @@
   color: var(--faint);
 }
 .nav-link[aria-current="page"] .count {
-  color: var(--accent);
+  color: var(--brand);
+}
+
+/* ── An open group's screens ────────────────────────────────────────────── */
+
+.nav-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* The rule is what makes the indent read as CONTAINMENT rather than as a
+     list that happens to start further in. */
+  margin: 2px 0 var(--s-2) 1.4rem;
+  padding-left: 0.65rem;
+  border-left: 1px solid var(--line);
+}
+.nav-children .nav-link {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  font-size: var(--t-sm);
+}
+
+.nav-empty {
+  padding: var(--s-3) var(--s-2);
+  font-size: var(--t-sm);
+  color: var(--muted);
 }
 
 /* ── Sidebar foot ───────────────────────────────────────────────────────── */
@@ -399,6 +498,7 @@
      of each other — which is exactly what it did. */
   .sidebar > *,
   .brand,
+  .nav-search,
   .nav-link {
     flex: none;
   }
@@ -409,7 +509,28 @@
   .nav-link {
     white-space: nowrap;
   }
-  .nav-label,
+  /*
+   * THE GROUPS FLATTEN INTO THE STRIP.
+   *
+   * `display: contents` drops the group's own box, so its head and its open
+   * children become items of the horizontal row rather than a vertical block
+   * sitting inside one. Without it an open group rendered as a column INSIDE
+   * the bar and pushed everything after it off the end.
+   *
+   * The head stays and stays a toggle: a collapsed group renders no children
+   * at all, so tapping it is how the strip reveals them. The chevron is kept
+   * for that reason — it is the only thing saying the row does something other
+   * than navigate.
+   */
+  .nav-group,
+  .nav-children {
+    display: contents;
+  }
+  .nav-search {
+    /* It cannot flex in a scroller full of `flex: none` items, so it is given
+       a width rather than collapsing to its placeholder. */
+    width: 13rem;
+  }
   .brand span {
     display: none;
   }

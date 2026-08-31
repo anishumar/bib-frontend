@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type {
+  Escalation,
   Member,
   PartySummary,
   Principal,
@@ -37,6 +38,7 @@ import {
   Tooltip,
 } from "@/components/ui";
 import { WorkBoard } from "./board";
+import { EscalationQueue } from "./escalations";
 
 /**
  * The board — what is owed, whose it is, and what is late (T3.1).
@@ -81,7 +83,15 @@ export default function WorkItemsPage() {
   const [items, setItems] = useState<WorkItem[]>([]);
   const [checks, setChecks] = useState<WorkItemReview[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
-  const [tab, setTab] = useState<"mine" | "unassigned" | "all">("mine");
+  const [tab, setTab] = useState<"mine" | "unassigned" | "escalated" | "all">("mine");
+  /** T4.5's queue. A different KIND of row from the three tabs beside it — the
+   *  record that somebody was TOLD about work, not the work — which is why it
+   *  gets its own state and its own renderer rather than a filter over `items`. */
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  /** Whether the firm has published a ladder at all. Without it an empty queue
+   *  at a firm that never wrote one is indistinguishable from everything being
+   *  on time, and only one of those means the product is doing anything. */
+  const [ladderPublished, setLadderPublished] = useState(false);
   const tabsId = useId();
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [staff, setStaff] = useState<Member[]>([]);
@@ -119,7 +129,7 @@ export default function WorkItemsPage() {
     // signed-in person's id. The API's own `mine=true` filter exists and is not
     // used here on purpose: the tab COUNTS have to agree with each other, and
     // three separate queries would disagree for as long as one was in flight.
-    const [board, queue, principal, book, roster, vocabulary] = await Promise.all([
+    const [board, queue, principal, book, roster, vocabulary, escalated] = await Promise.all([
       api.GET("/api/v1/work-items", {
         params: { query: { asOf, includeDone: includeDone ? "true" : "false" } },
       }),
@@ -137,6 +147,11 @@ export default function WorkItemsPage() {
       // gets them — and in the same pass as the items, because a board that
       // paints its cards before its columns has no shape to paint them into.
       api.GET("/api/v1/work-vocabulary", {}),
+      // T4.5. The WHOLE firm's, never `mine=true`: a queue narrowed to what you
+      // personally may act on hides that six tasks have been escalated for a
+      // week because nobody senior enough looked, which is the failure the
+      // ladder exists to surface. Same argument the review queue above makes.
+      api.GET("/api/v1/escalations", {}),
     ]);
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
@@ -162,6 +177,10 @@ export default function WorkItemsPage() {
     // the tab rather than blanking the page.
     setChecks(queue.error ? [] : queue.data.checks);
     setStates(vocabulary.data?.states ?? []);
+    // A refusal empties the tab rather than blanking the page — the review
+    // queue's arrangement, for the same reason.
+    setEscalations(escalated.error ? [] : escalated.data.rows);
+    setLadderPublished(escalated.error ? false : escalated.data.ladderPublished);
     setError(null);
     setLoaded(true);
   }, [router, includeDone]);
@@ -236,10 +255,15 @@ export default function WorkItemsPage() {
         tabs={[
           { value: "mine", label: "Mine", count: mine.length },
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
+          { value: "escalated", label: "Escalated", count: escalations.length },
           { value: "all", label: "Everything", count: items.length },
         ]}
       />
 
+      {/* Neither control means anything on the escalation queue: a notice about
+          finished work is not in it at all (the API drops it by the join), and
+          there is no board shape to draw a list of notices in. */}
+      {tab !== "escalated" && (
       <div className="row">
         <Checkbox
           label="Include finished work"
@@ -270,9 +294,16 @@ export default function WorkItemsPage() {
           </Button>
         </span>
       </div>
+      )}
 
       <TabPanel tabsId={tabsId} value={tab}>
-        {shown.length === 0 ? (
+        {/* The escalation queue is not the board sliced — it is a different
+            kind of row, so it gets its own renderer rather than being forced
+            through the board or the list. Board/List does not apply to it and
+            the toggle above is hidden while it is open. */}
+        {tab === "escalated" ? (
+          <EscalationQueue rows={escalations} ladderPublished={ladderPublished} />
+        ) : shown.length === 0 ? (
           <Card>
             <Empty title="Nothing here" icon="board">
               {emptyMessage(tab)}
@@ -306,7 +337,10 @@ export default function WorkItemsPage() {
   );
 }
 
-function emptyMessage(tab: "mine" | "unassigned" | "all"): string {
+/** The escalated tab never reaches this — `EscalationQueue` writes its own two
+ *  empty states, because "nothing is late" and "nothing is watching" are
+ *  different facts and only one of them is good news. */
+function emptyMessage(tab: "mine" | "unassigned" | "escalated" | "all"): string {
   if (tab === "mine") {
     return (
       "Nothing is on your desk. Work arrives here when an engagement is released and you " +

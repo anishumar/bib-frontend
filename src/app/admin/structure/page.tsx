@@ -130,7 +130,7 @@ export default function StructurePage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="The firm"
         title="Firm structure"
         lede="Most firms have one of these layers, some have both, and plenty have neither. Fill in
         what your firm actually uses and leave the rest empty — nothing here is required."

@@ -149,7 +149,7 @@ export default function BrandPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="Documents"
         title="Brand"
         lede="What each of the firm&rsquo;s companies prints on what it sends."
       />

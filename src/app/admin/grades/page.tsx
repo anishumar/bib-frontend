@@ -119,7 +119,7 @@ export default function GradesPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="The firm"
         title="Grades"
         lede="The firm's seniority ladder. A grade grants nothing — it exists for one comparison, the review rule that reads “Manager or above”."
         aside={<Pill tone="quiet">{grades.length} rungs</Pill>}

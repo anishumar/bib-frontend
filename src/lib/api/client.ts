@@ -199,6 +199,18 @@ export type WorkItemReview = WorkItemDetail["reviews"][number];
  */
 export type WorkItemState = WorkItem["state"];
 
+/**
+ * One notice the firm's escalation ladder raised (T4.5).
+ *
+ * NOT a work item and not a filing — it is the record that somebody was TOLD
+ * about one. `raisedToName` is who, `minGradeRank` means it went to a rank
+ * rather than a person, and `note` is set when it reached nobody and says which
+ * of the three reasons. All three matter on the screen: a notice with nobody on
+ * it is the row a reader has to act on.
+ */
+export type Escalation =
+  paths["/api/v1/escalations"]["get"]["responses"][200]["content"]["application/json"]["rows"][number];
+
 /** How urgent, as a row. `rank` is what sorts — 1 is most urgent — and the name
  *  is display. */
 export type WorkItemPriority = WorkItem["priority"];

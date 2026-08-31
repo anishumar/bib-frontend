@@ -76,7 +76,7 @@ export default function DocumentBlocksPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="Documents"
         title="Standard prose"
         lede="Copied onto every new proposal and engagement letter. Editing a line changes the next
         document and nothing already issued — a document owns its copy from the moment it is

@@ -72,9 +72,16 @@ Semantic names only. Never a hex, never a raw ramp value.
 | `--ink` / `--ink-2` | body text / slightly quieter |
 | `--muted` / `--faint` | skippable / barely there |
 | `--line` / `--line-soft` | a separator / a row rule |
-| `--accent` / `--accent-ink` / `--accent-wash` | the firm's mark |
+| `--accent` / `--accent-ink` / `--accent-wash` | success — done, in force, this held (`--ok` aliases it) |
+| `--brand` / `--brand-ink` / `--brand-wash` / `--brand-on` | whose product this is: the mark, the sidebar, the primary button |
 | `--warn` / `--warn-wash` | needs attention |
 | `--danger` / `--danger-wash` | wrong, refused, or overdue |
+
+**`--brand` is the only colour that is NOT a status, and the only one allowed not to be.**
+Accent, warn and danger each MEAN something and nothing may borrow them for decoration — a
+maroon Save button is fine, a green one would be claiming the screen succeeded before it ran.
+Brand is plum rather than brick on purpose: it sits beside `--danger` constantly (maroon chrome
+around a red refusal) and the two must not blur.
 
 Both themes redefine **only** these. Sizes, spacing, shape, type and motion are
 theme-invariant and appear exactly once. **A component never branches on

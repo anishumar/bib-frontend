@@ -107,7 +107,7 @@ export default function TerritoriesPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="The firm"
         title="Territories"
         lede="A lead from one of these countries goes to that desk, whatever its load. Everywhere else falls through to the rotation — there is no wildcard rule, because the rotation is a better fallback than a row somebody has to remember to maintain."
         aside={<Pill tone="quiet">{rules.length} set</Pill>}

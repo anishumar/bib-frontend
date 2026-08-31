@@ -98,7 +98,7 @@ export default function ObligationRulesPage() {
     <Suspense
       fallback={
         <Page>
-          <PageHeader eyebrow="Administration" title="Compliance rules" />
+          <PageHeader eyebrow="How work runs" title="Compliance rules" />
         </Page>
       }
     >
@@ -333,7 +333,7 @@ function Rules() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="How work runs"
         title="Compliance rules"
         lede="What the law asks of a client, and when. The calendar is generated from these — nobody types a filing in, which is what stops it drifting from the statute."
       />

@@ -151,7 +151,7 @@ export default function PeoplePage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Administration"
+        eyebrow="The firm"
         title="People"
         lede="Who works at the firm, what their role reaches, how senior they are, and who they report to. Four independent axes — changing one never changes another."
         aside={<Pill tone="quiet">{members.length} on the roster</Pill>}

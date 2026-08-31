@@ -3107,6 +3107,69 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/escalations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Work the firm's own ladder has escalated
+         * @description Notices whose underlying work is still open, worst first. A row leaves this list when the WORK moves — the task is finished, somebody picks up an unassigned one, the filing is filed or decided about — and there is deliberately no way to dismiss one by hand.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The queue */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rows: components["schemas"]["EscalationRow"][];
+                            /** @description Whether this firm has published an escalation ladder at all. FALSE is why an empty queue is empty, and without it a firm that has never set one cannot tell that apart from everything being on time — which is the difference between working software and silent software. */
+                            ladderPublished: boolean;
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/assignments": {
         parameters: {
             query?: never;
@@ -6419,7 +6482,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
                 };
                 cookie?: never;
             };
@@ -6461,7 +6524,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
                 };
                 cookie?: never;
             };
@@ -6537,7 +6600,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
                     key: string;
                 };
                 cookie?: never;
@@ -6605,7 +6668,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
                     key: string;
                 };
                 cookie?: never;
@@ -6684,7 +6747,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
                     key: string;
                     version: number;
                 };
@@ -12058,6 +12121,56 @@ export interface components {
             sortOrder: number;
             isActive: boolean;
         };
+        /** @description Who was told. Null has TWO meanings and `note` tells them apart: a notice that reached nobody always carries one, and a notice whose account no longer resolves carries none. The audit trail's `actor` makes the same distinction the same way. */
+        EscalationPerson: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+            email: string;
+        } | null;
+        EscalationRow: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workItemId: string | null;
+            /** Format: uuid */
+            obligationInstanceId: string | null;
+            /** @description The rung's own key from the firm's published ladder. A key and never an index, so a row stays readable after the ladder moves under it. */
+            rungKey: string;
+            /** @description What the firm called this rung, resolved from the ladder in force NOW. Falls back to the key when the rung has since been removed — the notice is still a fact, and the label is only its name. */
+            rungLabel: string;
+            /**
+             * @description What the rung was watching. 'work_item_due' is the SLA the client was promised; 'work_item_unassigned' is a task nobody has picked up, counted from its creation because it has no other clock; 'obligation_target' is the firm's own T-X on a filing, with the statutory date still ahead — the one this ladder exists for.
+             * @enum {string}
+             */
+            watch: "work_item_due" | "work_item_unassigned" | "obligation_target";
+            /** @description The rung's threshold AS IT WAS when this fired, snapshotted on the row. A later edit to the ladder cannot make a notice that went out on time look early. */
+            afterDays: number;
+            /** @description How far past the watched date it was on the day this fired. */
+            daysPast: number;
+            /**
+             * @description Who the firm's ladder said to tell. 'grade_at_least' is not resolved to a person: the notice is addressed to a RANK, so everybody senior enough sees it and it does not die while one partner is on leave.
+             * @enum {string}
+             */
+            target: "assignee" | "manager" | "grade_at_least";
+            /** Format: uuid */
+            raisedToUserId: string | null;
+            raisedTo: components["schemas"]["EscalationPerson"];
+            /** @description Set instead of a person when the rung addresses a grade and above. */
+            minGradeRank: number | null;
+            /** @description Why nobody could be named — nobody holds the work, nobody is recorded above them, or no active member holds the rank the rung asks for. A real state and not an error, and it is exactly the row somebody has to look at. */
+            note: string | null;
+            /** @description The calendar day it fired, YYYY-MM-DD. */
+            raisedOn: string;
+            subjectTitle: string;
+            /** @description Who is billed. Null on a filing — an obligation is owed by the ENTITY and carries no client. */
+            clientName: string | null;
+            /** @description WHICH of the client's companies. A group of four files four sets of returns (G0.1), so a row naming only the client is four identical rows. */
+            entityName: string | null;
+            holder: components["schemas"]["EscalationPerson"] & unknown;
+            dueOn: string | null;
+            stateName: string | null;
+        };
         /** @description The Dept or delivery team a SPOC covers. Always null for a Key Manager. */
         AssignmentAxis: {
             /** Format: uuid */
@@ -12728,7 +12841,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
             key: string;
         };
         ConfigVersion: {
