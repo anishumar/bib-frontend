@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
-import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis } from "@/lib/api/client";
+import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis, RequestRouting } from "@/lib/api/client";
 import { Button, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
@@ -41,12 +41,16 @@ export default function StructurePage() {
   const router = useRouter();
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [split, setSplit] = useState<WorkSplitAxis>("none");
+  const [routing, setRouting] = useState<RequestRouting>("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const structure = await api.GET("/api/v1/tenancy/structure", {});
+    const [structure, inbox] = await Promise.all([
+      api.GET("/api/v1/tenancy/structure", {}),
+      api.GET("/api/v1/client-requests", {}),
+    ]);
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
     if (structure.response.status === 401) {
@@ -60,6 +64,11 @@ export default function StructurePage() {
     }
     setAxes(structure.data.axes);
     setSplit(structure.data.workSplitAxis);
+    // The routing setting is read off the INBOX rather than from a settings
+    // route of its own: `GET /client-requests` already carries it, because a
+    // screen showing that list has to be able to say why nothing is assigned.
+    // One source, and this page cannot disagree with the one that acts on it.
+    if (!inbox.error) setRouting(inbox.data.routing);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -122,6 +131,12 @@ export default function StructurePage() {
     );
   }
 
+  function chooseRouting(next: RequestRouting): void {
+    void act("routing", () =>
+      api.PUT("/api/v1/tenancy/client-request-routing", { body: { routing: next } }),
+    );
+  }
+
   if (!loaded) return <p className="muted">Loading…</p>;
 
   const depts = axes.filter((a) => a.axis === "dept");
@@ -136,6 +151,19 @@ export default function StructurePage() {
         what your firm actually uses and leave the rest empty — nothing here is required."
       />
       {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+
+      {/* T6.8's inbox, and its one setting. It sits on THIS screen because it
+          is the same kind of fact as the split above it — how the firm is
+          shaped, decided once and applied to everything that arrives after —
+          and because a single field does not earn an admin screen of its own.
+          That is the "control that looks live and is inert" trap read from the
+          other end: a page for one switch is a page nobody finds. */}
+      <RequestRoutingChooser
+        chosen={routing}
+        hasKeyManagers={true}
+        busy={busy === "routing"}
+        onChoose={chooseRouting}
+      />
 
       <WorkSplitChooser
         chosen={split}
@@ -543,5 +571,79 @@ function CommittedNumber({
         if (e.key === "Escape") setDraft(String(value));
       }}
     />
+  );
+}
+
+/**
+ * How an arriving client request is routed (T6.8, migration 0070).
+ *
+ * TWO OPTIONS, AND A SPOC IS NOT ONE OF THEM — which the page says out loud,
+ * because a partner reading a list that offers "the Key Manager" and not "the
+ * SPOC" will assume the second is missing rather than impossible. A SPOC covers
+ * a Dept or a delivery team; a client's request names no service, so there is
+ * no axis to look one up by, and choosing an axis would be this product
+ * deciding something the firm never said.
+ *
+ * `none` LEADS, because it is the default and because it is a real answer
+ * rather than an unconfigured one — the same position `WorkSplitChooser` takes
+ * about "keep it all together".
+ */
+function RequestRoutingChooser({
+  chosen,
+  busy,
+  onChoose,
+}: {
+  chosen: RequestRouting;
+  hasKeyManagers: boolean;
+  busy: boolean;
+  onChoose: (routing: RequestRouting) => void;
+}) {
+  const options: { value: RequestRouting; label: string; hint: string }[] = [
+    {
+      value: "none",
+      label: "Leave them for anyone to pick up",
+      hint: "Requests arrive on nobody's desk and whoever gets to one takes it. What the inbox does today.",
+    },
+    {
+      value: "key_manager",
+      label: "Send them to the client's Key Manager",
+      hint: "A client with no Key Manager gets a request that waits under Unassigned, saying so — never one guessed onto somebody else's desk.",
+    },
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+      <h2 className="card-title">When a client asks you for something, whose is it?</h2>
+      <p className="muted" style={{ maxWidth: "62ch" }}>
+        Clients raise requests from their own portal — a document they cannot find, a copy of
+        something, a correction. This decides whether one arrives on a named desk.
+      </p>
+      <div className="stack tight" style={{ marginTop: "var(--s-3)" }}>
+        {options.map((o) => (
+          <label key={o.value} className="choice">
+            <input
+              type="radio"
+              name="client-request-routing"
+              value={o.value}
+              checked={chosen === o.value}
+              disabled={busy}
+              onChange={() => {
+                onChoose(o.value);
+              }}
+            />
+            <span>
+              <strong>{o.label}</strong>
+              <span className="field-hint">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="field-hint" style={{ marginTop: "var(--s-3)" }}>
+        There is no &ldquo;send it to the SPOC&rdquo; here, and that is deliberate: a SPOC
+        covers a Dept or a delivery team, and a request names no service — so there would be
+        nothing to pick one by. Changing this setting restates nothing: requests already on a
+        desk keep their owner, and the next one is routed the new way.
+      </p>
+    </div>
   );
 }

@@ -8,15 +8,23 @@
  * chaser sends a reminder. These rows came IN, and until this screen existed
  * there was nowhere they could arrive.
  *
- * ── IT IS ONE LIST, AND THE ABSENCE OF ROUTING IS ON THE PAGE ────────────
+ * ── THE FIRM DECIDES WHETHER ANYTHING IS ROUTED, AND THE PAGE SAYS WHICH ──
  *
- * Nobody is assigned a client's request. The firm has never said who an inbound
- * one belongs to — the client's partner, a Dept, whoever is free — and this
- * codebase already carries one arbitrary answer to a question of that shape
- * (an obligation's Dept), which is on the board as open. So the screen says so
- * rather than implying an owner it does not have, and gives the reader the two
- * things that make an unrouted list workable: which client each is from, and
- * whether the ball is in the firm's court.
+ * T6.8 shipped this with no routing at all, because the firm had never said who
+ * an inbound request belongs to. It still has not — so migration 0070 gives the
+ * firm a SWITCH rather than giving this product an opinion, and `none` is the
+ * default and reproduces exactly what shipped.
+ *
+ * `routing` therefore travels with the list, and the empty state and the
+ * Unassigned tab both read it. An inbox where nothing is assigned because the
+ * firm routes nothing, and one where the rule ran and placed nothing, are the
+ * SAME PICTURE — and only one of them is somebody's to fix. That is T4.5's
+ * `ladderPublished` decision, and it is why this screen never just shows a
+ * blank Assigned column.
+ *
+ * A SPOC is not among the options and cannot become one: a SPOC covers a Dept
+ * or a delivery team, a request names no service, and picking an axis for it
+ * would be the arbitrary answer this task exists to keep refusing.
  *
  * `awaitingFirm` is that flag, and it is NOT the status. A client's follow-up
  * does not walk `answered` back to `open` — that status means "the firm has
@@ -37,6 +45,17 @@
  * client IS the decision to show it to them. The form says that before the
  * click, because it is a disclosure decision and not a formatting one.
  *
+ * ── "TAKE IT" IS THE PRIMARY CONTROL, AND IT NEEDS NO ROSTER ─────────────
+ *
+ * The roster is `tenant:admin` and this page is `party:read`, so the full
+ * picker is offered only to somebody who can actually read the list — the same
+ * honest gap `/work-items/[id]`, the pipeline's owner dropdown and the account
+ * team form all have, left consistent with them rather than widened here.
+ *
+ * But claiming a request needs no roster at all: the assignee is the caller.
+ * On a firm-wide list with no owner that is the verb people actually use, so it
+ * is a button everybody with `work:write` gets, and the picker is the extra.
+ *
  * ── AND THERE IS NO WITHDRAW BUTTON ─────────────────────────────────────
  *
  * Taking a request back is the CLIENT's own act. "We decided you did not need
@@ -44,12 +63,12 @@
  * is why Close sits next to the reply box rather than alone.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { ClientRequest, ClientRequestReply } from "@/lib/api/client";
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
+import type { ClientRequest, ClientRequestReply, Member } from "@/lib/api/client";
+import { Page, PageHeader, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import {
   Button,
@@ -60,24 +79,36 @@ import {
   Notice,
   Pill,
   Select,
+  Tabs,
   Textarea,
 } from "@/components/ui";
 
 interface Me {
+  readonly userId: string;
   readonly permissions: readonly string[];
 }
 
+type Tab = "mine" | "unassigned" | "all";
+
 export default function ClientRequestsPage() {
   const router = useRouter();
+  const tabsId = useId();
   const [requests, setRequests] = useState<readonly ClientRequest[]>([]);
+  const [routing, setRouting] = useState<string>("none");
+  const [roster, setRoster] = useState<readonly Member[]>([]);
   const [me, setMe] = useState<Me | null>(null);
+  const [tab, setTab] = useState<Tab>("all");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [inbox, who] = await Promise.all([
+    const [inbox, who, people] = await Promise.all([
       api.GET("/api/v1/client-requests", {}),
       api.GET("/api/v1/auth/me", {}),
+      // `tenant:admin`, and this page is `party:read` — so a 403 here is
+      // ORDINARY and is not an error. It costs the full picker and nothing
+      // else: "Take it" needs no roster, because the assignee is the caller.
+      api.GET("/api/v1/tenancy/members", {}),
     ]);
     if (inbox.response.status === 401) {
       router.push("/login");
@@ -88,8 +119,10 @@ export default function ClientRequestsPage() {
       setLoaded(true);
       return;
     }
-    setRequests(inbox.data);
-    setMe(who.error ? null : { permissions: who.data.permissions });
+    setRequests(inbox.data.requests);
+    setRouting(inbox.data.routing);
+    setRoster(people.error ? [] : people.data.members);
+    setMe(who.error ? null : { userId: who.data.userId, permissions: who.data.permissions });
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -107,7 +140,9 @@ export default function ClientRequestsPage() {
   // `work:write` reads the inbox and is given no controls — the API refuses
   // them anyway, and offering what will 403 is a slower error.
   const mayAct = me?.permissions.includes("work:write") ?? false;
-  const waiting = requests.filter((r) => r.awaitingFirm);
+  const mine = requests.filter((r) => r.assignee !== null && r.assignee.userId === me?.userId);
+  const unassigned = requests.filter((r) => r.assignee === null);
+  const shown = tab === "mine" ? mine : tab === "unassigned" ? unassigned : requests;
 
   return (
     <Page>
@@ -117,15 +152,47 @@ export default function ClientRequestsPage() {
         lede="What clients have asked you for through their portal — everything not finished, newest first."
       />
 
-      {/* THE ABSENCE OF ROUTING, SAID RATHER THAN LEFT TO BE NOTICED. A reader
-          looking for "mine" has to be told there is no such thing here yet, or
-          they will conclude the filter is missing rather than the decision. */}
-      <Notice tone="neutral" eyebrow={`${String(waiting.length)} waiting on the firm`}>
-        <p>
-          Nobody is assigned these. Anyone who can write work can reply to any of them, and the
-          list is the whole firm&rsquo;s — so check who a request is from before answering it.
-        </p>
+      {/* WHAT THIS FIRM DOES WITH AN ARRIVING REQUEST, said rather than left to
+          be inferred from an empty column. Under `none` a reader opening
+          "Unassigned" and finding everything in it would conclude the rule was
+          broken; the truth is that there is no rule, which is a setting and not
+          a fault. */}
+      <Notice
+        tone="neutral"
+        eyebrow={routing === "none" ? "Nothing is routed" : "Routed to the Key Manager"}
+      >
+        {routing === "none" ? (
+          <p>
+            An arriving request is put on nobody&rsquo;s desk — anyone who can write work can
+            take any of them. A partner can change that under{" "}
+            <Link href="/admin/structure">Firm structure</Link>.
+          </p>
+        ) : (
+          <p>
+            An arriving request goes to that client&rsquo;s Key Manager. Where a client has none
+            it waits in <strong>Unassigned</strong> with a line saying so — and anybody can
+            still take one, or hand it on.
+          </p>
+        )}
       </Notice>
+
+      <Tabs
+        id={tabsId}
+        label="Client request views"
+        value={tab}
+        onChange={(v) => {
+          setTab(v as Tab);
+        }}
+        tabs={[
+          { value: "mine", label: "Mine", count: mine.length },
+          // THE TAB THAT WOULD NOT EXIST ON A NAIVE LIST, and the one that
+          // matters most: work the rule could not place, or nobody has taken.
+          // 0051 makes the same argument for the work board — unassigned work
+          // is only chased if somebody can list it.
+          { value: "unassigned", label: "Unassigned", count: unassigned.length },
+          { value: "all", label: "Everything", count: requests.length },
+        ]}
+      />
 
       {requests.length === 0 && (
         <Empty title="Nothing outstanding" icon="check">
@@ -134,19 +201,30 @@ export default function ClientRequestsPage() {
         </Empty>
       )}
 
-      {requests.length > 0 && (
-        <Section title="Open">
-          <Stack gap="tight">
-            {requests.map((request) => (
-              <RequestCard
-                key={request.requestId}
-                request={request}
-                mayAct={mayAct}
-                onChanged={load}
-              />
-            ))}
-          </Stack>
-        </Section>
+      {requests.length > 0 && shown.length === 0 && (
+        <Empty
+          title={tab === "mine" ? "None of them are yours" : "Everything has an owner"}
+          icon="check"
+        >
+          {tab === "mine"
+            ? "Nothing here is on your desk. The other tabs have the rest."
+            : "Every open request is on somebody's desk."}
+        </Empty>
+      )}
+
+      {shown.length > 0 && (
+        <Stack gap="tight">
+          {shown.map((request) => (
+            <RequestCard
+              key={request.requestId}
+              request={request}
+              mayAct={mayAct}
+              roster={roster}
+              meUserId={me?.userId ?? null}
+              onChanged={load}
+            />
+          ))}
+        </Stack>
       )}
     </Page>
   );
@@ -155,10 +233,14 @@ export default function ClientRequestsPage() {
 function RequestCard({
   request,
   mayAct,
+  roster,
+  meUserId,
   onChanged,
 }: {
   request: ClientRequest;
   mayAct: boolean;
+  roster: readonly Member[];
+  meUserId: string | null;
   onChanged: () => Promise<void>;
 }) {
   const [body, setBody] = useState("");
@@ -228,6 +310,24 @@ function RequestCard({
     await onChanged();
   }
 
+  async function assign(assigneeUserId: string | null): Promise<void> {
+    setBusy(true);
+    setError(null);
+    const result = await api.PUT("/api/v1/client-requests/{requestId}/assignee", {
+      params: { path: { requestId: request.requestId } },
+      body: { assigneeUserId },
+    });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    // RELOADS rather than patching the row. Who holds a request decides which
+    // tab it belongs in, so a local patch would leave it sitting in a list it
+    // is no longer part of.
+    await onChanged();
+  }
+
   async function close(): Promise<void> {
     setBusy(true);
     setError(null);
@@ -257,6 +357,23 @@ function RequestCard({
           {longDay(request.raisedAt)}
         </p>
         <p>{request.body}</p>
+
+        {/* WHOSE DESK — and the three answers are three different sentences.
+            A blank space here would collapse "nobody has taken it" into "the
+            rule ran and found nobody", which is T4.5's blank-name bug in a new
+            place: only one of the two is somebody's to fix. */}
+        <p className="muted">
+          {request.assignee !== null ? (
+            <>
+              With <strong>{request.assignee.displayName ?? request.assignee.email}</strong>
+              {request.assignee.userId === meUserId && <> — that is you</>}
+            </>
+          ) : request.assignmentNote !== null ? (
+            <>Nobody yet — {request.assignmentNote}</>
+          ) : (
+            <>On nobody&rsquo;s desk</>
+          )}
+        </p>
 
         {request.replies.length > 0 && (
           <Stack gap="tight">
@@ -315,6 +432,50 @@ function RequestCard({
                 ))}
               </Select>
             </Field>
+
+            {/* CLAIMING NEEDS NO ROSTER, so it is the control everybody with
+                `work:write` gets. The picker below is the extra, and it is
+                absent rather than broken for somebody who cannot read the
+                roster. */}
+            <div className="cluster">
+              {request.assignee?.userId !== meUserId && meUserId !== null && (
+                <Button variant="ghost" onClick={() => void assign(meUserId)} disabled={busy}>
+                  Take it
+                </Button>
+              )}
+              {request.assignee !== null && (
+                <Button variant="ghost" onClick={() => void assign(null)} disabled={busy}>
+                  Put it back
+                </Button>
+              )}
+            </div>
+
+            {/* THE PICKER IS A LABELLED FIELD, not a bare dropdown sitting in
+                the button row. A full-width select with no label beside two
+                small ghost buttons reads as a control that lost its label —
+                found by looking at the page, which is the only place it shows. */}
+            {roster.length > 0 && (
+              <Field label="Or hand it to somebody else">
+                <Select
+                  value={request.assignee?.userId ?? ""}
+                  onChange={(e) => void assign(e.target.value === "" ? null : e.target.value)}
+                  disabled={busy}
+                >
+                  <option value="">Nobody</option>
+                  {roster
+                    // Only people who still work here. A revoked membership
+                    // stays on the roster — it is the record that they did —
+                    // and offering it would produce the API's refusal, which is
+                    // just a slower error.
+                    .filter((m) => m.membership.isActive)
+                    .map((m) => (
+                      <option key={m.membership.userId} value={m.membership.userId}>
+                        {m.displayName ?? m.email}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+            )}
 
             <div className="cluster">
               <Button onClick={() => void reply(false)} disabled={busy || body.trim() === ""}>

@@ -4323,7 +4323,7 @@ export interface paths {
         };
         /**
          * What clients have asked YOU for
-         * @description The firm-wide inbox of requests clients raised themselves — everything not finished, newest first. There is no routing: nobody is assigned one, because the firm has not said who should be. `awaitingFirm` is the flag to work from.
+         * @description The firm-wide inbox of requests clients raised themselves — everything not finished, newest first. `awaitingFirm` is the flag to work from, and `routing` says whether this firm places them on anybody's desk automatically.
          */
         get: {
             parameters: {
@@ -4334,13 +4334,20 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The live requests, each with its whole thread */
+                /** @description The live requests with their threads, and the firm's routing setting */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ClientRequest"][];
+                        "application/json": {
+                            requests: components["schemas"]["ClientRequest"][];
+                            /**
+                             * @description WHAT THIS FIRM DOES WITH AN ARRIVING REQUEST. It travels with the list for T4.5's `ladderPublished` reason: an inbox where nothing is assigned because the firm routes nothing, and one where the rule ran and placed nothing, are the same picture — and only one of them is somebody's to fix.
+                             * @enum {string}
+                             */
+                            routing: "none" | "key_manager";
+                        };
                     };
                 };
                 /** @description No authenticated session */
@@ -4520,6 +4527,167 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-requests/{requestId}/assignee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put it on somebody's desk, or take it off one
+         * @description ALWAYS AVAILABLE, whatever the firm's routing setting says. A firm that routes nothing still needs to say whose a request is, and a firm that routes to the Key Manager still needs somebody to take one that landed on the wrong desk — the rule is a default, not a wall. Taking a request off a desk clears the routing note with it: a person unassigning has explained it by doing it, and the rule's old sentence would then be saying the request is unplaced for a reason that is no longer why.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignClientRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Assigned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientRequest"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn, or that person does not work here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/client-request-routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * How an arriving client request is routed
+         * @description `none` routes nothing and is the DEFAULT — a real answer, not 'unconfigured', and exactly the behaviour this product had before the setting existed. `key_manager` places a new request on the desk of that client's Key Manager, and leaves it UNASSIGNED with a sentence when the client has none.
+         *
+         *     A SPOC is not an option and cannot become one: a SPOC covers a Dept or a delivery team, a request names no service, and picking an axis for it would be this product deciding something the firm never said.
+         *
+         *     CHANGING IT RESTATES NOTHING. Requests already on a desk keep their assignee; the next one is routed the new way.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        routing: "none" | "key_manager";
+                    };
+                };
+            };
+            responses: {
+                /** @description The setting now in force */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            routing: "none" | "key_manager";
+                        };
+                    };
+                };
+                /** @description Not one of none / key_manager */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14840,6 +15008,15 @@ export interface components {
             /** @description WHO at the client wrote it. A company with two directors asking for different things is two conversations. */
             raisedByName: string | null;
             raisedAt: string;
+            /** @description WHOSE DESK it is on. Null is ORDINARY: the firm may route nothing (the default), or the rule may have run and found nobody — `assignmentNote` is what tells those two apart, and is null in the first case because nothing failed. ALL THREE FIELDS, which is the shape the escalation queue and the ledger's actor both use: `display_name` is nullable on an account and genuinely empty at seeded firms, so a screen given only the name renders a blank space and turns 'somebody we hold no name for' into 'nobody'. The EMAIL is the discriminator, and the userId is what a screen compares against the reader to answer 'is this mine'. */
+            assignee: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                email: string;
+            } | null;
+            /** @description Why NOBODY, when the rule ran and could not name somebody — and it names the FIX, not the failure. Never set beside an assignee: the database refuses the pair. */
+            assignmentNote: string | null;
             settledByName: string | null;
             settledAt: string | null;
             replies: components["schemas"]["ClientRequestReply"][];
@@ -14852,6 +15029,13 @@ export interface components {
              * @description A document ALREADY FILED against this client, which this reply sends them. Not an upload — file it first, against the client, which is the ordinary act and leaves it where the rest of their papers are. Another client's document, or one of your own working papers (whose party is null), is refused: 404.
              */
             documentId?: string | null;
+        };
+        AssignClientRequestRequest: {
+            /**
+             * Format: uuid
+             * @description Whose desk it goes on. NULL takes it off one — there is no separate unassign route, because assigning and unassigning are one act with two ends and the name and the note have to move together.
+             */
+            assigneeUserId: string | null;
         };
         PortalAskResponse: {
             /** Format: uuid */

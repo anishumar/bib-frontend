@@ -1072,8 +1072,23 @@ export type PortalRequestReply = PortalRequest["replies"][number];
  * is NO ROUTING — nobody is assigned one — so the company name is what tells
  * one row from another at a glance.
  */
-export type ClientRequest =
-  paths["/api/v1/client-requests"]["get"]["responses"][200]["content"]["application/json"][number];
+export type ClientRequestInbox =
+  paths["/api/v1/client-requests"]["get"]["responses"][200]["content"]["application/json"];
+
+export type ClientRequest = ClientRequestInbox["requests"][number];
+
+/**
+ * How the firm routes an arriving request (migration 0070).
+ *
+ * IT TRAVELS WITH THE LIST, and that is T4.5's `ladderPublished` decision: an
+ * inbox where nothing is assigned because the firm routes nothing, and one
+ * where the rule ran and placed nothing, are the same picture — and only one of
+ * them is somebody's to fix.
+ *
+ * `none` is the default and a real answer. A SPOC is not a member of this union
+ * and cannot become one: a SPOC covers a Dept, and a request names no service.
+ */
+export type RequestRouting = ClientRequestInbox["routing"];
 
 export type ClientRequestReply = ClientRequest["replies"][number];
 

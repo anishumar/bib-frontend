@@ -174,7 +174,7 @@ in one place, for everybody. Do not solve it locally.
 | `/portal/documents` | **THE CLIENT'S LIBRARY** — every document the firm has shared with them, searchable, and each one downloads. NOT windowed: the whole point is finding last year's challan |
 | `/portal/invoices` | what the firm has billed them and what is still outstanding. Drafts are not here; a cancelled invoice IS, and is marked |
 | `/portal/month` | one calendar month of what the firm did — filed, added, billed, and what the client sent back. A SCREEN, not an email |
-| `/client-requests` | **THE OTHER DIRECTION** — what clients have asked the FIRM for, unprompted. One firm-wide list, nobody assigned, with the reply box and the attachment picker on the row |
+| `/client-requests` | **THE OTHER DIRECTION** — what clients have asked the FIRM for, unprompted. Mine / Unassigned / Everything, with the reply box, the attachment picker and Take it on the row |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
 
 ## The client portal is a SECOND AUDIENCE'S APP (T6.5)
@@ -411,6 +411,33 @@ which client it is from (a LINK — somebody has to work out whose this is), and
 what sending it will DO — *"they already have this"* against *"not shared yet"* — because one of
 those is a disclosure decision and the other is not. It is not an upload: file it against the
 client first, which is the ordinary act and leaves it where the rest of their papers are.
+
+### Routing, and the tab that would not exist on a naive list (T6.9)
+
+T6.8 assigned nothing, because the firm had never said who an inbound request belongs to. It
+still has not — so the firm gets a SWITCH on `/admin/structure` (`none` is the default and does
+what shipped) rather than this product getting an opinion.
+
+- **`routing` TRAVELS WITH THE LIST**, and the notice at the top reads it. An inbox where
+  nothing is assigned because the firm routes nothing, and one where the rule ran and placed
+  nothing, are the SAME PICTURE — T4.5's `ladderPublished` argument, and it is why this screen
+  never just shows a blank Assigned column.
+- **UNASSIGNED IS ITS OWN TAB.** Work the rule could not place, or nobody has taken — the same
+  argument `/work-items` makes: unassigned work is only chased if somebody can list it.
+- **"TAKE IT" NEEDS NO ROSTER, so everybody with `work:write` gets it.** The full picker is the
+  extra, offered only where `/tenancy/members` is readable — the same honest gap
+  `/work-items/[id]`, the pipeline's owner dropdown and the account team form all have. Claiming
+  is the verb people actually use on a firm-wide list, and the assignee is the caller.
+- **THREE SENTENCES, NEVER A BLANK.** "With <name>", "Nobody yet — <the rule's note>", and "On
+  nobody's desk" are three different facts, and collapsing them into an empty cell is T4.5's
+  blank-name bug in a new place.
+- **THE ADMIN SCREEN SAYS A SPOC IS IMPOSSIBLE**, in words. A partner reading two options would
+  otherwise assume the third is missing rather than unavailable — a SPOC covers a Dept, and a
+  request names no service.
+
+**And the assign picker is a labelled `<Field>`, not a bare select in the button row.** A
+full-width dropdown with no label under two small ghost buttons reads as a control that lost its
+label. Found by looking at the page.
 
 ### What walking it found, and none of it visible to typecheck or lint
 
