@@ -189,6 +189,19 @@ export type ChecklistItem = WorkItemDetail["checklist"][number];
 export type WorkItemReview = WorkItemDetail["reviews"][number];
 
 /**
+ * One row of the firm's own check queue — a review, plus the VIEWER's verdict.
+ *
+ * A different type from `WorkItemReview` because it answers a different
+ * question. On an item's page a review is HISTORY: who checked it and what they
+ * said. In the queue it is work waiting on somebody, and `viewer` is whether
+ * that somebody is you — `reason` being the sentence to say when it is not.
+ * The API sends the sentence rather than a code so the queue and the "who may
+ * check this?" list never phrase one refusal in two different sets of words.
+ */
+export type WorkItemCheckRow =
+  paths["/api/v1/work-item-checks"]["get"]["responses"][200]["content"]["application/json"]["checks"][number];
+
+/**
  * A state a work item can be in — ONE ROW of the firm's own vocabulary.
  *
  * Read the FLAGS, never the code. `isBlocked` is what makes a reason mandatory,

@@ -4535,7 +4535,7 @@ export interface paths {
         };
         /**
          * Every work item waiting to be checked at this firm
-         * @description The WHOLE firm's, oldest first — not filtered to what the viewer can act on. Under a rank threshold there is no 'mine', and a filtered list hides that six tasks have waited a week because nobody senior enough has looked.
+         * @description The WHOLE firm's, oldest first — not filtered to what the viewer can act on. Under a rank threshold there is no 'mine', and a filtered list hides that six tasks have waited a week because nobody senior enough has looked. Every row carries the VIEWER's own verdict instead, with the sentence to say when they may not check it. Ordered by when the work was submitted and by nothing else: the firm has not given its internal turnaround times, and a deadline this product invented is a priority the firm never set.
          */
         get: {
             parameters: {
@@ -11596,10 +11596,13 @@ export interface components {
         Principal: {
             /** Format: uuid */
             userId: string;
+            displayName: string | null;
+            email: string | null;
             /** Format: uuid */
             sessionId: string;
             /** Format: uuid */
             tenantId: string | null;
+            tenantName: string | null;
             /** @enum {string|null} */
             audience: "STAFF" | "CLIENT_PORTAL" | null;
             role: string | null;
@@ -11611,6 +11614,7 @@ export interface components {
             id: string;
             /** Format: uuid */
             tenantId: string;
+            tenantName: string | null;
             /** @enum {string} */
             audience: "STAFF" | "CLIENT_PORTAL";
             role: string;
@@ -11672,6 +11676,7 @@ export interface components {
         RegisterUserRequest: {
             /** Format: email */
             email: string;
+            displayName?: string;
         };
         Membership: {
             /** Format: uuid */
@@ -11773,8 +11778,11 @@ export interface components {
             userId: string;
             title: string;
         };
+        MyMembership: components["schemas"]["Membership"] & {
+            tenantName: string | null;
+        };
         MembershipsResponse: {
-            memberships: components["schemas"]["Membership"][];
+            memberships: components["schemas"]["MyMembership"][];
         };
         StaffGrade: {
             /** Format: uuid */
@@ -12437,8 +12445,16 @@ export interface components {
             /** @description Mandatory on a rejection. WHY work came back is the only signal that ever explains rework — marking the task Completed later erases the fact that it was rejected. */
             notes?: string | null;
         };
+        WorkItemCheckViewer: {
+            eligible: boolean;
+            /** @description What to SAY when they may not — the SENTENCE, not a code, and the same prose the checkers endpoint returns, so one refusal is never phrased two ways. Null when they may check it. */
+            reason: string | null;
+        };
+        WorkItemCheckRow: components["schemas"]["WorkItemReview"] & {
+            viewer: components["schemas"]["WorkItemCheckViewer"];
+        };
         WorkItemChecksResponse: {
-            checks: components["schemas"]["WorkItemReview"][];
+            checks: components["schemas"]["WorkItemCheckRow"][];
         };
         WorkVocabularyResponse: {
             states: components["schemas"]["WorkItemState"][];

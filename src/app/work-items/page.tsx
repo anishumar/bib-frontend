@@ -10,7 +10,7 @@ import type {
   PartySummary,
   Principal,
   WorkItem,
-  WorkItemReview,
+  WorkItemCheckRow,
   WorkItemState,
 } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
@@ -38,6 +38,7 @@ import {
   Tooltip,
 } from "@/components/ui";
 import { WorkBoard } from "./board";
+import { CheckQueue } from "./checks";
 import { EscalationQueue } from "./escalations";
 
 /**
@@ -50,7 +51,7 @@ import { EscalationQueue } from "./escalations";
  * firm that has published no process still has work: ad hoc work has no job at
  * all and is still owned, still due and still reviewable.
  *
- * ── THE THREE TABS ARE THREE DIFFERENT JOBS ─────────────────────────────────
+ * ── THE TABS ARE FIVE DIFFERENT JOBS ────────────────────────────────────────
  *
  * MINE is what somebody opens in the morning.
  *
@@ -61,6 +62,14 @@ import { EscalationQueue } from "./escalations";
  * queue of rows with no explanation is a pile nobody clears.
  *
  * EVERYTHING is the delivery meeting's view.
+ *
+ * TO CHECK and ESCALATED are not the board sliced at all — they are different
+ * KINDS of row (a check waiting on somebody; the record that somebody was told)
+ * so each has its own renderer and the Board/List toggle is hidden while either
+ * is open. To check is the whole FIRM's queue, never "mine": under a rank
+ * threshold there is no "mine", and a list narrowed to what the viewer may take
+ * hides that six tasks have waited a week because nobody senior enough has
+ * looked.
  *
  * ── OVERDUE FIRST, AND THE DAY IS THE BROWSER'S ─────────────────────────────
  *
@@ -81,9 +90,11 @@ import { EscalationQueue } from "./escalations";
 export default function WorkItemsPage() {
   const router = useRouter();
   const [items, setItems] = useState<WorkItem[]>([]);
-  const [checks, setChecks] = useState<WorkItemReview[]>([]);
+  const [checks, setChecks] = useState<WorkItemCheckRow[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
-  const [tab, setTab] = useState<"mine" | "unassigned" | "escalated" | "all">("mine");
+  const [tab, setTab] = useState<"mine" | "unassigned" | "checks" | "escalated" | "all">(
+    "mine",
+  );
   /** T4.5's queue. A different KIND of row from the three tabs beside it — the
    *  record that somebody was TOLD about work, not the work — which is why it
    *  gets its own state and its own renderer rather than a filter over `items`. */
@@ -204,6 +215,10 @@ export default function WorkItemsPage() {
   const localToday = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const mine = items.filter((i) => i.assignee !== null && i.assignee.userId === me?.userId);
+  // The viewer's own share of the check queue. The queue itself is never
+  // filtered by this — see the note on the tab — but the banner has to be able
+  // to say what is actually waiting on the person reading it.
+  const mineToCheck = checks.filter((c) => c.viewer.eligible).length;
   const unassigned = items.filter((i) => i.assignee === null);
   const shown = tab === "mine" ? mine : tab === "unassigned" ? unassigned : items;
 
@@ -226,11 +241,22 @@ export default function WorkItemsPage() {
         <Notice tone="warn">
           <p>
             <strong>{checks.length}</strong>{" "}
-            {checks.length === 1 ? "task is" : "tasks are"} waiting to be checked.{" "}
-            {/* The whole firm's, not "mine". Under a rank threshold there is no
-                "mine", and a filtered queue hides that six tasks have waited a
-                week because nobody senior enough has looked. */}
-            <Link href={`/work-items/${checks[0]?.workItemId ?? ""}`}>Open the oldest →</Link>
+            {checks.length === 1 ? "task is" : "tasks are"} waiting to be checked
+            {/* How many of them are the VIEWER's, because that is the half they
+                can do something about — and the other half is still counted,
+                because this queue is the whole firm's on purpose. */}
+            {mineToCheck > 0 && <> — {mineToCheck} of them yours</>}.{" "}
+            {/* It used to link to `checks[0]`, the oldest, and there was no way
+                to reach the second: the tab is the list. */}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => {
+                setTab("checks");
+              }}
+            >
+              Open the queue →
+            </Button>
           </p>
         </Notice>
       )}
@@ -255,15 +281,17 @@ export default function WorkItemsPage() {
         tabs={[
           { value: "mine", label: "Mine", count: mine.length },
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
+          { value: "checks", label: "To check", count: checks.length },
           { value: "escalated", label: "Escalated", count: escalations.length },
           { value: "all", label: "Everything", count: items.length },
         ]}
       />
 
-      {/* Neither control means anything on the escalation queue: a notice about
-          finished work is not in it at all (the API drops it by the join), and
-          there is no board shape to draw a list of notices in. */}
-      {tab !== "escalated" && (
+      {/* Neither control means anything on the two QUEUES. A notice about
+          finished work is not in the escalation list at all (the API drops it
+          by the join); a check that has been decided is not in the review queue
+          either — and neither has a board shape to be drawn in. */}
+      {tab !== "escalated" && tab !== "checks" && (
       <div className="row">
         <Checkbox
           label="Include finished work"
@@ -301,7 +329,14 @@ export default function WorkItemsPage() {
             kind of row, so it gets its own renderer rather than being forced
             through the board or the list. Board/List does not apply to it and
             the toggle above is hidden while it is open. */}
-        {tab === "escalated" ? (
+        {tab === "checks" ? (
+          <CheckQueue
+            checks={checks}
+            today={localToday}
+            onDecided={() => void load()}
+            onError={setError}
+          />
+        ) : tab === "escalated" ? (
           <EscalationQueue rows={escalations} ladderPublished={ladderPublished} />
         ) : shown.length === 0 ? (
           <Card>
@@ -337,10 +372,10 @@ export default function WorkItemsPage() {
   );
 }
 
-/** The escalated tab never reaches this — `EscalationQueue` writes its own two
- *  empty states, because "nothing is late" and "nothing is watching" are
- *  different facts and only one of them is good news. */
-function emptyMessage(tab: "mine" | "unassigned" | "escalated" | "all"): string {
+/** Neither queue tab reaches this — each writes its own. `EscalationQueue` has
+ *  two, because "nothing is late" and "nothing is watching" are different facts
+ *  and only one of them is good news; `CheckQueue`'s says how work gets there. */
+function emptyMessage(tab: "mine" | "unassigned" | "checks" | "escalated" | "all"): string {
   if (tab === "mine") {
     return (
       "Nothing is on your desk. Work arrives here when an engagement is released and you " +
