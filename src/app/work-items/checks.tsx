@@ -4,7 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { WorkItemCheckRow } from "@/lib/api/client";
-import { Button, Card, Field, Sub, Table, TableWrap, Td, Textarea, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Pill,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
 import { Empty } from "@/components/states";
 
 /**
@@ -216,13 +227,30 @@ function CheckRow({
               </Button>
             </span>
           ) : (
-            // THE SENTENCE, verbatim from the API, never a dead button. The
-            // most common one here is the one the database enforces too: you
-            // made this, so somebody else has to check it.
-            <span className="empty">{check.viewer.reason ?? "Not yours to check."}</span>
+            // A SHORT marker here and the API's sentence on its own row below.
+            // It was the sentence itself in this cell for one browser walk, and
+            // that is where the mistake showed: `.table` is `min-width:
+            // max-content` on purpose (a squashed column is worse than a
+            // scrolling one), so a 110-character sentence made this ONE cell
+            // 922px wide, pushed the table 600px past its wrapper, and clipped
+            // the words the whole screen exists to say. Nothing typechecked
+            // differently. A column holds a status; a sentence needs a line.
+            <Pill tone="quiet">not yours to check</Pill>
           )}
         </Td>
       </tr>
+      {!check.viewer.eligible && (
+        <tr>
+          {/* THE REASON, verbatim from the API, across the full width — never a
+              dead button and never a paraphrase. The row above says THAT they
+              may not; this says WHY, in the same words the "who may check
+              this?" list uses, because one refusal worded two ways is how
+              somebody decides the product is guessing. */}
+          <Td colSpan={5}>
+            <Sub>{check.viewer.reason ?? "Not yours to check."}</Sub>
+          </Td>
+        </tr>
+      )}
       {sendingBack && (
         <tr>
           {/* The note is the whole reason a rejection is worth recording, so it
