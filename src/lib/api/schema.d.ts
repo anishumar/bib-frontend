@@ -4042,6 +4042,625 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-items/{workItemId}/asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What has been asked of the client on this task */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The asks, newest first, each with everything the client sent back */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAsk"][];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Ask this task's client for something
+         * @description The row that says WE ARE WAITING ON YOU. Distinct from a blocked work item, whose reason reads 'the client has not sent the register' as readily as 'the GST portal is down' — this one is addressed to the client and has somewhere for them to answer it. Raising it does NOT block the task: a task can be waiting on the client for one thing and moving on three others, and coupling them would make that the product's opinion rather than yours.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaiseClientAskRequest"];
+                };
+            };
+            responses: {
+                /** @description Raised */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAsk"];
+                    };
+                };
+                /** @description Empty prompt, unknown kind, or a documentKind that does not fit */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/asks/{askId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** You got what you needed */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Closed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAsk"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/asks/{askId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * You no longer need it
+         * @description A different fact from closing, and kept apart on purpose: 'you sent it' and 'never mind' are different answers to a client wondering whether they actually had to do that.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Withdrawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAsk"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/asks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the firm is waiting on you for
+         * @description CLIENT_PORTAL sessions only. Needs no permission — being invited and granted a company IS the authorisation to read that company's records, which is why a read-only contact sees all of this and can answer none of it.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The action centre */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalActionCentre"];
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/asks/{askId}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer in words
+         * @description Works on any kind of ask, deliberately — 'we hold no such register, the shop closed in 2019' is a real and useful answer to a request for a document, and forcing a file would make the honest answer unsayable.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PortalAnswerRequest"];
+                };
+            };
+            responses: {
+                /** @description Sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAsk"];
+                    };
+                };
+                /** @description An answer with no words in it */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask you can reach */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The firm has already finished with this ask */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/asks/{askId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or decline
+         * @description Only answers an `approval` ask. This is recorded as YOUR instruction and is never the firm's own review of its work — those are separate records, and counting them together would make a client's yes look like a second qualified person having checked it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PortalDecisionRequest"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAsk"];
+                    };
+                };
+                /** @description This ask does not want a yes or no */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask you can reach */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The firm has already finished with this ask */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/asks/{askId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the file the firm asked for
+         * @description Multipart, because base64 in a JSON body inflates a scanned PDF by a third. The file is filed against the task the ask was raised from, under the document kind the FIRM chose when it asked — you do not choose where in their store it lands. It is stored exactly as it arrives: there is no virus scanner in this product today.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": components["schemas"]["PortalUploadForm"];
+                };
+            };
+            responses: {
+                /** @description Sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAsk"];
+                    };
+                };
+                /** @description Empty file, or an unusable filename or media type */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask you can reach */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The firm has already finished with this ask */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The file is larger than this firm's upload limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-items": {
         parameters: {
             query?: never;
@@ -11800,7 +12419,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job";
+                    subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
                     subjectRef: string;
                 };
                 cookie?: never;
@@ -12912,6 +13531,8 @@ export interface components {
             heldUpSince: string | null;
             /** @description What the firm recorded it is waiting for. Both this and `heldUpSince` are present together or not at all — a trigger insists a held-up task carries a reason. */
             heldUpReason: string | null;
+            /** @description TRUE when the firm has an open ask on this task (T6.6), which the action centre is already showing with somewhere to answer it. A screen must not ALSO print `heldUpReason` under such a row: the two routinely say the same sentence, and one of them has a button. */
+            hasOpenAsk: boolean;
         };
         PortalFilingRow: {
             /** Format: uuid */
@@ -12936,6 +13557,128 @@ export interface components {
             /** @description Filed in the last 90 days. Keyed on `filedOn` and not on the state being terminal: a deadline that was MISSED and then resolved is also terminal, and calling that 'filed' would be a false statement about a statutory return. */
             recentlyFiled: components["schemas"]["PortalFilingRow"][];
             asOf: string;
+        };
+        ClientAskResponse: {
+            /** Format: uuid */
+            responseId: string;
+            /** @enum {string} */
+            responseKind: "document" | "answer" | "decision";
+            answerText: string | null;
+            /** @enum {string|null} */
+            decision: "approved" | "declined" | null;
+            /** @description The CLIENT's own person who replied. Null when their account has been erased — a real answer, the same shape the ledger's actor join has. */
+            respondedByName: string | null;
+            respondedAt: string;
+            /** @description The file, when one was sent. IT HAS NOT BEEN SCANNED: there is no virus scanner in this product and no agent runtime to run one, so a client-supplied file is stored exactly as it arrived. It is served with `content-disposition: attachment` and never `inline`, which is the one protection that does exist, and the screen says so beside the link rather than leaving somebody to assume otherwise. */
+            document: {
+                /** Format: uuid */
+                documentId: string;
+                filename: string;
+                byteSize: number;
+                mediaType: string;
+            } | null;
+        };
+        ClientAsk: {
+            /** Format: uuid */
+            askId: string;
+            /** Format: uuid */
+            workItemId: string;
+            /** Format: uuid */
+            clientPartyId: string;
+            clientName: string;
+            /** @enum {string} */
+            askKind: "document" | "question" | "approval";
+            prompt: string;
+            /**
+             * @description What an uploaded answer gets FILED as, chosen when the ask was raised. Present exactly when askKind is `document`. The CLIENT never sees or chooses it.
+             * @enum {string|null}
+             */
+            documentKind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | null;
+            /**
+             * @description `answered` IS NOT `closed`. The client responding turns an ask answered; the FIRM decides whether what arrived was what it needed. A client who sent last quarter's register would otherwise see the ask marked done.
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed" | "withdrawn";
+            raisedByName: string | null;
+            raisedAt: string;
+            /** @description When they FIRST replied, never restated by a later one. It is the number a firm reaches for when a filing goes late. */
+            firstAnsweredAt: string | null;
+            closedByName: string | null;
+            closedAt: string | null;
+            responses: components["schemas"]["ClientAskResponse"][];
+        };
+        RaiseClientAskRequest: {
+            /** @enum {string} */
+            askKind: "document" | "question" | "approval";
+            /** @description What you want, in your own words. The client reads it verbatim, under a line saying whose words they are — it is the only field that says what is actually wanted. */
+            prompt: string;
+            /**
+             * @description What the uploaded file gets FILED as. Required for a `document` ask and refused on the other two — the client does not choose where in your document store their file lands, you did when you asked.
+             * @enum {string|null}
+             */
+            documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | null;
+        };
+        PortalAskResponse: {
+            /** Format: uuid */
+            responseId: string;
+            /** @enum {string} */
+            responseKind: "document" | "answer" | "decision";
+            answerText: string | null;
+            /** @enum {string|null} */
+            decision: "approved" | "declined" | null;
+            /** @description Which of YOUR people replied. A company with two directors needs to know which of them sent it. Nobody at the firm is named anywhere on this surface. */
+            respondedByName: string | null;
+            respondedAt: string;
+            /** @description What you sent, so you can see it arrived. The bytes are not readable back through this surface — that would be a download route with a path parameter and more surface than showing you the filename needs. */
+            document: {
+                /** Format: uuid */
+                documentId: string;
+                filename: string;
+                byteSize: number;
+                mediaType: string;
+            } | null;
+        };
+        PortalAsk: {
+            /** Format: uuid */
+            askId: string;
+            /**
+             * @description What kind of answer this wants, and therefore what the screen draws.
+             * @enum {string}
+             */
+            askKind: "document" | "question" | "approval";
+            /** @description The firm's own words, verbatim. Show them as the firm's words. */
+            prompt: string;
+            /**
+             * @description `open` is still waiting on you; `answered` is back with the firm. A closed or withdrawn ask is not on this surface at all — it is finished, and this is a list of what is not.
+             * @enum {string}
+             */
+            status: "open" | "answered";
+            /** @description Which of your companies this is about. NULL is a real answer — work about the relationship rather than one company has no entity (migration 0051). */
+            companyName: string | null;
+            /** @description What the firm is doing that this is part of. */
+            workItemTitle: string;
+            /** @description When you were asked. THERE IS NO DUE DATE ON THIS SURFACE and there will not be one: no deadline this product invented reaches a client, so how long it has been outstanding is a fact and 'by Friday' would be a promise nobody made. */
+            raisedAt: string;
+            responses: components["schemas"]["PortalAskResponse"][];
+        };
+        PortalActionCentre: {
+            awaitingYou: components["schemas"]["PortalAsk"][];
+            /** @description What you have answered and the firm has not finished with. It stays visible because your reply does not close an ask — the firm looks at what arrived and decides, so a wrong file is answered with 'that was not it' rather than a second request that reads as a fresh one. */
+            withTheFirm: components["schemas"]["PortalAsk"][];
+            asOf: string;
+        };
+        PortalAnswerRequest: {
+            answerText: string;
+        };
+        PortalDecisionRequest: {
+            /** @enum {string} */
+            decision: "approved" | "declined";
+            /** @description Why, if you want to say. A declined approval nearly always has a reason. */
+            note?: string | null;
+        };
+        PortalUploadForm: {
+            file?: unknown;
+            note?: string;
         };
         WorkItemState: {
             /** Format: uuid */
@@ -14547,7 +15290,7 @@ export interface components {
             /** Format: uuid */
             partyId?: string;
             /** @enum {string} */
-            subjectKind?: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job";
+            subjectKind?: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
             /** Format: uuid */
             subjectRef?: string;
             role?: string;
@@ -14580,7 +15323,7 @@ export interface components {
              * @description What the document is attached to. A CLOSED set, and the closure is load-bearing: the reference below carries no foreign key, so this is the only thing keeping a link inside a vocabulary anything can resolve.
              * @enum {string}
              */
-            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job";
+            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
             /** Format: uuid */
             subjectRef: string;
             /** @description What the subject is called. NULL when it does not resolve — a subject reference carries no foreign key, so a dangling link is possible and is shown as unresolved rather than rendered blank. */
@@ -14590,7 +15333,7 @@ export interface components {
         };
         AttachDocumentRequest: {
             /** @enum {string} */
-            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job";
+            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
             /** Format: uuid */
             subjectRef: string;
             role?: string | null;

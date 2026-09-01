@@ -958,6 +958,39 @@ export type PortalWorkRow = PortalStatusHome["inProgress"][number];
 /** A statutory filing one of the client's companies owes, or has made. */
 export type PortalFilingRow = PortalStatusHome["upcomingFilings"][number];
 
+/**
+ * The client portal's ACTION CENTRE (T6.6) — what the firm is waiting on this
+ * client for.
+ *
+ * Two lists, and they are different sentences rather than a filter: `awaitingYou`
+ * is still open, `withTheFirm` is what they have answered and the firm has not
+ * finished with. A client's reply does NOT close an ask — the firm looks at what
+ * arrived and decides — so a wrong file is answered with "that was not it"
+ * rather than with a second request that reads as a fresh one.
+ *
+ * There is no due date on any of it and there will not be one: no deadline this
+ * product invented reaches a client.
+ */
+export type PortalActionCentre =
+  paths["/api/v1/portal/asks"]["get"]["responses"][200]["content"]["application/json"];
+
+/** One thing the firm has asked for. `askKind` decides which control the screen
+ *  draws under it — a file picker, a text box, or two buttons. */
+export type PortalAsk = PortalActionCentre["awaitingYou"][number];
+
+/** One act by the client: a file, an answer in words, or a decision. Appended,
+ *  never overwritten, so "the wrong register then the right one" is a history. */
+export type PortalAskResponse = PortalAsk["responses"][number];
+
+/**
+ * An ask as the FIRM reads it, on the work item it was raised from.
+ *
+ * Wider than the client's view — it carries who raised it, who closed it, and
+ * the two statuses a client never sees (`closed`, `withdrawn`).
+ */
+export type ClientAsk =
+  paths["/api/v1/work-items/{workItemId}/asks"]["get"]["responses"][200]["content"]["application/json"][number];
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;

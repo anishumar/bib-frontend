@@ -155,7 +155,7 @@ in one place, for everybody. Do not solve it locally.
 | `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
 | `/work-items` | the board — what is owed, whose desk it is on, what is late, what is waiting to be checked, and what the ladder has escalated |
-| `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
+| `/work-items/[workItemId]` | one task: its checklist, what it waits on, what the firm has asked the CLIENT for, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
 | `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
 | `/admin/obligation-vocabulary` | the firm's own words for that calendar — the states a filing moves through, and what may be decided about one that was missed |
@@ -163,7 +163,7 @@ in one place, for everybody. Do not solve it locally.
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
-| `/portal` | **THE CLIENT'S APP** — what the firm is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
+| `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
 
 ## The client portal is a SECOND AUDIENCE'S APP (T6.5)
@@ -205,6 +205,57 @@ CLIENTS, and the two share a design language and nothing else.
 five rows already past their date and marked Missed; the same filing listed twice, once as the
 law's row and once as the firm's task; and two chip tones for the same kind of fact in two
 tables. All three fixed, and all three invisible to typecheck, lint and the API.
+
+## The action centre — the only part of this product a client can DO (T6.6)
+
+`src/app/portal/action-centre.tsx`, at the TOP of `/portal`, and it takes that place from "Held
+up".
+
+"Held up" was first because it was the only section a reader could act on, and it was doing that
+badly: `blockedReason` is a note the firm wrote to itself, and it reads *"the client has not sent
+the register"* as readily as *"the GST portal is down"*, with nowhere to reply either way. These
+rows were addressed to this client deliberately and each carries the control that answers it.
+Both sections stay — a firm may be waiting on more than one thing at a time.
+
+- **Three kinds, three controls, and a fourth thing they all do.** `document` draws a file
+  picker, `question` a text box, `approval` two buttons — and every one of them ALSO offers the
+  text box, because *"we hold none, the shop closed in 2019"* is a real answer to a request for a
+  document and the API accepts it. Making the honest answer unsayable sends it back to email.
+- **`portal:respond` decides what to OFFER; the API's refusal is what gets shown.** A contact
+  without it (`client_viewer`) sees every ask and is given no control. That is the whole
+  difference between the two portal roles, and the reason reading is not behind a permission:
+  being granted a company is the authorisation to read it. `/auth/me` reports a REAL permission
+  list for a portal session now — it was a blanket `[]` until T6.6.
+- **"Sent — with the firm" is a second section, not a filter.** A client's reply does not close
+  an ask: the firm looks at what arrived and decides. Removing an ask the moment it was answered
+  would leave somebody who sent the wrong file with no way to see what they sent.
+- **THE FILE IS NOT SCANNED AND THE PAGE SAYS SO**, on the upload control and again beside the
+  file on the firm's own screen. There is no scanner in this product; a page that quietly implied
+  otherwise would be the lie the backend refused to write as a `scan()` returning "clean".
+- **No due date anywhere, and no field to type one into** on the firm's side either
+  (`work-items/[workItemId]/client-asks.tsx`). The firm has never published its turnaround times.
+
+`ClientAsks` on `/work-items/[workItemId]` is the other half: raise one, read what came back, and
+**"Got what we needed" / "No longer needed"** — because `answered` is not `closed` and this is
+where the second one happens. It sits below the client-visibility switch and says, when that
+switch is off, that nothing asked there will reach them: the portal's read joins the work item,
+so an ask about work a client cannot see disappears with the task.
+
+**What walking it found, and none of it visible to typecheck or lint:**
+
+- **The page said the request TWICE.** The action centre showed the ask with a file picker under
+  it and "Held up" printed the identical sentence with nothing to do about it — T6.5's own
+  duplication bug in a new costume. `hasOpenAsk` is on the work row now and the held-up card
+  points at the ask instead of repeating it.
+- **The footer started lying.** *"sending files across are not here yet — email 10x Global as you
+  do now"*, one paragraph below a working file picker. **A sentence can go stale, and nothing in
+  the toolchain can see it happen.**
+- **A read-only contact was promised something.** *"if you sent the wrong thing, you can still
+  send another"*, beside a card with no controls — and because all their asks were answered, it
+  was the only sentence about them on the page.
+- **And the pointer named the wrong heading.** *"it is under Waiting on you"* on an ask that had
+  been ANSWERED and therefore sat under "Sent — with the firm". Found by reading the page again
+  after answering something on it.
 
 **The admin screens all need `tenant:admin`, and the sidebar deliberately does NOT group them by
 that.** They were one section of thirteen on exactly that ground, and it was the wrong axis: a

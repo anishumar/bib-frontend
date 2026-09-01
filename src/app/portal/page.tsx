@@ -45,6 +45,7 @@ import { Card, CardHead, CardTitle, Notice, Pill, Table, Td, Th } from "@/compon
 import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "./portal-frame";
+import { ActionCentre } from "./action-centre";
 
 export default function PortalHomePage() {
   const session = usePortalSession();
@@ -130,18 +131,30 @@ export default function PortalHomePage() {
         </Empty>
       )}
 
-      {/* ── 1 · HELD UP ────────────────────────────────────────────────────
-          First because it is the only section the reader can act on. The tone
-          is `warn` and never `danger`: the firm being unable to proceed is not
-          the client's failure, and a red panel on a client's own page is an
-          accusation. */}
+      {/* ── 1 · WHAT THE FIRM IS WAITING ON YOU FOR (T6.6) ─────────────────
+          FIRST, and it takes that place from "Held up" below.
+
+          "Held up" was first because it was the only section a reader could act
+          on, and it was doing that badly: `blocked_reason` is a note the firm
+          wrote to itself and reads "the client has not sent the register" as
+          readily as "the GST portal is down", with nowhere to reply either way.
+          These rows were addressed to this client deliberately and carry the
+          control that answers them. Both stay: they are different facts, and a
+          firm may be waiting on more than one thing at a time. */}
+      <ActionCentre asOf={home.asOf} onChanged={load} />
+
+      {/* ── 2 · HELD UP ────────────────────────────────────────────────────
+          The tone is `warn` and never `danger`: the firm being unable to
+          proceed is not the client's failure, and a red panel on a client's own
+          page is an accusation. */}
       {home.heldUp.length > 0 && (
         <Section title="Held up">
           <Stack gap="tight">
             <p className="muted">
-              {firm} cannot move these on until something arrives. What each is waiting for is
-              below, in {firm}&rsquo;s own words — these are the notes their team wrote, shown
-              to you unedited.
+              {firm} cannot move these on until something arrives. Where they have asked you
+              for it directly, the request is at the top of this page with somewhere to answer
+              it. The rest show the note {firm}&rsquo;s own team wrote, unedited — which may be
+              about something outside your control.
             </p>
             {home.heldUp.map((row) => (
               <Card key={row.workItemId}>
@@ -150,7 +163,34 @@ export default function PortalHomePage() {
                   <Pill tone="warn">{row.stateName}</Pill>
                 </CardHead>
                 <Stack gap="tight">
-                  {row.heldUpReason !== null && <p>{row.heldUpReason}</p>}
+                  {/* THE REASON, UNLESS AN ASK ABOVE ALREADY SAYS IT (T6.6).
+
+                      Found by opening the page, and it is T6.5's duplication
+                      bug in a new costume: the action centre showed "Please
+                      send the Maharashtra purchase register" with a file picker
+                      under it, and this card printed the identical sentence out
+                      of `blocked_reason` with nothing to do about it. To the
+                      firm those are two rows — a note to itself, and a request
+                      it addressed to the client; to the client they are one
+                      sentence twice, and only one of them has a button.
+
+                      The row STAYS. The task really is held up and belongs
+                      here; what goes is the second copy. */}
+                  {row.hasOpenAsk ? (
+                    <p className="muted">
+                      {/* "at the top of this page" and NOT "under Waiting on
+                          you": `hasOpenAsk` is true for an answered ask as well
+                          as an open one, so a request already sent sits under
+                          "Sent — with the firm". Naming the wrong heading was
+                          the second thing this pointer got wrong, found the
+                          same way as the first — by reading the page after
+                          answering something on it. */}
+                      {firm} has asked you for something on this — the request is at the top of
+                      this page.
+                    </p>
+                  ) : (
+                    row.heldUpReason !== null && <p>{row.heldUpReason}</p>
+                  )}
                   <p className="muted">
                     {row.companyName ?? "About your account"}
                     {row.heldUpSince !== null && <> · waiting since {longDay(row.heldUpSince)}</>}
@@ -162,7 +202,7 @@ export default function PortalHomePage() {
         </Section>
       )}
 
-      {/* ── 2 · WHAT THE LAW STILL WANTS ────────────────────────────────────
+      {/* ── 3 · WHAT THE LAW STILL WANTS ────────────────────────────────────
           "Filings coming up" was the first heading here, and opening the page
           killed it: the top five rows were PAST their statutory date and marked
           Missed, under a heading promising the future. A heading that is wrong
@@ -194,7 +234,7 @@ export default function PortalHomePage() {
         </Section>
       )}
 
-      {/* ── 3 · UNDER WAY ─────────────────────────────────────────────────── */}
+      {/* ── 4 · UNDER WAY ─────────────────────────────────────────────────── */}
       {home.inProgress.length > 0 && (
         <Section title="Under way">
           <Table>
@@ -215,7 +255,7 @@ export default function PortalHomePage() {
         </Section>
       )}
 
-      {/* ── 4 · DONE ──────────────────────────────────────────────────────── */}
+      {/* ── 5 · DONE ──────────────────────────────────────────────────────── */}
       {home.recentlyFiled.length > 0 && (
         <Section title="Recently filed">
           <Table>
@@ -245,11 +285,18 @@ export default function PortalHomePage() {
 
       {/* WHAT IS NOT HERE, SAID OUT LOUD. A client who cannot find their
           invoices should be told the portal does not carry them yet, rather
-          than concluding the firm has not billed them. */}
+          than concluding the firm has not billed them.
+
+          IT SAID "sending files across is not here yet" UNTIL T6.6, and the
+          walk found it a paragraph below a working file picker. A line like
+          that is worse than none: it is the screen telling a client not to use
+          the thing it has just offered them, and nothing in a typecheck, a lint
+          or a test can see it go stale. */}
       {home.companies.length > 0 && (
         <p className="muted">
-          This page shows work and statutory filings. Documents, invoices and sending files
-          across are not here yet — email {firm} as you do now.
+          This page shows work, statutory filings, and anything {firm} has asked you for. Your
+          invoices and the firm&rsquo;s own documents are not here yet — email {firm} for those
+          as you do now.
         </p>
       )}
     </Page>

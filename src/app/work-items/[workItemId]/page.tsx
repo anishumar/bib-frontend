@@ -15,6 +15,7 @@ import type {
   WorkVocabulary,
 } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
+import { ClientAsks } from "./client-asks";
 
 /**
  * One work item — the page where it is actually worked (T3.1).
@@ -265,6 +266,15 @@ export default function WorkItemPage() {
           }}
         />
       )}
+
+      {/* WHAT WE ARE WAITING ON THE CLIENT FOR (T6.6). Below the visibility
+          switch on purpose: an ask about work the client cannot see never
+          reaches them, and the panel says so when the switch is off. */}
+      <ClientAsks
+        workItemId={workItemId}
+        canWrite={canWrite}
+        isClientVisible={item.isClientVisible}
+      />
 
       <Checklist
         lines={detail.checklist}
