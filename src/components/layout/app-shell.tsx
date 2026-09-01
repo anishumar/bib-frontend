@@ -163,6 +163,18 @@ const GROUPS: NavGroup[] = [
         icon: "calendar",
         needs: "party:read",
       },
+      // T6.8 — work that arrived from the OTHER direction. It sits in Delivery
+      // rather than Commercial because a client asking for a copy of something
+      // is asking the firm to DO something, which is what this section is; and
+      // it is a top-level screen rather than a panel on the client page because
+      // there is no routing — nobody is assigned one, so a firm-wide list IS
+      // the screen.
+      {
+        href: "/client-requests",
+        label: "Client requests",
+        icon: "inbox",
+        needs: "party:read",
+      },
     ],
   },
   {

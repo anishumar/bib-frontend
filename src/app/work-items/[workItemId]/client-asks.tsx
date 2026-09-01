@@ -252,7 +252,7 @@ export function ClientAsks({
                 placeholder="Please send the Maharashtra purchase register for July."
               />
             </Field>
-            <div className="row gap">
+            <div className="cluster">
               <Button
                 onClick={() => void raise()}
                 disabled={busy !== null || prompt.trim().length === 0}
@@ -358,7 +358,7 @@ function AskLine({
       ))}
 
       {canWrite && onClose !== undefined && onWithdraw !== undefined && (
-        <div className="row gap">
+        <div className="cluster">
           <Button size="sm" onClick={onClose} disabled={busy === ask.askId}>
             Got what we needed
           </Button>

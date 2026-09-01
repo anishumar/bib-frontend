@@ -118,6 +118,13 @@ The rules, in short:
     is why the chevron stays. Watch `width` rules here: `.nav-top { width: 100% }` was
     invisible in the column (a flex column stretches its items anyway) and made every row
     2100px wide in the strip. One rule, two layouts, wrong only in the one nobody looks at.
+- **A ROW OF BUTTONS IS `.cluster`, NEVER `.row`.** `.row` is `justify-content: space-between`
+  — right for a heading with a control at the far end, and it flings two buttons to opposite
+  edges of a card. `.cluster` is the one that sits things beside each other with a gap. **And
+  `.gap` does not exist**: `className="row gap"` reads like it asks for spacing, was in
+  committed code in five files, and put Approve 941px from Decline on a client's own page. A
+  class that is not defined fails silently, which is why this is written down rather than
+  assumed.
 - **Accessibility comes from the components.** `<Field>` wires label/hint/error and the ARIA
   that goes with them; `<Tabs>` is a real tablist with arrow keys; `<Dialog>` is the native
   element. Do not hand-roll any of the three.
@@ -163,10 +170,11 @@ in one place, for everybody. Do not solve it locally.
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
-| `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
+| `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, **what they have asked the FIRM for**, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
 | `/portal/documents` | **THE CLIENT'S LIBRARY** — every document the firm has shared with them, searchable, and each one downloads. NOT windowed: the whole point is finding last year's challan |
 | `/portal/invoices` | what the firm has billed them and what is still outstanding. Drafts are not here; a cancelled invoice IS, and is marked |
 | `/portal/month` | one calendar month of what the firm did — filed, added, billed, and what the client sent back. A SCREEN, not an email |
+| `/client-requests` | **THE OTHER DIRECTION** — what clients have asked the FIRM for, unprompted. One firm-wide list, nobody assigned, with the reply box and the attachment picker on the row |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
 
 ## The client portal is a SECOND AUDIENCE'S APP (T6.5)
@@ -368,6 +376,67 @@ so an ask about work a client cannot see disappears with the task.
 - **And the pointer named the wrong heading.** *"it is under Waiting on you"* on an ask that had
   been ANSWERED and therefore sat under "Sent — with the firm". Found by reading the page again
   after answering something on it.
+
+## Ask the firm, and the inbox it lands in (T6.8)
+
+Everything on the portal before this was a REPLY. `src/app/portal/ask-the-firm.tsx` is the first
+thing a client can START, and `/client-requests` is where it arrives.
+
+- **IT IS NOT A FIFTH LINK IN THE RAIL.** T6.7 settled that a fifth has to displace one of the
+  four or admit it is the firm's convenience — and this is not a fifth screen. It sits directly
+  under the action centre because the two are one subject read from opposite ends: that section
+  is *what the firm is waiting on you for*, this is *what you are waiting on the firm for*, and
+  splitting them across two screens makes "what is outstanding between us" two answers.
+- **THE SPLIT IS NOT THE ACTION CENTRE's.** An ask sorts by whether it still wants something FROM
+  the client; a request they raised never does, so it sorts on whether the firm has come back —
+  `awaitingFirm`, then `replied`. **`settled` is on this surface at all**, unlike a closed ask,
+  because *"did I already ask for this"* is the question that stops the second phone call.
+- **`portal:request` DECIDES WHAT TO OFFER, and it is not `portal:respond`.** A firm may want the
+  clerk who sends the registers to go on sending them and not to open requests, so they are two
+  permissions and `client_viewer` holds neither.
+- **NOBODY AT THE FIRM IS NAMED ON THE CLIENT'S COPY OF THE THREAD.** `authorName` comes back NULL
+  on every reply the firm wrote — the API drops it, not the component, because the FIRM's screen
+  reads the same table and needs those names. The client's own colleague's name survives, because
+  a company with two directors needs to know which of them asked.
+- **ONE COMPANY NEEDS NO PICKER.** `/portal/documents`' search threshold applied to a control: a
+  select with one option asks the reader to take a decision they cannot get wrong. The value
+  still goes up on the write, and the database refuses any company this login was not granted.
+
+**`/client-requests` SAYS OUT LOUD THAT NOTHING IS ASSIGNED.** There is no routing (0068), so a
+reader looking for "mine" has to be told there is no such thing yet or they will conclude the
+filter is missing rather than the decision. What makes an unrouted list workable is on every row:
+which client it is from (a LINK — somebody has to work out whose this is), and where it stands.
+
+**THE ATTACHMENT PICKER LISTS DOCUMENTS ALREADY FILED AGAINST THAT CLIENT**, and each option says
+what sending it will DO — *"they already have this"* against *"not shared yet"* — because one of
+those is a disclosure decision and the other is not. It is not an upload: file it against the
+client first, which is the ordinary act and leaves it where the rest of their papers are.
+
+### What walking it found, and none of it visible to typecheck or lint
+
+- **`className="row gap"` HAS NEVER WORKED, AND IT WAS IN COMMITTED T6.6/T6.7 CODE.** `.row` is
+  `justify-content: space-between`; **`.gap` is defined nowhere**. Measured on the live page: the
+  client's **Approve and Decline buttons sat 941px apart**, at opposite edges of one card, with
+  the destructive one where the eye lands last. **`.cluster` is the class for a row of buttons**
+  — `display: flex; gap: var(--s-2)` — and ten occurrences across five files now use it.
+- **A TIMESTAMP IS NOT A DATE, AND THIS FILE'S OWN RULE POINTS THE OTHER WAY.** *"A date is
+  SPLIT, never parsed"* is about a `YYYY-MM-DD` column, where `new Date("2026-09-20")` is UTC
+  midnight. `raisedAt` and `writtenAt` are INSTANTS, and reading their UTC fields showed a
+  request raised at 00:20 in Delhi as **the day before the client made it**. An instant is
+  formatted in the READER's zone (`toLocaleDateString`), which is what the action centre already
+  did. **The field's TYPE decides which rule applies**, and getting it backwards is silent for
+  everyone west of Greenwich in the evening and east of it before dawn.
+- **THE FIRM'S SCREEN SAID ONE THING TWICE.** A "Waiting on us" chip beside a raw `open` chip —
+  the same fact, and a machine word on a partner's page. This app's duplication bug for the
+  fourth time. What replaced it says the three states a reader acts on, and the middle one — the
+  client came BACK after the firm replied — is the one neither chip could express alone.
+- **THE DOCUMENT PICKER LOADED ON ITS OWN FOCUS AND WAS THEREFORE ALWAYS EMPTY.** A native
+  `<select>` opens the instant it is clicked, so the options arrived after the reader was already
+  looking at "Nothing attached". It loads when the REPLY BOX is touched now — typing a sentence
+  takes far longer than the round trip, and it is what every real use of the form does first.
+- **AND THE SCREEN WANTED A FIELD THE API DID NOT SEND.** `clientPartyId` is on the firm's wire
+  now and deliberately NOT on the portal's — the inbox needs it to find that client's documents,
+  a client has no use for their own party id. Fixed in the API, per this file's own rule.
 
 **The admin screens all need `tenant:admin`, and the sidebar deliberately does NOT group them by
 that.** They were one section of thirteen on exactly that ground, and it was the wrong axis: a

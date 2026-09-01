@@ -80,7 +80,7 @@ export default function PortalMonthPage() {
 
       <Section title="Which month">
         <Stack gap="tight">
-          <div className="row gap">
+          <div className="cluster">
             {/* THE MONTHS ARE BUILT BACKWARDS FROM TODAY, and there are
                 eighteen of them. A free-text month box would make `2026-13`
                 reachable — which the API refuses rather than coerces, correctly,

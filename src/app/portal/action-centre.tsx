@@ -293,7 +293,7 @@ function AskCard({
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </Field>
-                <div className="row gap">
+                <div className="cluster">
                   <Button onClick={() => void upload()} disabled={busy}>
                     Send the file
                   </Button>
@@ -313,7 +313,7 @@ function AskCard({
                 <Field label="Your answer">
                   <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
                 </Field>
-                <div className="row gap">
+                <div className="cluster">
                   <Button
                     onClick={() => void answer()}
                     disabled={busy || note.trim().length === 0}
@@ -329,7 +329,7 @@ function AskCard({
                 <Field label="Why, if you want to say (optional)">
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
                 </Field>
-                <div className="row gap">
+                <div className="cluster">
                   <Button onClick={() => void decide("approved")} disabled={busy}>
                     Approve
                   </Button>

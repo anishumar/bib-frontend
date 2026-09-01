@@ -4314,6 +4314,295 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/client-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What clients have asked YOU for
+         * @description The firm-wide inbox of requests clients raised themselves — everything not finished, newest first. There is no routing: nobody is assigned one, because the firm has not said who should be. `awaitingFirm` is the flag to work from.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The live requests, each with its whole thread */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientRequest"][];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-requests/{requestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One request and its thread */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The request */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientRequest"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-requests/{requestId}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the client
+         * @description Adds your message to the thread and, the first time, moves the request to `answered`. Replying does NOT close it — a client sent the wrong year's balance sheet has to be able to say so without opening a second request.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReplyToClientRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Replied */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientRequest"];
+                    };
+                };
+                /** @description Empty reply */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request, or no such document filed against this client */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-requests/{requestId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * You are done with it
+         * @description The FIRM's ending. There is no withdraw route here: taking a request back is the client's own act, and 'we decided you did not need this' is a refusal, which is a close with a reply saying so.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Closed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientRequest"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal/asks": {
         parameters: {
             query?: never;
@@ -4948,6 +5237,306 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What you have asked the firm for
+         * @description Everything you have raised, including the finished ones — 'did I already ask for this' is the question that stops the second phone call. Split into what the firm has not come back on, what it has, and what is done.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Your requests */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            awaitingFirm: components["schemas"]["PortalRequest"][];
+                            replied: components["schemas"]["PortalRequest"][];
+                            settled: components["schemas"]["PortalRequest"][];
+                            asOf: string;
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Ask the firm for something
+         * @description The first thing on this portal you can START rather than answer. A document you cannot find, a copy of something, a correction, a call. It is not attached to any of the firm's tasks and it may never become one — that is the firm's decision after it reads this.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaisePortalRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Raised */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalRequest"];
+                    };
+                };
+                /** @description Empty subject or body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not one of the companies you were granted */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/requests/{requestId}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add to the conversation
+         * @description Most often because what came back was not what you meant. It does not change the request's status — the firm's screen shows who spoke last.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReplyToPortalRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Sent */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalRequest"];
+                    };
+                };
+                /** @description Empty reply */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request of yours */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/requests/{requestId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Never mind — take it back
+         * @description Yours to do, and the firm cannot do it for you: 'we decided you did not need this' is a refusal, and the firm has to close it with a reply saying so instead.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Withdrawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalRequest"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a client-portal session, or this contact may only look */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such request of yours */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -14207,6 +14796,63 @@ export interface components {
              */
             documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | null;
         };
+        ClientRequestReply: {
+            /** Format: uuid */
+            replyId: string;
+            /**
+             * @description Which side wrote it. On the row rather than derived from the author's account — an account whose membership changes would otherwise switch sides in an old conversation — and a portal session cannot write 'firm' at all (0068).
+             * @enum {string}
+             */
+            authorSide: "firm" | "client";
+            /** @description Who wrote it. Null when the account has been erased — a real answer, the same shape the ledger's actor join has. */
+            authorName: string | null;
+            body: string;
+            writtenAt: string;
+            /** @description What the firm attached, if anything. Always a document already filed against this client — attaching it also made it visible to them in the library (0066), because sending a document to a client IS the decision to show it to them. */
+            document: {
+                /** Format: uuid */
+                documentId: string;
+                title: string;
+                filename: string;
+                byteSize: number;
+                mediaType: string;
+            } | null;
+        };
+        ClientRequest: {
+            /** Format: uuid */
+            requestId: string;
+            /**
+             * Format: uuid
+             * @description WHICH client, as an id. On the FIRM's side only — the portal's copy of this shape does not carry it, because a client reading their own page has no use for their own party id. Here the screen genuinely needs it: replying may attach a document already filed against this client, and `GET /documents?partyId=` is how that list is found.
+             */
+            clientPartyId: string;
+            /** @description WHICH of the firm's clients this came from. The inbox has no routing, so this is what tells one row from another at a glance. */
+            clientName: string;
+            subject: string;
+            body: string;
+            /**
+             * @description `open` — you have not replied. `answered` — you have, and it is not finished. `closed` — YOU are done with it. `withdrawn` — THE CLIENT took it back. The last two are the two endings and they belong to opposite sides.
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed" | "withdrawn";
+            /** @description Whether the ball is in your court: nobody has replied, or the CLIENT spoke last. Deliberately not folded into `status` — a client's follow-up does not walk `answered` back to `open`, because that status means 'the firm has come back at least once' and is the same fact as first_replied_at being set. */
+            awaitingFirm: boolean;
+            /** @description WHO at the client wrote it. A company with two directors asking for different things is two conversations. */
+            raisedByName: string | null;
+            raisedAt: string;
+            settledByName: string | null;
+            settledAt: string | null;
+            replies: components["schemas"]["ClientRequestReply"][];
+        };
+        ReplyToClientRequestRequest: {
+            /** @description What you are telling them. Required even when a document is attached: a file arriving with no sentence beside it makes the client guess which of the things they asked for it is. */
+            body: string;
+            /**
+             * Format: uuid
+             * @description A document ALREADY FILED against this client, which this reply sends them. Not an upload — file it first, against the client, which is the ordinary act and leaves it where the rest of their papers are. Another client's document, or one of your own working papers (whose party is null), is refused: 404.
+             */
+            documentId?: string | null;
+        };
         PortalAskResponse: {
             /** Format: uuid */
             responseId: string;
@@ -14326,6 +14972,55 @@ export interface components {
             invoiced: components["schemas"]["PortalDigestRow"][];
             /** @description What YOU sent back, in that month. Here deliberately — a month that listed only the firm's output would read as an invoice for attention rather than as an account of the work. Dated on when you FIRST replied, so a second file sent later does not move it. */
             asksAnswered: components["schemas"]["PortalDigestRow"][];
+        };
+        PortalRequestReply: {
+            /** Format: uuid */
+            replyId: string;
+            /** @enum {string} */
+            authorSide: "firm" | "client";
+            /** @description Which of YOUR people wrote it — and NULL on everything the firm wrote. Nobody at the firm is named anywhere on this surface: it is not the client's business whose desk their work is on, and a name here invites chasing a junior directly. */
+            authorName: string | null;
+            body: string;
+            writtenAt: string;
+            /** @description What the firm sent you. It is in your documents library too — sending it is what made it visible there. The bytes come from the library's own download route. */
+            document: {
+                /** Format: uuid */
+                documentId: string;
+                title: string;
+                filename: string;
+                byteSize: number;
+                mediaType: string;
+            } | null;
+        };
+        PortalRequest: {
+            /** Format: uuid */
+            requestId: string;
+            companyName: string | null;
+            subject: string;
+            body: string;
+            /**
+             * @description `open` — the firm has not replied yet. `answered` — it has. `closed` — the firm is done with it. `withdrawn` — you took it back.
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed" | "withdrawn";
+            raisedAt: string;
+            /** @description When the firm last came back, or null if it has not. */
+            lastRepliedAt: string | null;
+            replies: components["schemas"]["PortalRequestReply"][];
+        };
+        RaisePortalRequestRequest: {
+            /**
+             * Format: uuid
+             * @description WHICH of your companies this is about. Required, and required to be one you have been granted — the database refuses any other, which is a 404 here.
+             */
+            clientPartyId: string;
+            /** @description One line. It is what the firm's inbox shows. */
+            subject: string;
+            /** @description What you need. Required: a subject with nothing under it has somebody at the firm ringing to ask what it meant, which is the call this is here to replace. */
+            body: string;
+        };
+        ReplyToPortalRequestRequest: {
+            body: string;
         };
         ClientFreeze: {
             /** Format: uuid */

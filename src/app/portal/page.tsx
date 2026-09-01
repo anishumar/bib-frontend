@@ -58,6 +58,7 @@ import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "./portal-frame";
 import { ActionCentre } from "./action-centre";
+import { AskTheFirm } from "./ask-the-firm";
 
 export default function PortalHomePage() {
   const session = usePortalSession();
@@ -154,6 +155,16 @@ export default function PortalHomePage() {
           control that answers them. Both stay: they are different facts, and a
           firm may be waiting on more than one thing at a time. */}
       <ActionCentre asOf={home.asOf} onChanged={load} />
+
+      {/* ── 1b · AND WHAT YOU ARE WAITING ON THE FIRM FOR (T6.8) ───────────
+          Directly under the action centre because the two are one subject read
+          from opposite ends: that one is what the firm is waiting on you for,
+          this is what you are waiting on the firm for. Splitting them across
+          two screens would make "what is outstanding between us" two answers.
+
+          It is NOT a fifth link in the rail — T6.7 settled that a fifth has to
+          displace one of the four or admit it is the firm's convenience. */}
+      <AskTheFirm asOf={home.asOf} companies={home.companies} firm={firm} />
 
       {/* ── 2 · HELD UP ────────────────────────────────────────────────────
           The tone is `warn` and never `danger`: the firm being unable to

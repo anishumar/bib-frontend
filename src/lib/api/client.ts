@@ -1039,6 +1039,44 @@ export type PortalDigestRow = PortalDigest["filed"][number];
 export type ClientAsk =
   paths["/api/v1/work-items/{workItemId}/asks"]["get"]["responses"][200]["content"]["application/json"][number];
 
+/**
+ * A CLIENT'S OWN REQUEST (T6.8) — the first thing on this portal a client can
+ * START rather than answer.
+ *
+ * Three lists rather than a filter, and the split is not the action centre's.
+ * An ASK is sorted by whether it still wants something from the client; a
+ * request they raised themselves never does, so it sorts on whether the firm
+ * has come back: `awaitingFirm`, `replied`, and `settled` — which is on this
+ * surface at all because *"did I already ask for this"* is the question that
+ * stops the second phone call.
+ *
+ * `clientPartyId` goes UP on the write and never comes back down: the client
+ * names which of their companies they are writing about, and the database
+ * refuses any they were not granted (migration 0068).
+ */
+export type PortalRequests =
+  paths["/api/v1/portal/requests"]["get"]["responses"][200]["content"]["application/json"];
+
+export type PortalRequest = PortalRequests["awaitingFirm"][number];
+
+/** One message in the thread, from either side. `authorName` is NULL on
+ *  everything the firm wrote — nobody at the firm is named on this surface, and
+ *  a name here invites chasing a junior directly. */
+export type PortalRequestReply = PortalRequest["replies"][number];
+
+/**
+ * The same request as the FIRM reads it — the inbox.
+ *
+ * Wider than the client's view: it carries which client it came from, who there
+ * wrote it, and `awaitingFirm`, which is the flag the screen works from. There
+ * is NO ROUTING — nobody is assigned one — so the company name is what tells
+ * one row from another at a glance.
+ */
+export type ClientRequest =
+  paths["/api/v1/client-requests"]["get"]["responses"][200]["content"]["application/json"][number];
+
+export type ClientRequestReply = ClientRequest["replies"][number];
+
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
   readonly code: string;
