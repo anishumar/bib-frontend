@@ -983,6 +983,54 @@ export type PortalAsk = PortalActionCentre["awaitingYou"][number];
 export type PortalAskResponse = PortalAsk["responses"][number];
 
 /**
+ * The client portal's SELF-SERVE LIBRARY (T6.7) — a client's own documents.
+ *
+ * NOT WINDOWED, unlike the status home: the acceptance line is *"a client finds
+ * LAST YEAR's challan"*, and a rolling window would make the one question this
+ * list exists for unanswerable.
+ *
+ * A document is on it because it is the client's AND the firm marked it
+ * client-visible (migration 0066) — a working paper about a client is not a
+ * document of theirs. That is enforced in the DATABASE, so nothing a screen does
+ * can widen it and nothing it forgets can leak.
+ */
+export type PortalLibrary =
+  paths["/api/v1/portal/documents"]["get"]["responses"][200]["content"]["application/json"];
+
+/** One document a client can open. The bytes come from
+ *  `/portal/documents/{id}/content` — a real request with the session cookie,
+ *  never a pre-signed URL (T3.6). */
+export type PortalDocument = PortalLibrary["documents"][number];
+
+/**
+ * A client's own invoices, with what is still outstanding.
+ *
+ * MONEY IS A DECIMAL STRING on every field and stays one: `numeric` in the
+ * database, a string on the wire, a string in the component. A `Number()`
+ * anywhere on this path is a rounding error on somebody's own bill.
+ *
+ * A DRAFT is not here — the wall refuses it, not the query — because a draft is
+ * a demand nobody has made yet. A CANCELLED one IS, because a client holding a
+ * copy of a withdrawn invoice has to be able to see it was withdrawn.
+ */
+export type PortalInvoices =
+  paths["/api/v1/portal/invoices"]["get"]["responses"][200]["content"]["application/json"];
+
+export type PortalInvoice = PortalInvoices["invoices"][number];
+
+/**
+ * One calendar month of what the firm did (T6.7).
+ *
+ * IT IS A SCREEN AND NOT AN EMAIL. The board asks for a "monthly digest"; there
+ * is no message transport in this product yet (P10 is Phase 7), so this is the
+ * thing behind the email rather than the email, and the page says so.
+ */
+export type PortalDigest =
+  paths["/api/v1/portal/digest"]["get"]["responses"][200]["content"]["application/json"];
+
+export type PortalDigestRow = PortalDigest["filed"][number];
+
+/**
  * An ask as the FIRM reads it, on the work item it was raised from.
  *
  * Wider than the client's view — it carries who raised it, who closed it, and

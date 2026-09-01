@@ -164,6 +164,9 @@ in one place, for everybody. Do not solve it locally.
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 | `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
+| `/portal/documents` | **THE CLIENT'S LIBRARY** — every document the firm has shared with them, searchable, and each one downloads. NOT windowed: the whole point is finding last year's challan |
+| `/portal/invoices` | what the firm has billed them and what is still outstanding. Drafts are not here; a cancelled invoice IS, and is marked |
+| `/portal/month` | one calendar month of what the firm did — filed, added, billed, and what the client sent back. A SCREEN, not an email |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
 
 ## The client portal is a SECOND AUDIENCE'S APP (T6.5)
@@ -205,6 +208,115 @@ CLIENTS, and the two share a design language and nothing else.
 five rows already past their date and marked Missed; the same filing listed twice, once as the
 law's row and once as the firm's task; and two chip tones for the same kind of fact in two
 tables. All three fixed, and all three invisible to typecheck, lint and the API.
+
+## The self-serve library, and the nav the portal grew (T6.7)
+
+**THE FRAME'S "ONE SCREEN, NO MAP" RULE STOPPED BEING TRUE, and it took two turns to land.** The
+note above says a client's contact has one screen and that a staff-style column of links would
+tell them how much of the product is not for them. Right for T6.5, wrong the moment the library
+existed: **a library reachable only by scrolling past four sections of today's news is not
+self-serve.**
+
+The first attempt was a tab strip. **Then looking at it settled it (Shrestha, 2026-09-01):
+"everything looks messy"** — the strip ran the full width of the window with four small labels
+jammed at the far left, above a centred column of content, so the navigation and the thing it
+navigated did not line up and the page read as half-built. Four sections is enough to deserve a
+real frame, and the staff shell already IS that frame.
+
+So the portal is `.shell` + `.sidebar` + `.main`, reusing `.brand`, `.nav`, `.nav-link`,
+`.nav-icon`, `.sidebar-foot`, `.who`, `.avatar`, `.topbar` and `.crumb` **with not one line of new
+CSS** — the rule `.portal` was written under, applied properly: *a different audience, not a
+different design language.* What it does NOT copy is as deliberate: **no groups** (four items have
+no structure to hide), **no search box** (searching four things implies there is more behind it —
+the library has its own, over the thing a client actually hunts through), and **no firm switcher**
+(a contact belongs to one firm's portal). It DOES carry icons, because the staff nav's own rule
+says an icon separates things at the same level and it is nested children that carry none.
+
+**The sidebar's foot names the COMPANY where the staff one names a role**, and that is the one
+place the two shells say different things. `client_contact` / `client_viewer` is the firm's word
+for what somebody may do; printing it would show a client a label about their own permissions that
+they cannot act on. Which company they are looking at is the fact they need.
+
+- **`/portal/documents` IS NOT WINDOWED.** The status home shows ninety days because it answers
+  "what is happening now"; the acceptance line here is *"a client finds LAST YEAR's challan"*, and
+  a window would make the one question the page exists for unanswerable. Filtered in the BROWSER
+  across the title, filename and what it is about — a client has tens of documents, not hundreds
+  of filings, and a round trip per keystroke would feel worse than scrolling.
+- **IT IS A TABLE, and the search only appears above eight rows.** The first version drew a card
+  per document, which reads well for three and is a two-minute scroll at thirty — and thirty is
+  ordinary after a year on a list with no window. It also matches `/portal/invoices`: two lists of
+  the client's own records drawn two different ways is how a portal starts to look assembled
+  rather than designed. The search threshold is the sidebar's own argument again — a box over one
+  document implies there is more behind it.
+- **AND THE CLIENT'S OWN COMPANY NAME IS SHOWN ONCE.** A calendar-raised task is titled *"Quarterly
+  TDS statements — Cobalt Foods Private Limited — Q1 FY2026-27"*, which is right on the firm's
+  board where a hundred clients' work sits together and is the least useful third of the string on
+  a page that client opened — it is already in the rail and the topbar. It was also wide enough to
+  push the table into a horizontal scrollbar with ONE row in it.
+- **THE DOWNLOAD IS A `fetch`, NEVER AN `<a href>`** — the same rule the staff `<Documents>` panel
+  follows, and for one more reason on this side: there is no pre-signed URL in this product and
+  there will not be one, so the bytes come back through a route that has passed every scoping
+  rule, with the session cookie. It is also why the button can show that it is working and can
+  show a refusal, neither of which a link can.
+- **TWO EMPTY STATES, TWO SENTENCES.** "Nothing shared with you yet" tells a client to ask;
+  "nothing matches what you typed" tells them to search differently. Drawing both as a blank page
+  is the screen declining to say which is true — T6.5's own finding, applied a third time.
+- **AND THE PAGE SAYS WHAT IS NOT IN IT.** A document appears because the firm marked it
+  client-visible (migration 0066), so a client who cannot find something has to be told whether to
+  look harder or to ask. That sentence is not a list of absences — see the footer note below.
+- **`/portal/invoices` DOES NO ARITHMETIC.** Four figures per row, each a decimal string computed
+  by `crm.invoice_balance`, printed as they arrived. There is deliberately no total across rows:
+  adding money in a browser, across currencies this page cannot convert, is exactly what the
+  money rule exists to prevent. There is no "pay" button either — payments are P11 and nothing in
+  this product takes money, so a button would be the screen promising what the system cannot do.
+  `dueOn` IS shown, and it is the one invented date this portal carries: it is already printed on
+  the invoice the client holds, and hiding it would make the page disagree with a document the
+  firm has already sent.
+- **`/portal/month` SAYS IT IS A PAGE AND NOT AN EMAIL.** The board asks for a "monthly digest";
+  transport is P10, so nothing is sent anywhere and the page says so rather than leaving a client
+  wondering why their inbox is empty on the first. The months are built by decrementing an
+  INTEGER, never `setMonth(m - 1)`, which on the 31st lands in the wrong month entirely — a bug
+  that only shows for three days a quarter.
+
+**THE FOOTER ON `/portal` HAS NOW GONE STALE TWICE, and the fix is not a third rewrite.** It said
+*"sending files across is not here yet"* one paragraph below a working file picker (T6.6), was
+rewritten to say invoices and documents were not here yet, and T6.7 built both — false again
+inside one task. **A sentence that enumerates ABSENCES goes stale every time somebody removes
+one, and nothing in a typecheck, a lint or a test can see it happen.** It points at where things
+ARE now, which stays true as more arrives — and the nav is the actual fix.
+
+### The two reminder dates, and why neither is a count
+
+`lastRemindedAt` on an ask and `lastNudgedAt` on a filing are both dates, and both deliberately
+omit the tally the database holds. *"We have reminded you 4 times"* is an accusation printed on
+somebody's own page, and on a daily rung it reads "9 times" within a fortnight; what a client can
+act on is WHEN — whether they missed a message. Null draws as nothing at all (an ask) or an em
+dash (a filing), because a firm that has published no ladder reminds nobody and that is the
+shipped state, not a failure to report.
+
+**The FIRM's side is the opposite and that is the point.** `ClientAsks` on
+`/work-items/[workItemId]` prints *"Reminded 3 times — first on …, second on …"*, because a
+colleague who cannot see that the sweep has already chased this client will chase it again by
+hand, and because "we asked you four times" is the sentence that needs evidence behind it.
+
+### The client-visibility switch, and the panel that had to exist for it
+
+`files.document.is_client_visible` decides whether a file is in the client's library, and it is
+enforced by a database policy. **T6.5 named the failure this avoids on the work item's copy of the
+same flag** — *a flag the portal enforces and no screen can change is a wall built against a value
+nobody can move* — so the switch ships in the same task as the policy, as a column on
+`<Documents>`.
+
+That forced a second thing: **`/work-items/[workItemId]` had no `<Documents>` panel at all.**
+`subject_kind = 'work_item'` exists so a client's uploaded answer files itself against the job that
+asked for it, and the only thing on that page listing a file was the ask panel naming each
+response's filename. The panel is mounted there now, with the task's client as `partyId` — which is
+what makes the switch mean anything, since a document with no client belongs to the firm and has
+nobody to share it with. The cell says so rather than offering a control the API would 404.
+
+Flipping it RELOADS the list rather than patching the row: the flag is enforced by a policy, and
+the one place a local guess must not stand is a control that decides who outside the firm can read
+a file.
 
 ## The action centre — the only part of this product a client can DO (T6.6)
 

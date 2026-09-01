@@ -4661,6 +4661,510 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your own documents
+         * @description CLIENT_PORTAL sessions only, and no permission — being granted a company IS the authorisation to read that company's records, which is why a read-only contact can find last year's challan without asking anybody. NOT WINDOWED: unlike the status home, this reaches back as far as there are documents, because 'where is the thing you filed for me in March' is the question it exists to answer. What appears here is what the firm marked visible — a working paper about you is not a document of yours.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The library */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            documents: components["schemas"]["PortalDocument"][];
+                        };
+                    };
+                };
+                /** @description asOf is not an ISO date, or kind is not a known document kind */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download one of your documents
+         * @description The bytes of the LATEST version. Served with `content-disposition: attachment` and never `inline` — this store also holds files clients have uploaded, and rendering one in the app's own origin would make an uploaded HTML file same-origin script.
+         *
+         *     THERE IS NO PRE-SIGNED URL AND THERE WILL NOT BE ONE. A URL that outlives the session that minted it is checked by a storage vendor rather than by this product, so it answers to none of the scoping rules that decide what you may read. Every byte leaves through this route, having passed them.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    documentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The document's bytes, as an attachment */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": unknown;
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such document you can reach. Deliberately the same answer for a document that does not exist, one belonging to another of the firm's clients, and one the firm has not shared with you — the row was filtered by the database, so nothing here is in a position to tell them apart, and a 403 would confirm it exists. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The document exists and its bytes could not be read from storage */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your invoices, and what is still outstanding
+         * @description CLIENT_PORTAL sessions only, and no permission. Drafts are not here — see the `status` field. Amounts are decimal STRINGS, never numbers.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The invoices */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            invoices: components["schemas"]["PortalInvoice"][];
+                        };
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One month of what the firm did for you
+         * @description A calendar month — filings made, documents added, invoices raised, and what you sent back. NOT a second copy of the status home, which answers 'what is outstanding today' over a rolling ninety days: this is bounded by a MONTH and reaches back as far as you care to look.
+         *
+         *     IT IS A SCREEN AND NOT AN EMAIL, and that is stated rather than left to be discovered: there is no message transport in this product yet, so nothing is sent anywhere. When there is one, this is what it will send.
+         */
+        get: {
+            parameters: {
+                query: {
+                    month: string;
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The month */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalDigest"];
+                    };
+                };
+                /** @description month is not a YYYY-MM, or its month is not between 01 and 12 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clients/{partyId}/freezes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every time this client's chasing has been stopped
+         * @description The whole history, newest first — not just the one in force. 'Was this client being chased in March' is the question, and a list of only the current freeze answers it with silence.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The freezes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientFreeze"][];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Stop chasing this client
+         * @description Stops the OUTWARD ladder only. The firm goes on hearing about its own late work through the escalation ladder (T4.5), because a dispute is the worst possible moment to go blind to that.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetClientFreezeRequest"];
+                };
+            };
+            responses: {
+                /** @description Frozen */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientFreeze"];
+                    };
+                };
+                /** @description No reason, or dates that describe a freeze in force on no day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such client at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This client is already frozen over those days */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/freezes/{freezeId}/lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start chasing this client again */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    freezeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LiftClientFreezeRequest"];
+                };
+            };
+            responses: {
+                /** @description Lifted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientFreeze"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such freeze at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already lifted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-items": {
         parameters: {
             query?: never;
@@ -7661,7 +8165,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
                 };
                 cookie?: never;
             };
@@ -7703,7 +8207,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
                 };
                 cookie?: never;
             };
@@ -7779,7 +8283,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
                     key: string;
                 };
                 cookie?: never;
@@ -7847,7 +8351,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
                     key: string;
                 };
                 cookie?: never;
@@ -7926,7 +8430,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
                     key: string;
                     version: number;
                 };
@@ -12037,6 +12541,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{documentId}/client-visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Share this document with its client, or stop sharing it
+         * @description A DISCLOSURE decision, and it is recorded as one — its own audit verb rather than a document edit, because 'when did this become visible to the client' is asked after something has reached somebody it should not have. Every document gets a sensible first value from its KIND when it is stored: a challan, an invoice, a credit note and a signed engagement letter are things the client is a party to; a working paper is your own thinking. This is how you disagree with that in either direction. A document with no `partyId` is the firm's own and belongs to no client, so there is nobody to share it with — it answers 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    documentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetDocumentClientVisibility"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Document"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write documents */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such document at this firm, or it belongs to no client */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/documents/{documentId}/versions": {
         parameters: {
             query?: never;
@@ -13545,6 +14121,8 @@ export interface components {
             statutoryDueOn: string;
             stateName: string;
             filedOn: string | null;
+            /** @description When the firm last told you this one was coming up, or null if it never has. A DATE AND NOT A COUNT, the same choice the action centre makes about reminders: what you can act on is whether you missed a message, and a tally would be the firm being defensive about a filing that is not late yet. NULL IS ORDINARY — a firm that has published no reminder ladder tells nobody, which is the shipped state. */
+            lastNudgedAt: string | null;
         };
         PortalStatusHome: {
             /** @description The companies this login may read TODAY, by name. AN EMPTY ARRAY IS A REAL ANSWER and means invited-but-granted-nothing: the screen must say so rather than going blank, because 'nothing yet, ask the firm' and 'nothing is happening' are different sentences and only one of them is true. */
@@ -13578,6 +14156,15 @@ export interface components {
                 mediaType: string;
             } | null;
         };
+        ClientAskChase: {
+            /** @description Your own name for the rung — `first`, `second`, `final`. The KEY and never an index: an index shifts when you insert a rung and every chase already sent is silently renamed. */
+            rungKey: string;
+            /** @description The threshold that fired, copied from your ladder at the moment it did. A cadence changed in April does not restate what was sent in March. */
+            afterDays: number;
+            /** @description How long the ask had actually been open when the rung fired. */
+            daysOpen: number;
+            chasedAt: string;
+        };
         ClientAsk: {
             /** Format: uuid */
             askId: string;
@@ -13606,6 +14193,8 @@ export interface components {
             closedByName: string | null;
             closedAt: string | null;
             responses: components["schemas"]["ClientAskResponse"][];
+            /** @description Every reminder the chaser has sent about this, oldest first. THE COUNT IS THE POINT: `we asked you four times` is what a firm says when a filing goes late, and `delivery.client_ask_chase` is append-only by GRANT so it is evidence rather than a note. The CLIENT's own surface shows only the last date and no tally — see `PortalAsk.lastRemindedAt` for why. */
+            chases: components["schemas"]["ClientAskChase"][];
         };
         RaiseClientAskRequest: {
             /** @enum {string} */
@@ -13659,6 +14248,8 @@ export interface components {
             workItemTitle: string;
             /** @description When you were asked. THERE IS NO DUE DATE ON THIS SURFACE and there will not be one: no deadline this product invented reaches a client, so how long it has been outstanding is a fact and 'by Friday' would be a promise nobody made. */
             raisedAt: string;
+            /** @description When the firm last reminded you about this, or null if it never has. A DATE AND NOT A COUNT, deliberately: `you have been reminded 4 times` is a tally about you rather than something you can act on, and on a daily cadence it reads `9 times` within a fortnight. The firm keeps every rung on its own screen, where it is the evidence behind `we asked four times` when a filing goes late. */
+            lastRemindedAt: string | null;
             responses: components["schemas"]["PortalAskResponse"][];
         };
         PortalActionCentre: {
@@ -13679,6 +14270,87 @@ export interface components {
         PortalUploadForm: {
             file?: unknown;
             note?: string;
+        };
+        PortalDocument: {
+            /** Format: uuid */
+            documentId: string;
+            title: string;
+            /**
+             * @description What the document is. A CLOSED set — declared as an enum so a screen that switches on it gets a compile error when a kind is added rather than a silent default.
+             * @enum {string}
+             */
+            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+            /** @description Which of YOUR companies it belongs to. Never null on this surface: a document with no company is the firm's own, and you are not shown those. */
+            companyName: string;
+            filename: string;
+            byteSize: number;
+            mediaType: string;
+            /** @description Lower-case hex SHA-256 of the file. Here so that 'is the copy I already hold the one you gave me' is a comparison rather than a matter of trust. */
+            contentHash: string;
+            addedOn: string;
+            /** @description What it relates to, in words — the job it was filed against, or the invoice it belongs to. Null is a real answer: a document may be filed against your company and no particular job. */
+            aboutWhat: string | null;
+        };
+        PortalInvoice: {
+            /** Format: uuid */
+            invoiceId: string;
+            number: string;
+            /** @description Which of the firm's own companies charged you — the one printed on it. */
+            issuedBy: string;
+            billedTo: string;
+            /**
+             * @description A DRAFT invoice is not on this surface and cannot be — it is a demand nobody has made yet. A `cancelled` one IS here, deliberately: if you hold a copy of an invoice the firm has withdrawn, you need to be able to see that it was withdrawn.
+             * @enum {string}
+             */
+            status: "issued" | "cancelled";
+            currency: string;
+            /** @description Net of discount, including tax. A decimal STRING. */
+            total: string;
+            paid: string;
+            credited: string;
+            /** @description total − paid − credited, derived and never stored: a `paid` flag is a cache of this subtraction and drifts the first time a payment is corrected. */
+            outstanding: string;
+            issuedOn: string | null;
+            /** @description The date the firm asked to be paid by — THE ONE INVENTED DATE THIS SURFACE CARRIES, and it is here because it is already printed on the invoice you hold. Hiding it would mean this page disagreeing with a document you have, and you cannot pay to a date nobody will show you. Every other date in this portal is either the LAW's or the day something opened. */
+            dueOn: string | null;
+        };
+        PortalDigestRow: {
+            label: string;
+            companyName: string | null;
+            on: string;
+        };
+        PortalDigest: {
+            month: string;
+            filed: components["schemas"]["PortalDigestRow"][];
+            documentsAdded: components["schemas"]["PortalDigestRow"][];
+            invoiced: components["schemas"]["PortalDigestRow"][];
+            /** @description What YOU sent back, in that month. Here deliberately — a month that listed only the firm's output would read as an invoice for attention rather than as an account of the work. Dated on when you FIRST replied, so a second file sent later does not move it. */
+            asksAnswered: components["schemas"]["PortalDigestRow"][];
+        };
+        ClientFreeze: {
+            /** Format: uuid */
+            freezeId: string;
+            /** Format: uuid */
+            clientPartyId: string;
+            clientName: string;
+            validFrom: string;
+            /** @description The FIRST DAY NOT IN FORCE, never the last day frozen. Null while it is still on. Half-open like every other effective-dated row in this schema — two conventions in one product is an off-by-one waiting for a handover. */
+            validTo: string | null;
+            /** @description Why. Required, because 'why is this client not being chased' is asked months later by somebody who did not set it, and a freeze with no reason cannot be told apart from one nobody remembered to lift. It is NOT in the ledger — it is a partner's words about a client and that log cannot be erased. */
+            reason: string;
+            setByName: string | null;
+            liftedByName: string | null;
+        };
+        SetClientFreezeRequest: {
+            /** @description The first day frozen, in the CALLER's calendar. */
+            validFrom: string;
+            /** @description The first day NOT frozen, if the firm already knows when this ends. Null — the ordinary case — means until somebody lifts it. */
+            validTo?: string | null;
+            reason: string;
+        };
+        LiftClientFreezeRequest: {
+            /** @description The day chasing resumes, in the CALLER's calendar. Defaults to TODAY, so pressing resume means the next sweep chases — not midnight. The row then understates the freeze by part of a day and nothing is lost, because the ledger carries the instant. */
+            on?: string;
         };
         WorkItemState: {
             /** Format: uuid */
@@ -14290,7 +14962,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
             key: string;
         };
         ConfigVersion: {
@@ -15265,6 +15937,8 @@ export interface components {
              * @enum {string}
              */
             origin: "generated" | "uploaded";
+            /** @description Whether the client this belongs to can see it in their portal library (T6.7). Set from the document's KIND when it is stored — a challan yes, a working paper no — and changeable either way from this endpoint's sibling. Enforced by a policy in the database, never by a query: a portal read that forgot to filter would return your own working papers with a 200. */
+            isClientVisible: boolean;
             /**
              * @description What the document is. A CLOSED set — the product's own document types, mirrored by the CHECK in migration 0037. Declared as an enum and not a bare string so the generated client keeps the closure: a screen that has to switch on this should get a compile error when a kind is added, not a silent default.
              * @enum {string}
@@ -15297,6 +15971,9 @@ export interface components {
         };
         DocumentsResponse: {
             documents: components["schemas"]["Document"][];
+        };
+        SetDocumentClientVisibility: {
+            isClientVisible: boolean;
         };
         DocumentVersionsResponse: {
             versions: components["schemas"]["DocumentVersion"][];

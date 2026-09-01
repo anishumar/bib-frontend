@@ -38,6 +38,7 @@ import {
   Pill,
   Select,
   Sub,
+  Switch,
   Table,
   TableWrap,
   Td,
@@ -142,6 +143,31 @@ export function Documents({
       await load();
     })();
   }, [load]);
+
+  /**
+   * Share this file with its client, or stop sharing it.
+   *
+   * RELOADS THE WHOLE LIST rather than patching the row. The API's answer is
+   * the record as it now stands, and the flag is enforced by a database policy
+   * — so a local `setState` would be this screen's guess about what happened,
+   * and the one place a guess must not stand is a control that decides who
+   * outside the firm can read a file.
+   */
+  const share = useCallback(
+    async (documentId: string, visible: boolean): Promise<void> => {
+      const result = await api.PATCH("/api/v1/documents/{documentId}/client-visibility", {
+        params: { path: { documentId } },
+        body: { isClientVisible: visible },
+      });
+      if (result.error) {
+        setError(apiError(result.error).message);
+        return;
+      }
+      setError(null);
+      await load();
+    },
+    [load],
+  );
 
   async function upload(form: FormData): Promise<void> {
     const file = form.get("file");
@@ -333,6 +359,7 @@ export function Documents({
               <Th>Size</Th>
               <Th>Added</Th>
               <Th>By</Th>
+              <Th>Client can see</Th>
               <Th>
                 <span className="sr-only">Actions</span>
               </Th>
@@ -347,6 +374,8 @@ export function Documents({
                 versions={versions[d.id]}
                 onToggle={() => void showVersions(d.id)}
                 onDownload={(versionId, filename) => void get(d.id, filename, versionId)}
+                canWrite={canWrite}
+                onShare={(visible) => void share(d.id, visible)}
               />
             ))}
           </tbody>
@@ -363,12 +392,16 @@ function FileRows({
   versions,
   onToggle,
   onDownload,
+  canWrite,
+  onShare,
 }: {
   doc: StoredDocument;
   expanded: boolean;
   versions: readonly StoredDocumentVersion[] | undefined;
   onToggle: () => void;
   onDownload: (versionId: string | undefined, filename: string) => void;
+  canWrite: boolean;
+  onShare: (visible: boolean) => void;
 }) {
   const v = doc.latestVersion;
   return (
@@ -396,6 +429,37 @@ function FileRows({
         <Td>
           <span className="muted">{uploader(doc)}</span>
         </Td>
+        {/* ── WHO OUTSIDE THE FIRM CAN READ THIS (T6.7) ───────────────────
+
+            `is_client_visible` (migration 0066) decides whether this file is in
+            the client's own portal library, and it is enforced by a POLICY in
+            the database — this switch is the only thing that can move it.
+
+            T6.5 named this exact failure on `delivery.work_item`'s copy of the
+            same flag: a flag the portal enforces and no screen can change is a
+            wall built against a value nobody can move. So the switch ships in
+            the same task as the policy, not after it.
+
+            A document with no client is the FIRM's own and has nobody to share
+            it with — the API answers 404 there — so the cell says so instead of
+            offering a control that would fail. */}
+        <Td>
+          {doc.partyId === null ? (
+            <span className="muted">the firm&rsquo;s own</span>
+          ) : canWrite ? (
+            <Switch
+              checked={doc.isClientVisible}
+              onChange={(e) => {
+                onShare(e.target.checked);
+              }}
+              label={doc.isClientVisible ? "Shared" : "Not shared"}
+            />
+          ) : (
+            <Pill tone={doc.isClientVisible ? "accent" : "quiet"}>
+              {doc.isClientVisible ? "Shared" : "Not shared"}
+            </Pill>
+          )}
+        </Td>
         <Td align="right" className="nowrap">
           <span className="cluster tight end">
             {/* More than one version is a fact worth surfacing on the row
@@ -421,7 +485,7 @@ function FileRows({
       </tr>
       {expanded && (
         <tr>
-          <Td colSpan={6} style={{ paddingTop: 0 }}>
+          <Td colSpan={7} style={{ paddingTop: 0 }}>
             <Table>
               <tbody>
                 {versions === undefined ? (

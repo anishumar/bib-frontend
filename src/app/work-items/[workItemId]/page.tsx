@@ -16,6 +16,7 @@ import type {
 } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { ClientAsks } from "./client-asks";
+import { Documents } from "@/lib/ui/documents";
 
 /**
  * One work item — the page where it is actually worked (T3.1).
@@ -274,6 +275,34 @@ export default function WorkItemPage() {
         workItemId={workItemId}
         canWrite={canWrite}
         isClientVisible={item.isClientVisible}
+      />
+
+      {/* ── THE FILES ON THIS TASK (T6.7) ───────────────────────────────────
+
+          `subject_kind = 'work_item'` was added by migration 0063 so a client's
+          uploaded answer files itself against the job that asked for it — *"the
+          person who raised the ask is looking at the work item, and a file
+          reachable only through the ask would not arrive where they are
+          looking."* And then nothing on this page listed those files: the ask
+          panel above names the filename of each response and there was no other
+          reader at all.
+
+          It is also where the CLIENT-VISIBILITY switch on each document lives.
+          `is_client_visible` (0066) decides whether a file appears in the
+          client's own portal library, enforced by a database policy — and T6.5
+          named the failure this avoids on the flag one card above: *a flag the
+          portal enforces and no screen can change is a wall built against a
+          value nobody can move.*
+
+          `partyId` is the task's CLIENT, so a file uploaded here belongs to them
+          rather than to the firm — which is what makes the switch mean anything
+          at all. */}
+      <Documents
+        subjectKind="work_item"
+        subjectRef={workItemId}
+        partyId={item.clientPartyId}
+        canWrite={canWrite}
+        emptyHint="Nothing filed against this task yet. A challan, an acknowledgement, the register the client sent — whatever somebody would go looking for a year from now."
       />
 
       <Checklist

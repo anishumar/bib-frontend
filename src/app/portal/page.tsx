@@ -28,6 +28,18 @@
  *   is enforced in the DATABASE (migration 0062), not by this screen choosing
  *   what to draw.
  *
+ * ── SINCE T6.7 IT SAYS WHEN THEY WERE LAST TOLD ABOUT A FILING ───────────
+ *
+ * `delivery.obligation_nudge` (0067) records that the firm told this client a
+ * statutory date was approaching. It is a DATE and not a count, the same
+ * decision the action centre makes about reminders: what a client does with it
+ * is work out whether they missed a message, and "we told you three times"
+ * about a filing that is not late yet is the firm being defensive before there
+ * is anything to be defensive about.
+ *
+ * NULL is ordinary — a firm that has published no reminder ladder tells nobody
+ * — and it draws as nothing at all.
+ *
  * ── AND THE TWO EMPTY STATES ARE DIFFERENT SENTENCES ──────────────────────
  *
  * `companies: []` means invited and granted nothing — "ask the firm", with the
@@ -223,6 +235,7 @@ export default function PortalHomePage() {
                 <Th>Period</Th>
                 <Th>Due by law</Th>
                 <Th>Status</Th>
+                <Th>Last told</Th>
               </tr>
             </thead>
             <tbody>
@@ -283,20 +296,24 @@ export default function PortalHomePage() {
         </Section>
       )}
 
-      {/* WHAT IS NOT HERE, SAID OUT LOUD. A client who cannot find their
-          invoices should be told the portal does not carry them yet, rather
-          than concluding the firm has not billed them.
+      {/* WHERE THE REST OF IT IS — AND THIS PARAGRAPH HAS NOW GONE STALE TWICE.
 
-          IT SAID "sending files across is not here yet" UNTIL T6.6, and the
-          walk found it a paragraph below a working file picker. A line like
-          that is worse than none: it is the screen telling a client not to use
-          the thing it has just offered them, and nothing in a typecheck, a lint
-          or a test can see it go stale. */}
+          Before T6.6 it said "sending files across is not here yet — email
+          10x Global as you do now", and the walk found it one paragraph below
+          a working file picker. T6.6 rewrote it to say invoices and documents
+          were not here yet; T6.7 built both, and it was false again inside one
+          task.
+
+          So it is not a list of what is MISSING any more. A sentence that
+          enumerates absences goes stale every time somebody removes one, and
+          NOTHING in a typecheck, a lint or a test can see that happen. This one
+          points at where things are, which stays true as more arrives — and the
+          nav above it is the actual fix. */}
       {home.companies.length > 0 && (
         <p className="muted">
-          This page shows work, statutory filings, and anything {firm} has asked you for. Your
-          invoices and the firm&rsquo;s own documents are not here yet — email {firm} for those
-          as you do now.
+          This page is what is happening now. Your documents, your invoices and a month-by-month
+          record of what {firm} has done are on the pages above — and anything {firm} has asked
+          you for is at the top of this one.
         </p>
       )}
     </Page>
@@ -346,6 +363,17 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
       <Td>
         <Pill tone="quiet">{row.stateName}</Pill>
       </Td>
+      <Td>
+        {/* WHEN, NOT HOW MANY — see the header. An em dash rather than
+            "never": a firm that has published no reminder ladder tells nobody,
+            which is the shipped state and not something to report as a
+            failure to a client. */}
+        {row.lastNudgedAt === null ? (
+          <span className="muted">—</span>
+        ) : (
+          <span className="mono">{longInstant(row.lastNudgedAt)}</span>
+        )}
+      </Td>
     </tr>
   );
 }
@@ -373,6 +401,22 @@ function longDay(iso: string): string {
   ];
   const name = months[Number(month) - 1] ?? month;
   return `${day} ${name} ${year}`;
+}
+
+/**
+ * "3 Sep 2026" from an ISO INSTANT.
+ *
+ * Deliberately a different function from `longDay` above, which splits a
+ * YYYY-MM-DD string precisely so no timezone can move a statutory deadline. This
+ * one takes a `timestamptz` and must be parsed — and it is the reader's own
+ * local day that is wanted here, because "when did you last hear from us" is a
+ * fact about their morning, not about the server's.
+ */
+function longInstant(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime())
+    ? iso
+    : at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** "Cobalt Foods", "Cobalt Foods and Cobalt Logistics", "A, B and C". */

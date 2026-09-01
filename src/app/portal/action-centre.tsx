@@ -37,6 +37,23 @@
  * The check here decides what to OFFER. The API's refusal is what gets shown if
  * one arrives anyway.
  *
+ * ── AND SINCE T6.7 IT SAYS WHEN THEY WERE LAST REMINDED ─────────────────
+ *
+ * `delivery.client_ask_chase` (0065) recorded every rung of the outward ladder
+ * from the day it was written and NOTHING rendered any of it — the sixth
+ * registered thing in this codebase found with a writer and no reader.
+ *
+ * It is a DATE and not a count, and that is a decision about tone rather than a
+ * rendering detail (Shrestha, 2026-09-01). *"We have reminded you 4 times"* is
+ * an accusation printed on somebody's own page, and on a daily rung it reads
+ * "9 times" within a fortnight. What a client can act on is WHEN — "you last
+ * heard from us on the 12th" tells them whether they missed a message. The
+ * COUNT is not lost: the firm's own screen carries every rung, which is where
+ * "we asked you four times" is a sentence that needs evidence behind it.
+ *
+ * NULL is ordinary and is drawn as nothing at all. A firm that has published no
+ * chaser ladder chases nobody, which is the shipped state.
+ *
  * ── AND THE FILE IS NOT SCANNED, WHICH IS SAID RATHER THAN IMPLIED ──────
  *
  * There is no virus scanner in this product. The upload control says so, in one
@@ -237,6 +254,12 @@ function AskCard({
         <p className="muted">
           {ask.companyName ?? "About your account"} · {ask.workItemTitle} · asked{" "}
           {longDay(ask.raisedAt)}
+          {/* WHEN, NOT HOW MANY — see the header. Only drawn when there is one:
+              an ask nobody has chased says nothing rather than "never
+              reminded", which would read as a reproach about the firm. */}
+          {ask.lastRemindedAt !== null && (
+            <> · last reminded {longDay(ask.lastRemindedAt)}</>
+          )}
         </p>
 
         {ask.responses.length > 0 && (

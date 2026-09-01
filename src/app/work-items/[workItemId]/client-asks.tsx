@@ -298,6 +298,38 @@ function AskLine({
         )}
       </p>
 
+      {/* ── WHAT THE CHASER HAS ALREADY SENT (T4.4, read since T6.7) ────────
+
+          `delivery.client_ask_chase` recorded every rung of the outward ladder
+          from the day migration 0065 was written and NOTHING rendered it — the
+          sixth registered thing in this codebase found with a writer and no
+          reader. Without it a colleague opening this task cannot see that the
+          sweep has already reminded this client three times, so the next thing
+          they do is chase it a fourth time by hand, which is the work T4.4
+          exists to remove.
+
+          THE COUNT IS THE POINT HERE, and it is the half the CLIENT's own page
+          deliberately does not show: "we asked you four times" is what a firm
+          says when a filing goes late, and `client_ask_chase` is append-only by
+          GRANT so it is evidence rather than a note. On the client's action
+          centre the same rows render as a date and no tally — a count on
+          somebody's own page is an accusation.
+
+          Each rung is named by its KEY, which is the firm's own word for it.
+          Not the label: that lives in the published `chaser` config and a
+          ladder edited in April must not restate what March's chase was
+          called. */}
+      {ask.chases.length > 0 && (
+        <p className="muted">
+          Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
+          {" — "}
+          {ask.chases
+            .map((c) => `${c.rungKey} on ${longDay(c.chasedAt)}`)
+            .join(", ")}
+          . Sent automatically; nobody here pressed anything.
+        </p>
+      )}
+
       {ask.responses.map((r) => (
         <p key={r.responseId} className="muted">
           <strong>{r.respondedByName ?? "Their contact"}</strong>{" "}
