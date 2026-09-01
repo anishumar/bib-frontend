@@ -78,11 +78,36 @@ interface NavGroup {
   items: NavItem[];
 }
 
+/**
+ * Two letters for the avatar disc.
+ *
+ * THE DOMAIN AND THE DIGITS GO FIRST, the same rule the work board's cards
+ * follow: half the people here are shown by email, because `displayName` is
+ * optional and a seeded login has none. Split naively,
+ * `partner-1788079646@10xglobal.in` gives "P1" from the timestamp, and a
+ * sidebar reading "P1" identifies nobody.
+ */
+function initials(who: string | null): string {
+  if (who === null) return "?";
+  const local = who.split("@")[0] ?? who;
+  const words = local
+    .trim()
+    .split(/[\s._-]+/)
+    .filter((p) => /^[a-z]/i.test(p));
+  const letters = words.slice(0, 2).map((p) => p[0] ?? "");
+  return letters.join("").toUpperCase() || "?";
+}
+
 const GROUPS: NavGroup[] = [
   {
+    /* WHAT THE FIRST SCREEN IS FOR, restated. It used to be "Home", and Home
+       was a page that printed the session's uuids at somebody who has never
+       seen one — the answer to a question only a developer asks. The first
+       thing in the sidebar is now the thing this product is heading towards:
+       ask the firm a question in words. It cannot answer yet and says so. */
     label: "Workspace",
-    icon: "home",
-    items: [{ href: "/", label: "Home", icon: "home" }],
+    icon: "copilot",
+    items: [{ href: "/", label: "AI Copilot", icon: "copilot" }],
   },
   {
     /* The book, the pipeline, what the firm has quoted and what it has agreed. */
@@ -269,7 +294,19 @@ function isBare(pathname: string): boolean {
   // `/auth/magic-link` is where a sign-in link lands: there is no session yet
   // — spending the token is what creates one — so a workspace frame around it
   // would be a frame with nothing behind it.
-  return pathname === "/login" || pathname.startsWith("/p/") || pathname.startsWith("/auth/");
+  //
+  // `/portal` is the CLIENT's app (T6.5), and it brings its own frame. A
+  // client has one screen and no map, so a sidebar listing twenty-six staff
+  // screens they can never open is furniture — the same argument this function
+  // already makes about the sign-in page. It is not "bare" in the sense the
+  // others are: `src/app/portal/layout.tsx` is what renders around it.
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/p/") ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/portal" ||
+    pathname.startsWith("/portal/")
+  );
 }
 
 /**
@@ -591,19 +628,33 @@ export function AppShell({ children }: { children: ReactNode }) {
                     onClick={() => void switchTenant(m.tenantId)}
                   >
                     {m.tenantId === principal.tenantId ? "✓ " : ""}
-                    {m.role} · <span className="mono">{m.tenantId.slice(0, 8)}</span>
+                    {m.tenantName ?? m.tenantId.slice(0, 8)} · {m.role}
                   </MenuItem>
                 ))}
               </Menu>
             )}
+            {/* WHO IS SIGNED IN, and it used to say WHAT they are. The block
+                rendered the role on both lines' worth of meaning — "partner /
+                Signed in" — which is the same words under every partner's
+                avatar at the firm, and the product telling somebody what they
+                ARE rather than who they are.
+
+                The name comes first, the email is the fallback (`displayName`
+                is nullable and genuinely empty at real firms), and the ROLE
+                moves to the second line where it belongs — it is a fact about
+                this membership, and it is what the second line was for. */}
             <div className="who">
               <span className="avatar" aria-hidden="true">
-                {(principal.role ?? "?").slice(0, 2).toUpperCase()}
+                {initials(principal.displayName ?? principal.email ?? principal.role)}
               </span>
               <span className="who-id">
-                <span className="n">{principal.role ?? "No role"}</span>
+                <span className="n">
+                  {principal.displayName ?? principal.email ?? "Signed in"}
+                </span>
                 <span className="r">
-                  {principal.tenantId === null ? "No firm selected" : "Signed in"}
+                  {principal.tenantId === null
+                    ? "No firm selected"
+                    : (principal.role ?? "No role")}
                 </span>
               </span>
             </div>
@@ -621,10 +672,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           <header className="topbar">
             <p className="crumb">
               <b>BiB</b>
+              {/* THE FIRM'S NAME, not the first eight characters of its uuid.
+                  That is what stood here, and it identified the firm to the
+                  database and to nobody else. The id is still the fallback for
+                  the state that should not happen — a session pointed at a
+                  tenant row that has gone — because a bar that silently drops
+                  the firm is worse than one showing a uuid. */}
               {principal.tenantId !== null && (
                 <>
                   {" · "}
-                  <span className="mono">{principal.tenantId.slice(0, 8)}</span>
+                  {principal.tenantName === null ? (
+                    <span className="mono">{principal.tenantId.slice(0, 8)}</span>
+                  ) : (
+                    principal.tenantName
+                  )}
                 </>
               )}
               {principal.commercialVisibility === true && " · fees visible"}
@@ -693,7 +754,11 @@ function ChooseFirm({
                 disabled={switching !== null && switching !== m.tenantId}
                 onClick={() => { onChoose(m.tenantId); }}
               >
-                {m.role} · <span className="mono">{m.tenantId.slice(0, 8)}</span>
+                {/* This is the screen the whole argument is about: a person is
+                    being asked to CHOOSE a firm, and until the name was on the
+                    wire the choice read "partner · b35c4196" against "manager ·
+                    7f0a21c4". Nobody can answer that. */}
+                {m.tenantName ?? m.tenantId.slice(0, 8)} · {m.role}
               </Button>
             ))}
           </div>

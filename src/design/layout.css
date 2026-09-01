@@ -290,6 +290,12 @@
   font-size: var(--t-xs);
   font-weight: 600;
 }
+/* The small one, for a card's footer. A 2rem disc on a board card is a face
+   badge on something the size of a postage stamp. */
+.avatar[data-size="sm"] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
 
 /* ── Main column ────────────────────────────────────────────────────────── */
 
@@ -452,6 +458,28 @@
 .signin > div {
   width: 100%;
   max-width: 22rem;
+}
+
+/* ── The client portal's frame ────────────────────────────────────────────
+   A SECOND AUDIENCE'S APP, and the whole of its layout is that it has no
+   sidebar.
+
+   The workspace's sidebar is a map of twenty-six screens a firm's staff move
+   between. A client has one screen and no map, and a nav column full of
+   sections they will never open would be furniture — the same argument
+   `isBare` already makes about the sign-in page, reached from the other end.
+   So the portal is a top bar and a page, and it reuses `.topbar`, `.brand` and
+   `.page` unchanged: it is a different audience, not a different design
+   language, and a client who is also a colleague must not feel they have
+   opened somebody else's product.
+
+   One rule, deliberately, rather than a portal stylesheet. Anything this
+   screen needs beyond it belongs in the system for everybody. */
+
+.portal {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Small screens ───────────────────────────────────────────────────────

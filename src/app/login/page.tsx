@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, apiError } from "@/lib/api/client";
+import type { SignInResponse } from "@/lib/api/client";
 import { Button, Card, ErrorNotice, Field, FieldStack, Input, Notice } from "@/components/ui";
 
 /**
@@ -31,7 +32,7 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
 
-    const { error: failed } = await api.POST("/api/v1/auth/login", {
+    const { data, error: failed } = await api.POST("/api/v1/auth/login", {
       body: { email, password },
     });
 
@@ -43,7 +44,30 @@ export default function LoginPage() {
       setBusy(false);
       return;
     }
-    router.push("/");
+    // TWO AUDIENCES SIGN IN HERE, and only one of them belongs in the
+    // workspace. A client contact sent to `/` lands on the staff home with an
+    // empty sidebar and every screen behind it answering 403 — the audience
+    // gate working exactly as designed, and reading as a broken app.
+    router.push(homeFor(data));
+  }
+
+  /**
+   * Which half of the product this login belongs to.
+   *
+   * `principal.audience` answers it whenever a firm has been chosen. It is NULL
+   * for somebody who belongs to more than one, because no membership is active
+   * yet — so the memberships decide, and only when every one of them is a
+   * portal login. Somebody who is a colleague at one firm and a client's
+   * contact at another goes to the workspace and switches org from there:
+   * guessing the portal for them would put the narrower app in front of the
+   * wider need.
+   */
+  function homeFor(result: SignInResponse | undefined): "/" | "/portal" {
+    if (result === undefined) return "/";
+    if (result.principal.audience === "CLIENT_PORTAL") return "/portal";
+    if (result.principal.audience !== null) return "/";
+    const all = result.memberships;
+    return all.length > 0 && all.every((m) => m.audience === "CLIENT_PORTAL") ? "/portal" : "/";
   }
 
   /**

@@ -130,7 +130,7 @@ in one place, for everybody. Do not solve it locally.
 | Route | Is |
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
-| `/` | the workspace home: who you are, which firms you belong to |
+| `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
@@ -154,7 +154,7 @@ in one place, for everybody. Do not solve it locally.
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
-| `/work-items` | the board — what is owed, whose desk it is on, what is late, and what the ladder has escalated |
+| `/work-items` | the board — what is owed, whose desk it is on, what is late, what is waiting to be checked, and what the ladder has escalated |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
 | `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
@@ -163,6 +163,48 @@ in one place, for everybody. Do not solve it locally.
 | `/work` | the delivery board — what a signed engagement turned into |
 | `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
+| `/portal` | **THE CLIENT'S APP** — what the firm is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
+| `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
+
+## The client portal is a SECOND AUDIENCE'S APP (T6.5)
+
+Everything above is the **10X Workspace**, read by the firm. `/portal` is read by the firm's
+CLIENTS, and the two share a design language and nothing else.
+
+- **`AppShell` treats every `/portal` route as bare**, and `src/app/portal/layout.tsx` renders
+  its own frame instead. The staff sidebar is a map of twenty-six screens and an org switcher;
+  a client has one screen and no map, so that nav would be a column of links they cannot follow
+  — the same argument `isBare` already makes about `/login`, reached from the other end.
+- **The frame names the FIRM and the COMPANY, and both matter.** A portal is a page about
+  somebody's own affairs sent by somebody else: without the firm's name the reader does not
+  know who is doing the work, and without the company's a contact for two group companies
+  cannot tell which set of filings is on screen. Both come off `/auth/me`, resolved once by the
+  API — `portalScope` is `[{clientPartyId, clientName}]`, the same shape the portal home's
+  `companies` uses, deliberately.
+- **`/login` routes by AUDIENCE.** A client contact sent to `/` lands on the staff home with an
+  empty sidebar and every screen behind it answering 403 — the audience gate working exactly as
+  designed, and reading as a broken app. `audience` answers it when a firm is chosen; when it is
+  null (somebody in more than one firm) the memberships decide, and only when EVERY one of them
+  is a portal login.
+- **`/portal/accept-invite` renders with no session and must keep doing so.** The token IS the
+  authorisation — setting a password is what creates the login — so the frame exempts that one
+  route rather than bouncing an anonymous visitor to `/login` at the moment the emailed link is
+  being used.
+- **NULL and `[]` on `portalScope` are different facts and must never draw the same.** Null is a
+  staff session (the question does not apply); empty is a contact who has been invited and
+  granted nothing, and the page says so at length, naming the firm to ask. A blank page there is
+  indistinguishable from broken software, which is the whole reason this screen exists.
+- **NO DEADLINE THIS PRODUCT INVENTED.** A statutory date is shown because the law set it;
+  everything else shows how long the work has been open. The API carries `statutoryDueOn` as null
+  on the rest, and the screen must not fill it in.
+- **A date is split, never parsed.** `new Date("2026-09-20")` is UTC midnight and prints as the
+  19th west of Greenwich, which on this screen moves a statutory deadline by a day. `longDay`
+  splits the string; comparisons are string comparisons on `YYYY-MM-DD`.
+
+**What opening it found, and no gate could have:** a heading reading "Filings coming up" over
+five rows already past their date and marked Missed; the same filing listed twice, once as the
+law's row and once as the firm's task; and two chip tones for the same kind of fact in two
+tables. All three fixed, and all three invisible to typecheck, lint and the API.
 
 **The admin screens all need `tenant:admin`, and the sidebar deliberately does NOT group them by
 that.** They were one section of thirteen on exactly that ground, and it was the wrong axis: a
@@ -219,6 +261,62 @@ Two things they get from the API rather than deciding locally, and both matter:
 returns the permissions the session's role carries, so a link is shown only to somebody who
 can use it — but every screen still shows the API's refusal verbatim when one arrives, because
 the API is the only place the answer actually lives.
+
+## `/` — AI Copilot, and the uuids that used to be the first thing anybody saw
+
+This route was **Home**, and Home printed the session's user id, its tenant id and a row of
+permission keys above the fold. Every one of those is a fact about the SYSTEM. A partner
+opening a practice-management product at nine in the morning is not asking a question about
+the system, and two full uuids told them only that the software was written by somebody else,
+for somebody else.
+
+**The facts are not deleted — they are LAST, and closed.** Support conversations open with
+"what is your firm id", and a user who cannot produce one has nothing to give. They sit under
+the chat in a `<details className="disclosure">`, which is where a fact that matters once a
+year belongs. Deleting them would have traded one bad screen for a different one.
+
+**The screen is being built before the feature, deliberately.** There is no model behind it
+and no endpoint to call; what exists is the shape — the thread, the composer, the openers, the
+delay. When the API lands, `<Answer>` is the only thing that changes.
+
+**So it must never imply it worked, and it says so in three places at once:** the pill in the
+page header, the sentence the Copilot replies with, and the line under the composer. A demo
+that quietly looks live is a demo that gets promised to a client. The reply delay is on
+purpose for the same reason as the honesty — the screen behaves the way the real one will, so
+nothing about the interaction changes when the real one arrives.
+
+**The openers are questions this product will genuinely be able to answer**, out of records it
+already holds. And a reply naming a keyword points at the screen that answers it TODAY — that
+is the product pointing, not the Copilot answering, and the sentence says which.
+
+`--brand` on the Copilot's mark, never `--accent`: accent is also `--ok`, so a green disc
+beside every answer would spend a status colour on furniture. A thing speaking in the
+product's own voice is exactly where the brand belongs. And only one speaker gets a bubble —
+what the person typed sits in a sunk chip, what the Copilot said is plain prose — because
+bubbles on both sides needs two grounds different enough to tell apart, and the only pair
+spare are status washes.
+
+### The firm now has a NAME on the wire, not just an id (this is what the screen forced)
+
+`/auth/me` carried `tenantId` and nothing else about the firm, so **every** identity surface
+in the app had a uuid fragment where a name belongs: the topbar read `BiB · b35c4196`, the org
+switcher offered `partner · b35c4196`, and "Choose a firm" — a screen whose entire job is
+asking somebody to pick — offered `partner · b35c4196` against `manager · 7f0a21c4`. Nobody
+can answer that.
+
+Fixed in the API rather than joined here, per the rule above:
+
+- `Principal.tenantName` — nullable, because the name is LOOKED UP and a session pointed at a
+  tenant row that has gone is a real (broken) state. Every screen reads its identity from this
+  one response, so one field fixed all of them at once.
+- `MembershipSummary.tenantName` on the sign-in response.
+- `GET /api/v1/tenancy/me/memberships` returns **`MyMembership`** — the membership plus the
+  name — rather than `tenantName` being added to the shared `Membership` schema. Every other
+  route returning a membership has already established which firm it is in, and reading the
+  name back off each row there is noise. This read is the only one that crosses firms.
+
+The uuid is still the FALLBACK wherever a name comes back null. A bar that silently drops the
+firm is worse than one showing a uuid.
 
 ## `/admin/structure` — and the one control that says it is not live yet
 
@@ -471,6 +569,28 @@ draft governs nothing — and "nobody" is the default, because that is what ever
 before this field existed meant. A rule a step names but the firm has since withdrawn stays
 selectable, marked, rather than silently blanked: the submit rewrites the whole body, so
 blanking it is how a review disappears from a process nobody meant to change.
+
+**`/work-items` HAS A "TO CHECK" TAB TOO, AND IT IS A SECOND QUEUE, NOT THE SAME ONE.** `/work`'s
+is the JOB STEP queue (`step_approval`); this one is the TASK queue (`work_item_approval`), and
+plenty of work at a real firm never walks a process at all. Two tables, two endpoints, two tabs
+on the two screens that own them — a merged list would have had to explain which kind each row
+was before a reader could act on either.
+
+**It exists because using the product found that the queue was unreachable.** `GET
+/api/v1/work-item-checks` had one caller: a banner saying "N tasks are waiting to be checked"
+that linked to `checks[0]`. With two pending there was no way to reach the second — a partner
+submitted a task and, signed in as somebody else, no screen listed it. The banner now opens the
+tab and says how many of the queue are the reader's own.
+
+**The verdict is on the ROW and the API computes it**, the same arrangement `/work`'s queue
+has: `GET /api/v1/work-item-checks` gained `viewer: { eligible, reason }`, resolving the roster
+once for the whole queue rather than this app asking `/checkers` per row — the per-row join the
+backend's CLAUDE.md warns about, and it would have asked the wrong question anyway (`/checkers`
+answers for the whole roster; a row needs one person). **`reason` is the SENTENCE, not a code**,
+because this module's `/checkers` already returns prose and one refusal must not be phrased two
+ways. **Approve and Send back sit on the row** — a queue costing two navigations per row is a
+queue nobody clears — and Send back opens the note field inline, because the API refuses a
+rejection without one and the person should meet the requirement before the refusal.
 
 `/work/[jobId]` shows a checked step as **"finished — waiting to be checked"** and offers
 Approve / Send back INSTEAD of Done. To the person who did the work it shows the sentence

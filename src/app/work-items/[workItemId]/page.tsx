@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import { LinkButton, Td, Th } from "@/components/ui";
+import { Card, CardHead, CardTitle, LinkButton, Switch, Td, Th } from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
@@ -235,6 +235,21 @@ export default function WorkItemPage() {
         />
       )}
 
+      {canWrite && (
+        <ClientVisibility
+          visible={item.isClientVisible}
+          busy={busy === "visibility"}
+          onChange={(isClientVisible) => {
+            void act("visibility", () =>
+              api.PATCH("/api/v1/work-items/{workItemId}", {
+                params: { path: { workItemId } },
+                body: { isClientVisible },
+              }),
+            );
+          }}
+        />
+      )}
+
       {canWrite && roster.length > 0 && (
         <Assign
           roster={roster}
@@ -394,6 +409,56 @@ function MoveState({
         </label>
       )}
     </div>
+  );
+}
+
+/**
+ * WHAT THE CLIENT SEES — the control behind `is_client_visible`.
+ *
+ * The column has existed since migration 0051, carrying the client's own words
+ * (*"Clients would be able to see their tasks"*), and until T6.5 nothing read
+ * it and no screen could set it: it was writable over HTTP and reachable from
+ * nowhere. The portal is now its reader — enforced in the DATABASE, by a
+ * restrictive policy (0062), so a portal read that forgets the filter still
+ * cannot return an internal note — and this is its writer.
+ *
+ * A switch and not a checkbox in a form: it takes effect on the client's page
+ * immediately, which is what a switch means and a Save button would misdescribe.
+ * The sentence under it names the consequence in both directions, because the
+ * cost of getting it wrong is asymmetric — a task wrongly hidden is a client
+ * left in the dark, and a task wrongly shown is an internal note read by the
+ * person it is about.
+ */
+function ClientVisibility({
+  visible,
+  busy,
+  onChange,
+}: {
+  visible: boolean;
+  busy: boolean;
+  onChange: (visible: boolean) => void;
+}) {
+  return (
+    <Card>
+      <CardHead>
+        <CardTitle>What the client sees</CardTitle>
+      </CardHead>
+      {/* The Switch carries its own label, so there is no <Field> around it —
+          two labels on one control is what a screen reader reads out twice.
+          The explanation goes under it as a hint, which is where every hint in
+          this app goes. */}
+      <Switch
+        label="Show this on the client portal"
+        checked={visible}
+        disabled={busy}
+        onChange={(e) => { onChange(e.target.checked); }}
+      />
+      <p className="field-hint">
+        {visible
+          ? "Their own contacts see this task, its status and — if it is held up — the reason recorded on it. They never see who it is assigned to, its priority, or the description above."
+          : "Hidden from the client portal. This is where internal work about a client belongs: a write-off discussion, a quality review, a credit decision."}
+      </p>
+    </Card>
   );
 }
 

@@ -3482,6 +3482,566 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal-access/memberships/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every client one portal login has ever been able to see
+         * @description Live and historic, newest first. The ended grants are the point: a grant is closed on a day and never deleted, so 'could this person see this client on 14 March' stays answerable a year later — which is the whole reason ending access is a date.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The grants */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAccessListResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Let a client-portal login read one client's records
+         * @description ONE CLIENT PER CALL. Refuses a login that is not a CLIENT_PORTAL one (a colleague already reaches the whole book through the staff workspace, so the grant would govern nothing and read as though it did), a revoked login, and a client the firm has archived.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GrantPortalAccessRequest"];
+                };
+            };
+            responses: {
+                /** @description Granted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAccess"];
+                    };
+                };
+                /** @description Dates that describe a grant in force on no day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership or client at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already granted over those days, or the login cannot hold a grant */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-access/clients/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everybody at this client who can see its records
+         * @description The question a firm asks when a client rings up about somebody who has left. Historic rows included, for the same reason as the membership read.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The grants */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAccessListResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-access/memberships/{membershipId}/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What one portal login may read on a given day
+         * @description The resolved answer rather than the rows — the value the portal's own requests are scoped by. Useful to a firm checking what somebody can actually see today without reading half-open date ranges by eye.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The scope */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalScope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-access/grants/{grantId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a portal login seeing a client
+         * @description Never a delete — `bib_app` holds no DELETE grant on the table, and a grant removed answers 'who could see this in March' with silence.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    grantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndPortalAccessRequest"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalAccess"];
+                    };
+                };
+                /** @description An end date BEFORE the day it started */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such grant at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has already been ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite one of a client's own people into the portal
+         * @description ONE act, three writes: the account, a CLIENT_PORTAL membership, and gate 4's grant for ONE company — then the letter. Left as three calls every halfway state is silent and bad, the worst being a membership with no grant: the contact signs in to a portal that shows nothing and cannot tell that from a broken product. The firm never sees the token; it never holds its client's password.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["InvitePortalContactRequest"];
+                };
+            };
+            responses: {
+                /** @description Invited, and the letter is on its way */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalInvitation"];
+                    };
+                };
+                /** @description Not a valid email, or a role the firm has not published */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such client at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This person already holds a portal login here, or the client is archived */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-invites/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a password and sign in, from an invitation
+         * @description PUBLIC, because the person holding this link has no session and this is how they get their first. Single-use and expiring; the token travels in the BODY. Setting the password and opening the session are ONE call deliberately — a route that only set the password would leave somebody holding a spent token and a login screen, and one that only signed them in is a magic link that leaves them with no password at all. Malformed, unknown, expired, already-used and wrong-purpose all answer the same way, so nothing here can be used to discover whether an address has an account.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AcceptPortalInviteRequest"];
+                };
+            };
+            responses: {
+                /** @description The password is set and the session is open */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AcceptPortalInviteResponse"];
+                    };
+                };
+                /** @description The password is too short or too long */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The link is unknown, expired, already used, or not an invitation */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The client portal's status home
+         * @description What the firm is doing for the companies this login was granted, what is held up, and what has been filed. CLIENT_PORTAL sessions only — a staff session is refused rather than answered with an empty page. Every row is scoped by gate 4 in the database, not by a filter in the query.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The status home */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalStatusHome"];
+                    };
+                };
+                /** @description asOf is not an ISO date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or this is not a client-portal session */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-items": {
         parameters: {
             query?: never;
@@ -11607,6 +12167,12 @@ export interface components {
             audience: "STAFF" | "CLIENT_PORTAL" | null;
             role: string | null;
             commercialVisibility: boolean | null;
+            /** @description For a CLIENT_PORTAL session: the companies this login may read TODAY, by name — gate 4's answer, resolved once here rather than looked up per screen. NULL for a staff session, which is not scoped this way at all, and an EMPTY ARRAY for a portal contact who has been invited and granted nothing. Those two are different facts and the portal must not render them the same way: null is 'this question does not apply', empty is 'nothing yet, ask the firm'. */
+            portalScope: {
+                /** Format: uuid */
+                clientPartyId: string;
+                clientName: string;
+            }[] | null;
             permissions: string[];
         };
         MembershipSummary: {
@@ -12246,6 +12812,130 @@ export interface components {
         };
         MyClientsResponse: {
             clients: components["schemas"]["OwnedClient"][];
+        };
+        PortalAccess: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            clientPartyId: string;
+            clientName: string;
+            /** @description The person this login belongs to. BOTH halves are sent — `display_name` is nullable and genuinely empty at real firms, so a name alone cannot say whether we hold no name or there is no person. */
+            contactEmail: string;
+            contactDisplayName: string | null;
+            validFrom: string;
+            /** @description HALF-OPEN: the FIRST DAY NOT IN FORCE, never the last day of access. Null while the grant stands. Equal to `validFrom` when a grant was withdrawn on the day it was made — in force on no day at all, which is a real record and not a broken row. */
+            validTo: string | null;
+            /** @description Who let them in. Null when that account has since been erased — the grant stays readable, because who could see a client in March is not corrected by an account closing. */
+            grantedByEmail: string | null;
+            grantedByDisplayName: string | null;
+        };
+        PortalAccessListResponse: {
+            grants: components["schemas"]["PortalAccess"][];
+        };
+        PortalScope: {
+            /** Format: uuid */
+            membershipId: string;
+            onDate: string;
+            /** @description Exactly what this login may read on that day. An EMPTY list is a real answer and the state every portal login is in between being invited and being granted anything — it means 'nothing', never 'everything'. */
+            clientPartyIds: string[];
+        };
+        GrantPortalAccessRequest: {
+            /**
+             * Format: uuid
+             * @description ONE client. A contact who should see four of a group's companies is granted four times, deliberately: access is never derived from a group relationship, because the screen that records relationships is not reviewed as an access-control screen.
+             */
+            clientPartyId: string;
+            /** @description The day access starts. Send the BROWSER's calendar day — the server's is a day behind a firm in India every morning, and a grant starting 'today' would not be in force yet. Absent means the server's day, which is the honest fallback for a caller that did not say. */
+            validFrom?: string;
+            /** @description Optional end, half-open — the FIRST DAY NOT IN FORCE. Lets a fixed-term grant (a consultant engaged for a quarter) be written at the moment it is decided rather than relying on somebody remembering to close it. */
+            validTo?: string | null;
+        };
+        EndPortalAccessRequest: {
+            /** @description The FIRST DAY NOT IN FORCE. Absent means TODAY: remove means remove, and the access is gone on the next request rather than at midnight. Ending on the day the grant began is allowed and records an empty range — granted and withdrawn before it was ever in force. The row is then a day coarser than the truth; the `portal_access.ended` event carries the instant. */
+            validTo?: string;
+        };
+        PortalInvitation: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            userId: string;
+            /** Format: uuid */
+            grantId: string;
+            /**
+             * Format: date-time
+             * @description When the emailed link stops working. THE TOKEN IS NOT HERE and never will be: a firm that could read its client's invite link could sign in as that client. It exists in the mail and nowhere else.
+             */
+            expiresAt: string;
+        };
+        InvitePortalContactRequest: {
+            /** Format: email */
+            email: string;
+            /** @description What their firm calls them. Applied only when the ACCOUNT IS NEW — one firm inviting somebody is not grounds for renaming them at another, and the same human may hold a portal login at two. */
+            displayName?: string;
+            /**
+             * Format: uuid
+             * @description The ONE company this contact may read. Required, because an invite with no grant is a login that opens onto nothing — and the contact cannot tell that from a broken product. Somebody who should see four of a group's companies is granted the other three afterwards, one visible decision each.
+             */
+            clientPartyId: string;
+            /** @description The day the grant starts — send the BROWSER's calendar day. */
+            validFrom?: string;
+        };
+        AcceptPortalInviteResponse: {
+            /** @enum {boolean} */
+            ok: true;
+        };
+        AcceptPortalInviteRequest: {
+            /** @description The single-use token from the emailed link, sent in the BODY. Never in the path: a path lands in access logs and Referer headers, and this one is a credential until it is spent — the same rule the proposal share link follows. */
+            token: string;
+            /** @description The password being SET, not one being checked. Refused before the token is spent if it is too short, so somebody who typed something weak can try again with the same link rather than going back to the firm. */
+            password: string;
+        };
+        PortalCompany: {
+            /** Format: uuid */
+            clientPartyId: string;
+            clientName: string;
+        };
+        PortalWorkRow: {
+            /** Format: uuid */
+            workItemId: string;
+            title: string;
+            /** @description Which of your companies this is about. NULL is a real answer — work about the relationship rather than one company has no entity (migration 0051). */
+            companyName: string | null;
+            /** @description The firm's OWN word for where this has got to, not the engine's. Nothing in the product compares these — they are rows the firm edits. */
+            stateName: string;
+            isHeldUp: boolean;
+            openedOn: string;
+            /** @description Present ONLY where the date comes from a statute. The firm's own turnaround times have never been given, so a deadline this product derived is a promise nobody made to you — elapsed time from `openedOn` is a fact, and that is what is carried instead. */
+            statutoryDueOn: string | null;
+            heldUpSince: string | null;
+            /** @description What the firm recorded it is waiting for. Both this and `heldUpSince` are present together or not at all — a trigger insists a held-up task carries a reason. */
+            heldUpReason: string | null;
+        };
+        PortalFilingRow: {
+            /** Format: uuid */
+            obligationId: string;
+            name: string;
+            companyName: string;
+            /** @description "Aug 2026", "Q2 FY2026-27". */
+            periodLabel: string;
+            /** @description The LAW's date. The firm's own internal target — T–X, its working margin — is deliberately not on this response: showing it to a client turns the margin into the deadline, which is the opposite of what it is for. */
+            statutoryDueOn: string;
+            stateName: string;
+            filedOn: string | null;
+        };
+        PortalStatusHome: {
+            /** @description The companies this login may read TODAY, by name. AN EMPTY ARRAY IS A REAL ANSWER and means invited-but-granted-nothing: the screen must say so rather than going blank, because 'nothing yet, ask the firm' and 'nothing is happening' are different sentences and only one of them is true. */
+            companies: components["schemas"]["PortalCompany"][];
+            inProgress: components["schemas"]["PortalWorkRow"][];
+            /** @description Work the firm cannot move on, with what it is waiting for. Named HELD UP rather than 'waiting on you' deliberately: nothing in this schema records who a task is waiting on, and the reason reads 'the client has not sent the purchase register' as readily as 'the GST portal is down'. A client-directed ask with its own answer is T6.6. */
+            heldUp: components["schemas"]["PortalWorkRow"][];
+            /** @description Still owed. Anything due within 90 days, plus everything already overdue whatever its date — a passed deadline is the row that must never fall out of a forward window. */
+            upcomingFilings: components["schemas"]["PortalFilingRow"][];
+            /** @description Filed in the last 90 days. Keyed on `filedOn` and not on the state being terminal: a deadline that was MISSED and then resolved is also terminal, and calling that 'filed' would be a false statement about a statutory return. */
+            recentlyFiled: components["schemas"]["PortalFilingRow"][];
+            asOf: string;
         };
         WorkItemState: {
             /** Format: uuid */

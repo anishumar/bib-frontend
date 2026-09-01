@@ -33,6 +33,16 @@ export const api = createClient<paths>({
 /** The shapes the app actually names, pulled off the generated schema so they
  *  track the API rather than being retyped by hand. */
 export type Principal = paths["/api/v1/auth/me"]["get"]["responses"][200]["content"]["application/json"];
+/**
+ * What signing in answers with — the principal, and every firm this login
+ * belongs to.
+ *
+ * The sign-in page reads it to decide WHICH HALF of the product to open: this
+ * is a B2B2C product and a firm's staff and a firm's clients use the same form.
+ */
+export type SignInResponse =
+  paths["/api/v1/auth/login"]["post"]["responses"][200]["content"]["application/json"];
+
 export type Membership =
   paths["/api/v1/tenancy/me/memberships"]["get"]["responses"][200]["content"]["application/json"]["memberships"][number];
 
@@ -926,6 +936,27 @@ export const AGEING_LABELS: Readonly<Record<string, string>> = {
   d90_plus: "Over 90 days",
   no_due_date: "No due date set",
 };
+
+/**
+ * The client portal's status home (T6.5) — the FIRST shape in this file that a
+ * person outside the firm reads.
+ *
+ * Two fields on it are facts rather than data, and the portal renders them as
+ * such: `companies` EMPTY means invited-but-granted-nothing (which the screen
+ * must say, not draw as a blank page), and `statutoryDueOn` is NULL on
+ * everything the law did not date — the firm's own turnaround times have never
+ * been given, so a deadline this product derived is a promise nobody made.
+ */
+export type PortalStatusHome =
+  paths["/api/v1/portal/home"]["get"]["responses"][200]["content"]["application/json"];
+
+/** A piece of the firm's work, as its client reads it. No assignee, no
+ *  priority, no internal note — see the API's own schema for why each is
+ *  absent. */
+export type PortalWorkRow = PortalStatusHome["inProgress"][number];
+
+/** A statutory filing one of the client's companies owes, or has made. */
+export type PortalFilingRow = PortalStatusHome["upcomingFilings"][number];
 
 /** The one error shape the API emits — every failure, every route. */
 export interface ApiError {
