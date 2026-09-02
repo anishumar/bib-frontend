@@ -353,7 +353,15 @@ function AskLine({
             "replied"
           )}{" "}
           · {longDay(r.respondedAt)}
-          {r.answerText !== null && <div>&ldquo;{r.answerText}&rdquo;</div>}
+          {/* A SPAN, not a div: this sits inside the <p> above, and a <div>
+              there is invalid HTML. The browser silently closes the
+              paragraph around it, so it LOOKS right and React reports a
+              hydration mismatch on every render of this panel — visible
+              only in the console, which is why it survived T6.6. `display:
+              block` is what a div was doing here anyway. */}
+          {r.answerText !== null && (
+            <span style={{ display: "block" }}>&ldquo;{r.answerText}&rdquo;</span>
+          )}
         </p>
       ))}
 

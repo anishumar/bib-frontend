@@ -41,6 +41,8 @@ export default function StructurePage() {
   const router = useRouter();
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [split, setSplit] = useState<WorkSplitAxis>("none");
+  // UTC until the firm chooses, which is what every firm had before 0071.
+  const [zone, setZone] = useState<string>("UTC");
   const [routing, setRouting] = useState<RequestRouting>("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export default function StructurePage() {
     }
     setAxes(structure.data.axes);
     setSplit(structure.data.workSplitAxis);
+    setZone(structure.data.timeZone);
     // The routing setting is read off the INBOX rather than from a settings
     // route of its own: `GET /client-requests` already carries it, because a
     // screen showing that list has to be able to say why nothing is assigned.
@@ -131,6 +134,12 @@ export default function StructurePage() {
     );
   }
 
+  function chooseZone(timeZone: string): void {
+    void act("zone", () =>
+      api.PUT("/api/v1/tenancy/structure/time-zone", { body: { timeZone } }),
+    );
+  }
+
   function chooseRouting(next: RequestRouting): void {
     void act("routing", () =>
       api.PUT("/api/v1/tenancy/client-request-routing", { body: { routing: next } }),
@@ -164,6 +173,8 @@ export default function StructurePage() {
         busy={busy === "routing"}
         onChoose={chooseRouting}
       />
+
+      <TimeZoneChooser chosen={zone} busy={busy === "zone"} onChoose={chooseZone} />
 
       <WorkSplitChooser
         chosen={split}
@@ -212,6 +223,68 @@ export default function StructurePage() {
  * exists; offering it would produce the API's refusal, which is a worse way to
  * learn the same thing.
  */
+/**
+ * Which calendar this firm's months and days are cut on.
+ *
+ * A LABELLED select, not a bare one: T6.9's walk found an unlabelled full-width
+ * picker on the request inbox and it read as decoration. The list is short and
+ * curated rather than all 400-odd zones — a firm picks this once, and a
+ * scrolling wall of them is harder to answer than five names.
+ *
+ * The firm's CURRENT value is always in the list even when it is not one of the
+ * five, so opening this screen can never silently offer to change a setting
+ * somebody made deliberately.
+ */
+const COMMON_ZONES: readonly { readonly value: string; readonly label: string }[] = [
+  { value: "Asia/Kolkata", label: "India — Asia/Kolkata" },
+  { value: "Asia/Dubai", label: "United Arab Emirates — Asia/Dubai" },
+  { value: "Asia/Singapore", label: "Singapore — Asia/Singapore" },
+  { value: "Europe/London", label: "United Kingdom — Europe/London" },
+  { value: "America/New_York", label: "United States (Eastern) — America/New_York" },
+  { value: "UTC", label: "UTC — no country's calendar" },
+];
+
+function TimeZoneChooser({
+  chosen,
+  busy,
+  onChoose,
+}: {
+  chosen: string;
+  busy: boolean;
+  onChoose: (zone: string) => void;
+}) {
+  const options = COMMON_ZONES.some((z) => z.value === chosen)
+    ? COMMON_ZONES
+    : [...COMMON_ZONES, { value: chosen, label: chosen }];
+  return (
+    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+      <h2 className="card-title">Which calendar are your months counted on?</h2>
+      <p className="muted" style={{ maxWidth: "62ch" }}>
+        This decides which month a document falls into on a client&rsquo;s{" "}
+        <strong>Month by month</strong> page, and which day the client chaser counts from. It
+        does <strong>not</strong> change how any date is displayed — everybody always sees dates
+        in their own local time.
+      </p>
+      <label className="field" style={{ maxWidth: "42ch" }}>
+        <span className="field-label">The firm&rsquo;s time zone</span>
+        <select
+          value={chosen}
+          disabled={busy}
+          onChange={(e) => { onChoose(e.target.value); }}
+        >
+          {options.map((z) => (
+            <option key={z.value} value={z.value}>{z.label}</option>
+          ))}
+        </select>
+      </label>
+      <p className="muted text-sm">
+        Changing this re-cuts what a past month page <em>shows</em> at its edges, because that
+        page is worked out when it is opened. Nothing stored moves.
+      </p>
+    </div>
+  );
+}
+
 function WorkSplitChooser({
   chosen,
   deptCount,

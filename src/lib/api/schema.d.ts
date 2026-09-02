@@ -1860,6 +1860,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/structure/time-zone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose which calendar this firm's months and days are cut on
+         * @description An IANA zone. It decides which calendar MONTH a document falls into on a client's month view, and which calendar DAY the chaser counts from — NOT how any date is displayed, which is always the reader's own zone. Changing it restates nothing stored, and does re-cut what a past month view SHOWS, because that page is computed on read.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetTimeZoneRequest"];
+                };
+            };
+            responses: {
+                /** @description The zone now in force */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            timeZone: string;
+                        };
+                    };
+                };
+                /** @description Not a time zone this system knows */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/obligation-rules": {
         parameters: {
             query?: never;
@@ -14353,6 +14425,7 @@ export interface components {
              * @enum {string}
              */
             workSplitAxis: "none" | "dept" | "team";
+            timeZone: string;
         };
         CreateServiceAxisRequest: {
             /**
@@ -14380,6 +14453,9 @@ export interface components {
              * @enum {string}
              */
             workSplitAxis: "none" | "dept" | "team";
+        };
+        SetTimeZoneRequest: {
+            timeZone: string;
         };
         ObligationDueRule: {
             /**
