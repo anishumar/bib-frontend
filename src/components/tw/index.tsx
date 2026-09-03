@@ -85,11 +85,16 @@ export function Page({
 export function PageHeader({
   eyebrow,
   title,
+  titleMono,
   lede,
   actions,
 }: {
   eyebrow?: string | undefined;
   title: string;
+  /** For a title that IS an identifier — an invoice number, a reference. It
+   *  gets the mono face the rest of the product gives a figure, without the
+   *  caller passing markup into a heading that has exactly one job. */
+  titleMono?: boolean;
   lede?: ReactNode;
   actions?: ReactNode;
 }): JSX.Element {
@@ -99,7 +104,9 @@ export function PageHeader({
         {eyebrow !== undefined && (
           <p className="mb-1 text-xs uppercase tracking-[0.11em] text-faint">{eyebrow}</p>
         )}
-        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+        <h1 className={cn("text-2xl font-semibold text-ink", titleMono === true && "mono")}>
+          {title}
+        </h1>
         {lede !== undefined && (
           <div className="mt-2 max-w-[var(--measure)] text-sm text-muted">{lede}</div>
         )}
@@ -259,7 +266,19 @@ export function TableWrap({ children }: { children: ReactNode }): JSX.Element {
 
 export function Table({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <table className="w-full min-w-max border-collapse text-md">{children}</table>
+    <table
+      className={cn(
+        "w-full min-w-max border-collapse text-md",
+        // THE LAST ROW DRAWS NO RULE. `components.css` has always had this and
+        // the first ported table did not, which left a stray line hanging
+        // under the totals of an invoice with nothing beneath it. A rule
+        // separates two rows; under the last one it separates a row from
+        // nothing.
+        "[&_tbody_tr:last-child_td]:border-b-0",
+      )}
+    >
+      {children}
+    </table>
   );
 }
 

@@ -21,8 +21,19 @@ import type {
   InvoiceRecord,
   Payment,
 } from "@/lib/api/client";
-import { Meta, MetaItem, Pill, Td, Th } from "@/components/ui";
-import { Page, PageHeader } from "@/components/layout";
+import { Meta, MetaItem } from "@/components/ui";
+import {
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Pill,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/tw";
 import { browserDay } from "@/lib/day";
 
 /**
@@ -109,7 +120,7 @@ export default function InvoicePage() {
     setBusy(false);
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
   if (record === null) {
     return (
       <Page>
@@ -132,17 +143,23 @@ export default function InvoicePage() {
 
       <PageHeader
         eyebrow="Commercial"
-        title={<span className="mono">{invoice.number}</span>}
-        aside={
-          <Pill tone={invoice.status === "cancelled" ? "danger" : issued ? "accent" : "neutral"}>
+        /* The number IS the identifier, so it keeps the mono face the rest of
+           the product gives an identifier — `PageHeader` applies it here
+           rather than taking markup, since an h1 has exactly one job. */
+        title={invoice.number}
+        titleMono
+        actions={
+          /* `ok`, not `accent`. Same word, different meaning under Tailwind —
+             see the note in tailwind.css. */
+          <Pill tone={invoice.status === "cancelled" ? "danger" : issued ? "ok" : "neutral"}>
             {invoice.status}
           </Pill>
         }
       />
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && <Notice tone="danger" role="alert">{error}</Notice>}
 
-      <div className="card" style={{ marginBottom: "var(--s-4)" }}>
+      <Card>
         <Meta>
           <MetaItem label="Bill to">{record.party.displayName}</MetaItem>
           {/* WHO IS CHARGING — one of the firm's own entities, and the owner of
@@ -164,12 +181,12 @@ export default function InvoicePage() {
             </span>
           </MetaItem>
         </Meta>
-      </div>
+      </Card>
 
       {/* ── The money, as the database computed it ─────────────────────── */}
       {balance !== null && (
-        <div className="card">
-          <h2 className="card-title">What is owed</h2>
+        <Card>
+          <CardTitle level={2}>What is owed</CardTitle>
           <Meta>
             <MetaItem label="Invoiced">
               <span className="mono">{formatMoney(balance.invoiced, balance.currency)}</span>
@@ -188,32 +205,33 @@ export default function InvoicePage() {
             </MetaItem>
           </Meta>
           {Number(balance.outstanding) < 0 && (
-            <p className="field-hint">
+            <p className="max-w-[var(--measure)] text-sm text-muted">
               More has been received than was billed — an overpayment, or one transfer settling
               more than this invoice.
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── The lines ──────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: "var(--s-4)" }}>
-        <h2 className="card-title">Lines</h2>
+      <Card>
+        <CardTitle level={2}>Lines</CardTitle>
         {record.lines.length === 0 ? (
-          <p className="muted">
+          <p className="text-sm text-muted">
             Nothing on it yet. An invoice with no lines asks the client for nothing, and the API
             refuses to issue one.
           </p>
         ) : (
-          <table className="table">
+          <TableWrap>
+        <Table>
             <thead>
               <tr>
                 <Th>Description</Th>
-                <Th style={{ textAlign: "right" }}>Qty</Th>
-                <Th style={{ textAlign: "right" }}>Unit</Th>
-                <Th style={{ textAlign: "right" }}>Disc.</Th>
-                <Th style={{ textAlign: "right" }}>Tax</Th>
-                <Th style={{ textAlign: "right" }}>Net</Th>
+                <Th align="right">Qty</Th>
+                <Th align="right">Unit</Th>
+                <Th align="right">Disc.</Th>
+                <Th align="right">Tax</Th>
+                <Th align="right">Net</Th>
                 {draft && <Th />}
               </tr>
             </thead>
@@ -221,28 +239,28 @@ export default function InvoicePage() {
               {record.lines.map((l) => (
                 <tr key={l.id}>
                   <Td>{l.description}</Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatCount(l.quantity)}
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(l.unitAmount, l.currency)}
                   </Td>
                   {/* A discount is a price, so the fee axis takes it too — an
                       em dash rather than "0%", which would be a figure this
                       reader was not shown rather than one that is true. */}
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
                   </Td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatCount(l.taxPercent)}% · {formatMoney(l.tax, l.currency)}
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(l.net, l.currency)}
                   </Td>
                   {draft && (
-                    <Td style={{ textAlign: "right" }}>
+                    <Td align="right">
                       <button
                         className="btn" data-variant="secondary" data-size="sm"
                         disabled={busy}
@@ -264,26 +282,27 @@ export default function InvoicePage() {
             <tfoot>
               <tr>
                 <Td colSpan={4} />
-                <Td style={{ textAlign: "right" }} className="label">
+                <Td align="right" className="label">
                   Tax
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   {formatMoney(record.totals.tax, record.totals.currency)}
                 </Td>
                 {draft && <Td />}
               </tr>
               <tr>
                 <Td colSpan={4} />
-                <Td style={{ textAlign: "right" }} className="label">
+                <Td align="right" className="label">
                   Total
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   <strong>{formatMoney(record.totals.total, record.totals.currency)}</strong>
                 </Td>
                 {draft && <Td />}
               </tr>
             </tfoot>
-          </table>
+          </Table>
+        </TableWrap>
         )}
 
         {draft && (
@@ -343,13 +362,13 @@ export default function InvoicePage() {
             </button>
           </form>
         )}
-      </div>
+      </Card>
 
       {/* ── Issue, cancel, register ────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: "var(--s-4)" }}>
-        <h2 className="card-title">The document</h2>
+      <Card>
+        <CardTitle level={2}>The document</CardTitle>
         {!mayAdmin && (draft || issued) && (
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Issuing and cancelling need <span className="mono">tenant:admin</span>: both leave
             a permanent mark in a consecutive series a tax authority may ask about.
           </p>
@@ -383,7 +402,7 @@ export default function InvoicePage() {
           )}
         </div>
         {invoice.status === "cancelled" && (
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Cancelled — and it keeps its number. The series stays consecutive, which is what shows
             an auditor where a number went. A replacement is a new invoice.
           </p>
@@ -419,7 +438,7 @@ export default function InvoicePage() {
                     Record the e-invoice reference
                   </label>
                   <input className="input" id="irn" name="irn" required />
-                  <p className="field-hint">
+                  <p className="max-w-[var(--measure)] text-sm text-muted">
                     Obtained from the IRP elsewhere. It is the registry&apos;s identifier for this
                     document and cannot be replaced once recorded.
                   </p>
@@ -433,21 +452,22 @@ export default function InvoicePage() {
             </form>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* ── Money against it ───────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: "var(--s-4)" }}>
-        <h2 className="card-title">Payments</h2>
+      <Card>
+        <CardTitle level={2}>Payments</CardTitle>
         {payments.length === 0 ? (
-          <p className="muted">Nothing received.</p>
+          <p className="text-sm text-muted">Nothing received.</p>
         ) : (
-          <table className="table">
+          <TableWrap>
+        <Table>
             <thead>
               <tr>
                 <Th>Received</Th>
                 <Th>Method</Th>
                 <Th>Reference</Th>
-                <Th style={{ textAlign: "right" }}>Amount</Th>
+                <Th align="right">Amount</Th>
               </tr>
             </thead>
             <tbody>
@@ -459,13 +479,14 @@ export default function InvoicePage() {
                   {/* A NEGATIVE payment is a reversal — a bounced cheque — and
                       it is a row of its own beside the original rather than the
                       original edited away. Both are shown, which is the point. */}
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(p.amount, p.currency)}
                   </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
+        </TableWrap>
         )}
 
         {issued && (
@@ -494,7 +515,7 @@ export default function InvoicePage() {
                   Amount
                 </label>
                 <input className="input" id="amount" name="amount" required />
-                <p className="field-hint">Negative for a reversal.</p>
+                <p className="max-w-[var(--measure)] text-sm text-muted">Negative for a reversal.</p>
               </div>
               <div>
                 <label className="label" htmlFor="receivedOn">
@@ -533,26 +554,27 @@ export default function InvoicePage() {
           </form>
         )}
         {!issued && (
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Money attaches only to an issued invoice: a draft has asked for nothing, and a
             cancelled one is a refund rather than a settlement.
           </p>
         )}
-      </div>
+      </Card>
 
       {/* ── Credit notes ───────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: "var(--s-4)" }}>
-        <h2 className="card-title">Credit notes</h2>
+      <Card>
+        <CardTitle level={2}>Credit notes</CardTitle>
         {credits.length === 0 ? (
-          <p className="muted">Nothing credited.</p>
+          <p className="text-sm text-muted">Nothing credited.</p>
         ) : (
-          <table className="table">
+          <TableWrap>
+        <Table>
             <thead>
               <tr>
                 <Th>Number</Th>
                 <Th>Issued</Th>
                 <Th>Why</Th>
-                <Th style={{ textAlign: "right" }}>Amount</Th>
+                <Th align="right">Amount</Th>
               </tr>
             </thead>
             <tbody>
@@ -565,16 +587,17 @@ export default function InvoicePage() {
                   <Td>
                     {CREDIT_REASON_LABELS[c.reason]}
                     {c.note !== null && (
-                      <div className="muted text-sm">{c.note}</div>
+                      <div className="text-sm text-muted">{c.note}</div>
                     )}
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(c.amount, c.currency)}
                   </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
+        </TableWrap>
         )}
 
         {issued && mayAdmin && (
@@ -614,7 +637,7 @@ export default function InvoicePage() {
                 </select>
                 {/* The reason is mandatory and closed because without it the
                     numbers always reconcile and WHY money came off does not. */}
-                <p className="field-hint">
+                <p className="max-w-[var(--measure)] text-sm text-muted">
                   A category, not a sentence: &ldquo;how much did we write off to service
                   failures&rdquo; is a question free text cannot answer.
                 </p>
@@ -632,18 +655,19 @@ export default function InvoicePage() {
           </form>
         )}
         {issued && !mayAdmin && (
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Issuing a credit note needs <span className="mono">tenant:admin</span>: it takes
             money off a legal document, and somebody has to answer for it later.
           </p>
         )}
-      </div>
+      </Card>
 
       {/* ── How far it has been chased ─────────────────────────────────── */}
       {chased.length > 0 && (
-        <div className="card">
-          <h2 className="card-title">Chased</h2>
-          <table className="table">
+        <Card>
+          <CardTitle level={2}>Chased</CardTitle>
+          <TableWrap>
+        <Table>
             <thead>
               <tr>
                 <Th>Step</Th>
@@ -657,7 +681,7 @@ export default function InvoicePage() {
                 <tr key={a.id}>
                   <Td className="mono">{a.step}</Td>
                   <Td>{a.action.replace("_", " ")}</Td>
-                  <Td className="muted">D+{a.afterDays}</Td>
+                  <Td className="text-sm text-muted">D+{a.afterDays}</Td>
                   <Td>
                     <span className="pill" data-tone={a.state === "rejected" ? "danger" : a.state === "approved" ? "accent" : "neutral"}>
                       {a.state.replace("_", " ")}
@@ -666,13 +690,14 @@ export default function InvoicePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-          <p className="field-hint">
+          </Table>
+        </TableWrap>
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             The worker climbs the ladder on its own. Credit hold and legal action are the two
             rungs it may reach and not apply — those wait for a partner on{" "}
             <Link href="/receivables">Receivables</Link>.
           </p>
-        </div>
+        </Card>
       )}
       {/* An invoice's own paperwork — the issued PDF once T3.8 renders one, the
           client's remittance advice, a signed challan. `party:write` decides
