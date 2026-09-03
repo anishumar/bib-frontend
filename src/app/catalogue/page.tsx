@@ -8,7 +8,7 @@ import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
 import { Meta, MetaItem, NotStated, Prose } from "@/components/ui";
-import { Page, PageHeader } from "@/components/layout";
+import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
 
 /**
  * What the firm sells, the terms it sells under, and the one rule it sells by.
@@ -141,7 +141,7 @@ export default function CataloguePage() {
     );
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
 
   const canWrite = permissions.includes("tenant:admin");
   const rows = services.map(serviceRow);
@@ -166,11 +166,11 @@ export default function CataloguePage() {
       {rows.length > 0 && <Axes rows={rows} />}
 
       {rows.length === 0 ? (
-        <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-          <p className="muted">
+        <Card>
+          <p className="text-sm text-muted">
             Nothing in the catalogue yet.
           </p>
-        </div>
+        </Card>
       ) : (
         groups.map((group) => (
           <section key={group.module ?? ""}>
@@ -182,7 +182,10 @@ export default function CataloguePage() {
                 <NotStated>filed under no Dept</NotStated>
               ) : (
                 <span>{group.module}</span>
-              )}
+              )}{" "}
+              {/* `{" "}` and not a newline: JSX drops whitespace that spans a
+                  line break, so these two spans rendered as "FRC· 2 services"
+                  with the space missing, on every group heading. */}
               <span className="annot">
                 · {group.rows.length} {group.rows.length === 1 ? "service" : "services"}
               </span>
@@ -205,9 +208,9 @@ export default function CataloguePage() {
       )}
 
       {canWrite && (
-        <div className="card" style={{ margin: "var(--s-5) 0" }}>
-          <h2 className="card-title">Add a service</h2>
-          <p className="muted text-md">
+        <Card>
+          <CardTitle level={2}>Add a service</CardTitle>
+          <p className="text-md text-muted">
             Everything but the name, the handle and how it is charged is optional, and blank
             means the firm has not stated it — which is a real answer the record will show as
             such. Nothing blank is sent.
@@ -233,7 +236,7 @@ export default function CataloguePage() {
                   placeholder="gst-filing"
                   required
                 />
-                <p className="field-hint">
+                <p className="max-w-[var(--measure)] text-sm text-muted">
                   Lower case, url-safe, permanent. Every issued document resolves through it.
                 </p>
               </div>
@@ -243,18 +246,18 @@ export default function CataloguePage() {
             <button className="btn" type="submit" disabled={busy !== null}>
               Add as a draft
             </button>
-            <p className="muted text-sm">
+            <p className="text-sm text-muted">
               Defining does not put it in force. Publish it, and from then on the version it
               was quoted at is frozen — which is what lets a proposal reopened next year still
               show the price it was sent at.
             </p>
           </form>
-        </div>
+        </Card>
       )}
 
-      <div className="card">
-        <h2 className="card-title">Standard terms</h2>
-        <p className="muted text-md">
+      <Card>
+        <CardTitle level={2}>Standard terms</CardTitle>
+        <p className="text-md text-muted">
           The clause library an engagement letter is assembled from. Each clause carries where
           it may be USED (its jurisdictions) and, separately, what it SAYS — whose law governs
           and which courts hear a dispute. Those are not the same fact: a clause applicable in
@@ -262,15 +265,15 @@ export default function CataloguePage() {
           by the firm&apos;s US entity.
         </p>
         {clauses.length === 0 ? (
-          <p className="muted">No clauses defined yet.</p>
+          <p className="text-sm text-muted">No clauses defined yet.</p>
         ) : (
           clauses.map((entry) => <ClauseCard key={entry.entry.id} entry={entry} />)
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">Discount limit</h2>
-        <p className="muted text-md">
+      <Card>
+        <CardTitle level={2}>Discount limit</CardTitle>
+        <p className="text-md text-muted">
           {discountLimit === null || discountLimit === ""
             ? "None published — so ANY discount needs sign-off from somebody holding proposal:approve. A firm that has never set a limit has not decided that anything goes."
             : `${discountLimit}% off without sign-off. Past it, a proposal cannot be sent until somebody holding proposal:approve has approved it.`}
@@ -315,14 +318,14 @@ export default function CataloguePage() {
             </div>
             {noteFor("policy")}
             {discount !== undefined && (
-              <p className="muted text-sm">
+              <p className="text-sm text-muted">
                 A new version is a draft until it is published — the limit in force does not
                 move until then.
               </p>
             )}
           </form>
         )}
-      </div>
+      </Card>
     </Page>
   );
 }
@@ -364,7 +367,7 @@ function ServiceCard({
             {body.ref}
           </span>
         )}
-        <h3 className="card-title">{body.name === "" ? row.key : body.name}</h3>
+        <CardTitle>{body.name === "" ? row.key : body.name}</CardTitle>
         <span className="mono muted">{row.key}</span>
         <span style={{ marginLeft: "auto" }}>
           {published === null ? (
@@ -387,7 +390,7 @@ function ServiceCard({
         // not "still loading", it is a row the API could not resolve. Saying so
         // beats rendering "not stated" against every field, which would be that
         // lie in full.
-        <p className="muted text-md">
+        <p className="text-md text-muted">
           Its versions could not be read, so what this service says is unknown here.
         </p>
       ) : (
@@ -399,7 +402,7 @@ function ServiceCard({
 
       {draft !== null && (
         <div style={{ marginTop: "var(--s-5)" }}>
-          <p className="muted text-md">
+          <p className="text-md text-muted">
             {published === null
               ? `Draft v${draft.version} is what would go in force. Nothing is quoting this service until it is published.`
               : `A draft v${draft.version} is waiting. It changes nothing until it is published — v${published.version} above is what proposals still resolve.`}
@@ -443,7 +446,7 @@ function ServiceCard({
               onNewVersion(row.key, form);
             }}
           >
-            <p className="muted text-sm">
+            <p className="text-sm text-muted">
               A new version is a WHOLE new body, so this starts as a copy of what is in force.
               Clearing a field here means the new version does not state it — which is a
               change, not a blank.
@@ -505,7 +508,7 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
       </MetaItem>
       <MetaItem label="Offered in">
         {body.jurisdictions.length === 0 ? (
-          <span className="muted">everywhere</span>
+          <span className="text-sm text-muted">everywhere</span>
         ) : (
           <span className="mono">{body.jurisdictions.join(", ")}</span>
         )}
@@ -557,7 +560,7 @@ function ServiceProse({ body }: { body: ServiceRecord }) {
  */
 function Axes({ rows }: { rows: ServiceRow[] }) {
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
+    <Card>
       <Meta>
         <MetaItem label="By Dept — what revenue is reported by">
           <AxisChips counts={countBy(rows, (b) => b.module)} />
@@ -566,11 +569,11 @@ function Axes({ rows }: { rows: ServiceRow[] }) {
           <AxisChips counts={countBy(rows, (b) => b.group)} />
         </MetaItem>
       </Meta>
-      <p className="muted text-sm">
+      <p className="text-sm text-muted">
         Two independent dimensions, not a hierarchy: one delivery team works under more than
         one Dept, so a service has each of these separately.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -600,10 +603,10 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         marginTop: "var(--s-4)",
       }}
     >
-      <div className="card-head">
-        <h3 className="card-title">{body.title === "" ? entry.entry.key : body.title}</h3>
-        <span className="mono muted">{entry.entry.key}</span>
-        <span style={{ marginLeft: "auto" }}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <CardTitle>{body.title === "" ? entry.entry.key : body.title}</CardTitle>
+        <span className="mono text-muted">{entry.entry.key}</span>
+        <span className="ml-auto">
           {entry.published === null ? (
             <span className="pill" data-tone="danger">
               draft only — never in force
@@ -620,7 +623,7 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         // that has only ever been a draft has no body here. Saying that is the
         // honest render; a record of "not stated" everywhere would read as a
         // clause that names no law, which is a different and much worse claim.
-        <p className="muted text-md">
+        <p className="text-md text-muted">
           Never published, so what it says is not on this list. No letter can pin it.
         </p>
       ) : (
@@ -631,7 +634,7 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
                   two below are that, and the gap between them is how a US
                   entity's letter went out naming Indian law. */}
               {body.jurisdictions.length === 0 ? (
-                <span className="muted">everywhere</span>
+                <span className="text-sm text-muted">everywhere</span>
               ) : (
                 <span className="mono">{body.jurisdictions.join(", ")}</span>
               )}
@@ -725,7 +728,7 @@ function ServiceFields({
             maxLength={32}
             defaultValue={defaults?.ref ?? ""}
           />
-          <p className="field-hint">The firm&apos;s own code. Printed on proposals.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">The firm&apos;s own code. Printed on proposals.</p>
         </div>
         <div>
           <label className="label" htmlFor={`${id}-billingBasis`}>
@@ -744,7 +747,7 @@ function ServiceFields({
               </option>
             ))}
           </select>
-          <p className="field-hint">What the price is a price OF.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">What the price is a price OF.</p>
         </div>
       </div>
 
@@ -801,7 +804,7 @@ function ServiceFields({
                 </option>
               ))}
           </select>
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             The process every job for this service follows.{" "}
             <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
             real answer — the work is created and waits, visibly, rather than running a
@@ -829,7 +832,7 @@ function ServiceFields({
               </option>
             ))}
           </select>
-          <p className="field-hint">How often the work comes round. Not how it is billed.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">How often the work comes round. Not how it is billed.</p>
         </div>
         <div>
           <label className="label" htmlFor={`${id}-slaDays`}>
@@ -846,7 +849,7 @@ function ServiceFields({
             placeholder="30"
             defaultValue={defaults?.slaDays ?? ""}
           />
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing.
           </p>
         </div>
@@ -888,7 +891,7 @@ function ServiceFields({
             placeholder="As mutually agreed"
             defaultValue={defaults?.pricingNote ?? ""}
           />
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Why there is no list price — and allowed beside one, for &quot;plus statutory fees
             at actuals&quot;.
           </p>
@@ -918,7 +921,7 @@ function ServiceFields({
             placeholder="IN, AE"
             defaultValue={defaults?.jurisdictions.join(", ") ?? ""}
           />
-          <p className="field-hint">ISO codes, comma separated. Blank means everywhere.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">ISO codes, comma separated. Blank means everywhere.</p>
         </div>
         <div style={{ flex: "3 1 260px" }}>
           <label className="label" htmlFor={`${id}-description`}>
@@ -950,7 +953,7 @@ function ServiceFields({
           </div>
         ))}
       </div>
-      <p className="field-hint">
+      <p className="max-w-[var(--measure)] text-sm text-muted">
         The firm&apos;s own words, as the firm states them — &quot;under 1,000 entries; under 8
         bank accounts&quot;. Nothing is metered against them: past a ceiling the firm
         re-assesses the engagement.
@@ -1393,7 +1396,7 @@ function AxisPicker({
           placeholder={placeholder}
           defaultValue={current ?? ""}
         />
-        <p className="field-hint">
+        <p className="max-w-[var(--measure)] text-sm text-muted">
           {hint} This firm has not defined its list yet, so anything upper-case is accepted —
           define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
           picker.
@@ -1425,7 +1428,7 @@ function AxisPicker({
           <option value={current}>{current} — no longer on this firm&apos;s list</option>
         )}
       </select>
-      <p className="field-hint">
+      <p className="max-w-[var(--measure)] text-sm text-muted">
         {hint}
         {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
       </p>
