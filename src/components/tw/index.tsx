@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 /**
  * The Tailwind-native layout primitives — `src/components/ui` re-expressed in
@@ -113,12 +114,17 @@ export function Section({
   title,
   lede,
   level = 3,
+  count,
   actions,
   children,
 }: {
   title: string;
   lede?: ReactNode;
   level?: 2 | 3;
+  /** How many rows are under this heading. Two rows and twenty read the same
+   *  until you scroll, and the nav already states counts this way — so a
+   *  section can say its own size without the reader going to find out. */
+  count?: number | undefined;
   actions?: ReactNode;
   children: ReactNode;
 }): JSX.Element {
@@ -127,7 +133,12 @@ export function Section({
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Heading className="text-lg font-semibold text-ink">{title}</Heading>
+          <Heading className="text-lg font-semibold text-ink">
+            {title}
+            {count !== undefined && (
+              <span className="mono ml-2 text-sm font-normal text-faint">{count}</span>
+            )}
+          </Heading>
           {lede !== undefined && (
             <div className="mt-1 max-w-[var(--measure)] text-sm text-muted">{lede}</div>
           )}
@@ -343,25 +354,43 @@ export function Pill({
 export function Notice({
   children,
   tone = "info",
+  eyebrow,
+  actions,
   role,
 }: {
   children: ReactNode;
-  tone?: "info" | "warn" | "danger";
+  /** `ok` is for a thing that needs doing but is nobody's FAULT — the firm
+   *  asking its client for a document is the ordinary business of an
+   *  engagement, and a red panel on somebody's own page is an accusation. */
+  tone?: "info" | "ok" | "warn" | "danger";
+  eyebrow?: string | undefined;
+  /** Sits on the RIGHT, on one line with the text where there is room. A
+   *  button stacked under two lines of prose costs eighty pixels and reads as
+   *  a separate step from the sentence that explains it. */
+  actions?: ReactNode;
   role?: "alert" | "status";
 }): JSX.Element {
   return (
     <div
       {...(role === undefined ? {} : { role })}
       className={cn(
-        "rounded-md border px-4 py-3 text-sm",
+        "flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border-l-2 py-3 pl-4 pr-4 text-sm",
         tone === "danger"
-          ? "border-danger bg-danger-wash text-danger"
+          ? "border-l-danger bg-danger-wash text-danger"
           : tone === "warn"
-            ? "border-warn bg-warn-wash text-warn"
-            : "border-line bg-surface-sunk text-muted",
+            ? "border-l-warn bg-warn-wash text-warn"
+            : tone === "ok"
+              ? "border-l-ok bg-ok-wash text-ok-ink"
+              : "border-l-line bg-surface-sunk text-muted",
       )}
     >
-      {children}
+      <div className="min-w-0 max-w-[var(--measure)]">
+        {eyebrow !== undefined && (
+          <p className="mono mb-0.5 text-xs uppercase tracking-[0.11em] opacity-80">{eyebrow}</p>
+        )}
+        {children}
+      </div>
+      {actions !== undefined && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -371,13 +400,17 @@ export function Notice({
  *  to answer the only question the reader has. */
 export function Empty({
   title,
+  icon,
   children,
 }: {
   title: string;
+  /** From the product's own set — never a second icon library. */
+  icon?: IconName | undefined;
   children?: ReactNode;
 }): JSX.Element {
   return (
     <div className="px-6 py-10 text-center">
+      {icon !== undefined && <Icon name={icon} size={24} className="mx-auto mb-2 text-faint" />}
       <p className="text-sm font-semibold text-ink">{title}</p>
       {children !== undefined && (
         <div className="mx-auto mt-1 max-w-[var(--measure)] text-sm text-muted">{children}</div>

@@ -72,19 +72,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalFilingRow, PortalStatusHome, PortalWorkRow } from "@/lib/api/client";
+import { LinkButton } from "@/components/ui";
 import {
   Card,
-  CardHead,
-  CardTitle,
-  LinkButton,
+  Empty,
   Notice,
+  Page,
+  PageHeader,
   Pill,
+  Section,
   Table,
+  TableWrap,
   Td,
   Th,
-} from "@/components/ui";
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
-import { Empty, ErrorState, Loading } from "@/components/states";
+} from "@/components/tw";
+import { ErrorState, Loading } from "@/components/states";
 import Link from "next/link";
 import { browserDay, usePortalRequestCount, usePortalSession } from "./portal-frame";
 import { longDay, longInstant } from "@/lib/day";
@@ -193,18 +195,21 @@ export default function PortalHomePage() {
           having sent something is not a thing to be nagged about. */}
       {counts.loaded && counts.awaitingYou > 0 && (
         <Notice
-          tone="accent"
+          tone="ok"
           eyebrow={counts.awaitingYou === 1 ? "One thing needs you" : `${String(counts.awaitingYou)} things need you`}
+          actions={
+            <LinkButton href="/portal/requests" variant="primary">
+              Open requests
+            </LinkButton>
+          }
         >
+          {/* The button sits BESIDE the sentence rather than under it. Stacked
+              it cost eighty pixels on the one screen a client lands on, and it
+              read as a second step from the sentence explaining it. */}
           <p>
             {firm} {counts.awaitingYou === 1 ? "has asked you for something" : "has asked you for a few things"} — a
             document, an approval or an answer. Nothing here moves on until{" "}
             {counts.awaitingYou === 1 ? "it is" : "they are"} dealt with.
-          </p>
-          <p>
-            <LinkButton href="/portal/requests" variant="primary">
-              Open requests
-            </LinkButton>
           </p>
         </Notice>
       )}
@@ -214,21 +219,27 @@ export default function PortalHomePage() {
           proceed is not the client's failure, and a red panel on a client's own
           page is an accusation. */}
       {home.heldUp.length > 0 && (
-        <Section title="Held up" level={2}>
-          <Stack gap="tight">
-            <p className="muted">
+        <Section
+          title="Held up"
+          level={2}
+          count={home.heldUp.length}
+          lede={
+            <>
               {firm} cannot move these on until something arrives. Where they have asked you
               for it directly, the request is under <Link href="/portal/requests">Requests</Link>{" "}
               with somewhere to answer it. The rest show the note {firm}&rsquo;s own team
               wrote, unedited — which may be about something outside your control.
-            </p>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
             {home.heldUp.map((row) => (
-              <Card key={row.workItemId}>
-                <CardHead>
-                  <CardTitle>{row.title}</CardTitle>
+              <Card key={row.workItemId} className="p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <h3 className="text-md font-semibold text-ink">{row.title}</h3>
                   <Pill tone="warn">{row.stateName}</Pill>
-                </CardHead>
-                <Stack gap="tight">
+                </div>
+                <div className="flex flex-col gap-1 text-sm">
                   {/* THE REASON, UNLESS AN ASK ABOVE ALREADY SAYS IT (T6.6).
 
                       Found by opening the page, and it is T6.5's duplication
@@ -243,7 +254,7 @@ export default function PortalHomePage() {
                       The row STAYS. The task really is held up and belongs
                       here; what goes is the second copy. */}
                   {row.hasOpenAsk ? (
-                    <p className="muted">
+                    <p className="text-muted">
                       {/* THE PAGE, NOT A HEADING ON IT. `hasOpenAsk` is true
                           for an ANSWERED ask as well as an open one, so a
                           request already sent sits under "Sent — with the firm"
@@ -258,14 +269,14 @@ export default function PortalHomePage() {
                   ) : (
                     row.heldUpReason !== null && <p>{row.heldUpReason}</p>
                   )}
-                  <p className="muted">
+                  <p className="text-muted">
                     {row.companyName ?? "About your account"}
                     {row.heldUpSince !== null && <> · waiting since {longDay(row.heldUpSince)}</>}
                   </p>
-                </Stack>
+                </div>
               </Card>
             ))}
-          </Stack>
+          </div>
         </Section>
       )}
 
@@ -276,12 +287,13 @@ export default function PortalHomePage() {
           about the rows directly beneath it is worse than no heading — this one
           would have had a client scrolling past the only lines that matter. */}
       {home.upcomingFilings.length > 0 && (
-        <Section title="Filings still owed" level={2}>
-          <Stack gap="tight">
-            <p className="muted">
-              The date each is due by LAW. Anything already past its date is at the top.
-            </p>
-          </Stack>
+        <Section
+          title="Filings still owed"
+          level={2}
+          count={home.upcomingFilings.length}
+          lede="The date each is due by LAW. Anything already past its date is at the top."
+        >
+          <TableWrap>
           <Table>
             <thead>
               <tr>
@@ -299,12 +311,14 @@ export default function PortalHomePage() {
               ))}
             </tbody>
           </Table>
+          </TableWrap>
         </Section>
       )}
 
       {/* ── 4 · UNDER WAY ─────────────────────────────────────────────────── */}
       {home.inProgress.length > 0 && (
-        <Section title="Under way" level={2}>
+        <Section title="Under way" level={2} count={home.inProgress.length}>
+          <TableWrap>
           <Table>
             <thead>
               <tr>
@@ -320,12 +334,14 @@ export default function PortalHomePage() {
               ))}
             </tbody>
           </Table>
+          </TableWrap>
         </Section>
       )}
 
       {/* ── 5 · DONE ──────────────────────────────────────────────────────── */}
       {home.recentlyFiled.length > 0 && (
-        <Section title="Recently filed" level={2}>
+        <Section title="Recently filed" level={2} count={home.recentlyFiled.length}>
+          <TableWrap>
           <Table>
             <thead>
               <tr>
@@ -348,6 +364,7 @@ export default function PortalHomePage() {
               ))}
             </tbody>
           </Table>
+          </TableWrap>
         </Section>
       )}
 
@@ -365,7 +382,7 @@ export default function PortalHomePage() {
           points at where things are, which stays true as more arrives — and the
           nav above it is the actual fix. */}
       {home.companies.length > 0 && (
-        <p className="muted">
+        <p className="max-w-[var(--measure)] text-sm text-muted">
           This page is what is happening now. Anything {firm} has asked you for — and anything
           you have asked them — is under <Link href="/portal/requests">Requests</Link>. Your
           documents, your invoices and a month-by-month record of what {firm} has done are on
@@ -380,13 +397,13 @@ function WorkLine({ row }: { row: PortalWorkRow }) {
   return (
     <tr>
       <Td>{row.title}</Td>
-      <Td>{row.companyName ?? <span className="muted">Your account</span>}</Td>
+      <Td>{row.companyName ?? <span className="text-muted">Your account</span>}</Td>
       <Td>
         {/* `quiet`, the same as the filings table's. The firm's own word for
             where something has got to is INFORMATION, and the one urgent mark
             on this page is "Past the date" — two chip styles for the same kind
             of fact is how a reader stops trusting either. */}
-        <Pill tone="quiet">{row.stateName}</Pill>
+        <Pill tone="neutral">{row.stateName}</Pill>
       </Td>
       <Td>
         {/* ELAPSED, NEVER A DEADLINE. The one date this row is entitled to
@@ -408,7 +425,9 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
       <Td>{row.companyName}</Td>
       <Td>{row.periodLabel}</Td>
       <Td>
-        <span className="mono">{longDay(row.statutoryDueOn)}</span>
+        <span className={overdue ? "mono text-danger" : "mono"}>
+          {longDay(row.statutoryDueOn)}
+        </span>
         {overdue && (
           <>
             {" "}
@@ -417,7 +436,7 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
         )}
       </Td>
       <Td>
-        <Pill tone="quiet">{row.stateName}</Pill>
+        <Pill tone="neutral">{row.stateName}</Pill>
       </Td>
       <Td>
         {/* WHEN, NOT HOW MANY — see the header. An em dash rather than
@@ -425,7 +444,7 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
             which is the shipped state and not something to report as a
             failure to a client. */}
         {row.lastNudgedAt === null ? (
-          <span className="muted">—</span>
+          <span className="text-faint">—</span>
         ) : (
           <span className="mono">{longInstant(row.lastNudgedAt)}</span>
         )}
