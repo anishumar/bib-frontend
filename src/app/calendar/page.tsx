@@ -12,6 +12,7 @@ import type {
   ResolutionOption,
 } from "@/lib/api/client";
 import { Cluster, Page, PageHeader, Stack } from "@/components/layout";
+import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay } from "@/lib/day";
@@ -51,6 +52,12 @@ export default function CalendarPage() {
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [options, setOptions] = useState<ResolutionOption[]>([]);
   const [tab, setTab] = useState<"due" | "decisions" | "coverage">("due");
+  /* MONTH FIRST, and the list is one click away.
+     The two answer different questions — "what is owed", which the list is
+     better at, and "which week of this month is going to hurt", which only a
+     grid can show — so neither replaces the other. The grid leads because the
+     second question is the one a scroll cannot answer at all. */
+  const [view, setView] = useState<"month" | "list">("month");
   const tabsId = useId();
   const [includeSettled, setIncludeSettled] = useState(false);
   const [module, setModule] = useState<string>("");
@@ -155,18 +162,46 @@ export default function CalendarPage() {
               onChange={(e) => { setIncludeSettled(e.target.checked); }}
             />
             {modules.length > 0 && (
-              <Select
-                size="sm"
-                aria-label="Authority"
-                value={module}
-                onChange={(e) => { setModule(e.target.value); }}
-              >
-                <option value="">Every authority</option>
-                {modules.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </Select>
+              /* BOXED, because `.select` is `width: 100%` — it is built to fill
+                 a `<Field>`, and dropped straight into a `.cluster` it took the
+                 full 1,168px of the content column with four options in it.
+                 A layout utility is safe here even though this screen is not
+                 migrated: `data-tw` gates the RESET, not the utilities. */
+              <div className="w-56">
+                <Select
+                  size="sm"
+                  aria-label="Authority"
+                  value={module}
+                  onChange={(e) => { setModule(e.target.value); }}
+                >
+                  <option value="">Every authority</option>
+                  {modules.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </Select>
+              </div>
             )}
+            {/* The design system's Button, not a Tailwind one: this screen is
+                not migrated, so a bare styled button here would come out with
+                the browser's own chrome — preflight is off outside `data-tw`. */}
+            <Cluster>
+              <Button
+                size="sm"
+                variant={view === "month" ? "secondary" : "ghost"}
+                aria-pressed={view === "month"}
+                onClick={() => { setView("month"); }}
+              >
+                Month
+              </Button>
+              <Button
+                size="sm"
+                variant={view === "list" ? "secondary" : "ghost"}
+                aria-pressed={view === "list"}
+                onClick={() => { setView("list"); }}
+              >
+                List
+              </Button>
+            </Cluster>
           </Cluster>
 
           {!loaded ? (
@@ -194,6 +229,8 @@ export default function CalendarPage() {
                 )}
               </Cluster>
             </Card>
+          ) : view === "month" ? (
+            <MonthView rows={shown} loaded={loaded} />
           ) : (
             <TableWrap>
               <Table>

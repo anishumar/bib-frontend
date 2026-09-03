@@ -1,9 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
 import type { CalendarRow } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icon";
 import { Calendar, CalendarDayButton } from "@/components/shadcn/calendar";
@@ -20,40 +18,43 @@ import { ChevronDownIcon } from "@/components/shadcn/chevron";
 import { browserDay, localDate, longDay } from "@/lib/day";
 
 /**
- * The compliance calendar, as a MONTH — the shadcn/Tailwind rebuild (step 2).
+ * The compliance calendar as a MONTH — the second way to read the Due tab.
  *
- * `/calendar` is unchanged and is still the screen of record. This one exists
- * beside it to be compared, which is the whole point of the exercise: a
- * redesign is worth having only if you can see what it changed.
+ * ── WHY THIS EXISTS BESIDE THE LIST AND DOES NOT REPLACE IT ────────────────
  *
- * ── WHY THE CALENDAR IS THE THING WORTH REBUILDING FIRST ────────────────────
+ * The table answers "what is owed", in the order work has to start, and it is
+ * correct and it stays. What it cannot show is SHAPE, and shape is the other
+ * question a compliance lead actually has: not what is owed but WHICH WEEK OF
+ * THIS MONTH IS GOING TO HURT. Twelve filings sorted by date is a scroll; the
+ * same twelve on a grid is a picture of the 15th with six on it.
  *
- * Because it is the case where a component library adds a CAPABILITY rather
- * than restyling one that already works. `/calendar` is a table — a correct,
- * carefully ordered table, and it stays. But a table cannot show SHAPE, and
- * shape is the question a compliance lead actually has: not "what is owed",
- * which the list answers well, but "which week of this month is going to hurt".
- * 168 filings sorted by date is a scroll. The same 168 on a grid is a picture
- * of the 11th, the 15th and the 20th, which is what statutory dates cluster on.
+ * So the Due tab carries both, and the reader picks. Neither is a summary of
+ * the other — they are two questions.
  *
- * ── EVERYTHING THAT MADE `/calendar` CORRECT IS STILL TRUE HERE ─────────────
+ * ── WHAT IT INHERITS FROM THE SCREEN AROUND IT ─────────────────────────────
  *
- * READ-ONLY. There is no "add a filing" control and there will not be one, for
- * the reason written at the top of the other screen: every row falls out of the
- * firm's rules, its entities and its engagements, and a row a person could type
- * is a row that can disagree with the statute.
+ * `rows` arrives ALREADY FILTERED by the page: "include filed and resolved"
+ * and the authority picker belong to the whole Due tab and apply to both
+ * views. Duplicating them here would let the list and the grid disagree about
+ * what they are showing, which is the one thing two views of one dataset must
+ * never do.
  *
- * BOTH DATES, and they are different things. `internalTargetOn` is the firm's
- * own T–X and is when work has to START; `statutoryDueOn` is what the law says
- * and missing it is the client's money. The grid can be laid out by either —
- * that is the `basis` control — and it opens on the internal one, because that
- * is the actionable date and a view built on the legal deadline tells you when
- * you are already too late. Both are printed on every row regardless.
+ * What is local is what only a grid needs: which of the two dates lays the
+ * month out, and a company filter, which the list does not have.
  *
- * UNCONFIRMED RULES STAY VISIBLE. The shipped dates came from a previous
- * vendor's document rather than from a partner ticking them against the
- * statute. A plausible-looking wrong due date is the dangerous kind precisely
- * because nobody re-reads it, so it is marked here exactly as it is there.
+ * ── EVERYTHING THAT MAKES `/calendar` CORRECT IS STILL TRUE ────────────────
+ *
+ * READ-ONLY — no "add a filing", for the reason at the top of `page.tsx`.
+ * BOTH DATES on every row: `internalTargetOn` is when work must START and is
+ * the default axis because it is the actionable one; `statutoryDueOn` is what
+ * the law says. UNCONFIRMED RULES stay marked.
+ *
+ * ── AND IT CARRIES ITS OWN `data-tw` ───────────────────────────────────────
+ *
+ * This is a Tailwind island inside a screen that has not been migrated, so it
+ * cannot rely on `<Page>` from `@/components/tw` to opt it in. Without the
+ * attribute the scoped preflight never reaches it and every button here keeps
+ * the browser's own grey chrome — see the header of `tailwind.css`.
  */
 
 // ── Dates ──────────────────────────────────────────────────────────────────
@@ -129,14 +130,15 @@ function isLate(row: CalendarRow, basis: Basis, today: string): boolean {
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 
-export default function CalendarPreviewPage() {
-  const router = useRouter();
-  const [rows, setRows] = useState<CalendarRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
+export function MonthView({
+  rows,
+  loaded,
+}: {
+  /** Already filtered by the Due tab's own controls — see the header. */
+  rows: readonly CalendarRow[];
+  loaded: boolean;
+}) {
   const [basis, setBasis] = useState<Basis>("internal");
-  const [authority, setAuthority] = useState<string | null>(null);
   const [company, setCompany] = useState<string | null>(null);
 
   const browserToday = useSyncExternalStore(subscribeNever, browserDay, serverHasNoClock);
@@ -152,52 +154,14 @@ export default function CalendarPreviewPage() {
 
   const [selected, setSelected] = useState<string | null>(null);
 
-  const load = useCallback(async (): Promise<void> => {
-    const calendar = await api.GET("/api/v1/calendar", {
-      // The STRING the API documents, not a boolean — the same note as on
-      // `/calendar`: this query used to coerce, and "false" coerces to TRUE.
-      params: { query: { includeSettled: "false", limit: 500 } },
-    });
-    if (calendar.response.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (calendar.error) {
-      setError(apiError(calendar.error).message);
-      setLoaded(true);
-      return;
-    }
-    setRows(calendar.data.rows);
-    setError(null);
-    setLoaded(true);
-  }, [router]);
-
-  useEffect(() => {
-    // The async IIFE is not decoration: it defers the setState out of the
-    // effect body, which is the cascading-render React now warns about and
-    // this repo lints for. Same shape as `/calendar`.
-    void (async () => {
-      await load();
-    })();
-  }, [load]);
-
-  const authorities = useMemo(
-    () => [...new Set(rows.map((r) => r.authority).filter((a): a is string => a !== null))].sort(),
-    [rows],
-  );
   const companies = useMemo(
     () => [...new Set(rows.map((r) => r.entityName).filter((e): e is string => e !== null))].sort(),
     [rows],
   );
 
   const shown = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (authority === null || r.authority === authority) &&
-          (company === null || r.entityName === company),
-      ),
-    [rows, authority, company],
+    () => rows.filter((r) => company === null || r.entityName === company),
+    [rows, company],
   );
 
   /** Every filing, bucketed by the day the grid is laid out on. */
@@ -267,49 +231,12 @@ export default function CalendarPreviewPage() {
 
   return (
     /* `data-tw` opts this subtree into the scoped preflight in tailwind.css.
-       Without it every shadcn button keeps the browser's own grey `outset`
-       chrome, because preflight is off for the rest of the app. */
-    <main data-tw className="mx-auto w-full max-w-[var(--main-w)] px-6 py-8">
-      <header className="mb-6">
-        <p className="mb-1 text-xs uppercase tracking-[0.11em] text-faint">Delivery</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-ink">Compliance calendar</h1>
-          <span className="rounded-sm border border-line bg-surface-sunk px-2 py-0.5 text-xs text-muted">
-            Preview · shadcn rebuild
-          </span>
-          <Link
-            href="/calendar"
-            className="ml-auto text-sm text-brand underline-offset-2 hover:underline"
-          >
-            The current screen &rarr;
-          </Link>
-        </div>
-        <p className="mt-2 max-w-[var(--measure)] text-sm text-muted">
-          The same filings as the list, laid out on the month they fall in. Nobody types a row
-          into this calendar &mdash; every one of them falls out of the firm&rsquo;s rules, its
-          entities and its engagements.
-        </p>
-      </header>
-
-      {error !== null && (
-        <div
-          role="alert"
-          className="mb-6 rounded-md border border-danger bg-danger-wash px-4 py-3 text-sm text-danger"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* ── Controls ────────────────────────────────────────────────────── */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+       The screen around it is not migrated, so nothing above supplies it. */
+    <div data-tw className="flex flex-col gap-4">
+      {/* Only what a GRID needs. "Include filed and resolved" and the
+          authority picker are the Due tab's, and apply to the list too. */}
+      <div className="flex flex-wrap items-center gap-3">
         <BasisToggle basis={basis} onChange={setBasis} />
-        <Picker
-          label="Authority"
-          value={authority}
-          options={authorities}
-          onChange={setAuthority}
-          allLabel="Every authority"
-        />
         <Picker
           label="Company"
           value={company}
@@ -419,7 +346,7 @@ export default function CalendarPreviewPage() {
           )}
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 
