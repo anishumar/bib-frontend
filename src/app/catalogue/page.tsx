@@ -7,7 +7,7 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Meta, MetaItem, NotStated, Prose } from "@/components/ui";
+import { Field, FieldRow, Input, Meta, MetaItem, NotStated, Prose, Select } from "@/components/ui";
 import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -220,8 +220,8 @@ export default function CataloguePage() {
               define(form);
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div style={{ flex: "2 1 220px" }}>
+            <FieldRow>
+              <div>
                 <label className="label" htmlFor="define-key">
                   Handle
                 </label>
@@ -240,7 +240,7 @@ export default function CataloguePage() {
                   Lower case, url-safe, permanent. Every issued document resolves through it.
                 </p>
               </div>
-            </div>
+            </FieldRow>
             <ServiceFields id="define" defaults={null} axes={axes} workflows={workflows} />
             {noteFor("define")}
             <button className="btn" type="submit" disabled={busy !== null}>
@@ -297,8 +297,8 @@ export default function CataloguePage() {
               );
             }}
           >
-            <div className="field-row">
-              <div style={{ flex: "0 1 140px" }}>
+            <FieldRow>
+              <div>
                 <label className="label" htmlFor="maxDiscountPercent">
                   Limit %
                 </label>
@@ -315,7 +315,7 @@ export default function CataloguePage() {
                   {discount === undefined ? "Set it" : "Draft a new limit"}
                 </button>
               </div>
-            </div>
+            </FieldRow>
             {noteFor("policy")}
             {discount !== undefined && (
               <p className="text-sm text-muted">
@@ -703,55 +703,33 @@ function ServiceFields({
 }) {
   return (
     <>
-      <div className="field-row">
-        <div style={{ flex: "3 1 240px" }}>
-          <label className="label" htmlFor={`${id}-name`}>
-            Name
-          </label>
-          <input
-            className="input"
-            id={`${id}-name`}
-            name="name"
-            defaultValue={defaults?.name ?? ""}
-            required
-          />
-        </div>
-        <div style={{ flex: "0 1 120px" }}>
-          <label className="label" htmlFor={`${id}-ref`}>
-            Service code
-          </label>
-          <input
-            className="input"
-            id={`${id}-ref`}
-            name="ref"
-            placeholder="A1"
-            maxLength={32}
-            defaultValue={defaults?.ref ?? ""}
-          />
-          <p className="max-w-[var(--measure)] text-sm text-muted">The firm&apos;s own code. Printed on proposals.</p>
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-billingBasis`}>
-            Charged
-          </label>
-          <select
-            className="select"
-            id={`${id}-billingBasis`}
-            name="billingBasis"
-            defaultValue={defaults?.billingBasis ?? "fixed"}
-            style={{ width: "100%" }}
-          >
+      <FieldRow>
+        <Field id={`${id}-name`} label="Name">
+          <Input name="name" defaultValue={defaults?.name ?? ""} required />
+        </Field>
+        <Field
+          id={`${id}-ref`}
+          label="Service code"
+          hint={<>The firm&apos;s own code. Printed on proposals.</>}
+        >
+          <Input name="ref" placeholder="A1" maxLength={32} defaultValue={defaults?.ref ?? ""} />
+        </Field>
+        <Field
+          id={`${id}-billingBasis`}
+          label="Charged"
+          hint="What the price is a price OF."
+        >
+          <Select name="billingBasis" defaultValue={defaults?.billingBasis ?? "fixed"}>
             {BILLING_BASES.map((b) => (
               <option key={b} value={b}>
                 {b.replace("_", " ")}
               </option>
             ))}
-          </select>
-          <p className="max-w-[var(--measure)] text-sm text-muted">What the price is a price OF.</p>
-        </div>
-      </div>
+          </Select>
+        </Field>
+      </FieldRow>
 
-      <div className="field-row">
+      <FieldRow>
         <div>
           <AxisPicker
             id={id}
@@ -774,10 +752,10 @@ function ServiceFields({
             hint="Who does the work. One team commonly delivers under several Depts."
           />
         </div>
-      </div>
+      </FieldRow>
 
-      <div className="field-row">
-        <div style={{ flex: "1 1 100%" }}>
+      <FieldRow>
+        <div>
           <label className="label" htmlFor={`${id}-workflowTemplateKey`}>
             How it is delivered
           </label>
@@ -811,9 +789,9 @@ function ServiceFields({
             process nobody wrote.
           </p>
         </div>
-      </div>
+      </FieldRow>
 
-      <div className="field-row">
+      <FieldRow>
         <div>
           <label className="label" htmlFor={`${id}-recurrence`}>
             Recurs
@@ -853,10 +831,10 @@ function ServiceFields({
             Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing.
           </p>
         </div>
-      </div>
+      </FieldRow>
 
-      <div className="field-row">
-        <div style={{ flex: "0 1 160px" }}>
+      <FieldRow>
+        <div>
           <label className="label" htmlFor={`${id}-amount`}>
             List price
           </label>
@@ -868,7 +846,7 @@ function ServiceFields({
             defaultValue={defaults?.listPrice?.amount ?? ""}
           />
         </div>
-        <div style={{ flex: "0 1 100px" }}>
+        <div>
           <label className="label" htmlFor={`${id}-currency`}>
             Currency
           </label>
@@ -880,7 +858,7 @@ function ServiceFields({
             defaultValue={defaults?.listPrice?.currency ?? "INR"}
           />
         </div>
-        <div style={{ flex: "2 1 240px" }}>
+        <div>
           <label className="label" htmlFor={`${id}-pricingNote`}>
             Pricing note
           </label>
@@ -896,9 +874,9 @@ function ServiceFields({
             at actuals&quot;.
           </p>
         </div>
-      </div>
+      </FieldRow>
 
-      <div className="field-row">
+      <FieldRow>
         <div>
           <label className="label" htmlFor={`${id}-category`}>
             Category
@@ -923,7 +901,7 @@ function ServiceFields({
           />
           <p className="max-w-[var(--measure)] text-sm text-muted">ISO codes, comma separated. Blank means everywhere.</p>
         </div>
-        <div style={{ flex: "3 1 260px" }}>
+        <div>
           <label className="label" htmlFor={`${id}-description`}>
             Description
           </label>
@@ -934,7 +912,7 @@ function ServiceFields({
             defaultValue={defaults?.description ?? ""}
           />
         </div>
-      </div>
+      </FieldRow>
 
       <div className="prose-grid">
         {SCOPE_BLOCKS.map((block) => (
@@ -1381,42 +1359,39 @@ function AxisPicker({
 
   if (rows.length === 0) {
     return (
-      <>
-        <label className="label" htmlFor={`${id}-${field}`}>
-          {label}
-        </label>
+      <Field
+        id={`${id}-${field}`}
+        label={label}
+        hint={
+          <>
+            {hint} This firm has not defined its list yet, so anything upper-case is accepted —
+            define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
+            picker.
+          </>
+        }
+      >
         {/* Sent VERBATIM. The API demands the canonical form at the WRITE rather
             than normalising at the read — a body is stored as written, and this
             axis is GROUPED BY in SQL — so upper-casing it here would hide a rule
             the firm needs to know about behind a silent fix. */}
-        <input
-          className="input"
-          id={`${id}-${field}`}
-          name={field}
-          placeholder={placeholder}
-          defaultValue={current ?? ""}
-        />
-        <p className="max-w-[var(--measure)] text-sm text-muted">
-          {hint} This firm has not defined its list yet, so anything upper-case is accepted —
-          define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
-          picker.
-        </p>
-      </>
+        <Input name={field} placeholder={placeholder} defaultValue={current ?? ""} />
+      </Field>
     );
   }
 
   return (
-    <>
-      <label className="label" htmlFor={`${id}-${field}`}>
-        {label}
-      </label>
-      <select
-        className="select"
-        id={`${id}-${field}`}
-        name={field}
-        defaultValue={current ?? ""}
-        style={{ width: "100%" }}
-      >
+    <Field
+      id={`${id}-${field}`}
+      label={label}
+      hint={
+        <>
+          {hint}
+          {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
+        </>
+      }
+    >
+      {/* `width: 100%` was on this select inline; `.select` already is. */}
+      <Select name={field} defaultValue={current ?? ""}>
         <option value="">not stated</option>
         {rows.map((r) => (
           <option key={r.id} value={r.code}>
@@ -1427,11 +1402,7 @@ function AxisPicker({
         {stale && (
           <option value={current}>{current} — no longer on this firm&apos;s list</option>
         )}
-      </select>
-      <p className="max-w-[var(--measure)] text-sm text-muted">
-        {hint}
-        {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
-      </p>
-    </>
+      </Select>
+    </Field>
   );
 }
