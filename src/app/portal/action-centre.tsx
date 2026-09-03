@@ -259,12 +259,12 @@ function AskCard({
         <p>{ask.prompt}</p>
         <p className="muted">
           {ask.companyName ?? "About your account"} · {ask.workItemTitle} · asked{" "}
-          {longDay(ask.raisedAt)}
+          {longInstant(ask.raisedAt)}
           {/* WHEN, NOT HOW MANY — see the header. Only drawn when there is one:
               an ask nobody has chased says nothing rather than "never
               reminded", which would read as a reproach about the firm. */}
           {ask.lastRemindedAt !== null && (
-            <> · last reminded {longDay(ask.lastRemindedAt)}</>
+            <> · last reminded {longInstant(ask.lastRemindedAt)}</>
           )}
         </p>
 
@@ -373,7 +373,7 @@ function SentLine({ response }: { response: PortalAskResponse }) {
       <strong>
         {who} {what}
       </strong>{" "}
-      · {longDay(response.respondedAt)}
+      · {longInstant(response.respondedAt)}
       {response.answerText !== null && <div>{response.answerText}</div>}
     </div>
   );
@@ -382,7 +382,21 @@ function SentLine({ response }: { response: PortalAskResponse }) {
 /** "3 September 2026" from an ISO instant or day. Formatted in the reader's own
  *  locale, and never with a time: an ask has no deadline and the hour it was
  *  raised is not something a client needs. */
-function longDay(iso: string): string {
+/**
+ * An INSTANT, printed as the day it fell on where the READER is.
+ *
+ * Renamed from `longDay`, which is the name of the function that must NOT do
+ * this. Both spellings existed side by side in this app: one splits a
+ * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
+ * this one parses a `...At` because one moment lands on different days in
+ * different places. Every call below passes a `...At`, so parsing is correct
+ * here — the name was the only thing wrong, and it was the dangerous thing to
+ * get wrong, because the next person needing a date formatter copies the
+ * nearest one they find.
+ *
+ * The canonical pair is in `@/lib/day`.
+ */
+function longInstant(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime())
     ? iso

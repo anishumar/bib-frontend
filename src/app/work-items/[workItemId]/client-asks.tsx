@@ -287,12 +287,12 @@ function AskLine({
         <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
       </div>
       <p className="muted">
-        {ask.raisedByName ?? "Somebody who has since left"} asked {longDay(ask.raisedAt)}
-        {ask.firstAnsweredAt !== null && <> · first reply {longDay(ask.firstAnsweredAt)}</>}
+        {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
+        {ask.firstAnsweredAt !== null && <> · first reply {longInstant(ask.firstAnsweredAt)}</>}
         {ask.closedAt !== null && (
           <>
             {" "}
-            · {ask.status === "withdrawn" ? "withdrawn" : "closed"} {longDay(ask.closedAt)} by{" "}
+            · {ask.status === "withdrawn" ? "withdrawn" : "closed"} {longInstant(ask.closedAt)} by{" "}
             {ask.closedByName ?? "somebody who has since left"}
           </>
         )}
@@ -324,7 +324,7 @@ function AskLine({
           Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
           {" — "}
           {ask.chases
-            .map((c) => `${c.rungKey} on ${longDay(c.chasedAt)}`)
+            .map((c) => `${c.rungKey} on ${longInstant(c.chasedAt)}`)
             .join(", ")}
           . Sent automatically; nobody here pressed anything.
         </p>
@@ -352,7 +352,7 @@ function AskLine({
           ) : (
             "replied"
           )}{" "}
-          · {longDay(r.respondedAt)}
+          · {longInstant(r.respondedAt)}
           {/* A SPAN, not a div: this sits inside the <p> above, and a <div>
               there is invalid HTML. The browser silently closes the
               paragraph around it, so it LOOKS right and React reports a
@@ -400,7 +400,21 @@ const STATUS_TONE: Record<string, "warn" | "ok" | "neutral"> = {
   withdrawn: "neutral",
 };
 
-function longDay(iso: string): string {
+/**
+ * An INSTANT, printed as the day it fell on where the READER is.
+ *
+ * Renamed from `longDay`, which is the name of the function that must NOT do
+ * this. Both spellings existed side by side in this app: one splits a
+ * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
+ * this one parses a `...At` because one moment lands on different days in
+ * different places. Every call below passes a `...At`, so parsing is correct
+ * here — the name was the only thing wrong, and it was the dangerous thing to
+ * get wrong, because the next person needing a date formatter copies the
+ * nearest one they find.
+ *
+ * The canonical pair is in `@/lib/day`.
+ */
+function longInstant(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime())
     ? iso

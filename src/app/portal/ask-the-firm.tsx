@@ -319,12 +319,12 @@ function RequestCard({
         <p>{request.body}</p>
         <p className="muted">
           {request.companyName !== null && <>{request.companyName} · </>}
-          asked {longDay(request.raisedAt)}
+          asked {longInstant(request.raisedAt)}
           {/* A DATE AND NOT A COUNT, on both surfaces and for two different
               reasons. On an ask it is because a tally is an accusation; here it
               is simply the only part of the thread worth repeating at the top —
               the whole conversation is directly below. */}
-          {request.lastRepliedAt !== null && <> · {firm} replied {longDay(request.lastRepliedAt)}</>}
+          {request.lastRepliedAt !== null && <> · {firm} replied {longInstant(request.lastRepliedAt)}</>}
         </p>
 
         {request.replies.length > 0 && (
@@ -375,7 +375,7 @@ function ReplyLine({ reply, firm }: { reply: PortalRequestReply; firm: string })
         {/* `authorName` is NULL on everything the firm wrote — the API drops it,
             not this component. Their own colleague's name survives, because a
             company with two directors needs to know which of them wrote. */}
-        {fromFirm ? firm : (reply.authorName ?? "You")} · {longDay(reply.writtenAt)}
+        {fromFirm ? firm : (reply.authorName ?? "You")} · {longInstant(reply.writtenAt)}
       </p>
       <p>{reply.body}</p>
       {reply.document !== null && (
@@ -427,7 +427,21 @@ function toneOf(status: string): PillTone {
  * the previous day. Nothing in a typecheck or a test can see that, and east of
  * Greenwich it is wrong for five and a half hours every night.
  */
-function longDay(iso: string): string {
+/**
+ * An INSTANT, printed as the day it fell on where the READER is.
+ *
+ * Renamed from `longDay`, which is the name of the function that must NOT do
+ * this. Both spellings existed side by side in this app: one splits a
+ * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
+ * this one parses a `...At` because one moment lands on different days in
+ * different places. Every call below passes a `...At`, so parsing is correct
+ * here — the name was the only thing wrong, and it was the dangerous thing to
+ * get wrong, because the next person needing a date formatter copies the
+ * nearest one they find.
+ *
+ * The canonical pair is in `@/lib/day`.
+ */
+function longInstant(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime())
     ? iso

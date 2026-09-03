@@ -324,7 +324,7 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
           )}
         </Td>
         <Td>
-          <span className="mono">{longDay(doc.addedOn)}</span>
+          <span className="mono">{longInstant(doc.addedOn)}</span>
         </Td>
         <Td align="right" className="nowrap">
           <Button
@@ -400,7 +400,21 @@ function browserDay(): string {
 /** "3 Sep 2026" from an ISO instant. In the reader's own locale, never with a
  *  time: when in the day a document was filed is not something a client needs,
  *  and printing it invites questions about a clock. */
-function longDay(iso: string): string {
+/**
+ * An INSTANT, printed as the day it fell on where the READER is.
+ *
+ * Renamed from `longDay`, which is the name of the function that must NOT do
+ * this. Both spellings existed side by side in this app: one splits a
+ * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
+ * this one parses a `...At` because one moment lands on different days in
+ * different places. Every call below passes a `...At`, so parsing is correct
+ * here — the name was the only thing wrong, and it was the dangerous thing to
+ * get wrong, because the next person needing a date formatter copies the
+ * nearest one they find.
+ *
+ * The canonical pair is in `@/lib/day`.
+ */
+function longInstant(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime())
     ? iso
