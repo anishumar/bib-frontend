@@ -89,7 +89,11 @@ export function PageHeader({
   lede,
   actions,
 }: {
-  eyebrow?: string | undefined;
+  /** ReactNode, unlike `title`. The eyebrow is a `<p>`, so markup in it costs
+   *  nothing — a reference number wants the mono face. A heading is different:
+   *  an `h1` has exactly one job and takes a string, with `titleMono` below
+   *  for the case where the title itself is an identifier. */
+  eyebrow?: ReactNode;
   title: string;
   /** For a title that IS an identifier — an invoice number, a reference. It
    *  gets the mono face the rest of the product gives a figure, without the

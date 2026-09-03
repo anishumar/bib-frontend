@@ -15,8 +15,19 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
-import { LinkButton, Pill, Td, Th } from "@/components/ui";
-import { Page, PageHeader } from "@/components/layout";
+import { LinkButton } from "@/components/ui";
+import {
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Pill,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/tw";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -119,7 +130,7 @@ export default function LetterPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
   if (record === null) {
     return (
       <Page>
@@ -185,7 +196,7 @@ export default function LetterPage() {
           the letter, not the firm's. */}
       <PageHeader
         eyebrow={<span className="mono">{letter.ref}</span>}
-        title={<>{letter.title}</>}
+        title={letter.title}
         lede={
           <>
             {record.party.displayName} · issued by {record.issuingEntity.displayName} · written
@@ -197,7 +208,7 @@ export default function LetterPage() {
         }
         /* This letter's own timeline, scoped to it. The sidebar's Audit trail
            is the whole firm's, so it is not a substitute. */
-        aside={
+        actions={
           <LinkButton size="sm" href={`/audit?type=engagement_letter&id=${letterId}`}>
             History
           </LinkButton>
@@ -210,7 +221,7 @@ export default function LetterPage() {
           edited — it is replaced — and until this the instruction the model gave
           had nowhere to be recorded and nothing to follow. */}
       {(record.supersededBy !== null || record.supersedes !== null) && (
-        <div className="card">
+        <Card>
           {record.supersededBy !== null && (
             <p style={{ marginBottom: record.supersedes === null ? 0 : 8 }}>
               <span className="pill" data-tone="danger">
@@ -220,7 +231,7 @@ export default function LetterPage() {
               <Link className="mono" href={`/engagement-letters/${record.supersededBy.id}`}>
                 {record.supersededBy.ref}
               </Link>
-              . <span className="muted">This is no longer the agreement in force.</span>
+              . <span className="text-sm text-muted">This is no longer the agreement in force.</span>
             </p>
           )}
           {record.supersedes !== null && (
@@ -229,15 +240,15 @@ export default function LetterPage() {
               <Link className="mono" href={`/engagement-letters/${record.supersedes.id}`}>
                 {record.supersedes.ref}
               </Link>
-              . <span className="muted">That letter stays exactly as it was signed.</span>
+              . <span className="text-sm text-muted">That letter stays exactly as it was signed.</span>
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {/* THE DOCUMENT — the half a client reads before the table of fees. */}
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">The document</h2>
+      <Card>
+        <CardTitle level={2}>The document</CardTitle>
         <div className="field-row"
              style={{ alignItems: "flex-start", marginBottom: "var(--s-5)" }}>
           <div>
@@ -248,13 +259,13 @@ export default function LetterPage() {
                 the client and is unchanged. Until the letter could store an
                 individual there was no individual to address. */}
             {record.addressedTo === null ? (
-              <p className="muted">
+              <p className="text-sm text-muted">
                 {record.party.displayName} — no individual named
               </p>
             ) : (
               <>
                 <p>{record.addressedTo.displayName}</p>
-                <p className="muted text-md">
+                <p className="text-md text-muted">
                   care of {record.party.displayName}
                 </p>
               </>
@@ -268,7 +279,7 @@ export default function LetterPage() {
                 jurisdiction says WHERE the work is; this says WHO on our side
                 is bound by it, and the two are not the same question. */}
             <p>{record.issuingEntity.displayName}</p>
-            <p className="muted text-md">
+            <p className="text-md text-muted">
               under {letter.jurisdiction} law
             </p>
           </div>
@@ -282,13 +293,13 @@ export default function LetterPage() {
             {letter.issuedOn !== null ? (
               <p>{letter.issuedOn}</p>
             ) : letter.sentAt === null ? (
-              <p className="muted">
+              <p className="text-sm text-muted">
                 the day it is sent
               </p>
             ) : (
               <>
                 <p>{letter.sentAt.slice(0, 10)}</p>
-                <p className="muted text-md">
+                <p className="text-md text-muted">
                   the day it was sent
                 </p>
               </>
@@ -300,11 +311,11 @@ export default function LetterPage() {
             </p>
             <p>
               {letterBegins.day ?? (
-                <span className="muted">on the day it is signed</span>
+                <span className="text-sm text-muted">on the day it is signed</span>
               )}
             </p>
             {letterBeginsNote !== "" && (
-              <p className="muted text-md">
+              <p className="text-md text-muted">
                 {letterBeginsNote}
               </p>
             )}
@@ -312,7 +323,7 @@ export default function LetterPage() {
         </div>
         <h3 className="eyebrow">Background</h3>
         {letter.background === null ? (
-          <p className="muted text-md">
+          <p className="text-md text-muted">
             None written. The letter opens straight at the services — which is a choice, and one
             that cannot be changed after it is sent.
           </p>
@@ -322,11 +333,11 @@ export default function LetterPage() {
           // to, not presentation around it.
           <p style={{ whiteSpace: "pre-wrap" }}>{letter.background}</p>
         )}
-      </div>
+      </Card>
 
       {isSigned && (
-        <div className="card">
-          <h2 className="card-title">Signed</h2>
+        <Card>
+          <CardTitle level={2}>Signed</CardTitle>
           <div className="field-row" style={{ alignItems: "flex-start" }}>
             {/* The CLIENT's half. */}
             <div>
@@ -334,10 +345,10 @@ export default function LetterPage() {
                 For {record.party.displayName}
               </p>
               <p>{letter.signedByName}</p>
-              <p className="muted text-md">
+              <p className="text-md text-muted">
                 {letter.signedByTitle ?? "capacity not recorded"}
               </p>
-              <p className="muted text-md">
+              <p className="text-md text-muted">
                 {signatureDay} · {letter.signatureMethod}
                 {letter.signatureReference !== null && ` · ref ${letter.signatureReference}`}
               </p>
@@ -351,7 +362,7 @@ export default function LetterPage() {
                 For {record.issuingEntity.displayName}
               </p>
               {record.firmSignatory === null ? (
-                <p className="muted text-md">
+                <p className="text-md text-muted">
                   No signature block — the firm had named no signatory when this letter went out.
                 </p>
               ) : (
@@ -361,13 +372,13 @@ export default function LetterPage() {
                       // The name is a read-time join; the title is what the
                       // document said. An erased account stops resolving, and
                       // that is the record being right rather than a bug.
-                      <span className="muted">name no longer on record</span>
+                      <span className="text-sm text-muted">name no longer on record</span>
                     )}
                   </p>
-                  <p className="muted text-md">
+                  <p className="text-md text-muted">
                     {record.firmSignatory.title}
                   </p>
-                  <p className="muted text-md">
+                  <p className="text-md text-muted">
                     {record.firmSignatory.signedAt.slice(0, 10)}
                   </p>
                 </>
@@ -377,28 +388,29 @@ export default function LetterPage() {
           {/* The fingerprint of exactly what was signed. On the page because
               verifying it should not need a database session — recompute the
               canonical rendering and compare. */}
-          <p className="mono muted text-xs"
+          <p className="mono text-xs text-muted"
              style={{ wordBreak: "break-all" }}>
             {letter.signedContentHash}
           </p>
-          <p className="muted text-sm">
+          <p className="text-sm text-muted">
             This letter can no longer be changed — the database refuses it. A change is a new
             letter that supersedes this one, which is what keeps this readable as what was
             actually agreed.
           </p>
-        </div>
+        </Card>
       )}
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Services</h2>
-        <table className="table">
+      <Card>
+        <CardTitle level={2}>Services</CardTitle>
+        <TableWrap>
+        <Table>
           <thead>
             <tr>
               <Th>Line</Th>
               <Th>Begins</Th>
-              <Th style={{ textAlign: "right" }}>Qty</Th>
-              <Th style={{ textAlign: "right" }}>Rate</Th>
-              <Th style={{ textAlign: "right" }}>Net</Th>
+              <Th align="right">Qty</Th>
+              <Th align="right">Rate</Th>
+              <Th align="right">Net</Th>
               {isDraft && <Th />}
             </tr>
           </thead>
@@ -411,30 +423,30 @@ export default function LetterPage() {
                     <div>{l.description}</div>
                     {/* WHOSE entity the work is for. One line per group company
                         is the whole reason a letter has more than one. */}
-                    {l.entity !== null && <div className="muted">{l.entity.displayName}</div>}
+                    {l.entity !== null && <div className="text-sm text-muted">{l.entity.displayName}</div>}
                     {l.service !== null && (
-                      <div className="mono muted">
+                      <div className="mono text-muted">
                         {l.service.key}@{l.service.version}
                       </div>
                     )}
                   </Td>
                   <Td>
-                    {start.day ?? <span className="muted">on signature</span>}
-                    <div className="muted text-xs">
+                    {start.day ?? <span className="text-sm text-muted">on signature</span>}
+                    <div className="text-xs text-muted">
                       {start.from}
                     </div>
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatCount(l.quantity)}
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(l.unitAmount, l.currency)}
                   </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
+                  <Td align="right" className="mono">
                     {formatMoney(l.net, l.currency)}
                   </Td>
                   {isDraft && (
-                    <Td style={{ textAlign: "right" }}>
+                    <Td align="right">
                       <button
                         className="btn" data-variant="secondary" data-size="sm"
                         disabled={busy !== null}
@@ -455,19 +467,20 @@ export default function LetterPage() {
             })}
             {lines.length === 0 && (
               <tr>
-                <Td colSpan={6} className="muted">
+                <Td colSpan={6} className="text-sm text-muted">
                   Nothing agreed yet.
                 </Td>
               </tr>
             )}
           </tbody>
-        </table>
+        </Table>
+        </TableWrap>
         <div style={{ textAlign: "right", marginTop: "var(--s-4)" }}>
           <div className="mono text-lg">
             {formatMoney(totals.net, totals.currency)}
           </div>
           {letter.advanceRequired && (
-            <div className="muted text-md">
+            <div className="text-md text-muted">
               advance {formatMoney(letter.advanceAmount, totals.currency)}
               {letter.advanceRecordedAt === null
                 ? " · outstanding"
@@ -475,7 +488,7 @@ export default function LetterPage() {
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* ── The letter's own prose ─────────────────────────────────────
           Not clauses. A clause is a term of the contract, drawn from a versioned
@@ -484,8 +497,8 @@ export default function LetterPage() {
           letter was drafted, and this letter's from then on. Editing the
           standard set changes the next letter and never this one. */}
       {record.blocks.length > 0 && (
-        <div className="card">
-          <h2 className="card-title">Exclusions, notes and team</h2>
+        <Card>
+          <CardTitle level={2}>Exclusions, notes and team</CardTitle>
           {(["exclusion", "commercial", "team"] as const).map((kind) => {
             const mine = record.blocks.filter((b) => b.kind === kind);
             if (mine.length === 0) return null;
@@ -503,7 +516,7 @@ export default function LetterPage() {
                       {/* Written on this document rather than copied from the
                           firm's standard set — what this client negotiated. */}
                       {b.sourceId === null && (
-                        <span className="muted text-xs"> · this letter&apos;s own</span>
+                        <span className="text-xs text-muted"> · this letter&apos;s own</span>
                       )}
                     </li>
                   ))}
@@ -511,13 +524,13 @@ export default function LetterPage() {
               </div>
             );
           })}
-        </div>
+        </Card>
       )}
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Terms</h2>
+      <Card>
+        <CardTitle level={2}>Terms</CardTitle>
         {record.clauses.length === 0 ? (
-          <p className="muted">
+          <p className="text-sm text-muted">
             None yet. A letter cannot be sent without terms — a signed contract with none is
             enforceable as whatever a court reads into it.
           </p>
@@ -540,7 +553,7 @@ export default function LetterPage() {
                   Shown so a reader can see the letter is internally consistent,
                   rather than trusting that it is. */}
               {(c.governingLaw !== null || c.courts !== null) && (
-                <div className="muted text-sm" style={{ marginTop: 4 }}>
+                <div className="text-sm text-muted" style={{ marginTop: 4 }}>
                   {c.governingLaw !== null && (
                     <span>
                       Governed by {c.governingLaw.text}{" "}
@@ -597,18 +610,18 @@ export default function LetterPage() {
               </div>
             </div>
             {available.length === 0 && (
-              <p className="muted text-sm">
+              <p className="text-sm text-muted">
                 No published clause applies to {letter.jurisdiction} that is not already on this
                 letter. Publish one in the catalogue.
               </p>
             )}
           </form>
         )}
-      </div>
+      </Card>
 
       {isDraft && (
-        <div className="card">
-          <h2 className="card-title">Agree a service</h2>
+        <Card>
+          <CardTitle level={2}>Agree a service</CardTitle>
           <form
             action={(form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
@@ -704,7 +717,7 @@ export default function LetterPage() {
                     line beside it starts next period. */}
                 <input className="input" id="effectiveFrom" name="effectiveFrom"
                        type="date" />
-                <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
+                <p className="text-xs text-muted" style={{ margin: "4px 0 0" }}>
                   Blank follows the letter.
                 </p>
               </div>
@@ -713,18 +726,19 @@ export default function LetterPage() {
               Add line
             </button>
           </form>
-        </div>
+        </Card>
       )}
 
       {engagements.length > 0 && (
-        <div className="card">
-          <h2 className="card-title">Engagements</h2>
-          <p className="muted text-md">
+        <Card>
+          <CardTitle level={2}>Engagements</CardTitle>
+          <p className="text-md text-muted">
             One per line, created when the letter was signed. These are what the delivery side
             schedules against, and each carries the start date resolved from its line, then this
             letter, then the signature.
           </p>
-          <table className="table">
+          <TableWrap>
+        <Table>
             <tbody>
               {engagements.map((e) => (
                 <tr key={e.id}>
@@ -746,23 +760,24 @@ export default function LetterPage() {
                       {e.state.replace("_", " ")}
                     </span>
                   </Td>
-                  <Td className="muted">from {e.effectiveFrom}</Td>
+                  <Td className="text-sm text-muted">from {e.effectiveFrom}</Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableWrap>
+        </Card>
       )}
 
-      <div className="card">
-        <h2 className="card-title">
+      <Card>
+        <CardTitle level={2}>
           {isDraft ? "Send it" : "Where it stands"}
-        </h2>
+        </CardTitle>
 
         {isDraft && (
           // Whose name will be under "Yours sincerely" — read from the firm's
           // standing signatory, because the letter has none until it is sent.
-          <p className="muted text-md">
+          <p className="text-md text-muted">
             {standing === null
               ? "The firm has named no standing signatory, so this letter goes out with the firm's half of the signature block blank — nobody is recorded as having bound it."
               : `Sending snapshots the firm's signature block onto this letter: ${
@@ -830,7 +845,7 @@ export default function LetterPage() {
               );
             }}
           >
-            <p className="muted text-md">
+            <p className="text-md text-muted">
               {/* Said plainly, because the audit trail will say it too: this
                   records an attestation by somebody at the firm, not a
                   cryptographic signature. */}
@@ -868,12 +883,12 @@ export default function LetterPage() {
         )}
 
         {letter.status === "withdrawn" && (
-          <p className="muted text-md">
+          <p className="text-md text-muted">
             This letter was withdrawn on {letter.withdrawnAt?.slice(0, 10)} and stays that way,
             so the interval in which it was off the table is still on the record.
           </p>
         )}
-      </div>
+      </Card>
       {/* The letter's own paperwork. THE signed copy belongs here: the API
           stores a content hash per version, and `crm.engagement_letter` carries
           one too — which is what makes "is the PDF the client holds the one we
