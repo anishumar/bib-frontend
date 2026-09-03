@@ -21,6 +21,7 @@ import {
   Td,
   Th,
 } from "@/components/ui";
+import { browserDay } from "@/lib/day";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -94,7 +95,10 @@ export default function ReceivablesPage() {
   if (!loaded) return <Loading label="Loading receivables" />;
 
   const mayDecide = permissions.includes("tenant:admin");
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
+  // is yesterday in India until 05:30 every morning — so something due
+  // yesterday would not read as overdue for those five and a half hours.
+  const today = browserDay();
 
   return (
     <Page>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
+import { browserDay } from "@/lib/day";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
 import { Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
@@ -106,7 +107,10 @@ export default function LettersPage() {
 
   if (!loaded) return <p className="muted">Loading…</p>;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
+  // is yesterday in India until 05:30 every morning — so something due
+  // yesterday would not read as overdue for those five and a half hours.
+  const today = browserDay();
   // A letter already replaced cannot be replaced again — the API refuses a
   // second successor, naming the first — and a draft or a withdrawn letter was
   // never supersedable at all. The list already carries both facts, so the

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
+import { browserDay } from "@/lib/day";
 import type { InvoiceSummary, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -117,7 +118,10 @@ export default function InvoicesPage() {
 
   if (!loaded) return <Loading label="Loading invoices" />;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
+  // is yesterday in India until 05:30 every morning — so something due
+  // yesterday would not read as overdue for those five and a half hours.
+  const today = browserDay();
 
   return (
     <Page>

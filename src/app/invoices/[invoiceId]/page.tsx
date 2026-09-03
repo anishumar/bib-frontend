@@ -23,6 +23,7 @@ import type {
 } from "@/lib/api/client";
 import { Meta, MetaItem, Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
+import { browserDay } from "@/lib/day";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -121,7 +122,10 @@ export default function InvoicePage() {
   const draft = invoice.status === "draft";
   const issued = invoice.status === "issued";
   const mayAdmin = permissions.includes("tenant:admin");
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
+  // is yesterday in India until 05:30 every morning — so something due
+  // yesterday would not read as overdue for those five and a half hours.
+  const today = browserDay();
 
   return (
     <Page>

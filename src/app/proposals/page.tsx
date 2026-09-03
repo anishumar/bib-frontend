@@ -24,6 +24,7 @@ import {
   Th,
   type PillTone,
 } from "@/components/ui";
+import { browserDay } from "@/lib/day";
 
 /**
  * What the firm has quoted, and to whom.
@@ -100,7 +101,10 @@ export default function ProposalsPage() {
 
   if (!loaded) return <Loading label="Loading proposals" />;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
+  // is yesterday in India until 05:30 every morning — so something due
+  // yesterday would not read as overdue for those five and a half hours.
+  const today = browserDay();
 
   return (
     <Page>
