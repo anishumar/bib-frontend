@@ -91,6 +91,7 @@ import type { Principal } from "@/lib/api/client";
 import { Button } from "@/components/ui";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ThemeSwitch } from "@/components/layout/theme";
+import { browserDay } from "@/lib/day";
 
 const PortalSessionContext = createContext<Principal | null>(null);
 
@@ -147,19 +148,18 @@ export function usePortalRequestCount(): PortalRequestCount {
 }
 
 /**
- * The reader's own calendar day, from their own machine.
+ * The reader's own calendar day — RE-EXPORTED, not defined.
  *
- * Exported and used by every portal screen, because a UTC server is a day
- * behind a firm in India every morning until half past five — and this value
- * decides which grants are in force. It lived in three files before this;
- * a date rule copied is a date rule that drifts.
+ * Every portal screen imports it from here, and that stays true so the import
+ * line reads as "the portal's day". The function itself now lives once, in
+ * `@/lib/day`, with the other three: it had been copied into six files and a
+ * date rule copied is a date rule that drifts — which it did, into four
+ * different versions.
  */
-export function browserDay(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${month}-${day}`;
-}
+export { browserDay } from "@/lib/day";
+// ...and imported too: a re-export does not bring the name into this file,
+// and the frame calls it itself when it asks the API what is in force today.
+
 
 /**
  * The whole of the client's product, in five lines.

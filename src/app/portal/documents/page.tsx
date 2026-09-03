@@ -65,6 +65,7 @@ import {
 import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading, NoResults } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
+import { browserDay, longInstant } from "@/lib/day";
 
 /** What each kind is called on a client's own page. The firm's vocabulary is
  *  `statutory_filing`; a client reads "Filed with the authority". Kinds that
@@ -389,38 +390,9 @@ function escapeRe(v: string): string {
   return v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** The reader's own calendar day, from their own machine. */
-function browserDay(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${month}-${day}`;
-}
-
 /** "3 Sep 2026" from an ISO instant. In the reader's own locale, never with a
  *  time: when in the day a document was filed is not something a client needs,
  *  and printing it invites questions about a clock. */
-/**
- * An INSTANT, printed as the day it fell on where the READER is.
- *
- * Renamed from `longDay`, which is the name of the function that must NOT do
- * this. Both spellings existed side by side in this app: one splits a
- * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
- * this one parses a `...At` because one moment lands on different days in
- * different places. Every call below passes a `...At`, so parsing is correct
- * here — the name was the only thing wrong, and it was the dangerous thing to
- * get wrong, because the next person needing a date formatter copies the
- * nearest one they find.
- *
- * The canonical pair is in `@/lib/day`.
- */
-function longInstant(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime())
-    ? iso
-    : at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-}
-
 /** A size somebody can judge a download by. Binary units, one decimal, and no
  *  attempt at cleverness below a kilobyte. */
 function readableSize(bytes: number): string {

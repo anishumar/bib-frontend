@@ -14,6 +14,7 @@ import type {
 import { Cluster, Page, PageHeader, Stack } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
+import { browserDay } from "@/lib/day";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -228,14 +229,6 @@ export default function CalendarPage() {
       </TabPanel>
     </Page>
   );
-}
-
-/** The browser's own calendar day, `YYYY-MM-DD`. Never `toISOString()`, which
- *  is the UTC day and therefore yesterday for anyone east of Greenwich in the
- *  morning — on a screen about deadlines that is a wrong answer, not a rounding. */
-function browserDay(): string {
-  const now = new Date();
-  return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {

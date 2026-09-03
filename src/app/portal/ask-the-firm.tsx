@@ -59,6 +59,7 @@ import {
 } from "@/components/ui";
 import { Section, Stack } from "@/components/layout";
 import { usePortalSession } from "./portal-frame";
+import { longInstant } from "@/lib/day";
 
 interface Company {
   readonly clientPartyId: string;
@@ -427,23 +428,3 @@ function toneOf(status: string): PillTone {
  * the previous day. Nothing in a typecheck or a test can see that, and east of
  * Greenwich it is wrong for five and a half hours every night.
  */
-/**
- * An INSTANT, printed as the day it fell on where the READER is.
- *
- * Renamed from `longDay`, which is the name of the function that must NOT do
- * this. Both spellings existed side by side in this app: one splits a
- * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
- * this one parses a `...At` because one moment lands on different days in
- * different places. Every call below passes a `...At`, so parsing is correct
- * here — the name was the only thing wrong, and it was the dangerous thing to
- * get wrong, because the next person needing a date formatter copies the
- * nearest one they find.
- *
- * The canonical pair is in `@/lib/day`.
- */
-function longInstant(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime())
-    ? iso
-    : at.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-}

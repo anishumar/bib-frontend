@@ -87,6 +87,7 @@ import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import Link from "next/link";
 import { browserDay, usePortalRequestCount, usePortalSession } from "./portal-frame";
+import { longDay, longInstant } from "@/lib/day";
 
 export default function PortalHomePage() {
   const session = usePortalSession();
@@ -431,39 +432,6 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
       </Td>
     </tr>
   );
-}
-
-/**
- * A YYYY-MM-DD calendar day, printed.
- *
- * Split rather than parsed. `new Date("2026-09-20")` is UTC midnight and prints
- * as the 19th anywhere west of Greenwich — which on this screen would move a
- * statutory deadline by a day, in the direction that matters.
- */
-function longDay(iso: string): string {
-  const [year = "", month = "", day = ""] = iso.split("-");
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const name = months[Number(month) - 1] ?? month;
-  return `${day} ${name} ${year}`;
-}
-
-/**
- * "3 Sep 2026" from an ISO INSTANT.
- *
- * Deliberately a different function from `longDay` above, which splits a
- * YYYY-MM-DD string precisely so no timezone can move a statutory deadline. This
- * one takes a `timestamptz` and must be parsed — and it is the reader's own
- * local day that is wanted here, because "when did you last hear from us" is a
- * fact about their morning, not about the server's.
- */
-function longInstant(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime())
-    ? iso
-    : at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** "Cobalt Foods", "Cobalt Foods and Cobalt Logistics", "A, B and C". */

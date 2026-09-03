@@ -69,9 +69,20 @@ export function longDay(iso: string): string {
  */
 export function longInstant(iso: string): string {
   const at = new Date(iso);
-  return Number.isNaN(at.getTime())
-    ? iso
-    : at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  if (Number.isNaN(at.getTime())) return iso;
+  // Formatted BY HAND, in the same shape as `longDay`, and not through
+  // `toLocaleDateString`. Two reasons, and both showed up on screen:
+  //
+  //   - `{ day: "numeric" }` gives "3 Sep 2026" where `longDay` gives
+  //     "03 Sep 2026", so the same kind of fact came out two widths and a
+  //     column of dates went ragged.
+  //   - with an `undefined` locale the ORDER is the reader's, so the same
+  //     instant reads "03 Sep 2026" in London and "Sep 03, 2026" in New York
+  //     — on a product that prints every other date one way.
+  //
+  // The parsing above is still the whole point: it is an instant, and the day
+  // it fell on where the reader is, is the right one.
+  return `${pad(at.getDate())} ${SHORT_MONTHS[at.getMonth()] ?? ""} ${String(at.getFullYear())}`;
 }
 
 /**

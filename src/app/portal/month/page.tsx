@@ -38,6 +38,7 @@ import { Table, Td, Th } from "@/components/ui";
 import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
+import { browserDay, longDay } from "@/lib/day";
 
 export default function PortalMonthPage() {
   const session = usePortalSession();
@@ -245,22 +246,3 @@ function monthName(month: string): string {
   return `${MONTHS[Number(index) - 1] ?? index} ${year}`;
 }
 
-/** The reader's own calendar day, from their own machine. */
-function browserDay(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${month}-${day}`;
-}
-
-/**
- * A YYYY-MM-DD calendar day, printed. Split rather than parsed — `new
- * Date("2026-03-01")` is UTC midnight and prints as February anywhere west of
- * Greenwich, which on a page organised BY MONTH is the one error that would make
- * it look broken.
- */
-function longDay(iso: string): string {
-  const [year = "", month = "", day = ""] = iso.split("-");
-  const short = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${day} ${short[Number(month) - 1] ?? month} ${year}`;
-}

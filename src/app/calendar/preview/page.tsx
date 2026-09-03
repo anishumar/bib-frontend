@@ -17,6 +17,7 @@ import {
   CommandList,
 } from "@/components/shadcn/command";
 import { ChevronDownIcon } from "@/components/shadcn/chevron";
+import { browserDay, localDate, longDay } from "@/lib/day";
 
 /**
  * The compliance calendar, as a MONTH — the shadcn/Tailwind rebuild (step 2).
@@ -76,30 +77,9 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** The BROWSER's calendar day. Never `toISOString()`, which is the UTC day and
- *  therefore yesterday in India before 05:30 — on a screen about what is late,
- *  that is a wrong answer rather than a rounding. */
-function browserDay(): string {
-  const now = new Date();
-  return `${String(now.getFullYear())}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-/** A stored day -> a LOCAL Date, for grid maths only. Never for printing. */
-function localDate(day: string): Date {
-  const [y, m, d] = day.split("-").map(Number);
-  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-}
-
 /** A local Date -> `YYYY-MM-DD`, reading the local fields back out. */
 function dayKey(date: Date): string {
   return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-/** A stored day, printed. SPLIT, never parsed. */
-function longDay(day: string): string {
-  const [y, m, d] = day.split("-");
-  const month = MONTHS[Number(m) - 1] ?? m ?? "";
-  return `${String(Number(d))} ${month} ${String(y)}`;
 }
 
 /** The first of the month a given day falls in, as a local Date. */

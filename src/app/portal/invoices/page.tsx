@@ -42,6 +42,7 @@ import { Pill, Table, Td, Th } from "@/components/ui";
 import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
+import { browserDay, longDay } from "@/lib/day";
 
 export default function PortalInvoicesPage() {
   const session = usePortalSession();
@@ -230,27 +231,3 @@ function isZero(amount: string): boolean {
   return /^-?0*(\.0*)?$/.test(amount.trim());
 }
 
-/** The reader's own calendar day, from their own machine. */
-function browserDay(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${month}-${day}`;
-}
-
-/**
- * A YYYY-MM-DD calendar day, printed.
- *
- * Split rather than parsed. `new Date("2026-09-20")` is UTC midnight and prints
- * as the 19th anywhere west of Greenwich — which on this screen would move the
- * date an invoice is due by a day, in the direction that matters.
- */
-function longDay(iso: string): string {
-  const [year = "", month = "", day = ""] = iso.split("-");
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const name = months[Number(month) - 1] ?? month;
-  return `${day} ${name} ${year}`;
-}

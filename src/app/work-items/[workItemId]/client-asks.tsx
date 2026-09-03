@@ -47,6 +47,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { Stack } from "@/components/layout";
+import { longInstant } from "@/lib/day";
 
 /** The three the API accepts, with the sentence that says when to use each. A
  *  fourth would be a row the client's screen cannot draw a control for. */
@@ -400,23 +401,3 @@ const STATUS_TONE: Record<string, "warn" | "ok" | "neutral"> = {
   withdrawn: "neutral",
 };
 
-/**
- * An INSTANT, printed as the day it fell on where the READER is.
- *
- * Renamed from `longDay`, which is the name of the function that must NOT do
- * this. Both spellings existed side by side in this app: one splits a
- * `YYYY-MM-DD` because a statutory deadline is the same day everywhere, and
- * this one parses a `...At` because one moment lands on different days in
- * different places. Every call below passes a `...At`, so parsing is correct
- * here — the name was the only thing wrong, and it was the dangerous thing to
- * get wrong, because the next person needing a date formatter copies the
- * nearest one they find.
- *
- * The canonical pair is in `@/lib/day`.
- */
-function longInstant(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime())
-    ? iso
-    : at.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-}
