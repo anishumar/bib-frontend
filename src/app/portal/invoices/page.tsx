@@ -38,9 +38,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalInvoice } from "@/lib/api/client";
-import { Pill, Table, Td, Th } from "@/components/ui";
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
-import { Empty, ErrorState, Loading } from "@/components/states";
+import { Empty, Page, PageHeader, Pill, Section, Table, TableWrap, Td, Th } from "@/components/tw";
+import { ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
 import { browserDay, longDay } from "@/lib/day";
 
@@ -114,7 +113,8 @@ export default function PortalInvoicesPage() {
         </Empty>
       ) : (
         <>
-          <Section title="Everything billed">
+          <Section title="Everything billed" count={invoices.length} level={2}>
+            <TableWrap>
             <Table>
               <thead>
                 <tr>
@@ -133,11 +133,12 @@ export default function PortalInvoicesPage() {
                 ))}
               </tbody>
             </Table>
+            </TableWrap>
           </Section>
         </>
       )}
 
-      <p className="muted">
+      <p className="max-w-[var(--measure)] text-sm text-muted">
         These figures are {firm}&rsquo;s own record of your account. There is no way to pay
         from this page — settle as you do now, and ask {firm} if a figure here does not
         match what you hold.
@@ -162,7 +163,7 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
             {/* WITHDRAWN, AND STILL LISTED. A client holding a copy of this
                 invoice needs to see that it was cancelled; removing the row
                 would leave them believing they still owe it. */}
-            <Pill tone="quiet">Cancelled</Pill>
+            <Pill tone="neutral">Cancelled</Pill>
           </>
         )}
       </Td>
@@ -193,7 +194,7 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
       </Td>
       <Td>
         {cancelled ? (
-          <span className="muted">—</span>
+          <span className="text-faint">—</span>
         ) : (
           <Money amount={inv.outstanding} currency={inv.currency} />
         )}

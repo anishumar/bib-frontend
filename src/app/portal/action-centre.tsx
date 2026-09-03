@@ -65,8 +65,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalActionCentre, PortalAsk, PortalAskResponse } from "@/lib/api/client";
-import { Button, Card, CardHead, CardTitle, Field, Notice, Pill, Textarea } from "@/components/ui";
-import { Section, Stack } from "@/components/layout";
+import { Button, Field, Notice as UiNotice, Textarea } from "@/components/ui";
+import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
 import { longInstant } from "@/lib/day";
 
@@ -119,9 +119,9 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
   if (!loaded) return null;
   if (centre === null) {
     return error === null ? null : (
-      <Notice tone="warn" eyebrow="Could not load what is waiting on you">
+      <UiNotice tone="warn" eyebrow="Could not load what is waiting on you">
         <p>{error}</p>
-      </Notice>
+      </UiNotice>
     );
   }
 
@@ -137,17 +137,21 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
           reader's heading list is how somebody who cannot see the layout
           navigates a page. */}
       {centre.awaitingYou.length > 0 && (
-        <Section title="Waiting on you" level={2}>
-          <Stack gap="tight">
-            <p className="muted">
-              {mayRespond
-                ? "Each of these is a request somebody wrote to you. Answer it here and it goes straight onto the job it belongs to."
-                : "Your login can read everything here but cannot reply. Ask your contact at the firm to give this address permission to respond, or reply from a colleague's login."}
-            </p>
+        <Section
+          title="Waiting on you"
+          level={2}
+          count={centre.awaitingYou.length}
+          lede={
+            mayRespond
+              ? "Each of these is a request somebody wrote to you. Answer it here and it goes straight onto the job it belongs to."
+              : "Your login can read everything here but cannot reply. Ask your contact at the firm to give this address permission to respond, or reply from a colleague's login."
+          }
+        >
+          <div className="flex flex-col gap-3">
             {centre.awaitingYou.map((ask) => (
               <AskCard key={ask.askId} ask={ask} mayRespond={mayRespond} onDone={refresh} />
             ))}
-          </Stack>
+          </div>
         </Section>
       )}
 
@@ -156,9 +160,12 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
           list that removed an ask the moment it was answered would leave a
           client who sent the wrong file with no way to see what they sent. */}
       {centre.withTheFirm.length > 0 && (
-        <Section title="Sent — with the firm" level={2}>
-          <Stack gap="tight">
-            <p className="muted">
+        <Section
+          title="Sent — with the firm"
+          level={2}
+          count={centre.withTheFirm.length}
+          lede={
+            <>
               {/* THE SECOND HALF OF THIS SENTENCE IS A PROMISE, so it is only
                   made to somebody who can keep it. The walk found a read-only
                   contact being told they could "still send another" beside a
@@ -170,11 +177,14 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
               {mayRespond
                 ? " — if you sent the wrong thing, you can still send another."
                 : ". Your login can read them but cannot reply."}
-            </p>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
             {centre.withTheFirm.map((ask) => (
               <AskCard key={ask.askId} ask={ask} mayRespond={mayRespond} onDone={refresh} />
             ))}
-          </Stack>
+          </div>
         </Section>
       )}
     </>
@@ -246,15 +256,20 @@ function AskCard({
   };
 
   return (
-    <Card>
-      <CardHead>
-        <CardTitle>{KIND_LABEL[ask.askKind] ?? "A request"}</CardTitle>
+    <Card className="p-4">
+      {/* Title and state on ONE row. The pill on its own line under the
+          heading cost a line in every card on the page a client actually has
+          to work through. */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h3 className="text-md font-semibold text-ink">
+          {KIND_LABEL[ask.askKind] ?? "A request"}
+        </h3>
         <Pill tone={ask.status === "open" ? "warn" : "neutral"}>
           {ask.status === "open" ? "Waiting on you" : "Sent"}
         </Pill>
-      </CardHead>
+      </div>
 
-      <Stack gap="tight">
+      <div className="flex flex-col gap-2 text-sm">
         {/* THE FIRM'S OWN WORDS, VERBATIM, under a line saying whose they are —
             the same treatment `blocked_reason` gets, for the same reason. */}
         <p>{ask.prompt}</p>
@@ -270,21 +285,21 @@ function AskCard({
         </p>
 
         {ask.responses.length > 0 && (
-          <Stack gap="tight">
+          <div className="flex flex-col gap-2">
             {ask.responses.map((r) => (
               <SentLine key={r.responseId} response={r} />
             ))}
-          </Stack>
+          </div>
         )}
 
         {error !== null && (
-          <Notice tone="danger" eyebrow="That did not go through">
+          <UiNotice tone="danger" eyebrow="That did not go through">
             <p>{error}</p>
-          </Notice>
+          </UiNotice>
         )}
 
         {mayRespond && (
-          <Stack gap="tight">
+          <div className="flex flex-col gap-3">
             {ask.askKind === "document" && (
               <>
                 <Field label="The file" hint="Nothing is scanned before it reaches the firm.">
@@ -350,9 +365,9 @@ function AskCard({
                 </div>
               </>
             )}
-          </Stack>
+          </div>
         )}
-      </Stack>
+      </div>
     </Card>
   );
 }

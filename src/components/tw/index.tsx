@@ -288,14 +288,19 @@ export function Th({
 export function Td({
   children,
   align = "left",
+  colSpan,
   className,
 }: {
   children?: ReactNode;
   align?: "left" | "right";
+  /** For the row that spans the table to say something about the whole of it —
+   *  an empty state, or a note under the last row. */
+  colSpan?: number | undefined;
   className?: string | undefined;
 }): JSX.Element {
   return (
     <td
+      {...(colSpan === undefined ? {} : { colSpan })}
       className={cn(
         "border-b border-line-soft px-4 py-3 align-top text-ink",
         align === "right" ? "text-right" : "text-left",

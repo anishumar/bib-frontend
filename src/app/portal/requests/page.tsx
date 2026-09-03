@@ -41,8 +41,7 @@
  * the reads that draw the lists — the same two the home page used to make.
  */
 
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
-import { Empty } from "@/components/states";
+import { Empty, Page, PageHeader, Section } from "@/components/tw";
 import { browserDay, usePortalRequestCount, usePortalSession } from "../portal-frame";
 import { ActionCentre } from "../action-centre";
 import { AskTheFirm } from "../ask-the-firm";
@@ -98,13 +97,11 @@ export default function PortalRequestsPage() {
           the failure the portal was built to end. */}
       {companies.length === 0 && (
         <Section title="Nothing shared with you yet" level={2}>
-          <Stack gap="tight">
-            <p className="muted">
-              Your login works, but {firm} has not yet given it access to a company — so there
-              is nothing here to ask about yet. Ask your contact at {firm} to share your
-              company with this email address.
-            </p>
-          </Stack>
+          <p className="max-w-[var(--measure)] text-sm text-muted">
+            Your login works, but {firm} has not yet given it access to a company — so there
+            is nothing here to ask about yet. Ask your contact at {firm} to share your
+            company with this email address.
+          </p>
         </Section>
       )}
     </Page>

@@ -46,18 +46,13 @@ import { api, apiError } from "@/lib/api/client";
 import type { PortalRequest, PortalRequestReply, PortalRequests } from "@/lib/api/client";
 import {
   Button,
-  Card,
-  CardHead,
-  CardTitle,
   Field,
   Input,
-  Notice,
-  Pill,
+  Notice as UiNotice,
   Select,
   Textarea,
-  type PillTone,
 } from "@/components/ui";
-import { Section, Stack } from "@/components/layout";
+import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
 import { longInstant } from "@/lib/day";
 
@@ -107,22 +102,25 @@ export function AskTheFirm({
   if (!loaded) return null;
   if (requests === null) {
     return error === null ? null : (
-      <Notice tone="warn" eyebrow="Could not load what you have asked for">
+      <UiNotice tone="warn" eyebrow="Could not load what you have asked for">
         <p>{error}</p>
-      </Notice>
+      </UiNotice>
     );
   }
 
   const live = [...requests.awaitingFirm, ...requests.replied];
 
   return (
-    <Section title="Ask the firm" level={2}>
-      <Stack gap="tight">
-        <p className="muted">
-          {mayRequest
-            ? `Anything you need from ${firm} — a document you cannot find, a copy of something, a correction, or a call. It goes straight to their team.`
-            : `Your login can read everything here but cannot open a request. Ask your contact at ${firm} to give this address permission, or ask from a colleague's login.`}
-        </p>
+    <Section
+      title="Ask the firm"
+      level={2}
+      lede={
+        mayRequest
+          ? `Anything you need from ${firm} — a document you cannot find, a copy of something, a correction, or a call. It goes straight to their team.`
+          : `Your login can read everything here but cannot open a request. Ask your contact at ${firm} to give this address permission, or ask from a colleague's login.`
+      }
+    >
+      <div className="flex flex-col gap-3">
 
         {mayRequest && !composing && (
           <div className="cluster">
@@ -143,7 +141,7 @@ export function AskTheFirm({
         )}
 
         {live.length === 0 && requests.settled.length === 0 && (
-          <p className="muted">You have not asked {firm} for anything through this page yet.</p>
+          <p className="text-sm text-muted">You have not asked {firm} for anything through this page yet.</p>
         )}
 
         {live.map((request) => (
@@ -163,7 +161,7 @@ export function AskTheFirm({
             asked precisely about the ones that are over. */}
         {requests.settled.length > 0 && (
           <>
-            <p className="muted">Finished</p>
+            <p className="text-sm text-muted">Finished</p>
             {requests.settled.map((request) => (
               <RequestCard
                 key={request.requestId}
@@ -176,7 +174,7 @@ export function AskTheFirm({
             ))}
           </>
         )}
-      </Stack>
+      </div>
     </Section>
   );
 }
@@ -217,7 +215,7 @@ function NewRequest({
 
   return (
     <Card>
-      <Stack gap="tight">
+      <div className="flex flex-col gap-2">
         {/* ONE COMPANY NEEDS NO PICKER. The threshold `/portal/documents` used
             for its search box, applied to a control rather than a filter: a
             select with one option is a decision the reader is being asked to
@@ -252,9 +250,9 @@ function NewRequest({
         </Field>
 
         {error !== null && (
-          <Notice tone="danger" eyebrow="That did not go through">
+          <UiNotice tone="danger" eyebrow="That did not go through">
             <p>{error}</p>
-          </Notice>
+          </UiNotice>
         )}
 
         <div className="cluster">
@@ -265,7 +263,7 @@ function NewRequest({
             Cancel
           </Button>
         </div>
-      </Stack>
+      </div>
     </Card>
   );
 }
@@ -311,14 +309,14 @@ function RequestCard({
   }
 
   return (
-    <Card>
-      <CardHead>
-        <CardTitle>{request.subject}</CardTitle>
+    <Card className="p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h3 className="text-md font-semibold text-ink">{request.subject}</h3>
         <Pill tone={toneOf(request.status)}>{statusLabel(request.status, firm)}</Pill>
-      </CardHead>
-      <Stack gap="tight">
+      </div>
+      <div className="flex flex-col gap-2">
         <p>{request.body}</p>
-        <p className="muted">
+        <p className="text-sm text-muted">
           {request.companyName !== null && <>{request.companyName} · </>}
           asked {longInstant(request.raisedAt)}
           {/* A DATE AND NOT A COUNT, on both surfaces and for two different
@@ -329,17 +327,17 @@ function RequestCard({
         </p>
 
         {request.replies.length > 0 && (
-          <Stack gap="tight">
+          <div className="flex flex-col gap-2">
             {request.replies.map((reply) => (
               <ReplyLine key={reply.replyId} reply={reply} firm={firm} />
             ))}
-          </Stack>
+          </div>
         )}
 
         {error !== null && (
-          <Notice tone="danger" eyebrow="That did not go through">
+          <UiNotice tone="danger" eyebrow="That did not go through">
             <p>{error}</p>
-          </Notice>
+          </UiNotice>
         )}
 
         {live && mayRequest && (
@@ -363,7 +361,7 @@ function RequestCard({
             </div>
           </>
         )}
-      </Stack>
+      </div>
     </Card>
   );
 }
@@ -372,7 +370,7 @@ function ReplyLine({ reply, firm }: { reply: PortalRequestReply; firm: string })
   const fromFirm = reply.authorSide === "firm";
   return (
     <div>
-      <p className="muted">
+      <p className="text-sm text-muted">
         {/* `authorName` is NULL on everything the firm wrote — the API drops it,
             not this component. Their own colleague's name survives, because a
             company with two directors needs to know which of them wrote. */}
@@ -380,7 +378,7 @@ function ReplyLine({ reply, firm }: { reply: PortalRequestReply; firm: string })
       </p>
       <p>{reply.body}</p>
       {reply.document !== null && (
-        <p className="muted">
+        <p className="text-sm text-muted">
           {/* It is in the library too — sending it is what made it visible
               there (0066) — so the bytes come from the download route that
               already exists rather than from a second one written here. */}
@@ -401,10 +399,13 @@ function statusLabel(status: string, firm: string): string {
 /** `warn` and never `danger` — the portal's rule since T6.5: a red panel on a
  *  client's own page is an accusation, and a request the firm has not answered
  *  yet is the FIRM's outstanding item, not theirs. */
-function toneOf(status: string): PillTone {
+function toneOf(status: string): "neutral" | "ok" | "warn" | "danger" {
   if (status === "open") return "warn";
   if (status === "answered") return "ok";
-  return "quiet";
+  // `quiet` in the old vocabulary. `neutral` is the same thing under the name
+  // the Tailwind Pill uses, and it is the default there for the same reason:
+  // most chips are labels rather than alarms.
+  return "neutral";
 }
 
 /**

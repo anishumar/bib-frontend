@@ -54,16 +54,10 @@ import {
   Field,
   Icon,
   Input,
-  Notice,
-  Pill,
-  Sub,
-  Table,
-  TableWrap,
-  Td,
-  Th,
+  Notice as UiNotice,
 } from "@/components/ui";
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
-import { Empty, ErrorState, Loading, NoResults } from "@/components/states";
+import { Empty, Page, PageHeader, Pill, Section, Sub, Table, TableWrap, Td, Th } from "@/components/tw";
+import { ErrorState, Loading, NoResults } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
 import { browserDay, longInstant } from "@/lib/day";
 
@@ -172,7 +166,7 @@ export default function PortalLibraryPage() {
           {/* THE SEARCH APPEARS ONLY WHEN THERE IS SOMETHING TO SEARCH — see
               SEARCH_FROM. A box over one document is furniture. */}
           {documents.length > SEARCH_FROM && (
-            <Stack gap="tight">
+            <div className="max-w-[26rem]">
               <Field
                 label="Find one"
                 hint="Matches the title, the file name, and the job or invoice it belongs to."
@@ -185,7 +179,7 @@ export default function PortalLibraryPage() {
                   }}
                 />
               </Field>
-            </Stack>
+            </div>
           )}
 
           {shown.length === 0 ? (
@@ -202,7 +196,7 @@ export default function PortalLibraryPage() {
               }
             />
           ) : (
-            <Section title={heading(documents.length, shown.length)}>
+            <Section title={heading(documents.length, shown.length)} level={2}>
               <TableWrap>
                 <Table>
                   <thead>
@@ -232,7 +226,7 @@ export default function PortalLibraryPage() {
           learn it. A client who cannot find something has to know whether to
           look harder or to ask, and a page that stayed silent would leave them
           concluding the firm never filed it. */}
-      <p className="muted">
+      <p className="max-w-[var(--measure)] text-sm text-muted">
         {firm} decides which of your documents appear here — their own working papers and
         internal notes about your affairs do not. If something you expect is missing, ask
         them and they can share it.
@@ -304,7 +298,7 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
           </Sub>
         </Td>
         <Td>
-          <Pill tone="quiet">{KIND_LABEL[doc.kind] ?? "Document"}</Pill>
+          <Pill tone="neutral">{KIND_LABEL[doc.kind] ?? "Document"}</Pill>
         </Td>
         {/* THE COMPANY IS SHOWN ONCE, NOT TWICE. A calendar-raised task is
             titled "Quarterly TDS statements — Cobalt Foods Private Limited — Q1
@@ -345,9 +339,9 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
       {error !== null && (
         <tr>
           <Td colSpan={5}>
-            <Notice tone="danger" eyebrow="That did not download">
+            <UiNotice tone="danger" eyebrow="That did not download">
               <p>{error}</p>
-            </Notice>
+            </UiNotice>
           </Td>
         </tr>
       )}

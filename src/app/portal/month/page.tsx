@@ -34,9 +34,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalDigest, PortalDigestRow } from "@/lib/api/client";
-import { Table, Td, Th } from "@/components/ui";
-import { Page, PageHeader, Section, Stack } from "@/components/layout";
-import { Empty, ErrorState, Loading } from "@/components/states";
+import { Empty, Page, PageHeader, Section, Table, TableWrap, Td, Th } from "@/components/tw";
+import { ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
 import { browserDay, longDay } from "@/lib/day";
 
@@ -79,9 +78,8 @@ export default function PortalMonthPage() {
         lede={`What ${firm} did for you, one calendar month at a time.`}
       />
 
-      <Section title="Which month">
-        <Stack gap="tight">
-          <div className="cluster">
+      <Section title="Which month" level={2}>
+        <div className="flex flex-wrap items-center gap-2">
             {/* THE MONTHS ARE BUILT BACKWARDS FROM TODAY, and there are
                 eighteen of them. A free-text month box would make `2026-13`
                 reachable — which the API refuses rather than coerces, correctly,
@@ -99,8 +97,7 @@ export default function PortalMonthPage() {
                 </option>
               ))}
             </select>
-          </div>
-        </Stack>
+        </div>
       </Section>
 
       {!loaded ? (
@@ -114,7 +111,7 @@ export default function PortalMonthPage() {
       {/* SAID OUT LOUD, because a "digest" is a word that implies an inbox.
           Nothing in a typecheck can see this sentence go stale — so when
           transport lands, this is the line to come back to. */}
-      <p className="muted">
+      <p className="max-w-[var(--measure)] text-sm text-muted">
         This is a page rather than something that arrives: {firm} cannot send email or
         messages from this system yet, so nothing about this month has been sent to you.
         Everything here is also on your other pages as it happens.
@@ -178,10 +175,8 @@ function DigestSection({
 }) {
   if (rows.length === 0) return null;
   return (
-    <Section title={`${title} (${String(rows.length)})`}>
-      <Stack gap="tight">
-        <p className="muted">{note}</p>
-      </Stack>
+    <Section title={title} count={rows.length} lede={note} level={2}>
+      <TableWrap>
       <Table>
         <thead>
           <tr>
@@ -194,7 +189,7 @@ function DigestSection({
           {rows.map((row, i) => (
             <tr key={`${row.label}-${row.on}-${String(i)}`}>
               <Td>{row.label}</Td>
-              <Td>{row.companyName ?? <span className="muted">Your account</span>}</Td>
+              <Td>{row.companyName ?? <span className="text-muted">Your account</span>}</Td>
               <Td>
                 <span className="mono">{longDay(row.on)}</span>
               </Td>
@@ -202,6 +197,7 @@ function DigestSection({
           ))}
         </tbody>
       </Table>
+      </TableWrap>
     </Section>
   );
 }
