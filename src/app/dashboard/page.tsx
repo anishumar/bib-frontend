@@ -22,6 +22,18 @@
  * DSO CAN BE NULL AND NULL IS NOT ZERO. "0 days" reads as excellent collections;
  * the truth when the firm has billed nothing in the window is that there is not
  * enough billing to say. Those render differently.
+ *
+ * ── Migrated to Tailwind, and what that did and did not change ──────────────
+ *
+ * Structure and words are untouched. What went is the hand-written markup this
+ * screen had drifted into — `className="card"` with an inline
+ * `marginBottom: var(--s-5)` on each one, `style={{ textAlign: "right" }}`
+ * repeated on eleven cells, and a `<Link className="btn">`. Those are now
+ * `<Card>`, `<Section>` and `align="right"` on the table primitives in
+ * `@/components/tw`, so the next screen cannot spell any of them differently.
+ *
+ * The card headings stay `h2` — they are the four subjects of the page, not
+ * items inside a section, which is what `level={2}` on `CardTitle` says.
  */
 
 import { useCallback, useEffect, useId, useState } from "react";
@@ -36,8 +48,19 @@ import {
   formatMoney,
 } from "@/lib/api/client";
 import type { DashboardOverview, DashboardSlice } from "@/lib/api/client";
-import { Tabs, Td, Th } from "@/components/ui";
-import { Page, PageHeader } from "@/components/layout";
+import { Tabs } from "@/components/ui";
+import {
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Stat,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/tw";
 
 type Axis = "client" | "service";
 
@@ -98,16 +121,21 @@ export default function DashboardPage() {
     })();
   }, [axis, loadAxis]);
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) {
+    return (
+      <Page>
+        <p className="text-sm text-muted">Loading…</p>
+      </Page>
+    );
+  }
 
   if (overview === null) {
     return (
       <Page>
-        <PageHeader
-          eyebrow="Commercial"
-          title="The firm&rsquo;s numbers"
-        />
-        <p className="notice" data-tone="danger" role="alert">{error ?? "These figures could not be loaded."}</p>
+        <PageHeader eyebrow="Commercial" title="The firm’s numbers" />
+        <Notice tone="danger" role="alert">
+          {error ?? "These figures could not be loaded."}
+        </Notice>
       </Page>
     );
   }
@@ -119,202 +147,238 @@ export default function DashboardPage() {
     <Page>
       <PageHeader
         eyebrow="Commercial"
-        title={<>The firm&rsquo;s numbers</>}
+        title="The firm’s numbers"
         lede={
           <>
             Everything here is worked out from the invoices and engagements themselves, each
             time you open this page. Nothing is stored, so nothing can drift — and every figure
-            is in <strong>{cur}</strong>, converted at the rate recorded on the document it
-            came from.
+            is in <strong className="text-ink">{cur}</strong>, converted at the rate recorded on
+            the document it came from.
           </>
         }
       />
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      )}
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Monthly recurring revenue</h2>
-        <p className="figure">
-          {formatMoney(overview.mrr.monthly, cur)}
-        </p>
-        <p className="muted">
-          from {overview.mrr.countedEngagements} engagement
-          {overview.mrr.countedEngagements === 1 ? "" : "s"} the firm is billing on a repeating
-          cycle
-        </p>
+      {/* ── What the firm earns, and what this number could not count ─────── */}
+      <Card>
+        <CardTitle level={2}>Monthly recurring revenue</CardTitle>
+        <div className="mt-3">
+          <Stat
+            value={formatMoney(overview.mrr.monthly, cur)}
+            note={
+              <>
+                from {overview.mrr.countedEngagements} engagement
+                {overview.mrr.countedEngagements === 1 ? "" : "s"} the firm is billing on a
+                repeating cycle
+              </>
+            }
+          />
+        </div>
 
         {overview.mrr.gaps.length > 0 && (
-          <div style={{ marginTop: "var(--s-5)" }}>
+          <div className="mt-6">
             {/* Deliberately loud, and deliberately not collapsed. See the file
                 header: this is the difference between a number a partner can
                 act on and one that quietly misleads. */}
-            <p className="field-hint">
-              <strong>
-                {totalGapEngagements} active engagement{totalGapEngagements === 1 ? "" : "s"} are
-                not in that figure.
+            <p className="mb-3 text-sm text-muted">
+              <strong className="text-ink">
+                {totalGapEngagements} active engagement{totalGapEngagements === 1 ? "" : "s"}{" "}
+                {totalGapEngagements === 1 ? "is" : "are"} not in that figure.
               </strong>{" "}
               They are not missing revenue — they are revenue this number cannot honestly turn
               into a monthly amount. Each reason is different:
             </p>
-            <table className="table">
-              <thead>
-                <tr>
-                  <Th>Not counted</Th>
-                  <Th style={{ textAlign: "right" }}>Engagements</Th>
-                  <Th>Why</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.mrr.gaps.map((g) => (
-                  <tr key={g.reason}>
-                    <Td>{MRR_GAP_LABELS[g.reason] ?? g.reason}</Td>
-                    <Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {g.engagementCount}
-                    </Td>
-                    <Td className="muted">{MRR_GAP_HINTS[g.reason] ?? ""}</Td>
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Not counted</Th>
+                    <Th align="right">Engagements</Th>
+                    <Th>Why</Th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {overview.mrr.gaps.map((g) => (
+                    <tr key={g.reason}>
+                      <Td>{MRR_GAP_LABELS[g.reason] ?? g.reason}</Td>
+                      <Td align="right" className="mono">
+                        {g.engagementCount}
+                      </Td>
+                      <Td className="text-muted">{MRR_GAP_HINTS[g.reason] ?? ""}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <div className="card-head">
-          <h2 className="card-title">Where that revenue comes from</h2>
+      {/* ── The same money, split two ways ─────────────────────────────────── */}
+      <Card>
+        <CardTitle level={2}>Where that revenue comes from</CardTitle>
+        <div className="mt-3">
+          <Tabs
+            id={axisTabs}
+            label="Split revenue by"
+            value={axis}
+            onChange={setAxis}
+            tabs={[
+              { value: "client", label: "By client" },
+              { value: "service", label: "By service" },
+            ]}
+          />
         </div>
-        <Tabs
-          id={axisTabs}
-          label="Split revenue by"
-          value={axis}
-          onChange={setAxis}
-          tabs={[
-            { value: "client", label: "By client" },
-            { value: "service", label: "By service" },
-          ]}
-        />
         {mrrSlices.length === 0 ? (
-          <p className="muted">
+          <p className="mt-4 text-sm text-muted">
             Nothing to split — no engagement has a fee this can turn into a monthly figure yet.
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>{axis === "client" ? "Client" : "Service"}</Th>
-                <Th style={{ textAlign: "right" }}>Per month</Th>
-                <Th style={{ textAlign: "right" }}>Engagements</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {mrrSlices.map((s) => (
-                <tr key={s.key}>
-                  <Td>{s.label}</Td>
-                  <Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {formatMoney(s.amount, cur)}
-                  </Td>
-                  <Td style={{ textAlign: "right" }} className="muted">
-                    {s.count}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="mt-4">
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>{axis === "client" ? "Client" : "Service"}</Th>
+                    <Th align="right">Per month</Th>
+                    <Th align="right">Engagements</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mrrSlices.map((s) => (
+                    <tr key={s.key}>
+                      <Td>{s.label}</Td>
+                      <Td align="right" className="mono">
+                        {formatMoney(s.amount, cur)}
+                      </Td>
+                      <Td align="right" className="mono text-muted">
+                        {s.count}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          </div>
         )}
-      </div>
+      </Card>
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Owed to the firm</h2>
-        <p className="figure">
-          {formatMoney(overview.receivables.outstanding, cur)}
-        </p>
-        <p className="muted">
-          {overview.dsoDays === null ? (
-            // NULL is not zero. See the file header.
-            <>
-              Not enough billing in the last {overview.dsoWindowDays} days to say how long the
-              firm waits to be paid.
-            </>
-          ) : (
-            <>
-              Paid on average <strong>{overview.dsoDays} days</strong> after invoicing, measured
-              over the last {overview.dsoWindowDays} days.
-            </>
-          )}
-        </p>
+      {/* ── What is owed, and how long it has been owed ────────────────────── */}
+      <Card>
+        <CardTitle level={2}>Owed to the firm</CardTitle>
+        <div className="mt-3">
+          <Stat
+            value={formatMoney(overview.receivables.outstanding, cur)}
+            note={
+              overview.dsoDays === null ? (
+                // NULL is not zero. See the file header.
+                <>
+                  Not enough billing in the last {overview.dsoWindowDays} days to say how long
+                  the firm waits to be paid.
+                </>
+              ) : (
+                <>
+                  Paid on average{" "}
+                  <strong className="text-ink">{overview.dsoDays} days</strong> after invoicing,
+                  measured over the last {overview.dsoWindowDays} days.
+                </>
+              )
+            }
+          />
+        </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <Th>How overdue</Th>
-              <Th style={{ textAlign: "right" }}>Amount</Th>
-              <Th style={{ textAlign: "right" }}>Invoices</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Every band, including the empty ones. "Nothing is more than 90
-                days overdue" is the most reassuring row on this table and it
-                has to be visible, not absent — and a table that changed shape
-                as debt moved would be unreadable week to week. */}
-            {overview.receivables.bands.map((b) => (
-              <tr key={b.bucket}>
-                <Td>{AGEING_LABELS[b.bucket] ?? b.bucket}</Td>
-                <Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {b.invoiceCount === 0 ? (
-                    <span className="unstated">nothing</span>
-                  ) : (
-                    formatMoney(b.amount, cur)
-                  )}
-                </Td>
-                <Td style={{ textAlign: "right" }} className="muted">
-                  {b.invoiceCount}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <div className="mt-6">
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>How overdue</Th>
+                  <Th align="right">Amount</Th>
+                  <Th align="right">Invoices</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Every band, including the empty ones. "Nothing is more than 90
+                    days overdue" is the most reassuring row on this table and it
+                    has to be visible, not absent — and a table that changed shape
+                    as debt moved would be unreadable week to week. */}
+                {overview.receivables.bands.map((b) => (
+                  <tr key={b.bucket}>
+                    <Td>{AGEING_LABELS[b.bucket] ?? b.bucket}</Td>
+                    <Td align="right" className="mono">
+                      {b.invoiceCount === 0 ? (
+                        <span className="text-faint">nothing</span>
+                      ) : (
+                        formatMoney(b.amount, cur)
+                      )}
+                    </Td>
+                    <Td align="right" className="mono text-muted">
+                      {b.invoiceCount}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">Who owes it</h2>
+      {/* ── And whose desk to go to about it ───────────────────────────────── */}
+      <Card>
+        <CardTitle level={2}>Who owes it</CardTitle>
         {owed.length === 0 ? (
-          <p className="muted">
+          <p className="mt-3 text-sm text-muted">
             Nothing outstanding. Every issued invoice has been settled.
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>Client</Th>
-                <Th style={{ textAlign: "right" }}>Outstanding</Th>
-                <Th style={{ textAlign: "right" }}>Invoices</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {owed.map((s) => (
-                <tr key={s.key}>
-                  <Td>{s.label}</Td>
-                  <Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {formatMoney(s.amount, cur)}
-                  </Td>
-                  <Td style={{ textAlign: "right" }} className="muted">
-                    {s.count}
-                  </Td>
-                  <Td style={{ textAlign: "right" }}>
-                    {/* Straight to the place somebody can DO something about it
-                        — the dunning ladder, not just another number. */}
-                    <Link href="/receivables" className="btn" data-variant="secondary" data-size="sm">
-                      Chase
-                    </Link>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="mt-3">
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Client</Th>
+                    <Th align="right">Outstanding</Th>
+                    <Th align="right">Invoices</Th>
+                    <Th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {owed.map((s) => (
+                    <tr key={s.key}>
+                      <Td>{s.label}</Td>
+                      <Td align="right" className="mono">
+                        {formatMoney(s.amount, cur)}
+                      </Td>
+                      <Td align="right" className="mono text-muted">
+                        {s.count}
+                      </Td>
+                      <Td align="right">
+                        {/* Straight to the place somebody can DO something about it
+                            — the dunning ladder, not just another number. A LINK,
+                            and it stays an `<a>`: it goes somewhere, it does not
+                            do something. */}
+                        <Link
+                          href="/receivables"
+                          className="btn"
+                          data-variant="secondary"
+                          data-size="sm"
+                        >
+                          Chase
+                        </Link>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+          </div>
         )}
-      </div>
+      </Card>
     </Page>
   );
 }
