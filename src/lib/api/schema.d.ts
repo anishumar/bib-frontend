@@ -656,7 +656,7 @@ export interface paths {
         put?: never;
         /**
          * Give somebody access to this firm, by email
-         * @description Idempotent on identity (ADR-02): an email that already has an account links to that person rather than creating a second one. No email is sent — they sign in with a magic link.
+         * @description Idempotent on identity (ADR-02): an email that already has an account links to that person rather than creating a second one. A STAFF member is then WRITTEN TO: a welcome letter naming the firm, carrying a single-use sign-in link that lives 72 hours. The response says whether it went — a refused relay does not fail the add, because the membership stands and they can ask the sign-in page for a fresh link. A CLIENT_PORTAL membership made here gets no letter: it carries no portal grant, so it opens onto nothing. Invite a client through the portal invite route instead.
          */
         post: {
             parameters: {
@@ -671,13 +671,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Access granted */
+                /** @description Access granted, and — for a STAFF member — written to */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Membership"];
+                        "application/json": components["schemas"]["InviteMemberResponse"];
                     };
                 };
                 /** @description Request failed validation, or unknown audience */
@@ -14321,6 +14321,15 @@ export interface components {
         };
         MembersResponse: {
             members: components["schemas"]["Member"][];
+        };
+        InviteMemberResponse: components["schemas"]["Membership"] & {
+            /** @description Whether a welcome letter went out. False when the relay refused it, and false by design for a CLIENT_PORTAL membership made on this route — that one carries no portal grant, so it opens onto nothing and there is nothing worth announcing. Use the portal invite route for a client. */
+            invitationSent: boolean;
+            /**
+             * Format: date-time
+             * @description When the sign-in link in that letter stops working. Null when no letter was sent. Hours rather than the portal invite's days: a colleague whose link expires can ask the sign-in page for another one.
+             */
+            invitationExpiresAt: string | null;
         };
         InviteMemberRequest: {
             /** Format: email */

@@ -321,6 +321,15 @@ function AddMember({
   const [audience, setAudience] = useState("STAFF");
   const [seesFees, setSeesFees] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What came of the LAST add, kept on the form rather than announced and
+  // dismissed. "Was an email sent?" is the question an administrator asks
+  // straight after pressing the button, and a toast that has already faded
+  // answers it for nobody.
+  const [outcome, setOutcome] = useState<{
+    email: string;
+    sent: boolean;
+    audience: string;
+  } | null>(null);
 
   const chosenRole = role || roles[0]?.entry.key || "";
 
@@ -361,6 +370,14 @@ function AddMember({
       onError(apiError(result.error).message);
       return;
     }
+    // A member was created either way — `invitationSent: false` is an ordinary
+    // outcome, not a failure, and it is reported rather than hidden. An admin
+    // who is not told will believe a letter arrived.
+    setOutcome({
+      email,
+      sent: result.data.invitationSent,
+      audience: result.data.audience,
+    });
     setEmail("");
     setDisplayName("");
     onAdded();
@@ -433,12 +450,44 @@ function AddMember({
             onChange={(e) => { setSeesFees(e.target.checked); }}
           />
 
+          {outcome !== null && (
+            <Notice
+              tone={outcome.sent ? "ok" : "warn"}
+              eyebrow={outcome.sent ? "Added" : "Added, not written to"}
+            >
+              <p>
+                {outcome.sent ? (
+                  <>
+                    <strong>{outcome.email} has been emailed a sign-in link.</strong> It works
+                    once and stops working after 72 hours. If they miss it, they can ask the
+                    sign-in page for another one with the same address.
+                  </>
+                ) : outcome.audience === "CLIENT_PORTAL" ? (
+                  <>
+                    <strong>No email was sent, and that is deliberate.</strong> A portal login
+                    made here can read nothing until it is granted a client, so there would be
+                    nothing to invite them to. Invite a client&rsquo;s own people from that
+                    client&rsquo;s page instead.
+                  </>
+                ) : (
+                  <>
+                    <strong>{outcome.email} was added, but the letter did not go out.</strong>{" "}
+                    They still have access — tell them to sign in at the login page with this
+                    address and ask for a link. The mail failure is in the server log.
+                  </>
+                )}
+              </p>
+            </Notice>
+          )}
+
           <div>
             <Button type="submit" loading={busy}>
               Add
             </Button>
             <p className="field-hint">
-              No email is sent yet — they sign in with a magic link from the login page.
+              Staff are emailed a sign-in link that lasts 72 hours. A client-portal login is
+              not — invite a client&rsquo;s people from that client&rsquo;s page, where the
+              invite grants access at the same time.
             </p>
           </div>
         </div>
