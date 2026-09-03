@@ -1,14 +1,23 @@
 /*
  * The stylesheet, assembled.
  *
- * Four files, in this order, and the order is the architecture:
+ * Five files, in this order, and the order is the architecture:
  *
  *   tokens      the values. Nothing else may invent one.
  *   base        element defaults, built only from tokens.
  *   layout      the app shell, and the primitives pages compose with.
  *   components  one block per component, each with a React component in front.
+ *   tailwind    utilities, in a cascade LAYER, reading the tokens above.
  *
- * There was a fifth — `legacy.css`, which re-expressed the old `.bib-*`
+ * `tailwind.css` is last for a reason worth knowing before moving it. It puts
+ * its utilities in `@layer utilities`, and everything above it is unlayered —
+ * and unlayered CSS beats layered CSS in the cascade whatever the specificity
+ * says. So the four files above still win every collision, and adding Tailwind
+ * could not disturb a screen. That is the safety model of the migration, not
+ * an accident of ordering: read the header of `tailwind.css` before changing
+ * either the position of this line or the `layer()` on its imports.
+ *
+ * There was another — `legacy.css`, which re-expressed the old `.bib-*`
  * vocabulary in the new tokens so that unmigrated screens looked right while
  * the migration ran. It is gone, and its absence is the proof: no screen names
  * a `.bib-*` class or a `--bib-*` variable any more, so there is nothing left
@@ -20,3 +29,4 @@
 @import "../design/base.css";
 @import "../design/layout.css";
 @import "../design/components.css";
+@import "../design/tailwind.css";

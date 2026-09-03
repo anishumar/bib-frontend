@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAILWIND — bolted onto the token layer, not beside it.
+
+   This file exists so a Tailwind utility and a hand-written rule cannot
+   disagree about what "brand" or "sm" means. Every value below is a REFERENCE
+   to a token in `tokens.css`. Nothing here invents one, and the `initial`
+   resets are what make that a rule the build enforces rather than a habit.
+
+   Read `tokens.css` first. This file is downstream of it and always will be.
+
+   ── Three deliberate omissions ─────────────────────────────────────────────
+
+   1. NO PREFLIGHT. Tailwind's reset would land on top of 2,844 lines of
+      hand-written element styling and change every screen at once, silently.
+      Only `theme` and `utilities` are imported. Preflight comes back on the
+      day no hand-written CSS is left, which may be never, and that is fine.
+
+   2. UTILITIES ARE LAYERED, and that means they LOSE to everything in
+      `components.css`. This is on purpose and it is the whole safety model of
+      the migration: unlayered CSS beats layered CSS in the cascade whatever
+      the specificity, so adding Tailwind cannot disturb a screen that has not
+      been migrated yet. It also means a utility sprinkled onto an element that
+      still carries a design-system class will NOT apply. That is the trade:
+      silence in exchange for safety, until the class it collides with is gone.
+
+      Three real collisions exist today — `.table`, `.truncate`, `.sr-only` —
+      plus `.text-xs` / `.text-sm` / `.text-lg`. The type ones are neutralised
+      properly below by mapping `--text-*` onto the same scale, so the two
+      definitions agree on the value even where one shadows the other.
+
+   3. THE `--font-*` NAMESPACE IS CLEARED, AND THAT IS NOT OPTIONAL.
+      Tailwind's font namespace is spelled `--font-sans` / `--font-mono` —
+      the exact variable names `next/font` defines in the root layout, and
+      which `tokens.css` builds `--sans` / `--mono` out of.
+
+      Simply not declaring them is NOT enough: Tailwind's own default theme
+      ships both, so `:root` gets a system-font stack under the same names.
+      It happens to lose today, because `next/font` sets its variable through
+      an unlayered class on `<html>` and unlayered beats `@layer theme` — but
+      that is the cascade being kind, not a decision. One change to the
+      layering and every screen silently falls back to Arial.
+
+      So the namespace is deleted outright below. `font-sans` and `font-mono`
+      stop existing as utilities, which costs nothing: the body face is
+      base.css's job and always was.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* ───────────────────────────────────────────────────────────────────────────
+   THE DARK VARIANT — all THREE states, which the default `dark:` gets wrong.
+
+   Tailwind's built-in variant only reads `prefers-color-scheme`, so it cannot
+   see an explicit choice. This mirrors the exact rule in `tokens.css`:
+
+     explicit dark              ->  [data-theme="dark"]
+     unset, and the OS is dark  ->  no attribute, and NOT [data-theme="light"]
+
+   The second arm is why this is a block and not a one-liner. A single-selector
+   variant handles the explicit case and quietly drops the default one, which
+   is the state most people are actually in.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(html:not([data-theme="light"]), html:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   THE THEME.
+
+   `inline` matters: it substitutes these values straight into the utility
+   instead of emitting a second copy of the palette onto `:root`. So
+   `bg-surface` compiles to `background-color: var(--surface)` and follows the
+   theme through the SAME variable every hand-written rule reads. One source of
+   truth, in `tokens.css`, still.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@theme inline {
+  /* ── Colour ──────────────────────────────────────────────────────────────
+     `initial` first, which DELETES Tailwind's built-in palette. `bg-red-500`,
+     `text-slate-700` and the other 250 of them stop existing and become a
+     build error instead of a second palette nobody chose. This is the rule
+     from tokens.css — "nothing below this file may invent a colour" — made
+     mechanical. */
+  --color-*: initial;
+
+  /* Ground and ink */
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-surface-hover: var(--surface-hover);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-overlay: var(--overlay);
+
+  /* Brand — whose product this is. Not a status. */
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-wash: var(--brand-wash);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-on: var(--brand-on);
+
+  /* Status, and only status. */
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-wash: var(--accent-wash);
+  --color-ok: var(--ok);
+  --color-ok-wash: var(--ok-wash);
+  --color-warn: var(--warn);
+  --color-warn-wash: var(--warn-wash);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-danger-hover: var(--danger-hover);
+
+  /* ── The names shadcn generates against ──────────────────────────────────
+     A shadcn component ships with `bg-background`, `text-muted-foreground`,
+     `border-border` already written into it. These aliases are what make one
+     come out in THIS product's colours instead of arriving with a palette of
+     its own — which is the difference between a component and a bolt-on.
+
+     Two are not the obvious mapping, deliberately:
+
+     `accent` is shadcn's HOVER/HIGHLIGHT ground — the row under the cursor in
+     a menu. Ours is a status colour that means "done / in force". Wiring them
+     together would paint teal behind every hovered menu item and spend a
+     status colour on furniture, so shadcn's accent points at `--surface-hover`
+     and our teal stays reachable as `accent` / `ok`.
+
+     `primary` is the BRAND, not the accent — see the note in tokens.css. */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--brand);
+  --color-primary-foreground: var(--brand-on);
+  --color-secondary: var(--surface-sunk);
+  --color-secondary-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--brand-on);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--brand);
+
+  /* ── Type ────────────────────────────────────────────────────────────────
+     Cleared and rebuilt so the ladder here is the SAME seven rungs as
+     tokens.css. Tailwind's own `text-sm` is 14px where ours is 13px, and two
+     scales disagreeing by one pixel is worse than either scale alone.
+
+     No line-height is paired with any rung. Tailwind's defaults bundle one;
+     this system sets leading separately and on purpose, so the pairing is
+     dropped rather than half-inherited. */
+  --text-*: initial;
+  --text-xs: var(--t-xs);
+  --text-sm: var(--t-sm);
+  --text-md: var(--t-md);
+  --text-base: var(--t-base);
+  --text-lg: var(--t-lg);
+  --text-xl: var(--t-xl);
+  --text-2xl: var(--t-2xl);
+
+  /* ── Shape ───────────────────────────────────────────────────────────────
+     There are exactly two radii in this product. Clearing the namespace is
+     what stops a third appearing as `rounded-xl` on a Tuesday.
+     `rounded-full` is a static utility and survives the reset. */
+  --radius-*: initial;
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r);
+
+  /* ── Elevation ───────────────────────────────────────────────────────────
+     One shadow, which is already almost nothing — see the note in tokens.css
+     about why. `shadow-md` is its only spelling. */
+  --shadow-*: initial;
+  --shadow-md: var(--shadow);
+
+  /* ── Type faces — DELETED, see omission 3 in the header ──────────────────
+     These two names belong to `next/font`. Tailwind's default theme claims
+     them, so the namespace has to be cleared rather than merely left alone. */
+  --font-*: initial;
+
+  /* ── Motion ──────────────────────────────────────────────────────────────
+     One curve, matching the tokens. The bare `transition` utility is also
+     pointed at the product's own motion, so a Tailwind transition and a
+     hand-written one move at the same speed instead of 150ms against 140ms. */
+  --ease-*: initial;
+  --ease-standard: var(--ease);
+  --default-transition-duration: var(--dur);
+  --default-transition-timing-function: var(--ease);
+
+  /* ── Spacing is NOT remapped, and that is the correct answer ─────────────
+     Tailwind's default `--spacing` base of 0.25rem generates the repo's whole
+     ladder already: --s-1..--s-7 are 4/8/12/16/24/32/48px, which is exactly
+     p-1, p-2, p-3, p-4, p-6, p-8, p-12.
+
+     So the rule for anyone writing a utility is: the rungs are
+     1 · 2 · 3 · 4 · 6 · 8 · 12. A `p-5` or a `gap-7` is off the ladder and is
+     the same mistake as writing 15px. */
+}
