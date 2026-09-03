@@ -132,6 +132,112 @@ The rules, in short:
 If a screen needs something the system does not have, add it to the system — deliberately,
 in one place, for everybody. Do not solve it locally.
 
+**Everything above still describes screens that have not been migrated, which is most of them.
+There is now a SECOND vocabulary beside it — read the next section before touching either, and
+in particular before putting a Tailwind class on an element that already has a design-system
+one, which silently does nothing.**
+
+## Tailwind and shadcn — the SECOND vocabulary, and the rules that make it safe
+
+There are now two ways to build a screen here, both live, and which one a file imports says how
+far it has been migrated:
+
+```
+@/components/ui  + src/design/*.css     the design system. Unlayered CSS, class per component.
+@/components/tw                          the same ideas in Tailwind utilities.
+@/components/shadcn                      Radix-backed components the design system does not have.
+```
+
+**Neither is deprecated yet.** A screen imports one or the other; see the mixing rule below.
+
+### Preflight is OFF, and `data-tw` is the other half of that
+
+Tailwind's global reset would land on 2,844 lines of hand-written element styling and change
+every screen at once, silently — so `src/design/tailwind.css` imports `theme` and `utilities`
+and never `preflight`.
+
+The consequence people miss: **a bare `<button>` therefore keeps the browser's own grey
+`outset` chrome**, because resetting that is exactly what preflight does. The product's own
+buttons never noticed — `.btn` resets them. A shadcn component has none, and the first rebuilt
+screen came out looking like Windows 98.
+
+So a scoped reset lives in `@layer base`, gated on `[data-tw]`, and **`<Page>` from
+`@/components/tw` carries that attribute**. A migrated screen starts with `<Page>` or its
+controls are unstyled. That attribute is the migration boundary, visible in the markup.
+
+### Utilities are LAYERED, and that is the safety model
+
+`components.css` and `layout.css` are unlayered; utilities are in `@layer utilities`; `base.css`
+is in `@layer base`. **Unlayered CSS beats layered CSS whatever the specificity**, so:
+
+- the design system wins every collision, and adding Tailwind could not disturb an unmigrated
+  screen — which was proved by diffing the emitted stylesheet, not by looking;
+- utilities beat `base.css`'s element defaults, which is what stops `button { color: inherit }`
+  putting dark ink on a maroon button;
+- **a utility on an element that already carries a design-system class does nothing at all.**
+  `className="card p-4"` silently keeps the card's padding. This is the one that will bite you.
+
+**Mixing is fine at the COMPONENT level and not at the ELEMENT level.** `<Tabs>` or `<Button>`
+from `@/components/ui` inside a `<Page>` works, because `.tab` and `.btn` set their own padding,
+background and border and the scoped reset cannot reach them.
+
+### `@theme` maps onto the real tokens, and two names are traps
+
+Tailwind's default palette, type scale, radius and shadow scales are **deleted** with
+`--color-*: initial` and friends. `bg-red-500` is a build error, not a second palette. Spacing
+is not remapped because it did not need to be: `--s-1`…`--s-7` is exactly `p-1 p-2 p-3 p-4 p-6
+p-8 p-12`, and those seven numbers are the whole ladder.
+
+Two names do NOT mean here what they mean in shadcn's own docs, and both were bugs first:
+
+- **`accent` is shadcn's neutral hover ground**, mapped to `--surface-hover`. This product's
+  status teal is `ok` / `ok-wash` / `ok-ink`. Wiring them together painted "today" on the
+  calendar as a solid green block — a status colour spent on furniture, which `tokens.css`
+  forbids outright.
+- **`--font-*` is deleted entirely.** Tailwind's font namespace is spelled `--font-sans` /
+  `--font-mono`, which are the exact variables `next/font` defines in the root layout. Not
+  declaring them is not enough — Tailwind's default theme ships both, and only the cascade was
+  keeping the webfont alive.
+
+### shadcn writes to `src/components/shadcn/`, never `components/ui/`
+
+`components.json` says so, and it matters: the CLI overwrites by filename, and `ui/button.tsx`
+already exists. **Never run `npx shadcn init`** — it rewrites `globals.css` with its own
+palette, which is the second palette this whole file exists to prevent. The project was wired by
+hand; `shadcn add <name>` is fine, and read the diff.
+
+**No `lucide-react`.** `@/components/ui/icon` is the icon set — one family, 24-unit box, 1.75
+stroke. When grepping it for what exists, match `[a-zA-Z]`: half the names are camelCase and a
+lowercase-only pattern reports an empty set, which is how three chevrons got drawn twice.
+
+**`ui/dialog.tsx` stays.** It is the native `<dialog>` driven by `showModal()`, so the browser
+owns the focus trap, Escape, the inert background and the top layer. Radix reimplements all of
+that on a `<div>`. `ui/tabs.tsx` likewise already has the full ARIA tablist with arrow keys,
+Home/End and a roving tabindex. The hand-rolled one genuinely worth replacing is `menu.tsx`.
+
+### Dates live in `@/lib/day`, and two of the four are opposites
+
+`browserDay` · `longDay` · `longInstant` · `localDate`, defined once each.
+
+- **`longDay` SPLITS a `YYYY-MM-DD`.** A statutory deadline is the same day for everybody, and
+  `new Date("2026-09-20")` is UTC midnight, which prints as the 19th west of Greenwich.
+- **`longInstant` PARSES a `...At`.** One moment lands on different days in different places and
+  the reader's own is the right one. It formats by hand rather than through
+  `toLocaleDateString`, whose ORDER is the reader's locale.
+- **`browserDay` is never `new Date().toISOString().slice(0, 10)`.** That is the UTC day, and a
+  firm in India is on the next date from 00:00 to 05:30 every morning — five screens shipped
+  with it and under-reported what was overdue for five and a half hours a day.
+
+Before this there were six `browserDay`s and nine `longDay`s in four versions. If you need a
+date formatter, import it; do not copy the nearest one you find.
+
+### The heading ladder is part of the component API
+
+`PageHeader` gives `h1`, `Section` gives `h2` at `level={2}` and `h3` otherwise, `CardTitle`
+gives `h3`. **`Section` defaults to `h3`, so a page whose one section forgets `level={2}` jumps
+`h1` → `h3`** — which is what three portal screens were doing. Read the ladder off the DOM after
+porting a screen; it is invisible in the source.
+
 ## The screens, and what they are for
 
 | Route | Is |

@@ -164,3 +164,19 @@ Light, dark, and follow-the-system, switched in the topbar. "System" is the
 default and stamps no attribute, which is what lets `prefers-color-scheme` do
 its job. The choice is applied before first paint by an inline script in the
 root layout, so there is no flash.
+
+## And there is now a fifth file: `tailwind.css`
+
+Tailwind v4 sits on top of these tokens rather than beside them — its `@theme` maps onto the
+variables above, so `bg-surface` and `.card`'s background resolve through the same custom
+property and cannot disagree.
+
+Three things about it are not obvious and all three are load-bearing. **Preflight is off**, so
+a bare `<button>` keeps the browser's own chrome and a scoped reset is gated on `[data-tw]`.
+**Utilities are layered and this CSS is not**, so a class here beats a utility whatever the
+specificity — `className="card p-4"` keeps the card's padding and drops the `p-4` in silence.
+And **`accent` means the neutral hover ground to Tailwind**, not the status teal it means here;
+the teal is `ok`.
+
+The full rules are in `bib-frontend/CLAUDE.md` under "Tailwind and shadcn". Read them before
+adding a utility to a screen that still names a class from this folder.
