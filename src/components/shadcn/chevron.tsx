@@ -1,34 +1,55 @@
 import type { JSX } from "react";
+import { Icon } from "@/components/ui/icon";
 
 /**
- * The three chevrons shadcn's Calendar needs, and nothing else.
+ * The chevrons shadcn's Calendar imports, wired to this product's own icons.
  *
- * They are here rather than from `lucide-react` because `lucide-react` would
- * be a SECOND icon set in an app that already has one, and mixing stroke
- * weights is the single thing that makes an interface look assembled rather
- * than designed — the rule is written at the top of `@/components/ui/icon`.
- * Three glyphs is not worth a library.
+ * Not `lucide-react`: a second icon set in an app that already has one is the
+ * thing that makes an interface look assembled rather than designed, and the
+ * rule is written at the top of `@/components/ui/icon`. Three glyphs was never
+ * worth a library.
  *
- * They are not IN that file either, for a duller reason: it belongs to another
- * developer's uncommitted work right now. When that lands, these three move
- * there and this file goes away.
+ * TWO OF THE THREE ALREADY EXISTED and were duplicated here by mistake first
+ * time round — `chevronDown` and `chevronRight` have been in `icon.tsx` all
+ * along. They are delegated to now, so there is one definition of each shape.
+ * Only `chevronLeft` is genuinely missing, and it is drawn below in the same
+ * family: 24-unit box, 1.75 stroke, round caps and joins, no fill,
+ * `currentColor`.
  *
- * Same family as every other icon in the product, and that is the whole point:
- * 24-unit box, 1.75 stroke, round caps and joins, no fill, `currentColor`.
+ * When `icon.tsx` is next free — it belongs to another developer's uncommitted
+ * work right now — `chevronLeft` moves there and this file becomes a re-export
+ * or goes away entirely.
  */
 
-function Chevron({
-  d,
+const SIZE = 16;
+
+export function ChevronDownIcon({
   className,
 }: {
-  d: string;
+  className?: string | undefined;
+}): JSX.Element {
+  return <Icon name="chevronDown" size={SIZE} {...(className === undefined ? {} : { className })} />;
+}
+
+export function ChevronRightIcon({
+  className,
+}: {
+  className?: string | undefined;
+}): JSX.Element {
+  return <Icon name="chevronRight" size={SIZE} {...(className === undefined ? {} : { className })} />;
+}
+
+/** The one that is not in `icon.tsx` yet. Mirror of `chevronRight`. */
+export function ChevronLeftIcon({
+  className,
+}: {
   className?: string | undefined;
 }): JSX.Element {
   return (
     <svg
       className={className}
-      width={20}
-      height={20}
+      width={SIZE}
+      height={SIZE}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -38,19 +59,7 @@ function Chevron({
       aria-hidden="true"
       focusable="false"
     >
-      <path d={d} />
+      <path d="m15 19-7-7 7-7" />
     </svg>
   );
-}
-
-export function ChevronLeftIcon({ className }: { className?: string | undefined }): JSX.Element {
-  return <Chevron d="m15 18-6-6 6-6" className={className} />;
-}
-
-export function ChevronRightIcon({ className }: { className?: string | undefined }): JSX.Element {
-  return <Chevron d="m9 18 6-6-6-6" className={className} />;
-}
-
-export function ChevronDownIcon({ className }: { className?: string | undefined }): JSX.Element {
-  return <Chevron d="m5 9 7 7 7-7" className={className} />;
 }
