@@ -792,33 +792,26 @@ function ServiceFields({
       </FieldRow>
 
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-recurrence`}>
-            Recurs
-          </label>
-          <select
-            className="select"
-            id={`${id}-recurrence`}
-            name="recurrence"
-            defaultValue={defaults?.recurrence ?? ""}
-            style={{ width: "100%" }}
-          >
+        <Field
+          id={`${id}-recurrence`}
+          label="Recurs"
+          hint="How often the work comes round. Not how it is billed."
+        >
+          <Select name="recurrence" defaultValue={defaults?.recurrence ?? ""}>
             <option value="">not stated</option>
             {RECURRENCES.map((r) => (
               <option key={r} value={r}>
                 {r.replace("_", " ")}
               </option>
             ))}
-          </select>
-          <p className="max-w-[var(--measure)] text-sm text-muted">How often the work comes round. Not how it is billed.</p>
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-slaDays`}>
-            SLA, days from signing
-          </label>
-          <input
-            className="input"
-            id={`${id}-slaDays`}
+          </Select>
+        </Field>
+        <Field
+          id={`${id}-slaDays`}
+          label="SLA, days from signing"
+          hint="Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing."
+        >
+          <Input
             name="slaDays"
             type="number"
             min={0}
@@ -827,37 +820,16 @@ function ServiceFields({
             placeholder="30"
             defaultValue={defaults?.slaDays ?? ""}
           />
-          <p className="max-w-[var(--measure)] text-sm text-muted">
-            Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing.
-          </p>
-        </div>
+        </Field>
       </FieldRow>
 
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-amount`}>
-            List price
-          </label>
-          <input
-            className="input"
-            id={`${id}-amount`}
-            name="amount"
-            placeholder="25000.00"
-            defaultValue={defaults?.listPrice?.amount ?? ""}
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-currency`}>
-            Currency
-          </label>
-          <input
-            className="input"
-            id={`${id}-currency`}
-            name="currency"
-            maxLength={3}
-            defaultValue={defaults?.listPrice?.currency ?? "INR"}
-          />
-        </div>
+        <Field id={`${id}-amount`} label="List price">
+          <Input name="amount" placeholder="25000.00" defaultValue={defaults?.listPrice?.amount ?? ""} />
+        </Field>
+        <Field id={`${id}-currency`} label="Currency">
+          <Input name="currency" maxLength={3} defaultValue={defaults?.listPrice?.currency ?? "INR"} />
+        </Field>
         <div>
           <label className="label" htmlFor={`${id}-pricingNote`}>
             Pricing note
