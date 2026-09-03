@@ -129,8 +129,14 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
 
   return (
     <>
+      {/* `level={2}` on both sections below: since these moved off the status
+          home onto `/portal/requests` they ARE that page's top-level structure,
+          and a card inside one ranks `h3`. The portal's outline was measured
+          INVERTED before this — h3 sections wrapping h2 cards — and a screen
+          reader's heading list is how somebody who cannot see the layout
+          navigates a page. */}
       {centre.awaitingYou.length > 0 && (
-        <Section title="Waiting on you">
+        <Section title="Waiting on you" level={2}>
           <Stack gap="tight">
             <p className="muted">
               {mayRespond
@@ -149,7 +155,7 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
           list that removed an ask the moment it was answered would leave a
           client who sent the wrong file with no way to see what they sent. */}
       {centre.withTheFirm.length > 0 && (
-        <Section title="Sent — with the firm">
+        <Section title="Sent — with the firm" level={2}>
           <Stack gap="tight">
             <p className="muted">
               {/* THE SECOND HALF OF THIS SENTENCE IS A PROMISE, so it is only

@@ -13,6 +13,25 @@
  * and what has been done come after, because those are reassurance rather than
  * action.
  *
+ * ── AND THE TWO REQUEST LANES ARE NO LONGER ON IT ─────────────────────────
+ *
+ * They were, until this page was MEASURED: **4,489px, three and a half screens,
+ * seven top-level sections.** Two of those seven were conversations — what the
+ * firm has asked for, and what the client has asked for — and five were status.
+ * "Ask the firm" had three lines and a button, 1,640px down, between a list of
+ * sent replies and a list of blocked jobs.
+ *
+ * The argument for keeping them here was a good one and is preserved rather
+ * than overturned: the two lanes are ONE subject read from opposite ends, so
+ * they moved TOGETHER, to `/portal/requests`. What is gone is not the pairing —
+ * it is the pairing competing with four tables for the top of the only screen a
+ * client lands on.
+ *
+ * This page is now what its heading always claimed: **what is happening**. Not
+ * a to-do list, not an inbox, not a form. Anything a reader has to ACT on is
+ * one click away and carries a count in the rail, which is more visible from
+ * every screen than it ever was by being at the top of this one.
+ *
  * ── FOUR THINGS THIS SCREEN DELIBERATELY DOES NOT SHOW ────────────────────
  *
  * · NO DUE DATE THE FIRM DID NOT PROMISE. The API carries `statutoryDueOn` only
@@ -53,15 +72,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalFilingRow, PortalStatusHome, PortalWorkRow } from "@/lib/api/client";
-import { Card, CardHead, CardTitle, Notice, Pill, Table, Td, Th } from "@/components/ui";
+import {
+  Card,
+  CardHead,
+  CardTitle,
+  LinkButton,
+  Notice,
+  Pill,
+  Table,
+  Td,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader, Section, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
-import { usePortalSession } from "./portal-frame";
-import { ActionCentre } from "./action-centre";
-import { AskTheFirm } from "./ask-the-firm";
+import Link from "next/link";
+import { browserDay, usePortalRequestCount, usePortalSession } from "./portal-frame";
 
 export default function PortalHomePage() {
   const session = usePortalSession();
+  // The frame has already counted these for the rail's badge, so the pointer
+  // below costs no request of its own — and it cannot disagree with the badge,
+  // which is the failure a second count here would eventually produce.
+  const counts = usePortalRequestCount();
   const [home, setHome] = useState<PortalStatusHome | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -144,40 +176,50 @@ export default function PortalHomePage() {
         </Empty>
       )}
 
-      {/* ── 1 · WHAT THE FIRM IS WAITING ON YOU FOR (T6.6) ─────────────────
-          FIRST, and it takes that place from "Held up" below.
+      {/* ── 1 · WHAT THE FIRM IS WAITING ON YOU FOR — A POINTER, NOT THE LIST
+          The lists themselves are on `/portal/requests`; see the header for
+          what was measured and why they moved.
 
-          "Held up" was first because it was the only section a reader could act
-          on, and it was doing that badly: `blocked_reason` is a note the firm
-          wrote to itself and reads "the client has not sent the register" as
-          readily as "the GST portal is down", with nowhere to reply either way.
-          These rows were addressed to this client deliberately and carry the
-          control that answers them. Both stay: they are different facts, and a
-          firm may be waiting on more than one thing at a time. */}
-      <ActionCentre asOf={home.asOf} onChanged={load} />
+          This is `accent` and never `warn` or `danger`. The firm needing
+          something is the ordinary business of an engagement, not a fault of
+          the reader's, and a red panel on somebody's own page is an accusation.
+          The action centre made the same call about "Held up" below.
 
-      {/* ── 1b · AND WHAT YOU ARE WAITING ON THE FIRM FOR (T6.8) ───────────
-          Directly under the action centre because the two are one subject read
-          from opposite ends: that one is what the firm is waiting on you for,
-          this is what you are waiting on the firm for. Splitting them across
-          two screens would make "what is outstanding between us" two answers.
-
-          It is NOT a fifth link in the rail — T6.7 settled that a fifth has to
-          displace one of the four or admit it is the firm's convenience. */}
-      <AskTheFirm asOf={home.asOf} companies={home.companies} firm={firm} />
+          It draws ONLY when something is genuinely unanswered. A permanent
+          "go and check your requests" strip is furniture: a reader learns
+          inside a week that it means nothing, and then does not see it on the
+          day it does. `withTheFirm` deliberately does not raise it either —
+          having sent something is not a thing to be nagged about. */}
+      {counts.loaded && counts.awaitingYou > 0 && (
+        <Notice
+          tone="accent"
+          eyebrow={counts.awaitingYou === 1 ? "One thing needs you" : `${String(counts.awaitingYou)} things need you`}
+        >
+          <p>
+            {firm} {counts.awaitingYou === 1 ? "has asked you for something" : "has asked you for a few things"} — a
+            document, an approval or an answer. Nothing here moves on until{" "}
+            {counts.awaitingYou === 1 ? "it is" : "they are"} dealt with.
+          </p>
+          <p>
+            <LinkButton href="/portal/requests" variant="primary">
+              Open requests
+            </LinkButton>
+          </p>
+        </Notice>
+      )}
 
       {/* ── 2 · HELD UP ────────────────────────────────────────────────────
           The tone is `warn` and never `danger`: the firm being unable to
           proceed is not the client's failure, and a red panel on a client's own
           page is an accusation. */}
       {home.heldUp.length > 0 && (
-        <Section title="Held up">
+        <Section title="Held up" level={2}>
           <Stack gap="tight">
             <p className="muted">
               {firm} cannot move these on until something arrives. Where they have asked you
-              for it directly, the request is at the top of this page with somewhere to answer
-              it. The rest show the note {firm}&rsquo;s own team wrote, unedited — which may be
-              about something outside your control.
+              for it directly, the request is under <Link href="/portal/requests">Requests</Link>{" "}
+              with somewhere to answer it. The rest show the note {firm}&rsquo;s own team
+              wrote, unedited — which may be about something outside your control.
             </p>
             {home.heldUp.map((row) => (
               <Card key={row.workItemId}>
@@ -201,15 +243,16 @@ export default function PortalHomePage() {
                       here; what goes is the second copy. */}
                   {row.hasOpenAsk ? (
                     <p className="muted">
-                      {/* "at the top of this page" and NOT "under Waiting on
-                          you": `hasOpenAsk` is true for an answered ask as well
-                          as an open one, so a request already sent sits under
-                          "Sent — with the firm". Naming the wrong heading was
-                          the second thing this pointer got wrong, found the
-                          same way as the first — by reading the page after
-                          answering something on it. */}
-                      {firm} has asked you for something on this — the request is at the top of
-                      this page.
+                      {/* THE PAGE, NOT A HEADING ON IT. `hasOpenAsk` is true
+                          for an ANSWERED ask as well as an open one, so a
+                          request already sent sits under "Sent — with the firm"
+                          rather than "Waiting on you" — naming either would be
+                          wrong half the time, and was, twice. Pointing at the
+                          screen is right whichever of the two it is on, and it
+                          survived the move that broke every other pointer on
+                          this page. */}
+                      {firm} has asked you for something on this — the request is under{" "}
+                      <Link href="/portal/requests">Requests</Link>.
                     </p>
                   ) : (
                     row.heldUpReason !== null && <p>{row.heldUpReason}</p>
@@ -232,7 +275,7 @@ export default function PortalHomePage() {
           about the rows directly beneath it is worse than no heading — this one
           would have had a client scrolling past the only lines that matter. */}
       {home.upcomingFilings.length > 0 && (
-        <Section title="Filings still owed">
+        <Section title="Filings still owed" level={2}>
           <Stack gap="tight">
             <p className="muted">
               The date each is due by LAW. Anything already past its date is at the top.
@@ -260,7 +303,7 @@ export default function PortalHomePage() {
 
       {/* ── 4 · UNDER WAY ─────────────────────────────────────────────────── */}
       {home.inProgress.length > 0 && (
-        <Section title="Under way">
+        <Section title="Under way" level={2}>
           <Table>
             <thead>
               <tr>
@@ -281,7 +324,7 @@ export default function PortalHomePage() {
 
       {/* ── 5 · DONE ──────────────────────────────────────────────────────── */}
       {home.recentlyFiled.length > 0 && (
-        <Section title="Recently filed">
+        <Section title="Recently filed" level={2}>
           <Table>
             <thead>
               <tr>
@@ -322,9 +365,10 @@ export default function PortalHomePage() {
           nav above it is the actual fix. */}
       {home.companies.length > 0 && (
         <p className="muted">
-          This page is what is happening now. Your documents, your invoices and a month-by-month
-          record of what {firm} has done are on the pages above — and anything {firm} has asked
-          you for is at the top of this one.
+          This page is what is happening now. Anything {firm} has asked you for — and anything
+          you have asked them — is under <Link href="/portal/requests">Requests</Link>. Your
+          documents, your invoices and a month-by-month record of what {firm} has done are on
+          the pages beside it.
         </p>
       )}
     </Page>
@@ -387,14 +431,6 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
       </Td>
     </tr>
   );
-}
-
-/** The reader's own calendar day, from their own machine. */
-function browserDay(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${month}-${day}`;
 }
 
 /**

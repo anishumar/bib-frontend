@@ -38,6 +38,20 @@ export function Card({
  *
  * This is the shape that was written out by hand 59 times, as an `<h2>` with
  * `marginTop: 0` and `fontSize: 16` inline, before it had a name.
+ *
+ * ── THE TAG IS `h3`, AND IT USED TO BE `h2` ──────────────────────────────
+ *
+ * A card almost always sits INSIDE a `Section`, whose heading is an `h3` — so
+ * the document outline read h3 > h2, a child ranking above its parent. Measured
+ * on the client portal: twelve headings, and the two levels inverted at every
+ * card. A screen reader's heading list is how somebody who cannot see the
+ * layout navigates a page, and an inverted one tells them the cards are the
+ * sections.
+ *
+ * **The change is visually a no-op**, which is why it was safe to make
+ * everywhere at once rather than only where it was noticed: `.card-title` pins
+ * `font-size: var(--t-lg)` itself, which is exactly what `base.css` gives an
+ * `h3`. Nothing on any screen moves by a pixel.
  */
 export function CardHead({
   title,
@@ -58,7 +72,7 @@ export function CardHead({
     <div className={cx("card-head", className)}>
       <div>
         {eyebrow !== undefined && <p className="eyebrow">{eyebrow}</p>}
-        {title !== undefined && <h2 className="card-title">{title}</h2>}
+        {title !== undefined && <h3 className="card-title">{title}</h3>}
         {children}
       </div>
       {aside !== undefined && <div className="cluster">{aside}</div>}
@@ -74,7 +88,7 @@ export function CardTitle({
   children: ReactNode;
   className?: string;
 }) {
-  return <h2 className={cx("card-title", className)}>{children}</h2>;
+  return <h3 className={cx("card-title", className)}>{children}</h3>;
 }
 
 /** A footer rule and the note or actions under it. */

@@ -115,7 +115,7 @@ export function AskTheFirm({
   const live = [...requests.awaitingFirm, ...requests.replied];
 
   return (
-    <Section title="Ask the firm">
+    <Section title="Ask the firm" level={2}>
       <Stack gap="tight">
         <p className="muted">
           {mayRequest

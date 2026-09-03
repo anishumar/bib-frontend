@@ -19,6 +19,23 @@
  * reach it, and one reachable by scrolling past four sections of today's news is
  * not self-serve.
  *
+ * **AND THEN A FIFTH, WHICH T6.7 HAD REFUSED — because the reason it refused
+ * one stopped being true.** The rule was that a fifth link must displace one of
+ * the four or admit it is the firm's convenience, and the status home carried
+ * both request lanes on the grounds that *"what is outstanding between us"*
+ * should be one answer rather than two screens. That argument was right and the
+ * page still failed: measured on the seeded firm it had grown to **4,489px —
+ * three and a half screens — with SEVEN top-level sections**, and "Ask the
+ * firm" was three lines and a button buried 1,640px down between two others. A
+ * client would never have found it. Being on the home page had stopped meaning
+ * findable.
+ *
+ * So the two lanes moved TOGETHER onto `/portal/requests`, which keeps T6.7's
+ * insight intact — they are still one answer, still side by side, just not
+ * competing with four status lists for the same screen. And the fifth link
+ * earns its place by the original test: it is the CLIENT's convenience, not the
+ * firm's, and it carries a count so nothing has to be opened to be noticed.
+ *
  * **AND THEN LOOKING AT IT SETTLED IT (Shrestha, 2026-09-01): "everything looks
  * messy".** The tab strip ran the full width of the window with four small
  * labels jammed at the far left, above a centred column of content — so the
@@ -68,7 +85,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "@/lib/api/client";
 import type { Principal } from "@/lib/api/client";
 import { Button } from "@/components/ui";
@@ -84,16 +101,91 @@ export function usePortalSession(): Principal | null {
 }
 
 /**
- * The whole of the client's product, in four lines.
+ * How much is outstanding between the client and the firm.
+ *
+ * ── WHY THE FRAME HOLDS THIS AND NOT THE REQUESTS PAGE ───────────────────
+ *
+ * The badge is what makes moving the two lanes off the home page SAFE. Without
+ * it the split would trade one problem for a worse one: today a client sees the
+ * request buried in a long page, and afterwards they would see nothing at all
+ * until they thought to click. A count in the rail is visible from every screen
+ * in the portal, which is strictly more visible than the home page was.
+ *
+ * So it is fetched once, here, and shared — the requests page reads the same
+ * numbers rather than counting them again, and `refresh` is what the page calls
+ * after a client answers something so the rail stops claiming they still owe it.
+ *
+ * `awaitingYou` is the only one that becomes a badge. `withTheFirm` is here
+ * because the requests page needs to know whether it has ANYTHING to show
+ * before it says "nothing is waiting" — a page that draws that sentence above a
+ * list of six sent requests is wrong in the way a reader notices immediately.
+ */
+export interface PortalRequestCount {
+  /** Asks the firm has put to this client that nobody has answered. */
+  readonly awaitingYou: number;
+  /** Answered, and still open on the firm's side. */
+  readonly withTheFirm: number;
+  /** False until the read lands. A badge must not flash `0` on its way to `3`. */
+  readonly loaded: boolean;
+  /** Re-read, after the client has acted. */
+  readonly refresh: () => void;
+}
+
+const PortalRequestCountContext = createContext<PortalRequestCount>({
+  awaitingYou: 0,
+  withTheFirm: 0,
+  loaded: false,
+  refresh: () => {
+    // The default is only ever reached outside the frame, where there is
+    // nothing to refresh. Silence is right; throwing would break a screen for
+    // a reason that is not the reader's problem.
+  },
+});
+
+export function usePortalRequestCount(): PortalRequestCount {
+  return useContext(PortalRequestCountContext);
+}
+
+/**
+ * The reader's own calendar day, from their own machine.
+ *
+ * Exported and used by every portal screen, because a UTC server is a day
+ * behind a firm in India every morning until half past five — and this value
+ * decides which grants are in force. It lived in three files before this;
+ * a date rule copied is a date rule that drifts.
+ */
+export function browserDay(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${String(now.getFullYear())}-${month}-${day}`;
+}
+
+/**
+ * The whole of the client's product, in five lines.
  *
  * Ordered by what a client arrives WANTING rather than by what the firm finds
- * important: what is happening and what is wanted from me first (they are one
- * screen), then the thing they hunt for, then money, then the record. There is
- * deliberately no fifth — every addition here has to displace one of these four
- * or admit it is the firm's convenience rather than the client's.
+ * important: what is happening, then **what is wanted from me and what I want
+ * back** — the only line here anybody has to ACT on, which is why it sits
+ * second and carries a count — then the thing they hunt for, then money, then
+ * the record.
+ *
+ * The bar for a sixth is unchanged and is the one the fifth had to clear: it
+ * displaces one of these or admits it is the firm's convenience rather than the
+ * client's. See the header for why this one cleared it.
  */
-const NAV: readonly { href: Route; label: string; icon: IconName }[] = [
+const NAV: readonly {
+  href: Route;
+  label: string;
+  icon: IconName;
+  /** Carries the outstanding count. A FLAG rather than a comparison against the
+   *  href: `Route` is a generated union and matching it against a string
+   *  literal is a type error the moment the route is renamed — which is exactly
+   *  when a silent badge would be hardest to notice. */
+  counted?: true;
+}[] = [
   { href: "/portal" as Route, label: "What's happening", icon: "home" },
+  { href: "/portal/requests" as Route, label: "Requests", icon: "inbox", counted: true },
   { href: "/portal/documents" as Route, label: "Documents", icon: "files" },
   { href: "/portal/invoices" as Route, label: "Invoices", icon: "invoices" },
   { href: "/portal/month" as Route, label: "Month by month", icon: "calendar" },
@@ -117,6 +209,35 @@ export function PortalFrame({ children }: { children: ReactNode }) {
   const open = isOpenRoute(pathname);
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [checked, setChecked] = useState(false);
+  const [counts, setCounts] = useState<{ awaitingYou: number; withTheFirm: number } | null>(
+    null,
+  );
+
+  // Only for a portal session, and only once the principal is known: `/auth/me`
+  // is what says whether this reader is a client at all, and asking a STAFF
+  // session for a client's asks is a 403 with nothing to show for it.
+  const isPortal = principal !== null && principal.audience === "CLIENT_PORTAL";
+  const loadCounts = useCallback(async (): Promise<void> => {
+    if (!isPortal) return;
+    const result = await api.GET("/api/v1/portal/asks", {
+      params: { query: { asOf: browserDay() } },
+    });
+    // A FAILED READ LEAVES THE BADGE ABSENT, not zero. "Nothing is waiting on
+    // you" is a claim, and this is the one place in the portal that makes it
+    // without a page to explain itself on — so when the read did not land, the
+    // rail says nothing at all and the requests page reports the error properly.
+    if (result.error) return;
+    setCounts({
+      awaitingYou: result.data.awaitingYou.length,
+      withTheFirm: result.data.withTheFirm.length,
+    });
+  }, [isPortal]);
+
+  useEffect(() => {
+    void (async () => {
+      await loadCounts();
+    })();
+  }, [loadCounts]);
 
   useEffect(() => {
     if (open) return;
@@ -159,8 +280,18 @@ export function PortalFrame({ children }: { children: ReactNode }) {
   const companies = principal.portalScope ?? [];
   const whose = companies.map((c) => c.clientName).join(" · ");
 
+  const requestCount: PortalRequestCount = {
+    awaitingYou: counts?.awaitingYou ?? 0,
+    withTheFirm: counts?.withTheFirm ?? 0,
+    loaded: counts !== null,
+    refresh: () => {
+      void loadCounts();
+    },
+  };
+
   return (
     <PortalSessionContext.Provider value={principal}>
+      <PortalRequestCountContext.Provider value={requestCount}>
       <div className="shell">
         <aside className="sidebar">
           {/* THE FIRM'S NAME, not the product's. This page is a firm talking to
@@ -193,6 +324,22 @@ export function PortalFrame({ children }: { children: ReactNode }) {
                 >
                   <Icon name={item.icon} className="nav-icon" />
                   <span className="label">{item.label}</span>
+                  {/* THE ONLY COUNT IN THIS RAIL, and it uses `.nav-link .count`
+                      which `layout.css` already styles — the portal's standing
+                      rule is not one line of new CSS, and it holds here too.
+
+                      Drawn only when there is something to draw: a `0` beside a
+                      link is a number a reader has to read before learning it
+                      meant nothing, and four of them would turn the rail into a
+                      dashboard. Absent while the read is in flight, so it does
+                      not flash zero on its way to three. */}
+                  {item.counted === true &&
+                    requestCount.loaded &&
+                    requestCount.awaitingYou > 0 && (
+                      <span className="count" aria-label={`${String(requestCount.awaitingYou)} waiting on you`}>
+                        {requestCount.awaitingYou}
+                      </span>
+                    )}
                 </Link>
               );
             })}
@@ -254,6 +401,7 @@ export function PortalFrame({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      </PortalRequestCountContext.Provider>
     </PortalSessionContext.Provider>
   );
 }

@@ -141,15 +141,26 @@ export function Grid({
   );
 }
 
-/** A heading and its content, with the gap between them decided once. */
+/**
+ * A heading and its content, with the gap between them decided once.
+ *
+ * `level` exists because the SCALE IS THE HIERARCHY (`base.css` says so) and a
+ * section is not always at the same depth. It defaults to 3, which is every
+ * screen that existed before it was added, and the client portal passes 2 —
+ * there the sections are the page's top-level structure and their headings
+ * should look like it. Two values only: an `h4` section under an `h3` one is a
+ * nesting this layout has no room for, and `h1` belongs to `PageHeader`.
+ */
 export function Section({
   title,
   aside,
   children,
   className,
+  level = 3,
 }: {
   title?: ReactNode;
   aside?: ReactNode;
+  level?: 2 | 3;
   children: ReactNode;
   className?: string;
 }) {
@@ -157,7 +168,7 @@ export function Section({
     <section className={cx("section", className)}>
       {(title !== undefined || aside !== undefined) && (
         <header>
-          {title !== undefined && <h3>{title}</h3>}
+          {title !== undefined && (level === 2 ? <h2>{title}</h2> : <h3>{title}</h3>)}
           {aside !== undefined && <div className="cluster">{aside}</div>}
         </header>
       )}
