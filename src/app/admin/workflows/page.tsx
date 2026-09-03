@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { FieldRow } from "@/components/ui";
+import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -232,7 +233,7 @@ export default function WorkflowsPage() {
     await load();
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
     <Page>
@@ -246,7 +247,7 @@ export default function WorkflowsPage() {
       {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 
       {templates.length === 0 ? (
-        <p className="muted" style={{ maxWidth: "64ch" }}>
+        <p className="text-sm text-muted" style={{ maxWidth: "64ch" }}>
           No process written yet. Until one is, a signed engagement creates work that WAITS —
           visibly, on the work board — rather than running a process nobody wrote.
         </p>
@@ -265,7 +266,7 @@ export default function WorkflowsPage() {
 
       <NewTemplate onSaved={() => void load()} onError={setError} />
 
-      <p className="muted text-sm" style={{ maxWidth: "64ch" }}>
+      <p className="text-sm text-muted" style={{ maxWidth: "64ch" }}>
         A published process is <strong>frozen</strong>, and that is what makes it trustworthy: a
         job records which version it started on and keeps walking that one. Editing a process
         never changes work already under way — it changes what happens next time.
@@ -297,13 +298,13 @@ function TemplateCard({
   return (
     <article className="card" style={{ marginBottom: "var(--s-4)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h2 className="card-title">
+        <CardTitle level={2}>
           {shown.label || entry.entry.key}{" "}
           <span className="mono muted text-xs">
             {entry.entry.key}
           </span>
-        </h2>
-        <span className="muted text-sm">
+        </CardTitle>
+        <span className="text-sm text-muted">
           {inForce === null ? "not in use yet" : `v${String(inForce.version)} in force`}
         </span>
       </div>
@@ -313,7 +314,7 @@ function TemplateCard({
           and a job will not touch it — which is worth saying out loud, because
           it looks finished on this screen otherwise. */}
       {draft !== null && (
-        <p className="muted text-sm">
+        <p className="text-sm text-muted">
           Draft v{draft.version} is written but <strong>not in force</strong>. No job is
           following it.
         </p>
@@ -363,13 +364,13 @@ function TemplateCard({
 /** The process as a person reads it: each step, who does it, and what it waits
  *  for. Read-only — editing is a deliberate act behind a button. */
 function StepList({ steps }: { steps: readonly StepDraft[] }) {
-  if (steps.length === 0) return <p className="muted">No steps.</p>;
+  if (steps.length === 0) return <p className="text-sm text-muted">No steps.</p>;
   return (
     <ol style={{ margin: "var(--s-2) 0 0", paddingLeft: "1.2rem" }}>
       {steps.map((s) => (
         <li key={s.key} style={{ marginBottom: 6 }}>
           <strong>{s.label || s.key}</strong>{" "}
-          <span className="muted text-sm">
+          <span className="text-sm text-muted">
             · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
             {s.dependsOn.length > 0 && <> · after {s.dependsOn.join(", ")}</>}
             {s.conditionFact !== "" && (
@@ -420,8 +421,8 @@ function NewTemplate({
     );
   }
   return (
-    <div className="card">
-      <h2 className="card-title">A new process</h2>
+    <Card>
+      <CardTitle level={2}>A new process</CardTitle>
       <StepEditor
         templateKey={null}
         initialLabel=""
@@ -452,7 +453,7 @@ function NewTemplate({
       >
         Cancel
       </button>
-    </div>
+    </Card>
   );
 }
 
@@ -563,9 +564,9 @@ function StepEditor({
 
   return (
     <div style={{ marginTop: "var(--s-4)" }}>
-      <div className="field-row">
+      <FieldRow>
         {templateKey === null && (
-          <div style={{ flex: "1 1 200px" }}>
+          <div>
             <label className="label" htmlFor="wf-key">
               Handle
             </label>
@@ -578,13 +579,13 @@ function StepEditor({
                 setKey(e.target.value);
               }}
             />
-            <p className="field-hint">
+            <p className="max-w-[var(--measure)] text-sm text-muted">
               Lower case, permanent. A service points at this, and every job that ever ran
               resolves through it.
             </p>
           </div>
         )}
-        <div style={{ flex: "2 1 260px" }}>
+        <div>
           <label className="label" htmlFor="wf-label">
             Name
           </label>
@@ -597,9 +598,9 @@ function StepEditor({
               setLabel(e.target.value);
             }}
           />
-          <p className="field-hint">What a partner picks this process by.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">What a partner picks this process by.</p>
         </div>
-      </div>
+      </FieldRow>
 
       {steps.map((step, index) => (
         <StepFields
@@ -631,7 +632,7 @@ function StepEditor({
           Save as a draft
         </button>
       </div>
-      <p className="muted text-sm">
+      <p className="text-sm text-muted">
         {note}
       </p>
     </div>
@@ -659,8 +660,8 @@ function StepFields({
       className="card"
       style={{ marginBottom: "var(--s-2)", background: "var(--surface-sunk)" }}
     >
-      <div className="field-row">
-        <div style={{ flex: "3 1 240px" }}>
+      <FieldRow>
+        <div>
           <label className="label" htmlFor={`${id}-label`}>
             Step
           </label>
@@ -674,7 +675,7 @@ function StepFields({
             }}
           />
         </div>
-        <div style={{ flex: "1 1 150px" }}>
+        <div>
           <label className="label" htmlFor={`${id}-key`}>
             Handle
           </label>
@@ -687,9 +688,9 @@ function StepFields({
               onChange({ key: e.target.value });
             }}
           />
-          <p className="field-hint">Lower case. Never changes once work has run.</p>
+          <p className="max-w-[var(--measure)] text-sm text-muted">Lower case. Never changes once work has run.</p>
         </div>
-        <div style={{ flex: "1 1 200px" }}>
+        <div>
           <label className="label" htmlFor={`${id}-executor`}>
             Who does it
           </label>
@@ -708,11 +709,11 @@ function StepFields({
               </option>
             ))}
           </select>
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             {EXECUTORS.find((x) => x.value === step.executor)?.hint}
           </p>
         </div>
-      </div>
+      </FieldRow>
 
       {others.length > 0 && (
         <div style={{ marginTop: "var(--s-2)" }}>
@@ -735,15 +736,15 @@ function StepFields({
               </label>
             ))}
           </div>
-          <p className="field-hint">
+          <p className="max-w-[var(--measure)] text-sm text-muted">
             Nothing ticked means it starts as soon as the work does. Two steps waiting for the
             same thing both start together.
           </p>
         </div>
       )}
 
-      <div className="field-row">
-        <div style={{ flex: "2 1 240px" }}>
+      <FieldRow>
+        <div>
           <label className="label" htmlFor={`${id}-fact`}>
             Only do this step when…
           </label>
@@ -766,7 +767,7 @@ function StepFields({
         </div>
         {step.conditionFact !== "" && (
           <>
-            <div style={{ flex: "0 1 140px" }}>
+            <div>
               {/* Reads as one sentence with the two selects around it — "…it"
                   + "is one of" + "…these". The labels are minimal because the
                   OPTIONS carry the words; they are still real labels rather
@@ -791,7 +792,7 @@ function StepFields({
                 ))}
               </select>
             </div>
-            <div style={{ flex: "1 1 160px" }}>
+            <div>
               <label className="label" htmlFor={`${id}-value`}>
                 {takesList(step.conditionOp) ? "…these" : "…this"}
               </label>
@@ -812,14 +813,14 @@ function StepFields({
             </div>
           </>
         )}
-      </div>
+      </FieldRow>
       {/* BELOW the row, not inside one of its columns. Inside, this paragraph
           made its own column six lines tall, and `.field-row`'s end-alignment
           alignment then pushed the two selects to the bottom of it — the three
           parts of one sentence stopped being on one line. Found by looking at
           the page, not by the types. */}
       {step.conditionFact !== "" && (
-        <p className="field-hint" style={{ maxWidth: "62ch" }}>
+        <p className="max-w-[var(--measure)] text-sm text-muted" style={{ maxWidth: "62ch" }}>
           {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
           If the service does not state this at all, the step is KEPT — under every one of these,
           including the negative ones. A blank field must not quietly remove a step from a
@@ -859,7 +860,7 @@ function StepFields({
               </option>
             )}
         </select>
-        <p className="field-hint">
+        <p className="max-w-[var(--measure)] text-sm text-muted">
           {policies.length === 0
             ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
             : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."}
