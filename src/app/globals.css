@@ -9,6 +9,16 @@
  *   components  one block per component, each with a React component in front.
  *   tailwind    utilities, in a cascade LAYER, reading the tokens above.
  *
+ * `base.css` is in `@layer base` and everything else here is unlayered, which
+ * makes element defaults the WEAKEST thing in the stylesheet — which is what
+ * they should always have been. It matters for exactly one reason: base.css
+ * says `button { color: inherit }`, and an unlayered element rule beats a
+ * layered utility whatever the specificity. Left alone, that one line would
+ * have overridden `text-primary-foreground` on every shadcn button in the app
+ * and put dark ink on a maroon selected day. Nothing existing changes, because
+ * layout.css and components.css already won against base.css by source order
+ * and still do.
+ *
  * `tailwind.css` is last for a reason worth knowing before moving it. It puts
  * its utilities in `@layer utilities`, and everything above it is unlayered —
  * and unlayered CSS beats layered CSS in the cascade whatever the specificity
@@ -25,8 +35,12 @@
  *
  * See `src/design/README.md` for how to use any of it.
  */
+/* Declared here so the ORDER is explicit rather than emergent. Later wins, and
+   anything unlayered beats all of them — see the note above. */
+@layer theme, base, utilities;
+
 @import "../design/tokens.css";
-@import "../design/base.css";
+@import "../design/base.css" layer(base);
 @import "../design/layout.css";
 @import "../design/components.css";
 @import "../design/tailwind.css";

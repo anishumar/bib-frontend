@@ -74,6 +74,79 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   PREFLIGHT, SCOPED — the missing half of "preflight is off".
+
+   Turning preflight off protects 42 unmigrated screens. It also means a bare
+   `<button>` keeps the BROWSER'S default chrome, because resetting that is
+   precisely preflight's job. The product's own buttons never noticed: `.btn`
+   in components.css resets them. A shadcn component has no such rule and
+   arrives styled `2px outset` on `#f0f0f0` — which is what the first rebuilt
+   screen looked like until this block existed.
+
+   So the reset comes back, scoped to a subtree that has ASKED for it. Put
+   `data-tw` on the root of anything built Tailwind-native:
+
+     <main data-tw> … </main>
+
+   That attribute is the migration boundary made visible in the markup. A
+   screen either opts in and gets modern defaults, or is untouched. There is no
+   third state, and no day where half the app is reset and nobody remembers
+   which half.
+
+   It sits in `@layer base` because these are element defaults and should lose
+   to everything. Losing to author CSS is fine — `.btn` inside an opted-in
+   subtree still wins, which is what you want while a screen is half migrated.
+   It still beats the BROWSER default, because any author rule does.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  [data-tw] button,
+  [data-tw] input,
+  [data-tw] optgroup,
+  [data-tw] select,
+  [data-tw] textarea {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border: 0 solid;
+    margin: 0;
+    padding: 0;
+  }
+
+  [data-tw] button,
+  [data-tw] [role="button"] {
+    cursor: pointer;
+  }
+  [data-tw] button:disabled {
+    cursor: default;
+  }
+
+  /* Spacing in an opted-in subtree is set by utilities, explicitly, or it is
+     zero. Inherited margins are the thing that makes a Tailwind layout drift
+     by an amount nobody wrote down. */
+  [data-tw] :is(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd) {
+    margin: 0;
+  }
+  [data-tw] :is(ul, ol) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* An icon is a block, or it sits on the text baseline and adds a few
+     unexplained pixels under every row that contains one. */
+  [data-tw] :is(img, svg, video, canvas) {
+    display: block;
+    vertical-align: middle;
+  }
+  [data-tw] :is(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    THE THEME.
 
    `inline` matters: it substitutes these values straight into the utility
@@ -112,11 +185,20 @@
   --color-brand-hover: var(--brand-hover);
   --color-brand-on: var(--brand-on);
 
-  /* Status, and only status. */
-  --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-wash: var(--accent-wash);
+  /* Status, and only status.
+
+     NOTE THE MISSING NAME. There is no `--color-accent` here, and that is the
+     point: shadcn spells its HOVER GROUND `accent`, this product spells its
+     "done / in force" TEAL `accent`, and one Tailwind name cannot be both.
+     Mapping them together painted a solid status teal across "today" on the
+     first rebuilt calendar — a status colour spent on furniture, which is the
+     one thing tokens.css forbids outright.
+
+     So the teal lives under its OTHER real name, `ok`, which tokens.css
+     already defines as the same value and which says what it means. `accent`
+     below belongs to shadcn and points at a neutral hover ground. */
   --color-ok: var(--ok);
+  --color-ok-ink: var(--accent-ink);
   --color-ok-wash: var(--ok-wash);
   --color-warn: var(--warn);
   --color-warn-wash: var(--warn-wash);
@@ -130,15 +212,21 @@
      come out in THIS product's colours instead of arriving with a palette of
      its own — which is the difference between a component and a bolt-on.
 
-     Two are not the obvious mapping, deliberately:
+     Three are not the obvious mapping, deliberately:
 
      `accent` is shadcn's HOVER/HIGHLIGHT ground — the row under the cursor in
-     a menu. Ours is a status colour that means "done / in force". Wiring them
-     together would paint teal behind every hovered menu item and spend a
-     status colour on furniture, so shadcn's accent points at `--surface-hover`
-     and our teal stays reachable as `accent` / `ok`.
+     a menu, and the ring around "today" in its Calendar. Ours is a status
+     colour meaning "done / in force". This was wired to our teal first, and
+     the calendar came out with a solid green block on today; a status colour
+     on furniture is exactly what tokens.css forbids. It points at
+     `--surface-hover` now, and the teal is `ok` above.
 
-     `primary` is the BRAND, not the accent — see the note in tokens.css. */
+     `primary` is the BRAND, not the accent — see the note in tokens.css.
+
+     `ring` is the teal, because that is already this app's focus colour
+     everywhere: base.css outlines every `:focus-visible` in `--accent`, and a
+     second focus colour appearing only on migrated screens would read as a
+     bug rather than a redesign. */
   --color-background: var(--paper);
   --color-foreground: var(--ink);
   --color-card: var(--surface);
@@ -150,12 +238,13 @@
   --color-secondary: var(--surface-sunk);
   --color-secondary-foreground: var(--ink);
   --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-hover);
   --color-accent-foreground: var(--ink);
   --color-destructive: var(--danger);
   --color-destructive-foreground: var(--brand-on);
   --color-border: var(--line);
   --color-input: var(--line);
-  --color-ring: var(--brand);
+  --color-ring: var(--accent);
 
   /* ── Type ────────────────────────────────────────────────────────────────
      Cleared and rebuilt so the ladder here is the SAME seven rungs as
