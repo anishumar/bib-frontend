@@ -513,7 +513,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   }
   if (step.status === "done") {
     return (
-      <span className="pill" data-tone="accent">
+      <span className="pill" data-tone="ok">
         done
       </span>
     );

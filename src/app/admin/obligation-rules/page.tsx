@@ -344,7 +344,7 @@ function Rules() {
         {notice !== null && <Notice tone="ok">{notice}</Notice>}
 
         {focused.length > 0 && (
-          <Notice tone="accent" eyebrow="FROM THE CALENDAR">
+          <Notice tone="ok" eyebrow="FROM THE CALENDAR">
             <p>
               <strong>
                 Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
@@ -733,7 +733,7 @@ const LABEL: Record<RuleCoverage, string> = {
  *  there is nothing for anybody to do about it yet. */
 const TONE: Record<RuleCoverage, PillTone> = {
   generating: "neutral",
-  needs_formula: "accent",
+  needs_formula: "ok",
   event_driven: "neutral",
   retired: "danger",
 };

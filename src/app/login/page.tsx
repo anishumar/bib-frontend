@@ -135,7 +135,7 @@ export default function LoginPage() {
                 </Button>
 
                 {linkSent ? (
-                  <Notice tone="accent" eyebrow="Check your email">
+                  <Notice tone="ok" eyebrow="Check your email">
                     If that address has an account here, a sign-in link is on its way. It works
                     once and expires.
                   </Notice>

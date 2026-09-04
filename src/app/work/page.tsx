@@ -274,7 +274,7 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
               </Td>
               <Td>
                 {c.viewer.eligible ? (
-                  <Pill tone="accent">you can check this</Pill>
+                  <Pill tone="ok">you can check this</Pill>
                 ) : (
                   <span className="empty">
                     {c.viewer.reason === null
@@ -317,7 +317,7 @@ function JobState({ job }: { job: Job }) {
     );
   }
   return (
-    <Pill tone={job.status === "blocked" ? "danger" : "accent"}>
+    <Pill tone={job.status === "blocked" ? "danger" : "ok"}>
       {job.status === "blocked" ? "waiting for someone" : job.status}
     </Pill>
   );

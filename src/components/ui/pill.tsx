@@ -14,7 +14,20 @@ import { cx } from "./class-names";
  * of its own because it is the same chip shape and it is what a screen reaches
  * for beside a real status.
  */
-export type PillTone = "neutral" | "ok" | "accent" | "warn" | "danger" | "quiet" | "code";
+/**
+ * `accent` was here and is deliberately GONE.
+ *
+ * It is shadcn's neutral hover ground under Tailwind, and this product's
+ * status teal is `ok`. The two render identically — `components.css` has
+ * always declared them as one rule — so nothing ever looked wrong, and the
+ * wrong name spread to ten call sites and 76 elements on screen. It is a real
+ * bug the moment a screen moves to `components/tw`, whose `Pill` has no
+ * `accent` tone at all: the pill silently loses its colour.
+ *
+ * Taking it out of the union makes `tone="accent"` a compile error. The CSS
+ * selector stays as a safety net for any raw `data-tone` written by hand.
+ */
+export type PillTone = "neutral" | "ok" | "warn" | "danger" | "quiet" | "code";
 
 export function Pill({
   children,

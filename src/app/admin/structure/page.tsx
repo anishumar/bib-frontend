@@ -10,6 +10,7 @@ import {
   Input,
   Radio,
   Select,
+  Pill,
   Table,
   TableWrap,
   Td,
@@ -468,9 +469,9 @@ function AxisList({
                     />
                   </Td>
                   <Td>
-                    <span className="pill" data-tone={r.isActive ? "accent" : "danger"}>
+                    <Pill tone={r.isActive ? "ok" : "danger"}>
                       {r.isActive ? "in use" : "retired"}
-                    </span>
+                    </Pill>
                   </Td>
                   <Td align="right">
                     <Button

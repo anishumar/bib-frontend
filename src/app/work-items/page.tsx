@@ -415,7 +415,7 @@ function WorkRow({ item, today }: { item: WorkItem; today: string }) {
               {item.checklistDone}/{item.checklistTotal}
             </span>
           )}
-          {item.hasOpenReview && <Pill tone="accent">in review</Pill>}
+          {item.hasOpenReview && <Pill tone="ok">in review</Pill>}
         </span>
         {/* What this item is WAITING ON. Shown on the row and not only on the
             page, because "why has nobody started this" is the question a board
@@ -468,7 +468,7 @@ function WorkRow({ item, today }: { item: WorkItem; today: string }) {
             two-word name is the ordinary case, not an edge one. It rendered as
             a broken circle before the component owned that rule. */}
         <Pill
-          tone={item.state.isBlocked ? "danger" : item.state.isTerminal ? "neutral" : "accent"}
+          tone={item.state.isBlocked ? "danger" : item.state.isTerminal ? "neutral" : "ok"}
         >
           {item.state.name}
         </Pill>

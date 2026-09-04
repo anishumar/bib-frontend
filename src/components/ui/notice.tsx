@@ -14,7 +14,8 @@ import { cx } from "./class-names";
  * allowed to disagree: a danger notice is an `alert` and interrupts, anything
  * else is a `status` and waits its turn.
  */
-export type NoticeTone = "neutral" | "accent" | "ok" | "warn" | "danger";
+/** `accent` is gone on purpose — see `PillTone` in `./pill`. */
+export type NoticeTone = "neutral" | "ok" | "warn" | "danger";
 
 export function Notice({
   children,

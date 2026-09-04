@@ -269,7 +269,7 @@ export default function PeoplePage() {
                     </Select>
                   </Td>
                   <Td>
-                    <Pill tone={m.membership.isActive ? "accent" : "danger"}>
+                    <Pill tone={m.membership.isActive ? "ok" : "danger"}>
                       {m.membership.isActive ? m.membership.audience : "revoked"}
                     </Pill>
                   </Td>

@@ -269,5 +269,5 @@ export default function InvoicesPage() {
  *  still there, still numbered, and no longer in force. */
 function toneOf(status: InvoiceSummary["invoice"]["status"]): PillTone {
   if (status === "cancelled") return "danger";
-  return status === "issued" ? "accent" : "neutral";
+  return status === "issued" ? "ok" : "neutral";
 }

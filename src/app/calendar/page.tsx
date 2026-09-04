@@ -316,7 +316,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         </span>
       </Td>
       <Td>
-        <Pill tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "accent"}>
+        <Pill tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "ok"}>
           {row.stateName}
         </Pill>
         {/* WHEN, not just that. A row that says only "Filed" is one somebody

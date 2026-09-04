@@ -99,7 +99,7 @@ export function WorkBoard({
         // The tone is read off the FLAG, never a branch on the code — a firm
         // that renames "Blocked" keeps the red dot, which is the whole reason
         // the flag exists.
-        const tone = state.isBlocked ? "danger" : state.isTerminal ? "neutral" : "accent";
+        const tone = state.isBlocked ? "danger" : state.isTerminal ? "neutral" : "ok";
         return (
           <section
             key={state.id}
@@ -263,7 +263,7 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
           </span>
         )}
 
-        {item.hasOpenReview && <Pill tone="accent">in review</Pill>}
+        {item.hasOpenReview && <Pill tone="ok">in review</Pill>}
       </div>
 
       <div className="wcard-foot" data-nobody={who === null ? "true" : undefined}>

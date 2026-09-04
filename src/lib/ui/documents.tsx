@@ -458,7 +458,7 @@ function FileRows({
               label={doc.isClientVisible ? "Shared" : "Not shared"}
             />
           ) : (
-            <Pill tone={doc.isClientVisible ? "accent" : "quiet"}>
+            <Pill tone={doc.isClientVisible ? "ok" : "quiet"}>
               {doc.isClientVisible ? "Shared" : "Not shared"}
             </Pill>
           )}

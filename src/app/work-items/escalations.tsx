@@ -147,7 +147,7 @@ function EscalationRow({ row }: { row: Escalation }) {
           // A RANK and not a person, deliberately: an escalation routed to one
           // partner dies while that partner is on leave.
           <Tooltip text="Addressed to a grade rather than one desk, so everybody senior enough sees it.">
-            <Pill tone="accent">rank {row.minGradeRank}+</Pill>
+            <Pill tone="ok">rank {row.minGradeRank}+</Pill>
           </Tooltip>
         ) : (
           <Tooltip text={row.note ?? "Nobody could be named."}>

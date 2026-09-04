@@ -339,7 +339,7 @@ export default function CopilotPage() {
               {principal.role === null ? (
                 <span className="unstated">no role</span>
               ) : (
-                <Pill tone="accent">{principal.role}</Pill>
+                <Pill tone="ok">{principal.role}</Pill>
               )}
             </MetaItem>
             <MetaItem label="At">
@@ -363,7 +363,7 @@ export default function CopilotPage() {
                   manager who may read every client is not automatically somebody
                   who may see what the firm earns. */}
               {principal.commercialVisibility === true ? (
-                <Pill tone="accent">visible</Pill>
+                <Pill tone="ok">visible</Pill>
               ) : (
                 <Pill tone="quiet">hidden</Pill>
               )}

@@ -173,7 +173,7 @@ export default function GradesPage() {
                   />
                 </Td>
                 <Td>
-                  <Pill tone={g.isActive ? "accent" : "danger"}>
+                  <Pill tone={g.isActive ? "ok" : "danger"}>
                     {g.isActive ? "in use" : "retired"}
                   </Pill>
                 </Td>
