@@ -7,7 +7,20 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Field, FieldRow, Input, Meta, MetaItem, NotStated, Prose, Select } from "@/components/ui";
+import {
+  Button,
+  Field,
+  FieldRow,
+  Input,
+  Meta,
+  MetaItem,
+  NotStated,
+  Notice,
+  Pill,
+  Prose,
+  Select,
+  Textarea,
+} from "@/components/ui";
 import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -221,31 +234,30 @@ export default function CataloguePage() {
             }}
           >
             <FieldRow>
-              <div>
-                <label className="label" htmlFor="define-key">
-                  Handle
-                </label>
-                {/* The key is a HANDLE, not a title, and not the firm's service
-                    code either: pins are written against it, so it never moves.
-                    Lower case by rule — the code that prints on a proposal is
-                    `ref` below. */}
-                <input
-                  className="input"
-                  id="define-key"
-                  name="key"
-                  placeholder="gst-filing"
-                  required
-                />
-                <p className="max-w-[var(--measure)] text-sm text-muted">
-                  Lower case, url-safe, permanent. Every issued document resolves through it.
-                </p>
-              </div>
+              {/* The key is a HANDLE, not a title, and not the firm's service
+                  code either: pins are written against it, so it never moves.
+                  Lower case by rule — the code that prints on a proposal is
+                  `ref` below. */}
+              <Field
+                label="Handle"
+                hint="Lower case, url-safe, permanent. Every issued document resolves through it."
+              >
+                <Input name="key" placeholder="gst-filing" required />
+              </Field>
             </FieldRow>
-            <ServiceFields id="define" defaults={null} axes={axes} workflows={workflows} />
+            <ServiceFields
+              id="define"
+              groupLabel="A new service"
+              defaults={null}
+              axes={axes}
+              workflows={workflows}
+            />
             {noteFor("define")}
-            <button className="btn" type="submit" disabled={busy !== null}>
-              Add as a draft
-            </button>
+            <div className="cluster">
+              <Button type="submit" disabled={busy !== null}>
+                Add as a draft
+              </Button>
+            </div>
             <p className="text-sm text-muted">
               Defining does not put it in force. Publish it, and from then on the version it
               was quoted at is frozen — which is what lets a proposal reopened next year still
@@ -298,22 +310,19 @@ export default function CataloguePage() {
             }}
           >
             <FieldRow>
-              <div>
-                <label className="label" htmlFor="maxDiscountPercent">
-                  Limit %
-                </label>
-                <input
-                  className="input"
-                  id="maxDiscountPercent"
+              <Field label="Limit %">
+                <Input
                   name="maxDiscountPercent"
                   defaultValue={discountLimit ?? "15"}
                   required
                 />
-              </div>
-              <div>
-                <button className="btn" type="submit" disabled={busy !== null}>
+              </Field>
+              {/* The button was the second CELL of the grid, so it was sized by
+                  the column rather than by its own words. */}
+              <div className="cluster" style={{ alignSelf: "end" }}>
+                <Button type="submit" disabled={busy !== null}>
                   {discount === undefined ? "Set it" : "Draft a new limit"}
-                </button>
+                </Button>
               </div>
             </FieldRow>
             {noteFor("policy")}
@@ -363,9 +372,7 @@ function ServiceCard({
         {body.ref === null ? (
           <NotStated>no code</NotStated>
         ) : (
-          <span className="pill" data-tone="code">
-            {body.ref}
-          </span>
+          <Pill tone="code">{body.ref}</Pill>
         )}
         <CardTitle>{body.name === "" ? row.key : body.name}</CardTitle>
         <span className="mono muted">{row.key}</span>
@@ -373,13 +380,12 @@ function ServiceCard({
           {published === null ? (
             // A draft was never in force, so it cannot be quoted — the proposal
             // screen will not offer it either.
-            <span className="pill" data-tone="danger">
-              draft only — never in force
-            </span>
+            <Pill tone="danger">draft only — never in force</Pill>
           ) : (
-            <span className="pill" data-tone="accent">
-              in force · v{published.version}
-            </span>
+            /* `ok`, not `accent`. In force is a STATUS; `accent` is shadcn's
+               neutral hover ground and the two have been confused six times on
+               this product now. */
+            <Pill tone="ok">in force · v{published.version}</Pill>
           )}
         </span>
       </div>
@@ -422,16 +428,18 @@ function ServiceCard({
           {canWrite && (
             <>
               {note(`publish:${row.key}`)}
-              <button
-                className="btn" data-variant="secondary" data-size="sm"
-                style={{ marginTop: "var(--s-2)" }}
-                disabled={busy !== null}
-                onClick={() => {
-                  onPublish(row.key, draft.version);
-                }}
-              >
-                Publish v{draft.version} — put it in force
-              </button>
+              <div className="cluster" style={{ marginTop: "var(--s-2)" }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    onPublish(row.key, draft.version);
+                  }}
+                >
+                  Publish v{draft.version} — put it in force
+                </Button>
+              </div>
             </>
           )}
         </div>
@@ -451,11 +459,19 @@ function ServiceCard({
               Clearing a field here means the new version does not state it — which is a
               change, not a blank.
             </p>
-            <ServiceFields id={`v-${row.key}`} defaults={body} axes={axes} workflows={workflows} />
+            <ServiceFields
+              id={`v-${row.key}`}
+              groupLabel={`The service ${row.key}`}
+              defaults={body}
+              axes={axes}
+              workflows={workflows}
+            />
             {note(`version:${row.key}`)}
-            <button className="btn" type="submit" disabled={busy !== null}>
-              Draft it
-            </button>
+            <div className="cluster">
+              <Button type="submit" disabled={busy !== null}>
+                Draft it
+              </Button>
+            </div>
           </form>
         </details>
       )}
@@ -582,9 +598,9 @@ function AxisChips({ counts }: { counts: AxisCount[] }) {
   return (
     <span className="cluster">
       {counts.map((c) => (
-        <span key={c.label ?? ""} className="pill" data-tone={c.label === null ? "" : "code"}>
+        <Pill key={c.label ?? ""} tone={c.label === null ? "neutral" : "code"}>
           {c.label ?? "not filed"} · {c.count}
-        </span>
+        </Pill>
       ))}
     </span>
   );
@@ -608,13 +624,9 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         <span className="mono text-muted">{entry.entry.key}</span>
         <span className="ml-auto">
           {entry.published === null ? (
-            <span className="pill" data-tone="danger">
-              draft only — never in force
-            </span>
+            <Pill tone="danger">draft only — never in force</Pill>
           ) : (
-            <span className="pill" data-tone="accent">
-              in force · v{entry.published.version}
-            </span>
+            <Pill tone="ok">in force · v{entry.published.version}</Pill>
           )}
         </span>
       </div>
@@ -672,9 +684,7 @@ function Term({ term, absent }: { term: JurisdictionalTerm | null; absent: strin
   if (term === null) return <NotStated>{absent}</NotStated>;
   return (
     <span>
-      <span className="pill" data-tone="code">
-        {term.jurisdiction}
-      </span>{" "}
+      <Pill tone="code">{term.jurisdiction}</Pill>{" "}
       {term.text}
     </span>
   );
@@ -692,17 +702,26 @@ function Term({ term, absent }: { term: JurisdictionalTerm | null; absent: strin
  */
 function ServiceFields({
   id,
+  groupLabel,
   defaults,
   axes,
   workflows,
 }: {
   id: string;
+  /** Which service these fields belong to. Every service on this page renders
+   *  the SAME eighteen labels, so "Name, edit" appeared six times over with
+   *  nothing telling them apart — measured: 110 controls, 20 distinct names.
+   *  Named by the service's HANDLE, which never moves, and not by its title,
+   *  which is editable in the box above. */
+  groupLabel: string;
   defaults: ServiceRecord | null;
   axes: readonly ServiceAxis[];
   workflows: readonly ConfigEntry[];
 }) {
   return (
-    <>
+    /* No legend: the card already carries the service's name where anybody who
+       can see it will read it. This names the group for everybody else. */
+    <fieldset className="fieldset" aria-label={groupLabel}>
       <FieldRow>
         <Field id={`${id}-name`} label="Name">
           <Input name="name" defaultValue={defaults?.name ?? ""} required />
@@ -755,21 +774,26 @@ function ServiceFields({
       </FieldRow>
 
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-workflowTemplateKey`}>
-            How it is delivered
-          </label>
-          {/* A PICKER of the firm's published processes, and only published
-              ones: a draft is not in force, and offering it would point a
-              service at something no job will ever follow. Free text was never
-              an option here — the key resolves against config.entry and a typo
-              would leave every job for this service waiting forever. */}
-          <select
-            className="select"
-            id={`${id}-workflowTemplateKey`}
+        {/* A PICKER of the firm's published processes, and only published ones:
+            a draft is not in force, and offering it would point a service at
+            something no job will ever follow. Free text was never an option
+            here — the key resolves against config.entry and a typo would leave
+            every job for this service waiting forever. */}
+        <Field
+          id={`${id}-workflowTemplateKey`}
+          label="How it is delivered"
+          hint={
+            <>
+              The process every job for this service follows.{" "}
+              <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
+              real answer — the work is created and waits, visibly, rather than running a
+              process nobody wrote.
+            </>
+          }
+        >
+          <Select
             name="workflowTemplateKey"
             defaultValue={defaults?.workflowTemplateKey ?? ""}
-            style={{ width: "100%" }}
           >
             <option value="">not stated — work for this service will wait</option>
             {workflows
@@ -781,14 +805,8 @@ function ServiceFields({
                     : w.entry.key}
                 </option>
               ))}
-          </select>
-          <p className="max-w-[var(--measure)] text-sm text-muted">
-            The process every job for this service follows.{" "}
-            <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
-            real answer — the work is created and waits, visibly, rather than running a
-            process nobody wrote.
-          </p>
-        </div>
+          </Select>
+        </Field>
       </FieldRow>
 
       <FieldRow>
@@ -830,77 +848,62 @@ function ServiceFields({
         <Field id={`${id}-currency`} label="Currency">
           <Input name="currency" maxLength={3} defaultValue={defaults?.listPrice?.currency ?? "INR"} />
         </Field>
-        <div>
-          <label className="label" htmlFor={`${id}-pricingNote`}>
-            Pricing note
-          </label>
-          <input
-            className="input"
-            id={`${id}-pricingNote`}
+        <Field
+          id={`${id}-pricingNote`}
+          label="Pricing note"
+          hint={
+            <>
+              Why there is no list price — and allowed beside one, for &quot;plus statutory
+              fees at actuals&quot;.
+            </>
+          }
+        >
+          <Input
             name="pricingNote"
             placeholder="As mutually agreed"
             defaultValue={defaults?.pricingNote ?? ""}
           />
-          <p className="max-w-[var(--measure)] text-sm text-muted">
-            Why there is no list price — and allowed beside one, for &quot;plus statutory fees
-            at actuals&quot;.
-          </p>
-        </div>
+        </Field>
       </FieldRow>
 
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-category`}>
-            Category
-          </label>
-          <input
-            className="input"
-            id={`${id}-category`}
-            name="category"
-            defaultValue={defaults?.category ?? ""}
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-jurisdictions`}>
-            Offered in
-          </label>
-          <input
-            className="input"
-            id={`${id}-jurisdictions`}
+        <Field id={`${id}-category`} label="Category">
+          <Input name="category" defaultValue={defaults?.category ?? ""} />
+        </Field>
+        <Field
+          id={`${id}-jurisdictions`}
+          label="Offered in"
+          hint="ISO codes, comma separated. Blank means everywhere."
+        >
+          <Input
             name="jurisdictions"
             placeholder="IN, AE"
             defaultValue={defaults?.jurisdictions.join(", ") ?? ""}
           />
-          <p className="max-w-[var(--measure)] text-sm text-muted">ISO codes, comma separated. Blank means everywhere.</p>
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-description`}>
-            Description
-          </label>
-          <input
-            className="input"
-            id={`${id}-description`}
-            name="description"
-            defaultValue={defaults?.description ?? ""}
-          />
-        </div>
+        </Field>
+        <Field id={`${id}-description`} label="Description">
+          <Input name="description" defaultValue={defaults?.description ?? ""} />
+        </Field>
       </FieldRow>
 
       <div className="prose-grid">
         {SCOPE_BLOCKS.map((block) => (
-          <div key={block.field}>
-            <label className="label" htmlFor={`${id}-${block.field}`}>
-              {block.heading} <span className="mono">{block.field}</span>
-            </label>
-            <textarea
-              className="textarea"
-              id={`${id}-${block.field}`}
+          <Field
+            key={block.field}
+            id={`${id}-${block.field}`}
+            label={
+              <>
+                {block.heading} <span className="mono">{block.field}</span>
+              </>
+            }
+          >
+            <Textarea
               name={block.field}
               rows={3}
               placeholder={block.placeholder}
               defaultValue={defaults?.[block.field] ?? ""}
             />
-          </div>
+          </Field>
         ))}
       </div>
       <p className="max-w-[var(--measure)] text-sm text-muted">
@@ -908,7 +911,7 @@ function ServiceFields({
         bank accounts&quot;. Nothing is metered against them: past a ceiling the firm
         re-assesses the engagement.
       </p>
-    </>
+    </fieldset>
   );
 }
 
@@ -1277,15 +1280,17 @@ function failureOf(at: string, error: unknown): Failure {
  */
 function FailureNote({ failure }: { failure: Failure }) {
   return (
-    <p className="notice" data-tone="danger" role="alert">
-      {failure.message}
-      {failure.reason !== null && (
-        <>
-          {" "}
-          <span className="mono">({failure.reason})</span>
-        </>
-      )}
-    </p>
+    <Notice tone="danger">
+      <p>
+        {failure.message}
+        {failure.reason !== null && (
+          <>
+            {" "}
+            <span className="mono">({failure.reason})</span>
+          </>
+        )}
+      </p>
+    </Notice>
   );
 }
 
