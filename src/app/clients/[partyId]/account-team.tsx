@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
-import { Table, TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import type {
   AccountTeam,
   AssignmentRole,
@@ -137,12 +152,12 @@ export function AccountTeamPanel({
 
   if (team === null) {
     return (
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Account team</h2>
+      <Card>
+        <CardTitle level={2}>Account team</CardTitle>
         <p className="muted">
           {error ?? "Loading…"}
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -155,17 +170,12 @@ export function AccountTeamPanel({
   const past = team.all.filter((a) => !inForceIds.has(a.id));
 
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: "var(--s-4)",
-          flexWrap: "wrap",
-        }}
-      >
-        <h2 className="card-title">Account team</h2>
+    <Card>
+      {/* `.row` is those five declarations exactly — baseline-aligned, spread
+          apart, wrapping rather than crushing the heading. It was written for
+          a heading with something opposite it, which is this. */}
+      <div className="row">
+        <CardTitle level={2}>Account team</CardTitle>
         <label className="label" style={{ marginBottom: 0 }}>
           As of{" "}
           <input
@@ -186,7 +196,7 @@ export function AccountTeamPanel({
         </p>
       )}
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {team.inForce.length === 0 ? (
         <p className="muted">
@@ -210,7 +220,7 @@ export function AccountTeamPanel({
               {team.inForce.map((a) => (
                 <tr key={a.id}>
                   <Td>
-                    <span className="pill">{roleLabel(a.role)}</span>
+                    <Pill>{roleLabel(a.role)}</Pill>
                   </Td>
                   <Td>{a.holderName ?? a.holderEmail}</Td>
                   <Td className="muted">
@@ -222,16 +232,16 @@ export function AccountTeamPanel({
                   <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
                   <Td>
                     {showingToday && a.validTo === null && (
-                      <button
-                        className="btn" data-variant="secondary" data-size="sm"
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         disabled={busy}
                         onClick={() => {
                           void end(a);
                         }}
                       >
                         End today
-                      </button>
+                      </Button>
                     )}
                   </Td>
                 </tr>
@@ -281,78 +291,71 @@ export function AccountTeamPanel({
           }}
         >
           <h3 className="text-md" style={{ marginBottom: "var(--s-2)" }}>Put somebody in charge</h3>
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="role">
-                Role
-              </label>
-              <select
-                className="select"
-                id="role"
-                name="role"
-                value={role}
-                style={{ width: "100%" }}
-                onChange={(e) => {
-                  setRole(e.target.value as AssignmentRole);
-                }}
+          <FieldStack>
+            <FieldRow>
+              {/* The sentence that used to sit loose above the button belongs
+                  HERE: it changes with the role — a handover for a Key Manager,
+                  an addition for a SPOC — so it describes this control and
+                  nothing else, and as `hint` it is read out with it. */}
+              <Field
+                label="Role"
+                hint={
+                  role === "key_manager"
+                    ? "A new Key Manager is a handover: the current one is closed on this date, and both stay on file."
+                    : "A Dept can have more than one SPOC — this adds one. Ending the outgoing SPOC is a separate step."
+                }
               >
-                <option value="spoc">SPOC</option>
-                <option value="key_manager">Key Manager</option>
-              </select>
-            </div>
-            {/* Only a SPOC has one, and the API refuses a Key Manager carrying
-                a Dept — so the field is absent rather than disabled. */}
-            {role === "spoc" && (
-              <div>
-                <label className="label" htmlFor="axisId">
-                  Dept / team
-                </label>
-                <select className="select" id="axisId" name="axisId" style={{ width: "100%" }}>
-                  {axes.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.axis === "dept" ? "Dept" : "team"})
+                <Select
+                  name="role"
+                  value={role}
+                  onChange={(e) => {
+                    setRole(e.target.value as AssignmentRole);
+                  }}
+                >
+                  <option value="spoc">SPOC</option>
+                  <option value="key_manager">Key Manager</option>
+                </Select>
+              </Field>
+              {/* Only a SPOC has one, and the API refuses a Key Manager carrying
+                  a Dept — so the field is absent rather than disabled. */}
+              {role === "spoc" && (
+                <Field label="Dept / team">
+                  <Select name="axisId">
+                    {axes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.axis === "dept" ? "Dept" : "team"})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              <Field label="Who">
+                <Select name="userId">
+                  {staff.map((m) => (
+                    <option key={m.membership.id} value={m.membership.userId}>
+                      {m.displayName ?? m.email}
                     </option>
                   ))}
-                </select>
-              </div>
-            )}
-            <div>
-              <label className="label" htmlFor="userId">
-                Who
-              </label>
-              <select className="select" id="userId" name="userId" style={{ width: "100%" }}>
-                {staff.map((m) => (
-                  <option key={m.membership.id} value={m.membership.userId}>
-                    {m.displayName ?? m.email}
-                  </option>
-                ))}
-              </select>
+                </Select>
+              </Field>
+              {/* `id="validFrom"` was hardcoded here AND on the identifier form
+                  of the page this renders inside, so the document carried the
+                  same id twice and the SECOND label pointed at the FIRST input.
+                  `Field` generates one with `useId`, which is why the class of
+                  bug cannot come back. */}
+              <Field label="From">
+                <Input name="validFrom" type="date" defaultValue={today()} required />
+              </Field>
+            </FieldRow>
+            <div className="cluster">
+              <Button type="submit" loading={busy}>
+                {busy ? "Saving…" : "Assign"}
+              </Button>
             </div>
-            <div>
-              <label className="label" htmlFor="validFrom">
-                From
-              </label>
-              <input
-                className="input"
-                id="validFrom"
-                name="validFrom"
-                type="date"
-                defaultValue={today()}
-                required
-              />
-            </div>
-          </div>
-          <p className="muted" style={{ marginBottom: "var(--s-4)" }}>
-            {role === "key_manager"
-              ? "A new Key Manager is a handover: the current one is closed on this date, and both stay on file."
-              : "A Dept can have more than one SPOC — this adds one. Ending the outgoing SPOC is a separate step."}
-          </p>
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Saving…" : "Assign"}
-          </button>
+          </FieldStack>
         </form>
       )}
-    </div>
+    </Card>
   );
 }
 

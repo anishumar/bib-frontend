@@ -1,13 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
-import { Button, Pill, Table, TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Notice,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
+import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
 
@@ -35,6 +53,10 @@ export default function PartyPage() {
   const [archiving, setArchiving] = useState(false);
   // What to OFFER, never what is allowed.
   const [permissions, setPermissions] = useState<string[]>([]);
+  // Two fields on the Register form share one explanation, so the paragraph
+  // stays outside them and they point at it. A hook, so it lives up here with
+  // the others and not after an early return.
+  const registerHintId = useId();
 
   const load = useCallback(async (): Promise<void> => {
     const [one, me] = await Promise.all([
@@ -147,11 +169,11 @@ export default function PartyPage() {
     await load();
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <Loading />;
   if (profile === null) {
     return (
       <Page>
-        <p className="notice" data-tone="danger" role="alert">{error ?? "No such party."}</p>
+        <Notice tone="danger">{error ?? "No such party."}</Notice>
       </Page>
     );
   }
@@ -210,7 +232,7 @@ export default function PartyPage() {
             : profile.party.kind}
       </p>
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {/* First, because "who at the firm looks after this client" is the
           question somebody opening a client page most often has, and until
@@ -222,8 +244,8 @@ export default function PartyPage() {
           compliance calendar is empty, and the empty state is the only place
           anybody would find that out. */}
       {profile.party.kind === "organization" && (
-        <div className="card">
-          <h2 className="card-title">Registered</h2>
+        <Card>
+          <CardTitle level={2}>Registered</CardTitle>
           {profile.legalEntities.length === 0 ? (
             <p className="muted measure">
               Not registered anywhere yet. A compliance rule matches a
@@ -254,12 +276,9 @@ export default function PartyPage() {
                         not in a particular year. */}
                     <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
                     <Td>
-                      <span
-                        className="pill"
-                        data-tone={e.status === "active" ? "" : "danger"}
-                      >
+                      <Pill tone={e.status === "active" ? "neutral" : "danger"}>
                         {e.status}
-                      </span>
+                      </Pill>
                     </Td>
                   </tr>
                 ))}
@@ -279,50 +298,63 @@ export default function PartyPage() {
               }}
             >
               <p className="eyebrow">Register it</p>
-              <div className="field-row">
-                <div>
-                  <label className="label" htmlFor="jurisdiction-entity">Country</label>
-                  <input className="input" id="jurisdiction-entity" name="jurisdiction"
-                         maxLength={2} placeholder="IN" required
-                         style={{ textTransform: "uppercase" }} />
-                </div>
-                <div>
-                  <label className="label" htmlFor="entityType">Kind of company</label>
-                  <input className="input" id="entityType" name="entityType"
-                         placeholder="private_limited" required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="incorporatedOn">
-                    Incorporated <span className="optional">(optional)</span>
-                  </label>
-                  <input className="input" id="incorporatedOn" name="incorporatedOn"
-                         type="date" />
-                </div>
-                <div>
-                  <label className="label" htmlFor="financialYearEnd">
-                    FY ends <span className="optional">(optional)</span>
-                  </label>
+              <FieldStack>
+                <FieldRow>
+                  {/* The paragraph below explains BOTH of these and neither on
+                      its own, so it stays outside the fields and they point at
+                      it by hand — `Field`'s own `hint` would have had to say it
+                      twice, once under each. */}
+                  <Field label="Country">
+                    <Input
+                      name="jurisdiction"
+                      maxLength={2}
+                      placeholder="IN"
+                      required
+                      aria-describedby={registerHintId}
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </Field>
+                  <Field label="Kind of company">
+                    <Input
+                      name="entityType"
+                      placeholder="private_limited"
+                      required
+                      aria-describedby={registerHintId}
+                    />
+                  </Field>
+                  <Field label="Incorporated" optional>
+                    <Input name="incorporatedOn" type="date" />
+                  </Field>
                   {/* MM-DD, never a full date: a financial year ends on a day in
                       the calendar, not in one particular year. */}
-                  <input className="input" id="financialYearEnd" name="financialYearEnd"
-                         placeholder="03-31" pattern="[0-9]{2}-[0-9]{2}" />
+                  <Field label="FY ends" optional>
+                    <Input
+                      name="financialYearEnd"
+                      placeholder="03-31"
+                      pattern="[0-9]{2}-[0-9]{2}"
+                    />
+                  </Field>
+                </FieldRow>
+                <p className="field-hint" id={registerHintId}>
+                  The country is what a compliance rule is matched against, and
+                  the kind of company narrows which rules apply. Both are the
+                  firm&rsquo;s own words for them — <span className="mono">IN</span>{" "}
+                  and <span className="mono">private_limited</span> are what the
+                  shipped India rules look for.
+                </p>
+                <div className="cluster">
+                  <Button type="submit" loading={busy}>
+                    Register
+                  </Button>
                 </div>
-              </div>
-              <p className="field-hint">
-                The country is what a compliance rule is matched against, and
-                the kind of company narrows which rules apply. Both are the
-                firm&rsquo;s own words for them — <span className="mono">IN</span>{" "}
-                and <span className="mono">private_limited</span> are what the
-                shipped India rules look for.
-              </p>
-              <Button type="submit" loading={busy}>Register</Button>
+              </FieldStack>
             </form>
           )}
-        </div>
+        </Card>
       )}
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Identifiers</h2>
+      <Card>
+        <CardTitle level={2}>Identifiers</CardTitle>
         {profile.identifiers.length === 0 ? (
           <p className="muted">
             None yet. A PAN or an email is what lets a second capture of this
@@ -345,9 +377,10 @@ export default function PartyPage() {
                     <Td>
                       {i.type}
                       {i.isPrimary && (
-                        <span className="pill" style={{ marginLeft: 8 }}>
-                          primary
-                        </span>
+                        <>
+                          {" "}
+                          <Pill>primary</Pill>
+                        </>
                       )}
                     </Td>
                     {/* Stored normalised by the API — uppercase, unspaced — which
@@ -361,10 +394,10 @@ export default function PartyPage() {
             </Table>
           </TableWrap>
         )}
-      </div>
+      </Card>
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <h2 className="card-title">Relationships</h2>
+      <Card>
+        <CardTitle level={2}>Relationships</CardTitle>
         {profile.relationships.length === 0 ? (
           <p className="muted">
             None recorded.
@@ -404,58 +437,51 @@ export default function PartyPage() {
             </Table>
           </TableWrap>
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">Attach an identifier</h2>
+      <Card>
+        <CardTitle level={2}>Attach an identifier</CardTitle>
         <form
           action={(form) => {
             void addIdentifier(form);
           }}
         >
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="type">
-                Type
-              </label>
-              <select className="select" id="type" name="type" style={{ width: "100%" }}>
-                {IDENTIFIER_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+          <FieldStack>
+            <FieldRow>
+              <Field label="Type">
+                <Select name="type">
+                  {IDENTIFIER_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Value">
+                <Input name="value" required />
+              </Field>
+              <Field label="Jurisdiction">
+                <Input name="jurisdiction" maxLength={2} placeholder="IN" />
+              </Field>
+              {/* This field and the account team's "From" BOTH hardcoded
+                  `id="validFrom"`, and both render on this page — so the
+                  document carried the id twice and clicking THIS label put the
+                  cursor in the other card's input. `Field` generates its id
+                  with `useId`, which is why the whole class of bug goes away
+                  rather than this one instance of it. */}
+              <Field label="Valid from">
+                <Input name="validFrom" type="date" defaultValue={today} required />
+              </Field>
+            </FieldRow>
+            <Checkbox label="The primary one of its type for this party." name="isPrimary" />
+            <div className="cluster">
+              <Button type="submit" loading={busy}>
+                {busy ? "Attaching…" : "Attach"}
+              </Button>
             </div>
-            <div>
-              <label className="label" htmlFor="value">
-                Value
-              </label>
-              <input className="input" id="value" name="value" required />
-            </div>
-            <div>
-              <label className="label" htmlFor="jurisdiction">
-                Jurisdiction
-              </label>
-              <input className="input" id="jurisdiction" name="jurisdiction" maxLength={2}
-                     placeholder="IN" />
-            </div>
-            <div>
-              <label className="label" htmlFor="validFrom">
-                Valid from
-              </label>
-              <input className="input" id="validFrom" name="validFrom" type="date"
-                     defaultValue={today} required />
-            </div>
-          </div>
-          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
-            <input type="checkbox" name="isPrimary" />
-            <span>The primary one of its type for this party.</span>
-          </label>
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Attaching…" : "Attach"}
-          </button>
+          </FieldStack>
         </form>
-      </div>
+      </Card>
       {/* The client's file. `partyId` is passed so every document carries the
           column the client portal's record scope (Gate 4) will filter on —
           adding it later would mean backfilling a fact nobody recorded. */}
