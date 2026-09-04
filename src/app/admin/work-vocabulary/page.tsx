@@ -125,7 +125,11 @@ export default function WorkVocabularyPage() {
                   <CommitText
                     key={`${s.id}:${s.name}`}
                     value={s.name}
-                    label="State name"
+                    /* Named by the CODE, which is immutable and sits in the
+                       next cell. "State name" was the same name on all eight
+                       rows, and naming it after its own value would rename the
+                       control on every keystroke. */
+                    label={`Name of ${s.code}`}
                     disabled={busy === s.id}
                     onCommit={(name) => {
                       void act(s.id, () => patchState(s.id, { name }));
@@ -140,7 +144,7 @@ export default function WorkVocabularyPage() {
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
                     value={s.sortOrder}
-                    label="Sort order"
+                    label={`Order of ${s.code}`}
                     disabled={busy === s.id}
                     onCommit={(sortOrder) => {
                       void act(s.id, () => patchState(s.id, { sortOrder }));
@@ -263,7 +267,7 @@ export default function WorkVocabularyPage() {
                   <CommitText
                     key={`${p.id}:${p.name}`}
                     value={p.name}
-                    label="Priority name"
+                    label={`Name of ${p.code}`}
                     disabled={busy === p.id}
                     onCommit={(name) => {
                       void act(p.id, () => patchPriority(p.id, { name }));
@@ -275,7 +279,7 @@ export default function WorkVocabularyPage() {
                   <CommitNumber
                     key={`${p.id}:${String(p.rank)}`}
                     value={p.rank}
-                    label="Rank"
+                    label={`Rank of ${p.code}`}
                     disabled={busy === p.id}
                     onCommit={(rank) => {
                       void act(p.id, () => patchPriority(p.id, { rank }));

@@ -142,7 +142,12 @@ export default function ObligationVocabularyPage() {
                   <CommitText
                     key={`${s.id}:${s.name}`}
                     value={s.name}
-                    label="State name"
+                    /* Named by the CODE, which is immutable and sits in the
+                       next cell. "State name" was the same name on all five
+                       rows, and naming it after its own value would rename the
+                       control on every keystroke — this is the field that
+                       changes the name. */
+                    label={`Name of ${s.code}`}
                     disabled={busy === s.id}
                     onCommit={(name) => {
                       void act(s.id, () => patchState(s.id, { name }));
@@ -158,7 +163,7 @@ export default function ObligationVocabularyPage() {
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
                     value={s.sortOrder}
-                    label="Sort order"
+                    label={`Order of ${s.code}`}
                     disabled={busy === s.id}
                     onCommit={(sortOrder) => {
                       void act(s.id, () => patchState(s.id, { sortOrder }));
@@ -302,7 +307,7 @@ export default function ObligationVocabularyPage() {
                   <CommitText
                     key={`${o.id}:${o.name}`}
                     value={o.name}
-                    label="Option name"
+                    label={`Name of ${o.code}`}
                     disabled={busy === o.id}
                     onCommit={(name) => {
                       void act(o.id, () => patchOption(o.id, { name }));
@@ -314,7 +319,7 @@ export default function ObligationVocabularyPage() {
                   <CommitNumber
                     key={`${o.id}:${String(o.sortOrder)}`}
                     value={o.sortOrder}
-                    label="Sort order"
+                    label={`Order of ${o.code}`}
                     disabled={busy === o.id}
                     onCommit={(sortOrder) => {
                       void act(o.id, () => patchOption(o.id, { sortOrder }));
