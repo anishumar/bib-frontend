@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Checkbox, Field, FieldRow, Fieldset, Input, Select } from "@/components/ui";
+import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select } from "@/components/ui";
 import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -244,10 +244,14 @@ export default function WorkflowsPage() {
         Write it once and every job for that service follows it — and every step can be a
         person&apos;s, so this works today with nothing automated at all."
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      )}
 
       {templates.length === 0 ? (
-        <p className="text-sm text-muted" style={{ maxWidth: "64ch" }}>
+        <p className="max-w-[64ch] text-sm text-muted">
           No process written yet. Until one is, a signed engagement creates work that WAITS —
           visibly, on the work board — rather than running a process nobody wrote.
         </p>
@@ -266,7 +270,7 @@ export default function WorkflowsPage() {
 
       <NewTemplate onSaved={() => void load()} onError={setError} />
 
-      <p className="text-sm text-muted" style={{ maxWidth: "64ch" }}>
+      <p className="max-w-[64ch] text-sm text-muted">
         A published process is <strong>frozen</strong>, and that is what makes it trustworthy: a
         job records which version it started on and keeps walking that one. Editing a process
         never changes work already under way — it changes what happens next time.
@@ -296,8 +300,8 @@ function TemplateCard({
   const shown = fromBody((draft ?? inForce)?.body ?? {});
 
   return (
-    <article className="card" style={{ marginBottom: "var(--s-4)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+    <Card>
+      <div className="flex items-baseline justify-between gap-4">
         <CardTitle level={2}>
           {shown.label || entry.entry.key}{" "}
           <span className="mono muted text-xs">
@@ -322,26 +326,26 @@ function TemplateCard({
 
       <StepList steps={shown.steps} />
 
-      <div style={{ display: "flex", gap: "var(--s-2)", marginTop: "var(--s-4)" }}>
+      <div className="mt-4 flex flex-wrap gap-2">
         {draft !== null && (
-          <button
-            className="btn"
+          <Button
             disabled={busy === `publish:${entry.entry.key}`}
             onClick={() => {
               onPublish(entry.entry.key, draft.version);
             }}
           >
             Put v{draft.version} in force
-          </button>
+          </Button>
         )}
-        <button
-          className="btn" data-variant="secondary" data-size="sm"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => {
             setEditing((e) => !e);
           }}
         >
           {editing ? "Cancel" : draft === null ? "Change it" : "Edit the draft"}
-        </button>
+        </Button>
       </div>
 
       {editing && (
@@ -357,7 +361,7 @@ function TemplateCard({
           onError={onError}
         />
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -366,9 +370,13 @@ function TemplateCard({
 function StepList({ steps }: { steps: readonly StepDraft[] }) {
   if (steps.length === 0) return <p className="text-sm text-muted">No steps.</p>;
   return (
-    <ol style={{ margin: "var(--s-2) 0 0", paddingLeft: "1.2rem" }}>
+    /* NUMBERED. `[data-tw] ol` sets `list-style: none`, so the 1.2rem of left
+       padding this list carried was a gutter reserved for a marker that never
+       drew. A process is its ORDER — that is the sentence at the top of the
+       screen — so the marker is put back rather than the gutter taken away. */
+    <ol className="mb-0 ml-5 mt-2 list-decimal">
       {steps.map((s) => (
-        <li key={s.key} style={{ marginBottom: 6 }}>
+        <li key={s.key} className="mb-1.5">
           <strong>{s.label || s.key}</strong>{" "}
           <span className="text-sm text-muted">
             · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
@@ -410,14 +418,15 @@ function NewTemplate({
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button
-        className="btn"
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        Write a new process
-      </button>
+      <div className="cluster">
+        <Button
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          Write a new process
+        </Button>
+      </div>
     );
   }
   return (
@@ -445,14 +454,17 @@ function NewTemplate({
         }}
         onError={onError}
       />
-      <button
-        className="btn" data-variant="secondary" data-size="sm"
-        onClick={() => {
-          setOpen(false);
-        }}
-      >
-        Cancel
-      </button>
+      <div className="cluster">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setOpen(false);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -562,39 +574,51 @@ function StepEditor({
     onDone();
   }
 
+  /* The process every step below belongs to, for the groups' names.
+     `templateKey` is the process's PERMANENT handle; the label in the box
+     beside it is not — naming a group after a value editable inside it renames
+     the group on every keystroke. A process being written has no handle yet
+     (that is the field), so it gets a literal. */
+  const scope = templateKey ?? "a new process";
+
   return (
-    <div style={{ marginTop: "var(--s-4)" }}>
-      <FieldRow>
-        {templateKey === null && (
-          <Field
-            id="wf-key"
-            label="Handle"
-            hint="Lower case, permanent. A service points at this, and every job that ever ran resolves through it."
-          >
+    <div className="mt-4">
+      {/* Named for the same reason every step below is: three editors can be
+          open at once and each of them asks for a "Name". `aria-label` with no
+          <legend>, so nothing changes on screen. */}
+      <fieldset className="m-0 min-w-0 border-0 p-0" aria-label={scope}>
+        <FieldRow>
+          {templateKey === null && (
+            <Field
+              label="Handle"
+              hint="Lower case, permanent. A service points at this, and every job that ever ran resolves through it."
+            >
+              <Input
+                value={key}
+                placeholder="gst-monthly"
+                onChange={(e) => {
+                  setKey(e.target.value);
+                }}
+              />
+            </Field>
+          )}
+          <Field label="Name" hint="What a partner picks this process by.">
             <Input
-              value={key}
-              placeholder="gst-monthly"
+              value={label}
+              placeholder="GST monthly filing"
               onChange={(e) => {
-                setKey(e.target.value);
+                setLabel(e.target.value);
               }}
             />
           </Field>
-        )}
-        <Field id="wf-label" label="Name" hint="What a partner picks this process by.">
-          <Input
-            value={label}
-            placeholder="GST monthly filing"
-            onChange={(e) => {
-              setLabel(e.target.value);
-            }}
-          />
-        </Field>
-      </FieldRow>
+        </FieldRow>
+      </fieldset>
 
       {steps.map((step, index) => (
         <StepFields
           key={index}
           index={index}
+          scope={scope}
           step={step}
           others={steps.filter((_, i) => i !== index).map((s) => s.key).filter((k) => k !== "")}
           onChange={(change) => {
@@ -607,29 +631,27 @@ function StepEditor({
         />
       ))}
 
-      <div style={{ display: "flex", gap: "var(--s-2)", marginTop: "var(--s-4)" }}>
-        <button className="btn" data-variant="secondary" data-size="sm" onClick={addStep}>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={addStep}>
           Add a step
-        </button>
-        <button
-          className="btn"
+        </Button>
+        <Button
           disabled={busy}
           onClick={() => {
             void save();
           }}
         >
           Save as a draft
-        </button>
+        </Button>
       </div>
-      <p className="text-sm text-muted">
-        {note}
-      </p>
+      <p className="mt-2 text-sm text-muted">{note}</p>
     </div>
   );
 }
 
 function StepFields({
   index,
+  scope,
   step,
   others,
   policies,
@@ -637,14 +659,33 @@ function StepFields({
   onRemove,
 }: {
   index: number;
+  /** The process this step belongs to, by its permanent handle. */
+  scope: string;
   step: StepDraft;
   others: readonly string[];
   policies: readonly CheckRule[];
   onChange: (change: Partial<StepDraft>) => void;
   onRemove: () => void;
 }) {
-  const id = `step-${String(index)}`;
-  const groupName = `Step ${String(index + 1)}`;
+  /*
+   * `useId`, not `step-0`.
+   *
+   * TWO editors can be open at once — any of the four process cards, and "Write
+   * a new process" — and every one of them numbered its steps from zero. Both
+   * open, the page carried ten duplicate ids and five labels pointing into the
+   * OTHER card: clicking "Handle" under "A new process" was proved to put the
+   * cursor in GST monthly filing's box, and a screen reader announced it by the
+   * wrong process's label. An id is DOCUMENT-wide; a step index is not.
+   *
+   * `<Field>` generates its own with `useId` when it is given no `id`, so the
+   * three fields that had one hardcoded simply stopped passing it. This prefix
+   * is still needed for the two hints that describe a GROUP rather than one
+   * control, which `Field` cannot wire.
+   */
+  const id = useId();
+  /* Named by the PROCESS as well as the position. "Step 1" is not a name while
+     a second form on the same page also has a Step 1. */
+  const groupName = `${scope} · step ${String(index + 1)}`;
   return (
     /*
      * A <fieldset> so the step's fields are a GROUP, named.
@@ -661,18 +702,18 @@ function StepFields({
      * asked for. The label names the group for a screen reader and changes
      * nothing on screen.
      *
-     * `.card` ALONE, not `card fieldset`. `.fieldset` is declared at
-     * components.css:554 and `.card` at :195 — same specificity, same layer —
-     * so `.fieldset`'s `border: 0; padding: 0` would win on order and strip
-     * every step card of its border and its `--s-5` padding. `.card` already
-     * carries the `min-width: 0` that a <fieldset> needs to stop its UA
-     * `min-width: min-content` from blowing out the grid rows inside it, and
-     * its own border and padding override the UA fieldset chrome.
+     * Drawn in utilities rather than `.card`, which is what it wore before. The
+     * card it wants is a SUNK one, and `.card` is unlayered while every utility
+     * is in `@layer utilities` — so `bg-surface-sunk` beside it would silently
+     * do nothing and the background had to be an inline style to land at all.
+     * Written out, it needs no inline style and no note about cascade order.
+     *
+     * `min-w-0` is load-bearing and not decoration: a <fieldset>'s UA
+     * `min-width: min-content` blows out the grid rows inside it without it.
      */
     <fieldset
-      className="card"
+      className="mb-2 min-w-0 rounded-md border border-line bg-surface-sunk p-6"
       aria-label={groupName}
-      style={{ marginBottom: "var(--s-2)", background: "var(--surface-sunk)" }}
     >
       <FieldRow>
         <Field id={`${id}-label`} label="Step">
@@ -718,14 +759,14 @@ function StepFields({
       </FieldRow>
 
       {others.length > 0 && (
-        <div style={{ marginTop: "var(--s-2)" }}>
+        <div className="mt-2">
           {/* A <fieldset>/<legend>, not a <span className="label">. "Waits for"
               is the QUESTION these boxes answer, and a span answers it only for
               somebody who can see it sitting above them — a screen reader
               announcing "reconcile, checkbox, not checked" on its own gives an
               answer to nothing. A legend is read with each box. */}
           <Fieldset legend="Waits for">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--s-2)" }}>
+            <div className="flex flex-wrap gap-2">
               {others.map((other) => (
                 <Checkbox
                   key={other}
@@ -829,7 +870,7 @@ function StepFields({
         </p>
       )}
 
-      <div style={{ marginTop: "var(--s-2)", maxWidth: 360 }}>
+      <div className="mt-2 max-w-[360px]">
         <Field
           id={`${id}-check`}
           label="When it is done, who checks it?"
@@ -871,15 +912,16 @@ function StepFields({
           group, and it is not prepended to a BUTTON the way a field's label
           is. Six identical "Remove this step" is the one duplicate on this
           screen that destroys work. */}
-      <button
-        className="btn"
-        data-variant="destructive-quiet"
-        data-size="sm"
-        aria-label={`Remove ${groupName}`}
-        onClick={onRemove}
-      >
-        Remove this step
-      </button>
+      <div className="cluster">
+        <Button
+          variant="destructive-quiet"
+          size="sm"
+          aria-label={`Remove ${groupName}`}
+          onClick={onRemove}
+        >
+          Remove this step
+        </Button>
+      </div>
     </fieldset>
   );
 }
