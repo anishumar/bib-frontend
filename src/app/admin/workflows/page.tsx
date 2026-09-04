@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { FieldRow } from "@/components/ui";
+import { Field, FieldRow, Input, Select } from "@/components/ui";
 import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -566,40 +566,29 @@ function StepEditor({
     <div style={{ marginTop: "var(--s-4)" }}>
       <FieldRow>
         {templateKey === null && (
-          <div>
-            <label className="label" htmlFor="wf-key">
-              Handle
-            </label>
-            <input
-              className="input"
-              id="wf-key"
+          <Field
+            id="wf-key"
+            label="Handle"
+            hint="Lower case, permanent. A service points at this, and every job that ever ran resolves through it."
+          >
+            <Input
               value={key}
               placeholder="gst-monthly"
               onChange={(e) => {
                 setKey(e.target.value);
               }}
             />
-            <p className="max-w-[var(--measure)] text-sm text-muted">
-              Lower case, permanent. A service points at this, and every job that ever ran
-              resolves through it.
-            </p>
-          </div>
+          </Field>
         )}
-        <div>
-          <label className="label" htmlFor="wf-label">
-            Name
-          </label>
-          <input
-            className="input"
-            id="wf-label"
+        <Field id="wf-label" label="Name" hint="What a partner picks this process by.">
+          <Input
             value={label}
             placeholder="GST monthly filing"
             onChange={(e) => {
               setLabel(e.target.value);
             }}
           />
-          <p className="max-w-[var(--measure)] text-sm text-muted">What a partner picks this process by.</p>
-        </div>
+        </Field>
       </FieldRow>
 
       {steps.map((step, index) => (
@@ -661,44 +650,35 @@ function StepFields({
       style={{ marginBottom: "var(--s-2)", background: "var(--surface-sunk)" }}
     >
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-label`}>
-            Step
-          </label>
-          <input
-            className="input"
-            id={`${id}-label`}
+        <Field id={`${id}-label`} label="Step">
+          <Input
             value={step.label}
             placeholder="Reconcile against the books"
             onChange={(e) => {
               onChange({ label: e.target.value });
             }}
           />
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-key`}>
-            Handle
-          </label>
-          <input
-            className="input"
-            id={`${id}-key`}
+        </Field>
+        <Field
+          id={`${id}-key`}
+          label="Handle"
+          hint="Lower case. Never changes once work has run."
+        >
+          <Input
             value={step.key}
             placeholder="reconcile"
             onChange={(e) => {
               onChange({ key: e.target.value });
             }}
           />
-          <p className="max-w-[var(--measure)] text-sm text-muted">Lower case. Never changes once work has run.</p>
-        </div>
-        <div>
-          <label className="label" htmlFor={`${id}-executor`}>
-            Who does it
-          </label>
-          <select
-            className="select"
-            id={`${id}-executor`}
+        </Field>
+        <Field
+          id={`${id}-executor`}
+          label="Who does it"
+          hint={EXECUTORS.find((x) => x.value === step.executor)?.hint}
+        >
+          <Select
             value={step.executor}
-            style={{ width: "100%" }}
             onChange={(e) => {
               onChange({ executor: e.target.value as StepDraft["executor"] });
             }}
@@ -708,11 +688,8 @@ function StepFields({
                 {x.label}
               </option>
             ))}
-          </select>
-          <p className="max-w-[var(--measure)] text-sm text-muted">
-            {EXECUTORS.find((x) => x.value === step.executor)?.hint}
-          </p>
-        </div>
+          </Select>
+        </Field>
       </FieldRow>
 
       {others.length > 0 && (
@@ -744,15 +721,15 @@ function StepFields({
       )}
 
       <FieldRow>
-        <div>
-          <label className="label" htmlFor={`${id}-fact`}>
-            Only do this step when…
-          </label>
-          <select
-            className="select"
-            id={`${id}-fact`}
+        <Field id={`${id}-fact`} label="Only do this step when…">
+          <Select
             value={step.conditionFact}
-            style={{ width: "100%" }}
+            /* The sentence explaining what a blank field means sits BELOW the
+               row on purpose (see the comment under it), so it cannot be this
+               field's `hint`. Pointed at by hand instead — and only while
+               there IS a condition, because an aria-describedby naming an
+               element that is not rendered describes nothing. */
+            aria-describedby={step.conditionFact === "" ? undefined : `${id}-cond-hint`}
             onChange={(e) => {
               onChange({ conditionFact: e.target.value as StepDraft["conditionFact"] });
             }}
@@ -763,24 +740,20 @@ function StepFields({
                 {f.label}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
         {step.conditionFact !== "" && (
           <>
-            <div>
-              {/* Reads as one sentence with the two selects around it — "…it"
-                  + "is one of" + "…these". The labels are minimal because the
-                  OPTIONS carry the words; they are still real labels rather
-                  than a bare "…", because a screen reader gets nothing from an
-                  ellipsis. */}
-              <label className="label" htmlFor={`${id}-op`}>
-                …it
-              </label>
-              <select
-                className="select"
-                id={`${id}-op`}
+            {/* Reads as one sentence with the two selects around it — "…it"
+                + "is one of" + "…these". The labels are minimal because the
+                OPTIONS carry the words; they are still real labels rather
+                than a bare "…", because a screen reader gets nothing from an
+                ellipsis. All three parts of the sentence point at the one
+                explanation below the row. */}
+            <Field id={`${id}-op`} label="…it">
+              <Select
                 value={step.conditionOp}
-                style={{ width: "100%" }}
+                aria-describedby={`${id}-cond-hint`}
                 onChange={(e) => {
                   onChange({ conditionOp: e.target.value as Operator });
                 }}
@@ -790,16 +763,12 @@ function StepFields({
                     {o.label}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor={`${id}-value`}>
-                {takesList(step.conditionOp) ? "…these" : "…this"}
-              </label>
-              <input
-                className="input"
-                id={`${id}-value`}
+              </Select>
+            </Field>
+            <Field id={`${id}-value`} label={takesList(step.conditionOp) ? "…these" : "…this"}>
+              <Input
                 value={step.conditionValue}
+                aria-describedby={`${id}-cond-hint`}
                 placeholder={
                   takesList(step.conditionOp)
                     ? (FACTS.find((f) => f.value === step.conditionFact)?.example ?? "")
@@ -810,7 +779,7 @@ function StepFields({
                   onChange({ conditionValue: e.target.value });
                 }}
               />
-            </div>
+            </Field>
           </>
         )}
       </FieldRow>
@@ -820,7 +789,7 @@ function StepFields({
           parts of one sentence stopped being on one line. Found by looking at
           the page, not by the types. */}
       {step.conditionFact !== "" && (
-        <p className="max-w-[var(--measure)] text-sm text-muted" style={{ maxWidth: "62ch" }}>
+        <p className="field-hint" id={`${id}-cond-hint`} style={{ maxWidth: "62ch" }}>
           {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
           If the service does not state this at all, the step is KEPT — under every one of these,
           including the negative ones. A blank field must not quietly remove a step from a
@@ -829,16 +798,19 @@ function StepFields({
       )}
 
       <div style={{ marginTop: "var(--s-2)", maxWidth: 360 }}>
-        <label className="label" htmlFor={`${id}-check`}>
-          When it is done, who checks it?
-        </label>
-        <select
-          className="select"
+        <Field
           id={`${id}-check`}
-          value={step.verificationPolicyKey}
-          style={{ width: "100%" }}
-          onChange={(e) => { onChange({ verificationPolicyKey: e.target.value }); }}
+          label="When it is done, who checks it?"
+          hint={
+            policies.length === 0
+              ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
+              : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."
+          }
         >
+          <Select
+            value={step.verificationPolicyKey}
+            onChange={(e) => { onChange({ verificationPolicyKey: e.target.value }); }}
+          >
           {/* Nobody is the default and the honest one: it is what every process
               written before this field existed meant, and those processes must
               not start holding work for review because a new field appeared. */}
@@ -859,12 +831,8 @@ function StepFields({
                 {step.verificationPolicyKey} (not in force)
               </option>
             )}
-        </select>
-        <p className="max-w-[var(--measure)] text-sm text-muted">
-          {policies.length === 0
-            ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
-            : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."}
-        </p>
+          </Select>
+        </Field>
       </div>
 
       <button className="btn" data-variant="destructive-quiet" data-size="sm" onClick={onRemove}>
