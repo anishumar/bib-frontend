@@ -4,7 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BLOCK_KINDS, BLOCK_KIND_LABELS, api, apiError } from "@/lib/api/client";
 import type { BlockKind, StandardBlock } from "@/lib/api/client";
-import { Table, TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -82,13 +96,13 @@ export default function DocumentBlocksPage() {
         document and nothing already issued — a document owns its copy from the moment it is
         drafted."
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {BLOCK_KINDS.map((kind) => {
         const mine = blocks.filter((b) => b.kind === kind);
         return (
-          <div className="card" style={{ marginBottom: "var(--s-4)" }} key={kind}>
-            <h2 className="card-title">{BLOCK_KIND_LABELS[kind]}</h2>
+          <Card key={kind}>
+            <CardTitle level={2}>{BLOCK_KIND_LABELS[kind]}</CardTitle>
             {mine.length === 0 ? (
               <p className="muted">
                 Nothing standard. Documents drafted now carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
@@ -186,52 +200,49 @@ export default function DocumentBlocksPage() {
                 );
               }}
             >
-              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-                <div>
-                  <label className="label" htmlFor={`${kind}-body`}>
-                    New line
-                  </label>
-                  <input className="input" id={`${kind}-body`} name={`${kind}-body`} required />
-                </div>
-                <div>
-                  <label className="label" htmlFor={`${kind}-order`}>
-                    Order
-                  </label>
-                  <input
-                    className="input"
-                    id={`${kind}-order`}
-                    name={`${kind}-order`}
-                    type="number"
-                    min={1}
-                    defaultValue={mine.length + 1}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor={`${kind}-jurisdiction`}>
-                    Only in
-                  </label>
-                  <input
-                    className="input"
-                    id={`${kind}-jurisdiction`}
-                    name={`${kind}-jurisdiction`}
-                    maxLength={2}
-                    placeholder="all"
-                    style={{ width: 90 }}
-                  />
-                  <p className="field-hint">Blank prints everywhere.</p>
-                </div>
-                <div style={{ alignSelf: "center" }}>
-                  <label className="check">
-                    <input type="checkbox" name={`${kind}-heading`} /> Heading
-                  </label>
-                </div>
-              </div>
-              <button className="btn" type="submit" disabled={busy}>
-                Add line
-              </button>
+              {/* NAMED, and no legend so nothing moves on screen. All three
+                  kinds render this identical form on one page, so "New line,
+                  edit" appeared three times over with nothing saying whether it
+                  was an exclusion, a commercial note or a team line — measured,
+                  12 controls answering to 4 names. */}
+              <fieldset className="fieldset" aria-label={BLOCK_KIND_LABELS[kind]}>
+                <FieldStack>
+                  <FieldRow>
+                    <Field label="New line">
+                      <Input name={`${kind}-body`} required />
+                    </Field>
+                    <Field label="Order">
+                      <Input
+                        name={`${kind}-order`}
+                        type="number"
+                        min={1}
+                        defaultValue={mine.length + 1}
+                        required
+                      />
+                    </Field>
+                    <Field label="Only in" hint="Blank prints everywhere.">
+                      <Input
+                        name={`${kind}-jurisdiction`}
+                        maxLength={2}
+                        placeholder="all"
+                        style={{ width: 90 }}
+                      />
+                    </Field>
+                    {/* `alignSelf: center` on a grid cell whose siblings each
+                        have a label above them and one has a hint below — it
+                        centred against a row it was never the height of. In the
+                        stack it simply follows. */}
+                    <Checkbox label="Heading" name={`${kind}-heading`} />
+                  </FieldRow>
+                  <div className="cluster">
+                    <Button type="submit" disabled={busy}>
+                      Add line
+                    </Button>
+                  </div>
+                </FieldStack>
+              </fieldset>
             </form>
-          </div>
+          </Card>
         );
       })}
     </Page>
