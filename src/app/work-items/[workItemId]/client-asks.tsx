@@ -369,7 +369,7 @@ function AskLine({
                 only in the console, which is why it survived T6.6. `display:
                 block` is what a div was doing here anyway. */}
             {r.answerText !== null && (
-              <span style={{ display: "block" }}>&ldquo;{r.answerText}&rdquo;</span>
+              <span className="block">&ldquo;{r.answerText}&rdquo;</span>
             )}
           </p>
         ))}

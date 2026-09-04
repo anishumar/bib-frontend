@@ -4,7 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import { Field, LinkButton, Meta, MetaItem, Select, Switch, Textarea } from "@/components/ui";
+import {
+  Button,
+  cx,
+  Field,
+  Input,
+  LinkButton,
+  Meta,
+  MetaItem,
+  Select,
+  Switch,
+  Textarea,
+} from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
@@ -421,20 +432,23 @@ function MoveState({
               ))}
           </Select>
         </Field>
-        <button
-          className="btn"
-          // The diagnosis on the line that used to be here was right and the
-          // cure was not: `.field-row` IS a `minmax(12rem, 1fr)` grid, and that
-          // is exactly why `flex: 0 0 auto` did nothing about it — `flex` is
-          // read by flex containers only. Measured on the page, this button was
-          // 551px wide, the banner the old comment was trying to prevent.
-          // `justify-self` is the grid property that means the same thing: 68px.
-          style={{ justifySelf: "start" }}
+        <Button
+          /* The diagnosis on the line that used to be here was right and the
+             cure was not: `.field-row` IS a `minmax(12rem, 1fr)` grid, and that
+             is exactly why `flex: 0 0 auto` did nothing about it — `flex` is
+             read by flex containers only. Measured on the page, this button was
+             551px wide, the banner the old comment was trying to prevent.
+             `justify-self` is the grid property that means the same thing: 68px.
+             A utility rather than an inline style: `.btn` never declares
+             `justify-self`, so there is nothing unlayered for it to lose to. */
+          className="justify-self-start"
           disabled={busy || stateId === currentStateId || (needsReason && reason.trim() === "")}
-          onClick={() => { onMove(stateId, needsReason ? reason.trim() : null); }}
+          onClick={() => {
+            onMove(stateId, needsReason ? reason.trim() : null);
+          }}
         >
           Save
-        </button>
+        </Button>
       </div>
 
       {needsReason && (
@@ -549,14 +563,15 @@ function Assign({
               ))}
           </Select>
         </Field>
-        <button
-          className="btn"
-          style={{ justifySelf: "start" }}
+        <Button
+          className="justify-self-start"
           disabled={busy || userId === (currentUserId ?? "")}
-          onClick={() => { onAssign(userId === "" ? null : userId); }}
+          onClick={() => {
+            onAssign(userId === "" ? null : userId);
+          }}
         >
           Save
-        </button>
+        </Button>
       </div>
       {/* Below the row, so it stays the width of the card rather than of one
           grid column — pointed at from the select by id instead of being its
@@ -604,36 +619,50 @@ function Checklist({
         </p>
       )}
       {lines.map((line) => (
-        <div key={line.id} className="row" style={{ padding: "4px 0" }}>
+        <div key={line.id} className="row py-1">
           <label className="check">
             <input
               type="checkbox"
               checked={line.doneAt !== null}
               disabled={!canWrite || busy === line.id}
-              onChange={(e) => { onTick(line.id, e.target.checked); }}
+              onChange={(e) => {
+                onTick(line.id, e.target.checked);
+              }}
             />
-            <span data-inactive={line.doneAt !== null}>{line.label}</span>
+            {/* A ticked line is STRUCK THROUGH and dimmed. It carried
+                `data-inactive`, which is styled by `.table tbody tr[data-inactive]`
+                and by nothing else — on a <span> that selector never matches, so
+                a line somebody had ticked measured opacity 1 and the same ink as
+                one nobody had touched. The checkbox was the only difference on a
+                list whose whole job is what is left to do. */}
+            <span className={cx(line.doneAt !== null && "text-muted line-through")}>
+              {line.label}
+            </span>
           </label>
           {canWrite && line.doneAt === null && (
-            <button
-              className="btn" data-variant="secondary" data-size="sm"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={busy === line.id}
-              onClick={() => { onRemove(line.id); }}
+              onClick={() => {
+                onRemove(line.id);
+              }}
             >
               Remove
-            </button>
+            </Button>
           )}
         </div>
       ))}
 
       {canWrite && (
         <div className="field-row">
-          <input
-            className="input"
+          <Input
             value={draft}
             placeholder="Add a line"
             aria-label="New checklist line"
-            onChange={(e) => { setDraft(e.target.value); }}
+            onChange={(e) => {
+              setDraft(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && draft.trim() !== "") {
                 onAdd(draft.trim());
@@ -641,9 +670,10 @@ function Checklist({
               }
             }}
           />
-          <button
-            className="btn" data-variant="secondary" data-size="sm"
-            style={{ justifySelf: "start" }}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="justify-self-start"
             disabled={busy === "checklist" || draft.trim() === ""}
             onClick={() => {
               onAdd(draft.trim());
@@ -651,7 +681,7 @@ function Checklist({
             }}
           >
             Add
-          </button>
+          </Button>
         </div>
       )}
       {/* A ticked line cannot be removed, and the screen says so before somebody
@@ -690,9 +720,11 @@ function Reviews({
             Nothing is waiting to be checked.
           </p>
           {canWrite && (
-            <button className="btn" disabled={busy === "review"} onClick={onRequest}>
-              Send for review
-            </button>
+            <div className="cluster">
+              <Button disabled={busy === "review"} onClick={onRequest}>
+                Send for review
+              </Button>
+            </div>
           )}
         </>
       ) : (
@@ -725,13 +757,20 @@ function Reviews({
                 <Td>{r.submittedByName ?? <span className="muted">nobody recorded</span>}</Td>
                 <Td className="muted">{r.policyLabel ?? "no particular rule"}</Td>
                 <Td>
+                  {/* `approved` is the OK one. This column read the other way
+                      round — `pending` in the product's status teal and
+                      `approved` in grey — so the outcome that means "somebody
+                      signed this off" was the quietest thing in the column and
+                      the one that means "nobody has looked yet" was the
+                      reassuring one. Waiting is `warn`, which is what "held up"
+                      is everywhere else in this product. */}
                   <Pill
                     tone={
                       r.decision === "rejected"
                         ? "danger"
-                        : r.decision === "pending"
+                        : r.decision === "approved"
                           ? "ok"
-                          : "neutral"
+                          : "warn"
                     }
                   >
                     {r.decision}
@@ -801,26 +840,30 @@ function DecideReview({
               onChange={(e) => { setNotes(e.target.value); }}
             />
           </Field>
-          <div className="cluster" style={{ marginBottom: 0 }}>
-            <button
-              className="btn"
+          <div className="cluster">
+            <Button
               disabled={busy === review.id}
-              onClick={() => { onDecide(review.id, "approved", notes.trim() || null); }}
+              onClick={() => {
+                onDecide(review.id, "approved", notes.trim() || null);
+              }}
             >
               Approve
-            </button>
-            <button
-              className="btn" data-variant="destructive-quiet" data-size="sm"
+            </Button>
+            <Button
+              variant="destructive-quiet"
+              size="sm"
               disabled={busy === review.id || notes.trim() === ""}
-              onClick={() => { onDecide(review.id, "rejected", notes.trim()); }}
+              onClick={() => {
+                onDecide(review.id, "rejected", notes.trim());
+              }}
             >
               Send back
-            </button>
+            </Button>
           </div>
         </>
       )}
 
-      <details style={{ marginTop: "var(--s-4)" }}>
+      <details className="mt-4">
         <summary
           onClick={() => {
             if (checkers === null) void loadCheckers();
