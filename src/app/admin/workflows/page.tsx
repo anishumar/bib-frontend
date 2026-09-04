@@ -644,9 +644,34 @@ function StepFields({
   onRemove: () => void;
 }) {
   const id = `step-${String(index)}`;
+  const groupName = `Step ${String(index + 1)}`;
   return (
-    <div
+    /*
+     * A <fieldset> so the step's fields are a GROUP, named.
+     *
+     * Measured with the forms open, this screen had 35 controls answering to
+     * EIGHT distinct names — "Handle" seven times, "Step" six, "Who does it"
+     * six, and every step's dependency checkboxes repeating the same four
+     * handles. Each of those names is correct and none of them says which step
+     * is about to change. The visible layout carries that (the steps are
+     * separate cards, in order); nothing in the accessibility tree did.
+     *
+     * `aria-label` rather than a <legend> ON PURPOSE: a legend would put a
+     * visible "Step 1" caption on every card, which is a design change nobody
+     * asked for. The label names the group for a screen reader and changes
+     * nothing on screen.
+     *
+     * `.card` ALONE, not `card fieldset`. `.fieldset` is declared at
+     * components.css:554 and `.card` at :195 — same specificity, same layer —
+     * so `.fieldset`'s `border: 0; padding: 0` would win on order and strip
+     * every step card of its border and its `--s-5` padding. `.card` already
+     * carries the `min-width: 0` that a <fieldset> needs to stop its UA
+     * `min-width: min-content` from blowing out the grid rows inside it, and
+     * its own border and padding override the UA fieldset chrome.
+     */
+    <fieldset
       className="card"
+      aria-label={groupName}
       style={{ marginBottom: "var(--s-2)", background: "var(--surface-sunk)" }}
     >
       <FieldRow>
@@ -842,9 +867,19 @@ function StepFields({
         </Field>
       </div>
 
-      <button className="btn" data-variant="destructive-quiet" data-size="sm" onClick={onRemove}>
+      {/* Named separately: a group's name is announced when you enter the
+          group, and it is not prepended to a BUTTON the way a field's label
+          is. Six identical "Remove this step" is the one duplicate on this
+          screen that destroys work. */}
+      <button
+        className="btn"
+        data-variant="destructive-quiet"
+        data-size="sm"
+        aria-label={`Remove ${groupName}`}
+        onClick={onRemove}
+      >
         Remove this step
       </button>
-    </div>
+    </fieldset>
   );
 }
