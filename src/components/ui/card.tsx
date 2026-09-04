@@ -57,6 +57,19 @@ export function CardHead({
   title,
   /** Sits above the title, in the mono eyebrow face. */
   eyebrow,
+  /**
+   * The heading RANK, which is not the same question as how it looks.
+   *
+   * This used to be `<h3>` with no way to say otherwise, so a card sitting
+   * directly under the page's `<h1>` produced h1 -> h3 and the outline skipped
+   * a level. Twelve screens did that. Pass `level={2}` for a card that is a
+   * top-level section of the page; leave it alone for one nested inside
+   * another section. The look does not change — `.card-title` carries that.
+   *
+   * Same prop, same default, same values as `CardTitle` in `@/components/tw`,
+   * so the two vocabularies answer this question the same way.
+   */
+  level = 3,
   /** Sits opposite — a count, an action, a pill. */
   aside,
   children,
@@ -64,15 +77,17 @@ export function CardHead({
 }: {
   title?: ReactNode;
   eyebrow?: ReactNode;
+  level?: 2 | 3;
   aside?: ReactNode;
   children?: ReactNode;
   className?: string;
 }) {
+  const Heading = level === 2 ? "h2" : "h3";
   return (
     <div className={cx("card-head", className)}>
       <div>
         {eyebrow !== undefined && <p className="eyebrow">{eyebrow}</p>}
-        {title !== undefined && <h3 className="card-title">{title}</h3>}
+        {title !== undefined && <Heading className="card-title">{title}</Heading>}
         {children}
       </div>
       {aside !== undefined && <div className="cluster">{aside}</div>}
@@ -83,12 +98,16 @@ export function CardHead({
 /** A card's own heading, when the surrounding row is not wanted. */
 export function CardTitle({
   children,
+  /** See `CardHead`. `level={2}` for a top-level section of the page. */
+  level = 3,
   className,
 }: {
   children: ReactNode;
+  level?: 2 | 3;
   className?: string;
 }) {
-  return <h3 className={cx("card-title", className)}>{children}</h3>;
+  const Heading = level === 2 ? "h2" : "h3";
+  return <Heading className={cx("card-title", className)}>{children}</Heading>;
 }
 
 /** A footer rule and the note or actions under it. */

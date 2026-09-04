@@ -493,7 +493,7 @@ function ClientVisibility({
   return (
     <Card>
       <CardHead>
-        <CardTitle>What the client sees</CardTitle>
+        <CardTitle level={2}>What the client sees</CardTitle>
       </CardHead>
       {/* The Switch carries its own label, so there is no <Field> around it —
           two labels on one control is what a screen reader reads out twice.

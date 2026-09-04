@@ -202,6 +202,7 @@ function RoleCard({
   return (
     <Card>
       <CardHead
+        level={2}
         title={
           <>
             {current.label || role.entry.key}{" "}
@@ -278,7 +279,7 @@ function NewRole({
 
   return (
     <Card>
-      <CardHead title="Add a role" />
+      <CardHead title="Add a role" level={2} />
       <form
         onSubmit={(e) => {
           e.preventDefault();

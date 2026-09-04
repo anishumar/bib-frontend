@@ -116,7 +116,7 @@ export default function ReceivablesPage() {
       <ErrorNotice error={error} />
 
       {/* ── Waiting for a person ───────────────────────────────────────── */}
-      <Section title="Waiting for a decision">
+      <Section title="Waiting for a decision" level={2}>
         {pending.length === 0 ? (
           <Card>
             <Empty title="Nothing needs a person" icon="check">
@@ -224,7 +224,7 @@ export default function ReceivablesPage() {
       </Section>
 
       {/* ── What is owed ───────────────────────────────────────────────── */}
-      <Section title="Outstanding">
+      <Section title="Outstanding" level={2}>
         {owing.length === 0 ? (
           <Card>
             <Empty title="Nothing outstanding" icon="check">

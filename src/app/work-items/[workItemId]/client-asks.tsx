@@ -145,7 +145,7 @@ export function ClientAsks({
   return (
     <Card>
       <CardHead>
-        <CardTitle>Waiting on the client</CardTitle>
+        <CardTitle level={2}>Waiting on the client</CardTitle>
         {open.length > 0 && <Pill tone="warn">{open.length} open</Pill>}
       </CardHead>
 

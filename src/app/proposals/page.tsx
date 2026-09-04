@@ -177,7 +177,7 @@ export default function ProposalsPage() {
       )}
 
       <Card>
-        <CardHead title="New proposal" />
+        <CardHead title="New proposal" level={2} />
         <form
           action={(form) => {
             void draft(form);

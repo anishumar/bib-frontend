@@ -201,7 +201,7 @@ export default function InvoicesPage() {
       )}
 
       <Card>
-        <CardHead title="New invoice">
+        <CardHead title="New invoice" level={2}>
           <p className="lede">
             The number is allocated by the write itself, from the issuing entity&apos;s series.
             It cannot be chosen, and once allocated it cannot be changed — a wrong invoice is

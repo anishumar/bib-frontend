@@ -216,7 +216,7 @@ export default function ClientsPage() {
       </TabPanel>
 
       <Card>
-        <CardHead title="Add to the book" />
+        <CardHead title="Add to the book" level={2} />
         {/* Organization and person are different rows with different fields, so
             this is a real choice rather than a toggle over one form. */}
         <Tabs

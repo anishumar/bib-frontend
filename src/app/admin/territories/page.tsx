@@ -150,7 +150,7 @@ export default function TerritoriesPage() {
       )}
 
       <Card>
-        <CardHead title="Set a territory">
+        <CardHead title="Set a territory" level={2}>
           <p className="lede">
             One desk per country. Setting a country that already has one MOVES it — the rule
             keeps its identity, and leads assigned under the old one are not re-assigned.

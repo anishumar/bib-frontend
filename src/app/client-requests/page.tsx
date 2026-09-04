@@ -346,7 +346,7 @@ function RequestCard({
   return (
     <Card>
       <CardHead>
-        <CardTitle>{request.subject}</CardTitle>
+        <CardTitle level={2}>{request.subject}</CardTitle>
         <Pill tone={request.awaitingFirm ? "warn" : "ok"}>{whereItStands(request)}</Pill>
       </CardHead>
       <Stack gap="tight">

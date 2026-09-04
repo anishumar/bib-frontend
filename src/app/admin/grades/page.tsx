@@ -343,7 +343,7 @@ function AddGrade({
 
   return (
     <Card>
-      <CardHead title="Add a rung" />
+      <CardHead title="Add a rung" level={2} />
       <form
         onSubmit={(e) => {
           e.preventDefault();

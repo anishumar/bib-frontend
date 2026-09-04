@@ -265,6 +265,9 @@ export function Documents({
   return (
     <Card>
       <CardHead
+        /* Every screen renders this as a top-level card beside its other
+           top-level cards, so it is an h2 on all five of them. */
+        level={2}
         title={title}
         aside={
           <>

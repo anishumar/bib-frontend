@@ -392,7 +392,7 @@ function AddMember({
 
   return (
     <Card>
-      <CardHead title="Add somebody" />
+      <CardHead title="Add somebody" level={2} />
       <form
         onSubmit={(e) => {
           e.preventDefault();

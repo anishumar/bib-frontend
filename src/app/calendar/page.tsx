@@ -379,6 +379,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
         .map(([reason, rows]) => (
           <Card key={reason}>
             <CardHead
+              level={2}
               title={REASONS[reason].title}
               aside={<Pill tone="quiet">{rows.length}</Pill>}
             />

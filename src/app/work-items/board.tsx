@@ -114,7 +114,7 @@ export function WorkBoard({
             <header className="board-col-head">
               <span className="board-col-dot" aria-hidden="true" />
               {/* The NAME the firm chose. */}
-              <h3 className="board-col-name">{state.name}</h3>
+              <h2 className="board-col-name">{state.name}</h2>
               {/* THE DOT IS NEVER ALONE. What it means is also here in words,
                   because a board whose only signal is a hue fails the reader it
                   most needs to reach. */}
@@ -210,9 +210,9 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
 
   return (
     <article className="wcard" data-flag={flag}>
-      <h4 className="wcard-title">
+      <h3 className="wcard-title">
         <Link href={`/work-items/${item.id}`}>{item.title}</Link>
-      </h4>
+      </h3>
 
       {/* WHO IT IS FOR — and the ENTITY, when the work is about one particular
           company. A group of four companies files four sets of returns, and
