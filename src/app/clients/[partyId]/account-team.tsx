@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
-import { Td, Th } from "@/components/ui";
+import { Table, TableWrap, Td, Th } from "@/components/ui";
 import type {
   AccountTeam,
   AssignmentRole,
@@ -194,57 +194,8 @@ export function AccountTeamPanel({
           a SPOC is the contact for one Dept.
         </p>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <Th>Role</Th>
-              <Th>Who</Th>
-              <Th>Dept / team</Th>
-              <Th>From</Th>
-              <Th>Until</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {team.inForce.map((a) => (
-              <tr key={a.id}>
-                <Td>
-                  <span className="pill">{roleLabel(a.role)}</span>
-                </Td>
-                <Td>{a.holderName ?? a.holderEmail}</Td>
-                <Td className="muted">
-                  {a.axis === null ? "— whole relationship" : a.axis.name}
-                </Td>
-                <Td className="muted">{longDay(a.validFrom)}</Td>
-                {/* Half-open: the first day NOT in force, which is why this
-                    column is "until" and an open row says "open". */}
-                <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
-                <Td>
-                  {showingToday && a.validTo === null && (
-                    <button
-                      className="btn" data-variant="secondary" data-size="sm"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        void end(a);
-                      }}
-                    >
-                      End today
-                    </button>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {past.length > 0 && (
-        <details style={{ marginTop: "var(--s-4)" }}>
-          <summary className="muted">
-            {past.length} earlier {past.length === 1 ? "arrangement" : "arrangements"}
-          </summary>
-          <table className="table" style={{ marginTop: "var(--s-2)" }}>
+        <TableWrap>
+          <Table>
             <thead>
               <tr>
                 <Th>Role</Th>
@@ -252,20 +203,73 @@ export function AccountTeamPanel({
                 <Th>Dept / team</Th>
                 <Th>From</Th>
                 <Th>Until</Th>
+                <Th />
               </tr>
             </thead>
             <tbody>
-              {past.map((a) => (
+              {team.inForce.map((a) => (
                 <tr key={a.id}>
-                  <Td className="muted">{roleLabel(a.role)}</Td>
-                  <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
-                  <Td className="muted">{a.axis?.name ?? "—"}</Td>
+                  <Td>
+                    <span className="pill">{roleLabel(a.role)}</span>
+                  </Td>
+                  <Td>{a.holderName ?? a.holderEmail}</Td>
+                  <Td className="muted">
+                    {a.axis === null ? "— whole relationship" : a.axis.name}
+                  </Td>
                   <Td className="muted">{longDay(a.validFrom)}</Td>
+                  {/* Half-open: the first day NOT in force, which is why this
+                      column is "until" and an open row says "open". */}
                   <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
+                  <Td>
+                    {showingToday && a.validTo === null && (
+                      <button
+                        className="btn" data-variant="secondary" data-size="sm"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          void end(a);
+                        }}
+                      >
+                        End today
+                      </button>
+                    )}
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
+        </TableWrap>
+      )}
+
+      {past.length > 0 && (
+        <details style={{ marginTop: "var(--s-4)" }}>
+          <summary className="muted">
+            {past.length} earlier {past.length === 1 ? "arrangement" : "arrangements"}
+          </summary>
+          <TableWrap>
+            <Table style={{ marginTop: "var(--s-2)" }}>
+              <thead>
+                <tr>
+                  <Th>Role</Th>
+                  <Th>Who</Th>
+                  <Th>Dept / team</Th>
+                  <Th>From</Th>
+                  <Th>Until</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {past.map((a) => (
+                  <tr key={a.id}>
+                    <Td className="muted">{roleLabel(a.role)}</Td>
+                    <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
+                    <Td className="muted">{a.axis?.name ?? "—"}</Td>
+                    <Td className="muted">{longDay(a.validFrom)}</Td>
+                    <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
         </details>
       )}
 

@@ -7,7 +7,7 @@ import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
-import { Button, Pill, Td, Th } from "@/components/ui";
+import { Button, Pill, Table, TableWrap, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
 
@@ -233,37 +233,39 @@ export default function PartyPage() {
               <Link href="/calendar">the calendar</Link>, under Not covered.
             </p>
           ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>Jurisdiction</Th>
-                <Th>Type</Th>
-                <Th>Incorporated</Th>
-                <Th>FY end</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.legalEntities.map((e) => (
-                <tr key={`${e.jurisdiction}-${e.entityType}`}>
-                  <Td className="mono">{e.jurisdiction}</Td>
-                  <Td>{e.entityType}</Td>
-                  <Td className="muted">{e.incorporatedOn === null ? "—" : longDay(e.incorporatedOn)}</Td>
-                  {/* MM-DD: a financial year ends on a date in the calendar,
-                      not in a particular year. */}
-                  <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
-                  <Td>
-                    <span
-                      className="pill"
-                      data-tone={e.status === "active" ? "" : "danger"}
-                    >
-                      {e.status}
-                    </span>
-                  </Td>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Jurisdiction</Th>
+                  <Th>Type</Th>
+                  <Th>Incorporated</Th>
+                  <Th>FY end</Th>
+                  <Th>Status</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {profile.legalEntities.map((e) => (
+                  <tr key={`${e.jurisdiction}-${e.entityType}`}>
+                    <Td className="mono">{e.jurisdiction}</Td>
+                    <Td>{e.entityType}</Td>
+                    <Td className="muted">{e.incorporatedOn === null ? "—" : longDay(e.incorporatedOn)}</Td>
+                    {/* MM-DD: a financial year ends on a date in the calendar,
+                        not in a particular year. */}
+                    <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
+                    <Td>
+                      <span
+                        className="pill"
+                        data-tone={e.status === "active" ? "" : "danger"}
+                      >
+                        {e.status}
+                      </span>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
           )}
 
           {/* The write that had no caller. Offered on `party:write`, the same
@@ -327,35 +329,37 @@ export default function PartyPage() {
             counterparty find this record instead of making another.
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>Type</Th>
-                <Th>Value</Th>
-                <Th>Where</Th>
-                <Th>From</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.identifiers.map((i) => (
-                <tr key={i.id}>
-                  <Td>
-                    {i.type}
-                    {i.isPrimary && (
-                      <span className="pill" style={{ marginLeft: 8 }}>
-                        primary
-                      </span>
-                    )}
-                  </Td>
-                  {/* Stored normalised by the API — uppercase, unspaced — which
-                      is what makes two captures of one company match. */}
-                  <Td className="mono">{i.value}</Td>
-                  <Td className="muted">{i.jurisdiction ?? "—"}</Td>
-                  <Td className="muted">{longDay(i.validFrom)}</Td>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Type</Th>
+                  <Th>Value</Th>
+                  <Th>Where</Th>
+                  <Th>From</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {profile.identifiers.map((i) => (
+                  <tr key={i.id}>
+                    <Td>
+                      {i.type}
+                      {i.isPrimary && (
+                        <span className="pill" style={{ marginLeft: 8 }}>
+                          primary
+                        </span>
+                      )}
+                    </Td>
+                    {/* Stored normalised by the API — uppercase, unspaced — which
+                        is what makes two captures of one company match. */}
+                    <Td className="mono">{i.value}</Td>
+                    <Td className="muted">{i.jurisdiction ?? "—"}</Td>
+                    <Td className="muted">{longDay(i.validFrom)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
         )}
       </div>
 
@@ -366,37 +370,39 @@ export default function PartyPage() {
             None recorded.
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>Type</Th>
-                <Th>Counterparty</Th>
-                <Th>From</Th>
-                <Th>To</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.relationships.map((r) => (
-                <tr key={r.relationship.id}>
-                  {/* Direction matters: "Priya is a director of Meridian" and
-                      "Meridian has Priya as a director" are one row read from
-                      two ends, and the sentence is different each way. */}
-                  <Td>
-                    {r.relationship.type} {r.direction === "outgoing" ? "→" : "←"}
-                  </Td>
-                  <Td>
-                    <Link href={`/clients/${r.counterparty.id}`}>
-                      {r.counterparty.displayName}
-                    </Link>
-                  </Td>
-                  <Td className="muted">{longDay(r.relationship.validFrom)}</Td>
-                  {/* Effective dating: an open relationship has no end, which is
-                      a different fact from one that ended today. */}
-                  <Td className="muted">{r.relationship.validTo === null ? "open" : longDay(r.relationship.validTo)}</Td>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Type</Th>
+                  <Th>Counterparty</Th>
+                  <Th>From</Th>
+                  <Th>To</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {profile.relationships.map((r) => (
+                  <tr key={r.relationship.id}>
+                    {/* Direction matters: "Priya is a director of Meridian" and
+                        "Meridian has Priya as a director" are one row read from
+                        two ends, and the sentence is different each way. */}
+                    <Td>
+                      {r.relationship.type} {r.direction === "outgoing" ? "→" : "←"}
+                    </Td>
+                    <Td>
+                      <Link href={`/clients/${r.counterparty.id}`}>
+                        {r.counterparty.displayName}
+                      </Link>
+                    </Td>
+                    <Td className="muted">{longDay(r.relationship.validFrom)}</Td>
+                    {/* Effective dating: an open relationship has no end, which is
+                        a different fact from one that ended today. */}
+                    <Td className="muted">{r.relationship.validTo === null ? "open" : longDay(r.relationship.validTo)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
         )}
       </div>
 

@@ -283,104 +283,113 @@ function AskLine({
 }) {
   return (
     <div className="notice">
-      <div className="row gap between">
-        <strong>{ask.prompt}</strong>
-        <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
-      </div>
-      <p className="muted">
-        {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
-        {ask.firstAnsweredAt !== null && <> · first reply {longInstant(ask.firstAnsweredAt)}</>}
-        {ask.closedAt !== null && (
-          <>
-            {" "}
-            · {ask.status === "withdrawn" ? "withdrawn" : "closed"} {longInstant(ask.closedAt)} by{" "}
-            {ask.closedByName ?? "somebody who has since left"}
-          </>
-        )}
-      </p>
-
-      {/* ── WHAT THE CHASER HAS ALREADY SENT (T4.4, read since T6.7) ────────
-
-          `delivery.client_ask_chase` recorded every rung of the outward ladder
-          from the day migration 0065 was written and NOTHING rendered it — the
-          sixth registered thing in this codebase found with a writer and no
-          reader. Without it a colleague opening this task cannot see that the
-          sweep has already reminded this client three times, so the next thing
-          they do is chase it a fourth time by hand, which is the work T4.4
-          exists to remove.
-
-          THE COUNT IS THE POINT HERE, and it is the half the CLIENT's own page
-          deliberately does not show: "we asked you four times" is what a firm
-          says when a filing goes late, and `client_ask_chase` is append-only by
-          GRANT so it is evidence rather than a note. On the client's action
-          centre the same rows render as a date and no tally — a count on
-          somebody's own page is an accusation.
-
-          Each rung is named by its KEY, which is the firm's own word for it.
-          Not the label: that lives in the published `chaser` config and a
-          ladder edited in April must not restate what March's chase was
-          called. */}
-      {ask.chases.length > 0 && (
+      {/* `.notice` is a flex ROW — it is built for one `.notice-body` and,
+          optionally, an action beside it. Five block children laid straight
+          into it became five COLUMNS: the question, when it was asked, the
+          reply and the buttons side by side, with each paragraph crushed to
+          about sixty pixels of text. `.notice-body` is the design system's own
+          answer (`flex: 1; min-width: 0`), and `stack tight` gives the gaps the
+          flex row was accidentally providing. */}
+      <div className="notice-body stack tight">
+        <div className="row gap between">
+          <strong>{ask.prompt}</strong>
+          <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
+        </div>
         <p className="muted">
-          Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
-          {" — "}
-          {ask.chases
-            .map((c) => `${c.rungKey} on ${longInstant(c.chasedAt)}`)
-            .join(", ")}
-          . Sent automatically; nobody here pressed anything.
-        </p>
-      )}
-
-      {ask.responses.map((r) => (
-        <p key={r.responseId} className="muted">
-          <strong>{r.respondedByName ?? "Their contact"}</strong>{" "}
-          {r.document !== null ? (
+          {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
+          {ask.firstAnsweredAt !== null && <> · first reply {longInstant(ask.firstAnsweredAt)}</>}
+          {ask.closedAt !== null && (
             <>
-              sent {r.document.filename} ({Math.max(1, Math.round(r.document.byteSize / 1024))} KB)
-              {/* SAID, NOT IMPLIED. There is no virus scanner in this product
-                  and no agent runtime to run one, so a file arrives exactly as
-                  the client sent it. The download route serves it as an
-                  attachment and never inline, which is the one protection that
-                  does exist. */}
-              <span className="muted"> · not scanned</span>
+              {" "}
+              · {ask.status === "withdrawn" ? "withdrawn" : "closed"} {longInstant(ask.closedAt)} by{" "}
+              {ask.closedByName ?? "somebody who has since left"}
             </>
-          ) : r.decision !== null ? (
-            r.decision === "approved" ? (
-              "approved this"
-            ) : (
-              "declined this"
-            )
-          ) : (
-            "replied"
-          )}{" "}
-          · {longInstant(r.respondedAt)}
-          {/* A SPAN, not a div: this sits inside the <p> above, and a <div>
-              there is invalid HTML. The browser silently closes the
-              paragraph around it, so it LOOKS right and React reports a
-              hydration mismatch on every render of this panel — visible
-              only in the console, which is why it survived T6.6. `display:
-              block` is what a div was doing here anyway. */}
-          {r.answerText !== null && (
-            <span style={{ display: "block" }}>&ldquo;{r.answerText}&rdquo;</span>
           )}
         </p>
-      ))}
 
-      {canWrite && onClose !== undefined && onWithdraw !== undefined && (
-        <div className="cluster">
-          <Button size="sm" onClick={onClose} disabled={busy === ask.askId}>
-            Got what we needed
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onWithdraw}
-            disabled={busy === ask.askId}
-          >
-            No longer needed
-          </Button>
-        </div>
-      )}
+        {/* ── WHAT THE CHASER HAS ALREADY SENT (T4.4, read since T6.7) ────────
+
+            `delivery.client_ask_chase` recorded every rung of the outward ladder
+            from the day migration 0065 was written and NOTHING rendered it — the
+            sixth registered thing in this codebase found with a writer and no
+            reader. Without it a colleague opening this task cannot see that the
+            sweep has already reminded this client three times, so the next thing
+            they do is chase it a fourth time by hand, which is the work T4.4
+            exists to remove.
+
+            THE COUNT IS THE POINT HERE, and it is the half the CLIENT's own page
+            deliberately does not show: "we asked you four times" is what a firm
+            says when a filing goes late, and `client_ask_chase` is append-only by
+            GRANT so it is evidence rather than a note. On the client's action
+            centre the same rows render as a date and no tally — a count on
+            somebody's own page is an accusation.
+
+            Each rung is named by its KEY, which is the firm's own word for it.
+            Not the label: that lives in the published `chaser` config and a
+            ladder edited in April must not restate what March's chase was
+            called. */}
+        {ask.chases.length > 0 && (
+          <p className="muted">
+            Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
+            {" — "}
+            {ask.chases
+              .map((c) => `${c.rungKey} on ${longInstant(c.chasedAt)}`)
+              .join(", ")}
+            . Sent automatically; nobody here pressed anything.
+          </p>
+        )}
+
+        {ask.responses.map((r) => (
+          <p key={r.responseId} className="muted">
+            <strong>{r.respondedByName ?? "Their contact"}</strong>{" "}
+            {r.document !== null ? (
+              <>
+                sent {r.document.filename} ({Math.max(1, Math.round(r.document.byteSize / 1024))} KB)
+                {/* SAID, NOT IMPLIED. There is no virus scanner in this product
+                    and no agent runtime to run one, so a file arrives exactly as
+                    the client sent it. The download route serves it as an
+                    attachment and never inline, which is the one protection that
+                    does exist. */}
+                <span className="muted"> · not scanned</span>
+              </>
+            ) : r.decision !== null ? (
+              r.decision === "approved" ? (
+                "approved this"
+              ) : (
+                "declined this"
+              )
+            ) : (
+              "replied"
+            )}{" "}
+            · {longInstant(r.respondedAt)}
+            {/* A SPAN, not a div: this sits inside the <p> above, and a <div>
+                there is invalid HTML. The browser silently closes the
+                paragraph around it, so it LOOKS right and React reports a
+                hydration mismatch on every render of this panel — visible
+                only in the console, which is why it survived T6.6. `display:
+                block` is what a div was doing here anyway. */}
+            {r.answerText !== null && (
+              <span style={{ display: "block" }}>&ldquo;{r.answerText}&rdquo;</span>
+            )}
+          </p>
+        ))}
+
+        {canWrite && onClose !== undefined && onWithdraw !== undefined && (
+          <div className="cluster">
+            <Button size="sm" onClick={onClose} disabled={busy === ask.askId}>
+              Got what we needed
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onWithdraw}
+              disabled={busy === ask.askId}
+            >
+              No longer needed
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
