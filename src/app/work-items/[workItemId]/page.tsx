@@ -4,18 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import {
-  Card,
-  CardHead,
-  CardTitle,
-  Field,
-  LinkButton,
-  Select,
-  Switch,
-  Td,
-  Textarea,
-  Th,
-} from "@/components/ui";
+import { Field, LinkButton, Meta, MetaItem, Select, Switch, Textarea } from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
@@ -25,7 +14,19 @@ import type {
   WorkItemReview,
   WorkVocabulary,
 } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import {
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Pill,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/tw";
+import { longInstant } from "@/lib/day";
 import { ClientAsks } from "./client-asks";
 import { Documents } from "@/lib/ui/documents";
 
@@ -132,7 +133,7 @@ export default function WorkItemPage() {
         <div className="cluster">
           <Link href="/work-items">← Work</Link>
         </div>
-        <p className="notice" data-tone="danger" role="alert">{error ?? "No such work item."}</p>
+        <Notice tone="danger" role="alert">{error ?? "No such work item."}</Notice>
       </Page>
     );
   }
@@ -145,7 +146,7 @@ export default function WorkItemPage() {
     <Page>
       <PageHeader
         eyebrow="Delivery"
-        title={<>{item.title}</>}
+        title={item.title}
         lede={
           <>
             {item.clientName}
@@ -157,7 +158,7 @@ export default function WorkItemPage() {
         }
         /* The two things this item hangs off. Siblings, not breadcrumbs: the
            sidebar already says where you are, and these say what else to open. */
-        aside={
+        actions={
           <>
             {item.jobId !== null && (
               <LinkButton size="sm" href={`/work/${item.jobId}`}>
@@ -170,22 +171,26 @@ export default function WorkItemPage() {
           </>
         }
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">{error}</Notice>
+      )}
 
-      <div className="card">
-        <dl className="meta">
-          <Fact label="State">
-            <span
-              className="pill"
-              data-tone={
-                item.state.isBlocked ? "danger" : item.state.isTerminal ? undefined : "accent"
+      <Card>
+        <Meta>
+          <MetaItem label="State">
+            {/* `ok`, not `accent`. In `components/tw` "accent" is shadcn's hover
+                ground; this product's status teal is `ok`, and confusing the
+                two has painted a status colour onto furniture three times. */}
+            <Pill
+              tone={
+                item.state.isBlocked ? "danger" : item.state.isTerminal ? "neutral" : "ok"
               }
             >
               {item.state.name}
-            </span>
-          </Fact>
-          <Fact label="Priority">{item.priority.name}</Fact>
-          <Fact label="Owner">
+            </Pill>
+          </MetaItem>
+          <MetaItem label="Priority">{item.priority.name}</MetaItem>
+          <MetaItem label="Owner">
             {/* "Nobody", and nothing else. The REASON is the callout below —
                 printing it here too made the fact grid six lines tall and said
                 the same sentence twice, which is what opening the page found. */}
@@ -194,8 +199,8 @@ export default function WorkItemPage() {
             ) : (
               (item.assignee.displayName ?? item.assignee.email)
             )}
-          </Fact>
-          <Fact label="Due">
+          </MetaItem>
+          <MetaItem label="Due">
             {item.dueOn ?? "no date"}
             {item.slaDaysSnapshot !== null && (
               <span className="muted text-xs">
@@ -207,30 +212,32 @@ export default function WorkItemPage() {
                 (SLA {item.slaDaysSnapshot} days, as it stood when this was raised)
               </span>
             )}
-          </Fact>
+          </MetaItem>
           {item.isStatutoryDue && (
-            <Fact label="Deadline">
+            <MetaItem label="Deadline">
               Statutory — the date comes from the law, not from the firm
-            </Fact>
+            </MetaItem>
           )}
-          <Fact label="Client can see this">{item.isClientVisible ? "Yes" : "No"}</Fact>
-        </dl>
+          <MetaItem label="Client can see this">{item.isClientVisible ? "Yes" : "No"}</MetaItem>
+        </Meta>
 
         {item.assignee === null && item.assignmentNote !== null && (
-          <p className="notice">{item.assignmentNote}</p>
+          <Notice>{item.assignmentNote}</Notice>
         )}
+        {/* `warn`, not `danger`: held up is not the same as wrong, and this
+            product's rule is that a block is warn. */}
         {item.state.isBlocked && item.blockedReason !== null && (
-          <p className="notice">
+          <Notice tone="warn">
             <strong>Blocked:</strong> {item.blockedReason}
-          </p>
+          </Notice>
         )}
         {item.blockedByOpen.length > 0 && (
-          <p className="notice">
+          <Notice tone="warn">
             Cannot start until {item.blockedByOpen.map((b) => b.title).join(", ")}{" "}
             {item.blockedByOpen.length === 1 ? "is" : "are"} finished.
-          </p>
+          </Notice>
         )}
-      </div>
+      </Card>
 
       {canWrite && vocabulary !== null && (
         <MoveState
@@ -371,15 +378,6 @@ export default function WorkItemPage() {
   );
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
 /**
  * The state picker.
  *
@@ -406,8 +404,8 @@ function MoveState({
   const needsReason = target?.isBlocked ?? false;
 
   return (
-    <div className="card" style={{ marginTop: "var(--s-4)" }}>
-      <h2 className="card-title">Move it</h2>
+    <Card>
+      <CardTitle level={2}>Move it</CardTitle>
       <div className="field-row">
         <Field label="State">
           <Select
@@ -460,7 +458,7 @@ function MoveState({
           />
         </Field>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -492,9 +490,7 @@ function ClientVisibility({
 }) {
   return (
     <Card>
-      <CardHead>
-        <CardTitle level={2}>What the client sees</CardTitle>
-      </CardHead>
+      <CardTitle level={2}>What the client sees</CardTitle>
       {/* The Switch carries its own label, so there is no <Field> around it —
           two labels on one control is what a screen reader reads out twice.
           The explanation goes under it as a hint, which is where every hint in
@@ -530,8 +526,8 @@ function Assign({
   const [userId, setUserId] = useState(currentUserId ?? "");
 
   return (
-    <div className="card" style={{ marginTop: "var(--s-4)" }}>
-      <h2 className="card-title">Whose desk</h2>
+    <Card>
+      <CardTitle level={2}>Whose desk</CardTitle>
       <div className="field-row">
         <Field label="Owner">
           <Select
@@ -570,7 +566,7 @@ function Assign({
         department automatically. Changing it here is an override, and the trail records it
         as one.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -594,13 +590,13 @@ function Checklist({
   const done = lines.filter((l) => l.doneAt !== null).length;
 
   return (
-    <div className="card" style={{ marginTop: "var(--s-4)" }}>
-      <h2 className="card-title">
+    <Card>
+      <CardTitle level={2}>
         Checklist{" "}
         <span className="annot text-sm">
           {done}/{lines.length}
         </span>
-      </h2>
+      </CardTitle>
       {lines.length === 0 && (
         <p className="muted text-md">
           Nothing on it yet. This is the firm&rsquo;s own list for this task — separate from
@@ -664,7 +660,7 @@ function Checklist({
       <p className="field-hint">
         A ticked line cannot be removed — untick it first if it was ticked by mistake.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -685,8 +681,8 @@ function Reviews({
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
   return (
-    <div className="card" style={{ marginTop: "var(--s-4)" }}>
-      <h2 className="card-title">Review</h2>
+    <Card>
+      <CardTitle level={2}>Review</CardTitle>
 
       {openReview === null ? (
         <>
@@ -704,7 +700,8 @@ function Reviews({
       )}
 
       {reviews.length > 0 && (
-        <table className="table">
+        <TableWrap>
+        <Table>
           <thead>
             <tr>
               <Th>Sent</Th>
@@ -717,33 +714,37 @@ function Reviews({
           <tbody>
             {reviews.map((r) => (
               <tr key={r.id}>
-                <Td className="mono">{r.submittedAt.slice(0, 10)}</Td>
+                {/* `longInstant`, not `.slice(0, 10)`. Slicing an ISO instant
+                    takes the UTC day, and a check submitted at 00:20 in Delhi
+                    is 18:50 UTC the day BEFORE. The same class of bug this repo
+                    has now fixed on eleven screens. */}
+                <Td className="mono">{longInstant(r.submittedAt)}</Td>
                 {/* Null is a real answer: the task was unassigned when the check
                     opened, so nobody is recorded as having made it — and maker
                     != checker then has nothing to compare. */}
                 <Td>{r.submittedByName ?? <span className="muted">nobody recorded</span>}</Td>
                 <Td className="muted">{r.policyLabel ?? "no particular rule"}</Td>
                 <Td>
-                  <span
-                    className="pill"
-                    data-tone={
+                  <Pill
+                    tone={
                       r.decision === "rejected"
                         ? "danger"
                         : r.decision === "pending"
-                          ? "accent"
-                          : undefined
+                          ? "ok"
+                          : "neutral"
                     }
                   >
                     {r.decision}
-                  </span>
+                  </Pill>
                 </Td>
                 <Td className="muted">{r.notes ?? "—"}</Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
+        </TableWrap>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -777,27 +778,29 @@ function DecideReview({
 
   return (
     <>
-      <p className="notice">
-        Waiting to be checked since {review.submittedAt.slice(0, 10)}
+      <Notice>
+        Waiting to be checked since {longInstant(review.submittedAt)}
         {review.submittedByName !== null && `, made by ${review.submittedByName}`}
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
-      </p>
+      </Notice>
 
       {canWrite && (
         <>
-          <label className="label">
-            Note
-            <textarea
-              className="textarea"
+          {/* Measured on the page: this control's accessible NAME was
+              "NoteRequired when you send it back. Why work came back is the only
+              thing that ever explains rework…" — the whole paragraph, read back
+              on every focus, because the <span> sat inside the <label>. As a
+              `hint` it is a description, which is what it is. */}
+          <Field
+            label="Note"
+            hint="Required when you send it back. Why work came back is the only thing that ever explains rework — marking the task done later erases that it was rejected at all."
+          >
+            <Textarea
               rows={2}
               value={notes}
               onChange={(e) => { setNotes(e.target.value); }}
             />
-            <span className="field-hint">
-              Required when you send it back. Why work came back is the only thing that ever
-              explains rework — marking the task done later erases that it was rejected at all.
-            </span>
-          </label>
+          </Field>
           <div className="cluster" style={{ marginBottom: 0 }}>
             <button
               className="btn"
@@ -830,7 +833,8 @@ function DecideReview({
             Loading…
           </p>
         ) : (
-          <table className="table">
+          <TableWrap>
+          <Table>
             <tbody>
               {checkers.map((c) => (
                 <tr key={c.userId}>
@@ -838,9 +842,7 @@ function DecideReview({
                   <Td className="muted">{c.gradeName ?? "ungraded"}</Td>
                   <Td>
                     {c.eligible ? (
-                      <span className="pill" data-tone="accent">
-                        may check
-                      </span>
+                      <Pill tone="ok">may check</Pill>
                     ) : (
                       // The REASON, always. "You cannot check this" with no
                       // reason is how a person concludes the button is broken.
@@ -850,7 +852,8 @@ function DecideReview({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
+          </TableWrap>
         )}
       </details>
     </>
