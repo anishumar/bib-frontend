@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
 import { Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
@@ -162,7 +162,7 @@ export default function LettersPage() {
                     <div className="muted text-sm">
                       {l.lineCount} {l.lineCount === 1 ? "service" : "services"}
                       {l.letter.advanceRequired && " · advance required"}
-                      {l.letter.effectiveFrom !== null && ` · from ${l.letter.effectiveFrom}`}
+                      {l.letter.effectiveFrom !== null && ` · from ${longDay(l.letter.effectiveFrom)}`}
                     </div>
                   </Td>
                   <Td>{l.party.displayName}</Td>

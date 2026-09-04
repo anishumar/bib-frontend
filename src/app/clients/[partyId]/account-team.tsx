@@ -10,6 +10,7 @@ import type {
   Member,
   ServiceAxis,
 } from "@/lib/api/client";
+import { longDay } from "@/lib/day";
 
 /**
  * Who at the firm owns this client (G3.2).
@@ -181,7 +182,7 @@ export function AccountTeamPanel({
 
       {!showingToday && (
         <p className="muted" style={{ marginTop: "var(--s-2)" }}>
-          Showing who held {clientName} on {asOf} — not today.
+          Showing who held {clientName} on {longDay(asOf)} — not today.
         </p>
       )}
 
@@ -189,7 +190,7 @@ export function AccountTeamPanel({
 
       {team.inForce.length === 0 ? (
         <p className="muted">
-          Nobody held this client on {asOf}. A Key Manager owns the relationship;
+          Nobody held this client on {longDay(asOf)}. A Key Manager owns the relationship;
           a SPOC is the contact for one Dept.
         </p>
       ) : (
@@ -214,10 +215,10 @@ export function AccountTeamPanel({
                 <Td className="muted">
                   {a.axis === null ? "— whole relationship" : a.axis.name}
                 </Td>
-                <Td className="muted">{a.validFrom}</Td>
+                <Td className="muted">{longDay(a.validFrom)}</Td>
                 {/* Half-open: the first day NOT in force, which is why this
                     column is "until" and an open row says "open". */}
-                <Td className="muted">{a.validTo ?? "open"}</Td>
+                <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
                 <Td>
                   {showingToday && a.validTo === null && (
                     <button
@@ -259,8 +260,8 @@ export function AccountTeamPanel({
                   <Td className="muted">{roleLabel(a.role)}</Td>
                   <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
                   <Td className="muted">{a.axis?.name ?? "—"}</Td>
-                  <Td className="muted">{a.validFrom}</Td>
-                  <Td className="muted">{a.validTo ?? "open"}</Td>
+                  <Td className="muted">{longDay(a.validFrom)}</Td>
+                  <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
                 </tr>
               ))}
             </tbody>

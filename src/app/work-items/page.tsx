@@ -40,6 +40,7 @@ import {
 import { WorkBoard } from "./board";
 import { CheckQueue } from "./checks";
 import { EscalationQueue } from "./escalations";
+import { longDay } from "@/lib/day";
 
 /**
  * The board — what is owed, whose it is, and what is late (T3.1).
@@ -455,7 +456,7 @@ function WorkRow({ item, today }: { item: WorkItem; today: string }) {
           </Tooltip>
         ) : (
           <span className={overdue ? "mono tone-danger" : "mono"}>
-            {item.dueOn}
+            {longDay(item.dueOn)}
             {overdue && " · late"}
           </span>
         )}

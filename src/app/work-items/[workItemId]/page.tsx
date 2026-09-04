@@ -26,7 +26,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { longInstant } from "@/lib/day";
+import { longDay, longInstant } from "@/lib/day";
 import { ClientAsks } from "./client-asks";
 import { Documents } from "@/lib/ui/documents";
 
@@ -201,7 +201,7 @@ export default function WorkItemPage() {
             )}
           </MetaItem>
           <MetaItem label="Due">
-            {item.dueOn ?? "no date"}
+            {item.dueOn === null ? "no date" : longDay(item.dueOn)}
             {item.slaDaysSnapshot !== null && (
               <span className="muted text-xs">
                 {" "}

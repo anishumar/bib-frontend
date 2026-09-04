@@ -28,6 +28,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
+import { longDay } from "@/lib/day";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -291,7 +292,7 @@ export default function LetterPage() {
                 transmitted it. Null defaults to the day it is sent, so the page
                 says which of the two it is showing. */}
             {letter.issuedOn !== null ? (
-              <p>{letter.issuedOn}</p>
+              <p>{longDay(letter.issuedOn)}</p>
             ) : letter.sentAt === null ? (
               <p className="text-sm text-muted">
                 the day it is sent
@@ -760,7 +761,7 @@ export default function LetterPage() {
                       {e.state.replace("_", " ")}
                     </span>
                   </Td>
-                  <Td className="text-sm text-muted">from {e.effectiveFrom}</Td>
+                  <Td className="text-sm text-muted">from {longDay(e.effectiveFrom)}</Td>
                 </tr>
               ))}
             </tbody>

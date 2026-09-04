@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { WorkItem, WorkItemState } from "@/lib/api/client";
 import { Card, Pill, Tooltip } from "@/components/ui";
 import { Empty } from "@/components/states";
+import { longDay } from "@/lib/day";
 
 /**
  * The work board as COLUMNS — one per state the firm has named (T6.1).
@@ -231,7 +232,7 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
           </Tooltip>
         ) : (
           <span className="wcard-due" data-tone={overdue ? "danger" : dueToday ? "warn" : undefined}>
-            {item.dueOn}
+            {longDay(item.dueOn)}
             {overdue && " · late"}
             {dueToday && " · today"}
           </span>

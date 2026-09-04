@@ -33,6 +33,7 @@ import {
   type RuleDraft,
 } from "./rule-editor";
 import { Supersede } from "./supersede";
+import { longDay } from "@/lib/day";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
@@ -535,7 +536,7 @@ function Rules() {
                 {mayWrite &&
                   (open.effectiveTo !== null ? (
                     <Notice eyebrow="THIS RULE HANDS OVER">
-                      It governs periods up to {open.effectiveTo}, and a later rule governs from
+                      It governs periods up to {longDay(open.effectiveTo)}, and a later rule governs from
                       then on. Amend that one — this row stays exactly as it is, because it is
                       still why the filings it produced were due when they were.
                     </Notice>
@@ -618,8 +619,8 @@ function RuleRow({
             still says "producing dates" — correctly, because it governs its own
             periods — so without this line a partner would read it as live for
             periods it no longer covers, and go looking for a bug. */}
-        {rule.effectiveTo !== null && <Sub>hands over on {rule.effectiveTo}</Sub>}
-        {rule.effectiveFrom !== null && <Sub>governs periods from {rule.effectiveFrom}</Sub>}
+        {rule.effectiveTo !== null && <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>}
+        {rule.effectiveFrom !== null && <Sub>governs periods from {longDay(rule.effectiveFrom)}</Sub>}
       </Td>
       <Td>
         {/* T–X, and it is a BLANK rather than a guess. Every shipped rule is at

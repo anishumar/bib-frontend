@@ -34,7 +34,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -167,8 +167,8 @@ export default function InvoicePage() {
               issue their own INV/2026-27/0001, so the number alone is not an
               identifier without this. */}
           <MetaItem label="Charged by">{record.entity.displayName}</MetaItem>
-          <MetaItem label="Issued">{invoice.issuedOn ?? "not yet"}</MetaItem>
-          <MetaItem label="Due">{invoice.dueOn ?? "no date"}</MetaItem>
+          <MetaItem label="Issued">{invoice.issuedOn === null ? "not yet" : longDay(invoice.issuedOn)}</MetaItem>
+          <MetaItem label="Due">{invoice.dueOn === null ? "no date" : longDay(invoice.dueOn)}</MetaItem>
           <MetaItem label="Series">
             <span className="mono">
               FY {invoice.financialYear}–{String((invoice.financialYear + 1) % 100).padStart(2, "0")} · #
@@ -473,7 +473,7 @@ export default function InvoicePage() {
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id}>
-                  <Td className="mono">{p.receivedOn}</Td>
+                  <Td className="mono">{longDay(p.receivedOn)}</Td>
                   <Td>{PAYMENT_METHOD_LABELS[p.method]}</Td>
                   <Td className="mono muted">{p.reference ?? "—"}</Td>
                   {/* A NEGATIVE payment is a reversal — a bounced cheque — and
@@ -583,7 +583,7 @@ export default function InvoicePage() {
                   {/* Its OWN series, keyed separately from the invoice one — a
                       credit note is a distinct legal document. */}
                   <Td className="mono">{c.number}</Td>
-                  <Td className="mono">{c.issuedOn}</Td>
+                  <Td className="mono">{longDay(c.issuedOn)}</Td>
                   <Td>
                     {CREDIT_REASON_LABELS[c.reason]}
                     {c.note !== null && (

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 import type { InvoiceSummary, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -180,7 +180,7 @@ export default function InvoicesPage() {
                     {i.invoice.dueOn === null ? (
                       <span className="empty">—</span>
                     ) : (
-                      <span className="mono">{i.invoice.dueOn}</span>
+                      <span className="mono">{longDay(i.invoice.dueOn)}</span>
                     )}
                   </Td>
                   <Td align="right">

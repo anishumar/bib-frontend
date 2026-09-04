@@ -21,7 +21,7 @@ import {
   Td,
   Th,
 } from "@/components/ui";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -151,7 +151,7 @@ export default function ReceivablesPage() {
                       <Link href={`/invoices/${p.action.invoiceId}`} className="mono">
                         {p.invoiceNumber}
                       </Link>
-                      <Sub>due {p.dueOn ?? "—"}</Sub>
+                      <Sub>due {p.dueOn === null ? "—" : longDay(p.dueOn)}</Sub>
                     </Td>
                     <Td>
                       <span className="mono">
@@ -257,7 +257,7 @@ export default function ReceivablesPage() {
                   </Td>
                   <Td>
                     <span className="mono">
-                      {r.balance.dueOn ?? <span className="unstated">no date</span>}
+                      {r.balance.dueOn === null ? <span className="unstated">no date</span> : longDay(r.balance.dueOn)}
                     </span>
                     {/* A receivable with no due date is never chased — the firm
                         never said when to pay, and the ladder counts days from

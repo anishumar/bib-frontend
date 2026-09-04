@@ -9,7 +9,7 @@ import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
 import { Button, Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -248,7 +248,7 @@ export default function PartyPage() {
                 <tr key={`${e.jurisdiction}-${e.entityType}`}>
                   <Td className="mono">{e.jurisdiction}</Td>
                   <Td>{e.entityType}</Td>
-                  <Td className="muted">{e.incorporatedOn ?? "—"}</Td>
+                  <Td className="muted">{e.incorporatedOn === null ? "—" : longDay(e.incorporatedOn)}</Td>
                   {/* MM-DD: a financial year ends on a date in the calendar,
                       not in a particular year. */}
                   <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
@@ -351,7 +351,7 @@ export default function PartyPage() {
                       is what makes two captures of one company match. */}
                   <Td className="mono">{i.value}</Td>
                   <Td className="muted">{i.jurisdiction ?? "—"}</Td>
-                  <Td className="muted">{i.validFrom}</Td>
+                  <Td className="muted">{longDay(i.validFrom)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -389,10 +389,10 @@ export default function PartyPage() {
                       {r.counterparty.displayName}
                     </Link>
                   </Td>
-                  <Td className="muted">{r.relationship.validFrom}</Td>
+                  <Td className="muted">{longDay(r.relationship.validFrom)}</Td>
                   {/* Effective dating: an open relationship has no end, which is
                       a different fact from one that ended today. */}
-                  <Td className="muted">{r.relationship.validTo ?? "open"}</Td>
+                  <Td className="muted">{r.relationship.validTo === null ? "open" : longDay(r.relationship.validTo)}</Td>
                 </tr>
               ))}
             </tbody>
