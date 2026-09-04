@@ -108,15 +108,32 @@ export default function RolesPage() {
  */
 function PermissionChecklist({
   permissions,
+  forRole,
   held,
   onToggle,
 }: {
   permissions: PermissionInfo[];
+  /**
+   * Whose permissions these are. NOT optional.
+   *
+   * Measured on the rendered screen: 66 checkboxes, ELEVEN distinct names, each
+   * repeated six times — once per role — and not one of them said which role.
+   * "tenant:admin — Administer the firm: who works here, what their roles are,
+   * and every configuration setting" read identically on Associate and on
+   * Partner. The role headings carry it for somebody who can see them; nothing
+   * carried it for somebody who cannot, on the screen that decides who may do
+   * what.
+   */
+  forRole: string;
   held: string[];
   onToggle: (key: string, on: boolean) => void;
 }) {
   return (
-    <div className="stack tight">
+    /* `aria-label` and no <legend>: the role's name is already on screen as the
+       card's heading, so a visible caption would repeat it. `.fieldset` is
+       border/padding/margin zero, which is right here — this is a plain list,
+       not a card, so there is nothing for it to strip. */
+    <fieldset className="fieldset stack tight" aria-label={`Permissions for ${forRole}`}>
       {permissions.map((p) => (
         <Checkbox
           key={p.key}
@@ -126,7 +143,7 @@ function PermissionChecklist({
           note={p.description}
         />
       ))}
-    </div>
+    </fieldset>
   );
 }
 
@@ -200,6 +217,7 @@ function RoleCard({
 
       <PermissionChecklist
         permissions={permissions}
+        forRole={current.label}
         held={held}
         onToggle={(key, on) => {
           setHeld((was) => (on ? [...was, key] : was.filter((k) => k !== key)));
@@ -292,6 +310,10 @@ function NewRole({
 
           <PermissionChecklist
             permissions={permissions}
+            /* A fixed phrase, not the `label` state: the role's name is being
+               typed in a field a few lines up, and naming the group after it
+               would rename the group on every keystroke. */
+            forRole="the new role"
             held={held}
             onToggle={(k, on) => {
               setHeld((was) => (on ? [...was, k] : was.filter((x) => x !== k)));
