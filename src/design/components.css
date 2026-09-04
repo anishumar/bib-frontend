@@ -1102,6 +1102,573 @@
   box-shadow: 0 1px 2px rgb(15 26 32 / 0.08);
 }
 
+/* ── Work board ───────────────────────────────────────────────────────────
+   The columns are the firm's own states — `app/work-items/board.tsx` says why
+   they are rows rather than a list in code. What lives HERE is the look, and
+   one decision runs through all of it:
+
+     the board is a grey field with white cards standing on it.
+
+   Before this it was the page's own paper under a run of identical `.card`s,
+   and a board where the column, the card and the ground are all the same white
+   has no shape to scan — the eye has to read every title to find the column
+   edges. So a column is a SUNK panel with its own head, and a card lifts off
+   it with a shadow that grows on hover.
+
+   The only colour a card carries is its LEFT EDGE, and it is spent on the one
+   question this screen exists to answer: is this late, is it waiting to be
+   checked, is it finished. That is the token file's rule kept rather than
+   bent — colour is status. Nothing here is tinted because it is a card.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(17.5rem, 1fr);
+  gap: var(--s-3);
+  /* Columns run to the SAME height — the tallest one's. Sized to their own
+     contents they stepped down like a bar chart, and a board whose panels are
+     four different heights reads as four unrelated lists rather than one
+     board. The grey a short column then shows is not waste: it is the room the
+     work would go in. */
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: var(--s-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.board-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+}
+
+/* The head is the column's own label, not a card's. */
+.board-col-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+.board-col-name {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The dot carries the state's FLAG — blocked, terminal, or work in hand. It is
+   never the only thing saying so: `.board-col-tag` puts the same fact in
+   words, because a reader who cannot tell the red dot from the grey one is
+   exactly the reader a colour-only board fails. */
+.board-col-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.board-col[data-tone="danger"] .board-col-dot { background: var(--danger); }
+.board-col[data-tone="neutral"] .board-col-dot { background: var(--faint); }
+
+.board-col-tag {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* The count sits NEXT TO the name rather than at the far edge — pushed right
+   it stopped reading as this column's number and started reading as a control. */
+.board-col-count {
+  flex: none;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-xs);
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+
+.board-col-body {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+  padding: var(--s-3);
+}
+
+/* Said, not blank: an empty column is an ANSWER. The dashed box is what makes
+   it read as a place work goes rather than as a column that failed to draw. */
+.board-col-empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--s-4) var(--s-3);
+  text-align: center;
+  color: var(--faint);
+  font-size: var(--t-sm);
+}
+
+/* ── One card ──────────────────────────────────────────────────────────── */
+
+.wcard {
+  position: relative;
+  display: grid;
+  gap: var(--s-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--s-3) var(--s-3) var(--s-3) calc(var(--s-3) + 2px);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+/* THE EDGE. Three pixels down the left, and the whole of this board's colour
+   budget. */
+.wcard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  /* Rounded on its own rather than clipped by an `overflow: hidden` on the
+     card — which is what used to round it, and which also cut the head off
+     every tooltip a card raised. */
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+  background: var(--line);
+}
+.wcard[data-flag="late"]::before { background: var(--danger); }
+.wcard[data-flag="today"]::before { background: var(--warn); }
+.wcard[data-flag="review"]::before { background: var(--accent); }
+.wcard[data-flag="done"]::before { background: var(--faint); }
+
+/* Late is the one thing somebody opens this screen to find, so it gets the
+   wash as well as the edge — the only card on the board with a ground of its
+   own. A second tinted card would cost this one its meaning. */
+.wcard[data-flag="late"] {
+  background: var(--danger-wash);
+  border-color: transparent;
+}
+
+/* Finished work steps back rather than disappearing. It is on screen at all
+   only because somebody ticked "include finished work". */
+.wcard[data-flag="done"] .wcard-title a { color: var(--muted); }
+
+.wcard:hover {
+  border-color: var(--input-border-hover);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wcard { transition: none; }
+  .wcard:hover { transform: none; }
+}
+
+.wcard-title {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+/* The link covers the card. ONE link, whose accessible name is the title — a
+   card wrapped in an anchor instead would read every date and name on it out
+   as part of the link text. */
+.wcard-title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.wcard-title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.wcard:hover .wcard-title a { color: var(--accent-ink); }
+.wcard-title a:focus-visible {
+  outline: none;
+}
+.wcard-title a:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--r-sm);
+}
+
+/* WHO IT IS FOR, in the eyebrow face. Uppercased on purpose: it is the line
+   the eye skips to when scanning a column for one client's work, and set as
+   ordinary text it competes with the title instead. */
+.wcard-for {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wcard-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+/* Above the title's stretched link, so the one hoverable thing inside a card
+   that is otherwise all link still answers to a pointer. */
+.wcard .tooltip {
+  position: relative;
+  z-index: 1;
+}
+.wcard-due {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.wcard-due[data-tone="danger"] { color: var(--danger); font-weight: 600; }
+.wcard-due[data-tone="warn"] { color: var(--warn); font-weight: 600; }
+
+/* Priority as a dot and a word. The dot's tone comes from the RANK the firm
+   set, never from the name — a firm that calls rank 1 "Statutory" must not
+   lose the signal for having renamed it. */
+.wcard-prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.wcard-prio::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.wcard-prio[data-rank="top"]::before { background: var(--danger); }
+.wcard-prio[data-rank="high"]::before { background: var(--warn); }
+
+/* The checklist as a bar plus its numbers. The bar is what makes "6/8" and
+   "1/8" different at a glance down a column; the numbers are what keep it
+   readable when the bar is two pixels wide. */
+.wcard-prog {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.wcard-prog-track {
+  width: 2.5rem;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.wcard-prog-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* Whose it is, under a hairline — the last thing scanned, and the thing a
+   delivery meeting asks about every card that has no answer for it. */
+.wcard-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--t-sm);
+  color: var(--ink-2);
+  min-width: 0;
+}
+.wcard-foot .avatar {
+  font-size: 0.625rem;
+}
+/* Nobody's. A dashed ring rather than a filled one, because an empty seat has
+   to look empty from across the room. */
+.wcard-foot[data-nobody="true"] {
+  color: var(--faint);
+}
+.wcard-foot[data-nobody="true"] .avatar {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--faint);
+}
+.wcard-foot .who {
+  /* `min-width: 0` is the whole of why this truncates. A flex item's floor is
+     its content, so without it a long address — and a seeded login is
+     `partner-1788079646@example.com` — pushed straight out past the card's
+     right border instead of ellipsing. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sentences a card sometimes has to carry: why it is stuck, why nobody has
+   it, what it is waiting on. Quiet, and last, so a card without them stays the
+   short card it should be. */
+.wcard-note {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: 1.45;
+  color: var(--muted);
+}
+.wcard-note[data-tone="danger"] { color: var(--danger); }
+
+/* ── AI Copilot ───────────────────────────────────────────────────────────
+   The first screen in the sidebar, and the only one in the product that names
+   something it cannot do yet.
+
+   Two decisions hold the whole block together:
+
+   ONE SPEAKER GETS A BUBBLE, NOT BOTH. What the person typed sits in a sunk
+   chip on the right; what the Copilot said is plain prose on the page with a
+   mark beside it. Bubbles on both sides needs two grounds that are different
+   enough to tell apart at a glance, and the only pair of grounds this system
+   has spare are status washes — which would put "amber" or "green" on a
+   sentence that means neither. Prose also reads better at the length an answer
+   actually runs to.
+
+   THE MARK IS THE BRAND, NOT THE ACCENT. `--accent` is also `--ok`, so a green
+   disc beside every answer would be the product's status colour spent on
+   furniture. `--brand` is what says whose product this is, and a thing that
+   speaks in the product's own voice is exactly where it belongs — the same
+   argument the token file makes for the sidebar and the committing button.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-height: 26rem;
+}
+
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  flex: 1;
+}
+
+/* ── The empty state, which is most of what anybody will see ────────────── */
+
+.chat-hero {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  text-align: center;
+  padding: var(--s-6) var(--s-4);
+}
+.chat-hero h2 {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  margin: 0;
+}
+.chat-hero p {
+  margin: 0;
+  max-width: 34rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.chat-hero-mark {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--brand-wash);
+  color: var(--brand-ink);
+}
+
+/* Openers, offered as things to click rather than a blank box to face. Each
+   one is a question the product will genuinely be able to answer, phrased the
+   way somebody would say it out loud — a placeholder that promises what the
+   feature will not do is worse than no placeholder. */
+.chat-suggests {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--s-2);
+  width: 100%;
+  max-width: 42rem;
+  margin-top: var(--s-3);
+}
+.chat-suggest {
+  text-align: left;
+  font: inherit;
+  font-size: var(--t-md);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--s-3);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.chat-suggest:hover {
+  border-color: var(--input-border-hover);
+  color: var(--ink);
+}
+.chat-suggest:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── A turn ─────────────────────────────────────────────────────────────── */
+
+.chat-turn {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+.chat-turn[data-from="you"] {
+  justify-content: flex-end;
+}
+
+.chat-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--brand-wash);
+  color: var(--brand-ink);
+}
+
+/* What the PERSON said: a chip, right-aligned, capped well short of the
+   column so the two sides are told apart by shape before colour. */
+.chat-said {
+  max-width: 34rem;
+  /* `--paper`, not `--surface-sunk`. Sunk is #fafbfb against a card's #ffffff
+     and the chip read as plain right-aligned text with a hairline round it —
+     seen only by looking at the screen. Paper is the ground the card itself
+     stands on, so a chip painted in it reads as one step BELOW the card in both
+     themes, which is the relationship meant. */
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s-3) var(--s-4);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* What the COPILOT said: prose, not a bubble. */
+.chat-answer {
+  max-width: var(--measure);
+  min-width: 0;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.chat-answer p {
+  margin: 0 0 var(--s-3);
+}
+.chat-answer p:last-child {
+  margin-bottom: 0;
+}
+
+/* Three dots while it is composing. Not decoration: the reply is deliberately
+   delayed so the screen behaves the way the real thing will, and a delay with
+   nothing on screen reads as a page that has broken. */
+.chat-dots {
+  display: inline-flex;
+  gap: 0.3rem;
+  padding-top: 0.4rem;
+}
+.chat-dots span {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--faint);
+  animation: chat-dot 1.1s var(--ease) infinite;
+}
+.chat-dots span:nth-child(2) { animation-delay: 0.15s; }
+.chat-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chat-dot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+/* Under reduced motion the dots hold at half strength — still visibly a
+   placeholder, and nothing moves. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-dots span {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ── The composer ───────────────────────────────────────────────────────── */
+
+/* Sticky to the bottom of the viewport, so a long thread never scrolls the box
+   somebody is typing into off the screen. It needs its OWN ground for that —
+   a transparent composer with text sliding under it is the one way this goes
+   wrong, and it only shows once the thread is tall enough to scroll. */
+.chat-composer {
+  position: sticky;
+  bottom: var(--s-4);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s-2);
+  box-shadow: var(--shadow);
+  transition: border-color var(--dur) var(--ease);
+}
+.chat-composer:focus-within {
+  border-color: var(--input-border-hover);
+}
+/* The field brings none of `.input`'s chrome: the BOX is the input here, and a
+   bordered control inside a bordered box is two frames around one thing. */
+.chat-composer textarea {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  padding: var(--s-2);
+  resize: none;
+  max-height: 12rem;
+}
+.chat-composer textarea:focus {
+  outline: none;
+}
+.chat-composer textarea::placeholder {
+  color: var(--faint);
+}
+
+/* The line under the box. It is the honest part of this screen: everything
+   above behaves like a working assistant, and this says it is not one yet. */
+.chat-disclaimer {
+  margin: 0;
+  text-align: center;
+  font-size: var(--t-sm);
+  color: var(--faint);
+}
+
 /* ── Utilities ────────────────────────────────────────────────────────────
    A deliberately SHORT list. This is not a utility framework; each one exists
    because it is genuinely a one-off property with no component behind it. */

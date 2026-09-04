@@ -85,6 +85,45 @@ export default function PartyPage() {
     setArchiving(false);
   }
 
+  /**
+   * Register the company — which country's law it exists under, and what kind
+   * of company it is.
+   *
+   * THIS FORM DID NOT EXIST, AND ITS ABSENCE WAS LOAD-BEARING.
+   * `POST /parties/organizations/{id}/legal-entities` shipped with the party
+   * model and had no caller in this app, so the only way to register a client
+   * was a curl command. That is not a cosmetic gap: **a compliance rule matches
+   * an entity's jurisdiction exactly**, so an unregistered company generates no
+   * calendar at all — it is the `entity_not_registered` row on
+   * `/calendar` -> Not covered. A firm could add a client through this screen,
+   * agree work with it, and never find out why nothing was ever due.
+   *
+   * Found by walking a new client end to end for a demo, which is the rule this
+   * repo already runs on: a write with no read — or, here, with no writer — is
+   * not a stored fact.
+   */
+  async function registerEntity(form: FormData): Promise<void> {
+    setBusy(true);
+    setError(null);
+    const incorporatedOn = String(form.get("incorporatedOn") ?? "").trim();
+    const financialYearEnd = String(form.get("financialYearEnd") ?? "").trim();
+    const result = await api.POST("/api/v1/parties/organizations/{partyId}/legal-entities", {
+      params: { path: { partyId } },
+      body: {
+        jurisdiction: String(form.get("jurisdiction")).trim().toUpperCase(),
+        entityType: String(form.get("entityType")).trim(),
+        ...(incorporatedOn === "" ? {} : { incorporatedOn }),
+        ...(financialYearEnd === "" ? {} : { financialYearEnd }),
+      },
+    });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
+
   async function addIdentifier(form: FormData): Promise<void> {
     setBusy(true);
     setError(null);
@@ -172,9 +211,22 @@ export default function PartyPage() {
           G3.2 nothing in this product could answer it. */}
       <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
 
-      {profile.legalEntities.length > 0 && (
+      {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
+          company is not a blank space on this page — it is the reason its
+          compliance calendar is empty, and the empty state is the only place
+          anybody would find that out. */}
+      {profile.party.kind === "organization" && (
         <div className="card">
           <h2 className="card-title">Registered</h2>
+          {profile.legalEntities.length === 0 ? (
+            <p className="muted measure">
+              Not registered anywhere yet. A compliance rule matches a
+              company&rsquo;s country exactly, so until this is filled in
+              nothing is ever due for this client and the calendar has nothing
+              to generate — it will say so on{" "}
+              <Link href="/calendar">the calendar</Link>, under Not covered.
+            </p>
+          ) : (
           <table className="table">
             <thead>
               <tr>
@@ -206,6 +258,58 @@ export default function PartyPage() {
               ))}
             </tbody>
           </table>
+          )}
+
+          {/* The write that had no caller. Offered on `party:write`, the same
+              permission the identifier form below takes — registering a company
+              is a fact about a client, not an administrative act. */}
+          {permissions.includes("party:write") && (
+            <form
+              className="card-foot"
+              action={(form) => {
+                void registerEntity(form);
+              }}
+            >
+              <p className="eyebrow">Register it</p>
+              <div className="field-row">
+                <div>
+                  <label className="label" htmlFor="jurisdiction-entity">Country</label>
+                  <input className="input" id="jurisdiction-entity" name="jurisdiction"
+                         maxLength={2} placeholder="IN" required
+                         style={{ textTransform: "uppercase" }} />
+                </div>
+                <div style={{ flex: "2 1 200px" }}>
+                  <label className="label" htmlFor="entityType">Kind of company</label>
+                  <input className="input" id="entityType" name="entityType"
+                         placeholder="private_limited" required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="incorporatedOn">
+                    Incorporated <span className="optional">(optional)</span>
+                  </label>
+                  <input className="input" id="incorporatedOn" name="incorporatedOn"
+                         type="date" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="financialYearEnd">
+                    FY ends <span className="optional">(optional)</span>
+                  </label>
+                  {/* MM-DD, never a full date: a financial year ends on a day in
+                      the calendar, not in one particular year. */}
+                  <input className="input" id="financialYearEnd" name="financialYearEnd"
+                         placeholder="03-31" pattern="[0-9]{2}-[0-9]{2}" />
+                </div>
+              </div>
+              <p className="field-hint">
+                The country is what a compliance rule is matched against, and
+                the kind of company narrows which rules apply. Both are the
+                firm&rsquo;s own words for them — <span className="mono">IN</span>{" "}
+                and <span className="mono">private_limited</span> are what the
+                shipped India rules look for.
+              </p>
+              <Button type="submit" loading={busy}>Register</Button>
+            </form>
+          )}
         </div>
       )}
 

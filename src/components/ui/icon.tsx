@@ -23,6 +23,17 @@ import { cx } from "./class-names";
 
 const PATHS = {
   /* ── Navigation ──────────────────────────────────────────────────────── */
+  /* The sparkle. It is the one glyph in here that names something the product
+     cannot yet do, and it is drawn in the same 24-box with the same stroke as
+     the rest for exactly that reason: a copilot that arrived wearing somebody
+     else's icon set would announce itself as bolted on. Two stars, the small
+     one off the shoulder of the large — one alone reads as a rating. */
+  copilot: (
+    <>
+      <path d="M10.5 5.5C10.5 10 12 12 17 13c-5 1-6.5 3-6.5 7.5C10.5 16 9 14 4 13c5-1 6.5-3 6.5-7.5Z" />
+      <path d="M18.5 2.2c0 1.5.6 2.2 2.3 2.8-1.7.6-2.3 1.3-2.3 2.8 0-1.5-.6-2.2-2.3-2.8 1.7-.6 2.3-1.3 2.3-2.8Z" />
+    </>
+  ),
   home: (
     <>
       <rect x="3" y="3" width="7" height="9" rx="1.5" />
