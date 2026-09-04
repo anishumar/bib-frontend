@@ -4,7 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import { Card, CardHead, CardTitle, LinkButton, Switch, Td, Th } from "@/components/ui";
+import {
+  Card,
+  CardHead,
+  CardTitle,
+  Field,
+  LinkButton,
+  Select,
+  Switch,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
@@ -398,10 +409,8 @@ function MoveState({
     <div className="card" style={{ marginTop: "var(--s-4)" }}>
       <h2 className="card-title">Move it</h2>
       <div className="field-row">
-        <label className="label">
-          State
-          <select
-            className="select"
+        <Field label="State">
+          <Select
             value={stateId}
             onChange={(e) => { setStateId(e.target.value); }}
           >
@@ -412,14 +421,17 @@ function MoveState({
                   {s.name}
                 </option>
               ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <button
           className="btn"
-          // `.field-row` lays out its children on a `minmax(12rem, 1fr)` grid, which is right for the
-          // control beside it and turns a button into a banner. Found by
-          // opening the page.
-          style={{ flex: "0 0 auto" }}
+          // The diagnosis on the line that used to be here was right and the
+          // cure was not: `.field-row` IS a `minmax(12rem, 1fr)` grid, and that
+          // is exactly why `flex: 0 0 auto` did nothing about it — `flex` is
+          // read by flex containers only. Measured on the page, this button was
+          // 551px wide, the banner the old comment was trying to prevent.
+          // `justify-self` is the grid property that means the same thing: 68px.
+          style={{ justifySelf: "start" }}
           disabled={busy || stateId === currentStateId || (needsReason && reason.trim() === "")}
           onClick={() => { onMove(stateId, needsReason ? reason.trim() : null); }}
         >
@@ -428,24 +440,25 @@ function MoveState({
       </div>
 
       {needsReason && (
-        <label className="label">
-          Why is it stuck?
-          <textarea
-            className="textarea"
+        /* The capture-or-lose half, said out loud. At the moment somebody
+           blocks a task the reason is obvious to everybody in the room and
+           nobody writes it down; a year later "are our delays ours or the
+           client's" has no query that can answer it.
+
+           It was a <span> INSIDE the <label>, which makes the whole paragraph
+           part of the control's NAME — a screen reader reads the lot back as
+           the field's name every time focus lands on it. As a `hint` it is a
+           description instead, which is what it is. */
+        <Field
+          label="Why is it stuck?"
+          hint="Required for this state, and it is the only thing that will ever explain the delay. It stays on the task and never enters the audit log — the log cannot be erased and this names people."
+        >
+          <Textarea
             value={reason}
             rows={2}
             onChange={(e) => { setReason(e.target.value); }}
           />
-          {/* The capture-or-lose half, said out loud. At the moment somebody
-              blocks a task the reason is obvious to everybody in the room and
-              nobody writes it down; a year later "are our delays ours or the
-              client's" has no query that can answer it. */}
-          <span className="field-hint">
-            Required for this state, and it is the only thing that will ever explain the
-            delay. It stays on the task and never enters the audit log — the log cannot be
-            erased and this names people.
-          </span>
-        </label>
+        </Field>
       )}
     </div>
   );
@@ -520,11 +533,10 @@ function Assign({
     <div className="card" style={{ marginTop: "var(--s-4)" }}>
       <h2 className="card-title">Whose desk</h2>
       <div className="field-row">
-        <label className="label">
-          Owner
-          <select
-            className="select"
+        <Field label="Owner">
+          <Select
             value={userId}
+            aria-describedby="assign-hint"
             onChange={(e) => { setUserId(e.target.value); }}
           >
             <option value="">Nobody</option>
@@ -539,18 +551,21 @@ function Assign({
                   {m.displayName ?? m.email}
                 </option>
               ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <button
           className="btn"
-          style={{ flex: "0 0 auto" }}
+          style={{ justifySelf: "start" }}
           disabled={busy || userId === (currentUserId ?? "")}
           onClick={() => { onAssign(userId === "" ? null : userId); }}
         >
           Save
         </button>
       </div>
-      <p className="field-hint">
+      {/* Below the row, so it stays the width of the card rather than of one
+          grid column — pointed at from the select by id instead of being its
+          `hint`. */}
+      <p className="field-hint" id="assign-hint">
         Work spawned from an engagement arrives on the client&rsquo;s SPOC for that
         department automatically. Changing it here is an override, and the trail records it
         as one.
@@ -632,7 +647,7 @@ function Checklist({
           />
           <button
             className="btn" data-variant="secondary" data-size="sm"
-            style={{ flex: "0 0 auto" }}
+            style={{ justifySelf: "start" }}
             disabled={busy === "checklist" || draft.trim() === ""}
             onClick={() => {
               onAdd(draft.trim());
