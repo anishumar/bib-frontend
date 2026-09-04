@@ -177,7 +177,7 @@ export default function InvoicePage() {
           </MetaItem>
           <MetaItem label="Rate">
             <span className="mono">
-              {invoice.fxRate} on {invoice.fxRateDate}
+              {invoice.fxRate} on {longDay(invoice.fxRateDate)}
             </span>
           </MetaItem>
         </Meta>

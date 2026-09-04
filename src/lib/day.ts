@@ -98,3 +98,25 @@ export function localDate(day: string): Date {
   const [y, m, d] = day.split("-").map(Number);
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
 }
+
+/**
+ * The calendar day an INSTANT fell on, where the reader is, as `YYYY-MM-DD`.
+ *
+ * The bridge between the two halves of this module, and it exists because one
+ * real value needs to cross: an engagement letter with no stated start begins
+ * on the day it was SIGNED, and `signed_at` is a `timestamptz` while
+ * `effective_from` is a `date`. The screen picks whichever it has and prints
+ * both the same way, so the instant has to become a day first.
+ *
+ * `.slice(0, 10)` is what that was, and it is the UTC day — yesterday in India
+ * for anything signed after 05:30, which is most of a working morning. This
+ * reads the local fields instead, exactly as `browserDay` does for today.
+ *
+ * PRINT the result with `longDay`, never with `longInstant`: by the time it is
+ * a day it is a day, and parsing it again would put the timezone back.
+ */
+export function instantDay(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  return `${String(at.getFullYear())}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}

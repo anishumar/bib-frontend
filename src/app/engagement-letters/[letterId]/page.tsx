@@ -28,7 +28,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { longDay } from "@/lib/day";
+import { instantDay, longDay, longInstant } from "@/lib/day";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -143,7 +143,12 @@ export default function LetterPage() {
   const { letter, totals, lines, engagements } = record;
   const isDraft = letter.status === "draft";
   const isSigned = letter.status === "signed";
-  const signatureDay = letter.signedAt?.slice(0, 10) ?? null;
+  // The day it was SIGNED, where the reader is. `signed_at` is a
+  // `timestamptz` and this feeds `begins()` beside `effective_from`, which is a
+  // `date` — one printing path, so the instant becomes a day first. It was
+  // `.slice(0, 10)`, which is the UTC day: yesterday in India for anything
+  // signed after 05:30, which is most of a working morning.
+  const signatureDay = letter.signedAt === null ? null : instantDay(letter.signedAt);
   // Clauses already on the letter, so the picker does not offer a duplicate —
   // the same term twice on one contract is a drafting error, and the API
   // refuses it anyway.
@@ -299,7 +304,7 @@ export default function LetterPage() {
               </p>
             ) : (
               <>
-                <p>{letter.sentAt.slice(0, 10)}</p>
+                <p>{longInstant(letter.sentAt)}</p>
                 <p className="text-md text-muted">
                   the day it was sent
                 </p>
@@ -311,8 +316,13 @@ export default function LetterPage() {
               Work begins
             </p>
             <p>
-              {letterBegins.day ?? (
+              {/* A day by the time it reaches here — `effective_from` straight
+                  from the API, or the signature instant already turned into one
+                  — so it prints with `longDay`, which SPLITS. */}
+              {letterBegins.day === null ? (
                 <span className="text-sm text-muted">on the day it is signed</span>
+              ) : (
+                longDay(letterBegins.day)
               )}
             </p>
             {letterBeginsNote !== "" && (
@@ -350,7 +360,8 @@ export default function LetterPage() {
                 {letter.signedByTitle ?? "capacity not recorded"}
               </p>
               <p className="text-md text-muted">
-                {signatureDay} · {letter.signatureMethod}
+                {signatureDay === null ? "" : longDay(signatureDay)} ·{" "}
+                {letter.signatureMethod}
                 {letter.signatureReference !== null && ` · ref ${letter.signatureReference}`}
               </p>
             </div>
@@ -380,7 +391,7 @@ export default function LetterPage() {
                     {record.firmSignatory.title}
                   </p>
                   <p className="text-md text-muted">
-                    {record.firmSignatory.signedAt.slice(0, 10)}
+                    {longInstant(record.firmSignatory.signedAt)}
                   </p>
                 </>
               )}
@@ -432,7 +443,11 @@ export default function LetterPage() {
                     )}
                   </Td>
                   <Td>
-                    {start.day ?? <span className="text-sm text-muted">on signature</span>}
+                    {start.day === null ? (
+                      <span className="text-sm text-muted">on signature</span>
+                    ) : (
+                      longDay(start.day)
+                    )}
                     <div className="text-xs text-muted">
                       {start.from}
                     </div>
@@ -485,7 +500,7 @@ export default function LetterPage() {
               advance {formatMoney(letter.advanceAmount, totals.currency)}
               {letter.advanceRecordedAt === null
                 ? " · outstanding"
-                : ` · recorded ${letter.advanceRecordedAt.slice(0, 10)}`}
+                : ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
             </div>
           )}
         </div>
@@ -885,7 +900,9 @@ export default function LetterPage() {
 
         {letter.status === "withdrawn" && (
           <p className="text-md text-muted">
-            This letter was withdrawn on {letter.withdrawnAt?.slice(0, 10)} and stays that way,
+            This letter was withdrawn on{" "}
+            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}{" "}
+            and stays that way,
             so the interval in which it was off the table is still on the record.
           </p>
         )}
