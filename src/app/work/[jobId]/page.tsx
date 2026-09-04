@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { Button, cx } from "@/components/ui";
+import { Card, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
 
 /**
@@ -211,7 +212,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
           only listed steps left "which client, which company, which services"
           unanswerable from the screen. */}
       {job !== null && (
-        <p className="muted" style={{ maxWidth: "62ch" }}>
+        <p className="muted max-w-[var(--measure)]">
           <strong>{job.entityName ?? "an unnamed company"}</strong>
           {job.clientName !== null && job.clientName !== job.entityName && (
             <> · billed to {job.clientName}</>
@@ -223,30 +224,40 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
             : job.services.map((sv) => sv.serviceName).join(" · ")}
         </p>
       )}
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      )}
 
       {steps.length === 0 ? (
-        <p className="muted" style={{ maxWidth: "62ch" }}>
+        <p className="muted max-w-[var(--measure)]">
           This job has no steps yet. That means the firm has not published a workflow template
           for the service it delivers — the work is not lost, it waits. Publish the process and
           the job picks it up on the next sweep.
         </p>
       ) : (
-        <div className="card">
-          <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <Card>
+          <ol className="m-0 list-none p-0">
             {steps.map((s) => (
               <li
                 key={s.id}
-                data-inactive={s.status === "skipped"}
-                style={{
-                  display: "flex",
-                  gap: "var(--s-4)",
-                  alignItems: "flex-start",
-                  padding: "var(--s-4) 0",
-                  borderTop: "1px solid var(--line)",
-                }}
+                /* A skipped step is DIMMED rather than hidden — the record that
+                   it will not happen is the point. This carried `data-inactive`
+                   over from the tables, where `.table tbody tr[data-inactive]`
+                   styles it; on an `<li>` that selector never matches, so the
+                   step it was meant to fade read exactly as live as a live one.
+                   Measured on the rendered page: opacity 1, identical ink.
+
+                   It STACKS below `sm`. The actions never shrink and a pill
+                   carrying a whole sentence sets a wide minimum, so as a row
+                   this pushed the page 117px sideways at 390. */
+                className={cx(
+                  "flex flex-col items-start gap-4 border-t border-line py-4 sm:flex-row",
+                  s.status === "skipped" && "opacity-60",
+                )}
               >
-                <div style={{ flex: "1 1 auto" }}>
+                <div className="min-w-0 flex-1">
                   <strong>{s.label}</strong>{" "}
                   <span className="mono muted text-xs">
                     {s.stepKey}
@@ -254,16 +265,14 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   <br />
                   <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
                   {s.outcomeNote !== null && (
-                    <p className="muted text-sm" style={{ margin: "4px 0 0" }}>
-                      {s.outcomeNote}
-                    </p>
+                    <p className="muted mt-1 text-sm">{s.outcomeNote}</p>
                   )}
                   {s.proposal !== null && s.proposal !== undefined && (
                     <Proposal proposal={s.proposal} />
                   )}
                   <CheckHistory checks={checks.filter((c) => c.stepKey === s.stepKey)} />
                 </div>
-                <div style={{ flex: "0 0 auto", display: "grid", gap: 6 }}>
+                <div className="grid shrink-0 gap-1.5">
                   {/* A step with an undecided proposal gets the three verdicts
                       INSTEAD of the Done button, not beside it. Ticking "done"
                       would record that a person did the work and leave what the
@@ -288,58 +297,58 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     canComplete &&
                     (s.proposal ? (
                       <>
-                        <button
-                          className="btn"
+                        <Button
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             void decide(s.stepKey, "accepted", null, null);
                           }}
                         >
                           Accept
-                        </button>
-                        <button
-                          className="btn" data-variant="secondary" data-size="sm"
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             if (s.proposal) void correct(s.stepKey, s.proposal);
                           }}
                         >
                           Correct
-                        </button>
-                        <button
-                          className="btn" data-variant="secondary" data-size="sm"
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           disabled={busy === s.stepKey}
                           onClick={() => {
                             void reject(s.stepKey);
                           }}
                         >
                           Reject
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
-                        className="btn"
+                      <Button
                         disabled={busy === s.stepKey}
                         onClick={() => {
                           void complete(s.stepKey);
                         }}
                       >
                         Done
-                      </button>
+                      </Button>
                     ))}
                 </div>
               </li>
             ))}
           </ol>
-        </div>
+        </Card>
       )}
 
-      <p className="muted text-sm" style={{ maxWidth: "62ch" }}>
+      <p className="muted max-w-[var(--measure)] text-sm">
         Ticking a step records that <strong>you</strong> did it, and opens whatever was waiting
         on it straight away. It cannot be undone: a second completion would overwrite the record
         of who did the work.
       </p>
-      <p className="muted text-sm" style={{ maxWidth: "62ch" }}>
+      <p className="muted max-w-[var(--measure)] text-sm">
         Where a machine has proposed an answer, accepting and correcting are recorded
         separately and both are kept beside what it originally said. That difference is the
         only measure of whether it is getting better — so a correction that changes nothing is
@@ -392,9 +401,9 @@ function CheckHistory({ checks }: { checks: StepCheck[] }) {
   const decided = checks.filter((c) => c.decision !== "pending");
   if (decided.length === 0) return null;
   return (
-    <div style={{ marginTop: "var(--s-2)" }}>
+    <div className="mt-2">
       {decided.map((c) => (
-        <p key={c.id} className="muted text-sm" style={{ margin: "2px 0 0" }}>
+        <p key={c.id} className="muted mt-0.5 text-sm">
           {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
           {c.decidedAt === null ? "—" : longInstant(c.decidedAt)}
           {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
@@ -425,7 +434,7 @@ function CheckActions({
 }) {
   if (!check.viewer.eligible) {
     return (
-      <p className="muted text-sm" style={{ maxWidth: "22ch" }}>
+      <p className="muted max-w-[22ch] text-sm">
         {check.viewer.reason === null
           ? "Not yours to check."
           : CHECK_INELIGIBILITY[check.viewer.reason]}
@@ -440,20 +449,24 @@ function CheckActions({
   }
   return (
     <>
-      <button
-        className="btn"
+      <Button
         disabled={busy === check.id}
-        onClick={() => { onApprove(check.id); }}
+        onClick={() => {
+          onApprove(check.id);
+        }}
       >
         Approve
-      </button>
-      <button
-        className="btn" data-variant="secondary" data-size="sm"
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
         disabled={busy === check.id}
-        onClick={() => { onSendBack(check.id); }}
+        onClick={() => {
+          onSendBack(check.id);
+        }}
       >
         Send back
-      </button>
+      </Button>
     </>
   );
 }
@@ -465,11 +478,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // of bug T2.8 found by opening this page — a label reading one fact when a
   // second had become true underneath it.
   if (step.status === "blocked" && check !== null) {
-    return (
-      <span className="pill" data-tone="danger">
-        finished — waiting to be checked
-      </span>
-    );
+    return <Pill tone="danger">finished — waiting to be checked</Pill>;
   }
   if (step.status === "blocked") {
     // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
@@ -491,32 +500,20 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
         : step.proposal.decision === "escalated"
           ? "a machine could not answer this — waiting for you to decide"
           : "a machine answered — waiting for you to check it";
-    return (
-      <span className="pill" data-tone="danger">
-        {blockedBecause}
-      </span>
-    );
+    return <Pill tone="danger">{blockedBecause}</Pill>;
   }
+  // NOT `danger`, which is what it wore until this was seen rendered. A skip is
+  // a decision somebody recorded, not a failure — nothing is wrong, and the row
+  // it sits in is dimmed to say so. Red here put it in the same colour as "could
+  // not be finished" one line below, which is the opposite fact.
   if (step.status === "skipped") {
-    return (
-      <span className="pill" data-tone="danger">
-        not needed
-      </span>
-    );
+    return <Pill>not needed</Pill>;
   }
   if (step.status === "failed") {
-    return (
-      <span className="pill" data-tone="danger">
-        could not be finished
-      </span>
-    );
+    return <Pill tone="danger">could not be finished</Pill>;
   }
   if (step.status === "done") {
-    return (
-      <span className="pill" data-tone="ok">
-        done
-      </span>
-    );
+    return <Pill tone="ok">done</Pill>;
   }
   // `pending` and `running`. Pending is not "nobody has started it" — it is
   // waiting on a step before it, which is worth saying rather than leaving
@@ -542,14 +539,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
  */
 function Proposal({ proposal }: { proposal: AgentProposal }) {
   return (
-    <div
-      style={{
-        marginTop: 8,
-        padding: "8px 10px",
-        borderLeft: "3px solid var(--line)",
-        background: "var(--surface-sunk)",
-      }}
-    >
+    <div className="mt-2 border-l-2 border-line bg-surface-sunk py-2 pl-3 pr-3">
       <div className="muted text-xs">
         {proposal.decision === "escalated" ? (
           <>
@@ -569,13 +559,10 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
           </>
         )}
       </div>
-      <pre
-        className="mono text-xs"
-        style={{ margin: "var(--s-1) 0 0", whiteSpace: "pre-wrap", overflowX: "auto" }}
-      >
+      <pre className="mono mt-1 overflow-x-auto whitespace-pre-wrap text-xs">
         {JSON.stringify(proposal.proposed, null, 2)}
       </pre>
-      <div className="muted text-xs" style={{ marginTop: 4 }}>
+      <div className="muted mt-1 text-xs">
         {proposal.model} · {proposal.promptVersion}
       </div>
     </div>
