@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BLOCK_KINDS, BLOCK_KIND_LABELS, api, apiError } from "@/lib/api/client";
 import type { BlockKind, StandardBlock } from "@/lib/api/client";
-import { Td, Th } from "@/components/ui";
+import { Table, TableWrap, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -94,54 +94,38 @@ export default function DocumentBlocksPage() {
                 Nothing standard. Documents drafted now carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
               </p>
             ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <Th style={{ width: 70 }}>Order</Th>
-                    <Th>Line</Th>
-                    <Th style={{ width: 110 }}>Prints in</Th>
-                    <Th style={{ width: 120 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {mine.map((b) => (
-                    <tr key={b.id} style={b.isActive ? undefined : { opacity: 0.55 }}>
-                      <Td className="mono">{b.sortOrder}</Td>
-                      <Td>
-                        {/* A HEADING is a section title, not an item — the team
-                            block is a table with headings, and without the
-                            distinction it goes back to being one text blob. */}
-                        {b.isHeading ? <strong>{b.body}</strong> : b.body}
-                        {b.isHeading && (
-                          <span className="muted text-sm"> · heading</span>
-                        )}
-                      </Td>
-                      <Td>
-                        {b.jurisdiction === null ? (
-                          <span className="muted">everywhere</span>
-                        ) : (
-                          <span className="pill" data-tone="code">{b.jurisdiction}</span>
-                        )}
-                      </Td>
-                      <Td style={{ textAlign: "right" }}>
-                        {b.isActive ? (
-                          <button
-                            className="btn" data-variant="secondary" data-size="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              void act(() =>
-                                api.PATCH("/api/v1/document-blocks/standard/{blockId}", {
-                                  params: { path: { blockId: b.id } },
-                                  body: { isActive: false },
-                                }),
-                              )
-                            }
-                          >
-                            Retire
-                          </button>
-                        ) : (
-                          <>
-                            <span className="pill" data-tone="danger">retired</span>{" "}
+              <TableWrap>
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th style={{ width: 70 }}>Order</Th>
+                      <Th>Line</Th>
+                      <Th style={{ width: 110 }}>Prints in</Th>
+                      <Th style={{ width: 120 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mine.map((b) => (
+                      <tr key={b.id} style={b.isActive ? undefined : { opacity: 0.55 }}>
+                        <Td className="mono">{b.sortOrder}</Td>
+                        <Td>
+                          {/* A HEADING is a section title, not an item — the team
+                              block is a table with headings, and without the
+                              distinction it goes back to being one text blob. */}
+                          {b.isHeading ? <strong>{b.body}</strong> : b.body}
+                          {b.isHeading && (
+                            <span className="muted text-sm"> · heading</span>
+                          )}
+                        </Td>
+                        <Td>
+                          {b.jurisdiction === null ? (
+                            <span className="muted">everywhere</span>
+                          ) : (
+                            <span className="pill" data-tone="code">{b.jurisdiction}</span>
+                          )}
+                        </Td>
+                        <Td style={{ textAlign: "right" }}>
+                          {b.isActive ? (
                             <button
                               className="btn" data-variant="secondary" data-size="sm"
                               disabled={busy}
@@ -149,20 +133,38 @@ export default function DocumentBlocksPage() {
                                 void act(() =>
                                   api.PATCH("/api/v1/document-blocks/standard/{blockId}", {
                                     params: { path: { blockId: b.id } },
-                                    body: { isActive: true },
+                                    body: { isActive: false },
                                   }),
                                 )
                               }
                             >
-                              Restore
+                              Retire
                             </button>
-                          </>
-                        )}
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          ) : (
+                            <>
+                              <span className="pill" data-tone="danger">retired</span>{" "}
+                              <button
+                                className="btn" data-variant="secondary" data-size="sm"
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(() =>
+                                    api.PATCH("/api/v1/document-blocks/standard/{blockId}", {
+                                      params: { path: { blockId: b.id } },
+                                      body: { isActive: true },
+                                    }),
+                                  )
+                                }
+                              >
+                                Restore
+                              </button>
+                            </>
+                          )}
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrap>
             )}
 
             <form

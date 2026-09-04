@@ -24,6 +24,7 @@ import {
   Pill,
   Select,
   Table,
+  TableWrap,
   Td,
   Textarea,
   Th,
@@ -203,158 +204,160 @@ export default function LeadsPage() {
             Nothing in the pipeline.
           </p>
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Opportunity</Th>
-                <Th>Source</Th>
-                <Th>Stage</Th>
-                <Th>Owner</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {open.map((l) => {
-                const closingThis = closing?.leadId === l.lead.id ? closing : null;
-                return (
-                  <Fragment key={l.lead.id}>
-                    <tr>
-                      <Td>
-                        {/* What the opportunity IS, over who it is with. Two live
-                            opportunities for one client used to render as the same
-                            company twice, because the party was all a row had. */}
-                        <div>{l.lead.title}</div>
-                        {/* The party links, because the lead IS the party and
-                            everything else known about them is there. */}
-                        <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
-                          {l.party.displayName}
-                        </Link>
-                      </Td>
-                      <Td className="muted">{l.lead.source}</Td>
-                      <Td>
-                        <Select
-                          /* A control in a table cell has no <label> over it —
-                             the column heading is not one. Without this the row
-                             announces "combo box, new" four times over with no
-                             statement of WHICH lead or WHICH column. */
-                          aria-label={`Stage of ${l.lead.title}`}
-                          // While a close is being written the select shows the
-                          // stage being moved TO, not the stored one — the
-                          // request has not gone yet and snapping back would
-                          // look like the choice was refused.
-                          value={closingThis?.stage ?? l.lead.stage}
-                          disabled={busy !== null}
-                          onChange={(e) => {
-                            const stage = e.target.value as LeadStage;
-                            if (recordsLostReason(stage)) {
-                              setClosing({ leadId: l.lead.id, stage });
-                              return;
-                            }
-                            setClosing(null);
-                            move(l.lead.id, stage);
-                          }}
-                        >
-                          {LEAD_STAGES.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </Select>
-                      </Td>
-                      <Td>
-                        <Select
-                          aria-label={`Owner of ${l.lead.title}`}
-                          value={l.owner?.userId ?? ""}
-                          disabled={busy !== null || staff.length === 0}
-                          onChange={(e) => {
-                            void act(l.lead.id, () =>
-                              api.PUT("/api/v1/leads/{leadId}/owner", {
-                                params: { path: { leadId: l.lead.id } },
-                                body: {
-                                  ownerUserId: e.target.value === "" ? null : e.target.value,
-                                },
-                              }),
-                            );
-                          }}
-                        >
-                          {/* Unassigned is a real state — it is the queue somebody
-                              works from — so it is an option, not an absence. */}
-                          <option value="">unassigned</option>
-                          {staff.map((m) => (
-                            <option key={m.membership.id} value={m.membership.userId}>
-                              {m.displayName ?? m.email}
-                            </option>
-                          ))}
-                        </Select>
-                      </Td>
-                    </tr>
-                    {closingThis !== null && (
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Opportunity</Th>
+                  <Th>Source</Th>
+                  <Th>Stage</Th>
+                  <Th>Owner</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {open.map((l) => {
+                  const closingThis = closing?.leadId === l.lead.id ? closing : null;
+                  return (
+                    <Fragment key={l.lead.id}>
                       <tr>
-                        <Td colSpan={4}>
-                          <form
-                            action={(form) => {
-                              move(
-                                l.lead.id,
-                                closingThis.stage,
-                                String(form.get("lostReason") ?? "").trim(),
+                        <Td>
+                          {/* What the opportunity IS, over who it is with. Two live
+                              opportunities for one client used to render as the same
+                              company twice, because the party was all a row had. */}
+                          <div>{l.lead.title}</div>
+                          {/* The party links, because the lead IS the party and
+                              everything else known about them is there. */}
+                          <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
+                            {l.party.displayName}
+                          </Link>
+                        </Td>
+                        <Td className="muted">{l.lead.source}</Td>
+                        <Td>
+                          <Select
+                            /* A control in a table cell has no <label> over it —
+                               the column heading is not one. Without this the row
+                               announces "combo box, new" four times over with no
+                               statement of WHICH lead or WHICH column. */
+                            aria-label={`Stage of ${l.lead.title}`}
+                            // While a close is being written the select shows the
+                            // stage being moved TO, not the stored one — the
+                            // request has not gone yet and snapping back would
+                            // look like the choice was refused.
+                            value={closingThis?.stage ?? l.lead.stage}
+                            disabled={busy !== null}
+                            onChange={(e) => {
+                              const stage = e.target.value as LeadStage;
+                              if (recordsLostReason(stage)) {
+                                setClosing({ leadId: l.lead.id, stage });
+                                return;
+                              }
+                              setClosing(null);
+                              move(l.lead.id, stage);
+                            }}
+                          >
+                            {LEAD_STAGES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </Select>
+                        </Td>
+                        <Td>
+                          <Select
+                            aria-label={`Owner of ${l.lead.title}`}
+                            value={l.owner?.userId ?? ""}
+                            disabled={busy !== null || staff.length === 0}
+                            onChange={(e) => {
+                              void act(l.lead.id, () =>
+                                api.PUT("/api/v1/leads/{leadId}/owner", {
+                                  params: { path: { leadId: l.lead.id } },
+                                  body: {
+                                    ownerUserId: e.target.value === "" ? null : e.target.value,
+                                  },
+                                }),
                               );
                             }}
                           >
-                            <FieldStack>
-                              {/* The sentence under the box used to be a loose
-                                  paragraph BELOW the buttons, which is nowhere:
-                                  it explained the box to anybody who could see
-                                  it and to nobody who could not. As `hint` it
-                                  becomes the field's `aria-describedby`, read
-                                  out with the box it is about. */}
-                              <Field
-                                label={
-                                  closingThis.stage === "lost"
-                                    ? "Why did it go elsewhere?"
-                                    : "What happened to it?"
-                                }
-                                hint="In your own words, and required — the stage says only THAT it did not close won. Lost and abandoned are different findings and this is the half worth reading next quarter."
-                              >
-                                <Textarea
-                                  name="lostReason"
-                                  rows={2}
-                                  required
-                                  autoFocus
-                                  placeholder={
-                                    closingThis.stage === "lost"
-                                      ? "Went with their existing auditor on price."
-                                      : "Three calls and two emails, no reply since June."
-                                  }
-                                />
-                              </Field>
-                              {/* A `cluster` and not a bare pair of buttons: the
-                                  stack is a flex COLUMN, and a button laid
-                                  straight into it stretches the width of the
-                                  card. */}
-                              <div className="cluster">
-                                <Button type="submit" disabled={busy !== null}>
-                                  Close as {closingThis.stage}
-                                </Button>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  disabled={busy !== null}
-                                  onClick={() => {
-                                    setClosing(null);
-                                  }}
-                                >
-                                  Keep it open
-                                </Button>
-                              </div>
-                            </FieldStack>
-                          </form>
+                            {/* Unassigned is a real state — it is the queue somebody
+                                works from — so it is an option, not an absence. */}
+                            <option value="">unassigned</option>
+                            {staff.map((m) => (
+                              <option key={m.membership.id} value={m.membership.userId}>
+                                {m.displayName ?? m.email}
+                              </option>
+                            ))}
+                          </Select>
                         </Td>
                       </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </Table>
+                      {closingThis !== null && (
+                        <tr>
+                          <Td colSpan={4}>
+                            <form
+                              action={(form) => {
+                                move(
+                                  l.lead.id,
+                                  closingThis.stage,
+                                  String(form.get("lostReason") ?? "").trim(),
+                                );
+                              }}
+                            >
+                              <FieldStack>
+                                {/* The sentence under the box used to be a loose
+                                    paragraph BELOW the buttons, which is nowhere:
+                                    it explained the box to anybody who could see
+                                    it and to nobody who could not. As `hint` it
+                                    becomes the field's `aria-describedby`, read
+                                    out with the box it is about. */}
+                                <Field
+                                  label={
+                                    closingThis.stage === "lost"
+                                      ? "Why did it go elsewhere?"
+                                      : "What happened to it?"
+                                  }
+                                  hint="In your own words, and required — the stage says only THAT it did not close won. Lost and abandoned are different findings and this is the half worth reading next quarter."
+                                >
+                                  <Textarea
+                                    name="lostReason"
+                                    rows={2}
+                                    required
+                                    autoFocus
+                                    placeholder={
+                                      closingThis.stage === "lost"
+                                        ? "Went with their existing auditor on price."
+                                        : "Three calls and two emails, no reply since June."
+                                    }
+                                  />
+                                </Field>
+                                {/* A `cluster` and not a bare pair of buttons: the
+                                    stack is a flex COLUMN, and a button laid
+                                    straight into it stretches the width of the
+                                    card. */}
+                                <div className="cluster">
+                                  <Button type="submit" disabled={busy !== null}>
+                                    Close as {closingThis.stage}
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={busy !== null}
+                                    onClick={() => {
+                                      setClosing(null);
+                                    }}
+                                  >
+                                    Keep it open
+                                  </Button>
+                                </div>
+                              </FieldStack>
+                            </form>
+                          </Td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableWrap>
         )}
       </Card>
 
@@ -365,55 +368,57 @@ export default function LeadsPage() {
               record, and nothing said which was the stage, which was the
               reason and which was the date — a screen reader announces the
               cells with no column to hang them on, and so does a person. */}
-          <Table>
-            <thead>
-              <tr>
-                <Th>Opportunity</Th>
-                <Th>Stage</Th>
-                <Th>Why</Th>
-                <Th>Closed</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {closed.map((l) => (
-                <tr key={l.lead.id} data-inactive="true">
-                  <Td>
-                    <div>{l.lead.title}</div>
-                    <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
-                      {l.party.displayName}
-                    </Link>
-                  </Td>
-                  <Td>
-                    {/* `lost` and `abandoned` render as themselves. Collapsing
-                        them into one word would throw away the only signal that
-                        separates a pricing problem from a follow-up one. */}
-                    <Pill tone={recordsLostReason(l.lead.stage) ? "danger" : "neutral"}>
-                      {l.lead.stage}
-                    </Pill>
-                  </Td>
-                  {/* WHY, in the closer's own words. Null on a converted lead is
-                      right; null on a closed-unwon one means it was closed
-                      before anybody was asked, which is a different silence. */}
-                  <Td className="text-sm">
-                    {l.lead.lostReason ??
-                      (recordsLostReason(l.lead.stage) ? (
-                        <span className="muted">no reason recorded — nobody was asked</span>
-                      ) : (
-                        ""
-                      ))}
-                  </Td>
-                  {/* `closed_at` is a `timestamptz` — an INSTANT, so it is
-                      PARSED and not split. `.slice(0, 10)` was wrong twice: it
-                      printed `2026-09-02` where every other date on the product
-                      reads `02 Sep 2026`, and it printed the UTC day, which is
-                      the day before for anything closed after 05:30 IST. */}
-                  <Td className="muted">
-                    {l.lead.closedAt === null ? "" : longInstant(l.lead.closedAt)}
-                  </Td>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Opportunity</Th>
+                  <Th>Stage</Th>
+                  <Th>Why</Th>
+                  <Th>Closed</Th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {closed.map((l) => (
+                  <tr key={l.lead.id} data-inactive="true">
+                    <Td>
+                      <div>{l.lead.title}</div>
+                      <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
+                        {l.party.displayName}
+                      </Link>
+                    </Td>
+                    <Td>
+                      {/* `lost` and `abandoned` render as themselves. Collapsing
+                          them into one word would throw away the only signal that
+                          separates a pricing problem from a follow-up one. */}
+                      <Pill tone={recordsLostReason(l.lead.stage) ? "danger" : "neutral"}>
+                        {l.lead.stage}
+                      </Pill>
+                    </Td>
+                    {/* WHY, in the closer's own words. Null on a converted lead is
+                        right; null on a closed-unwon one means it was closed
+                        before anybody was asked, which is a different silence. */}
+                    <Td className="text-sm">
+                      {l.lead.lostReason ??
+                        (recordsLostReason(l.lead.stage) ? (
+                          <span className="muted">no reason recorded — nobody was asked</span>
+                        ) : (
+                          ""
+                        ))}
+                    </Td>
+                    {/* `closed_at` is a `timestamptz` — an INSTANT, so it is
+                        PARSED and not split. `.slice(0, 10)` was wrong twice: it
+                        printed `2026-09-02` where every other date on the product
+                        reads `02 Sep 2026`, and it printed the UTC day, which is
+                        the day before for anything closed after 05:30 IST. */}
+                    <Td className="muted">
+                      {l.lead.closedAt === null ? "" : longInstant(l.lead.closedAt)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
         </Card>
       )}
 

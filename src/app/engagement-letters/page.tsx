@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
-import { Pill, Td, Th } from "@/components/ui";
+import { Pill, Table, TableWrap, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -138,57 +138,59 @@ export default function LettersPage() {
             Nothing agreed yet.
           </p>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <Th>Ref</Th>
-                <Th>Letter</Th>
-                <Th>Client</Th>
-                <Th>Issued by</Th>
-                <Th>Status</Th>
-                <Th style={{ textAlign: "right" }}>Value</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {letters.map((l) => (
-                <tr key={l.letter.id}>
-                  {/* The number, first, because it is what somebody arrives
-                      holding. */}
-                  <Td className="mono">
-                    <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.ref}</Link>
-                  </Td>
-                  <Td>
-                    <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.title}</Link>
-                    <div className="muted text-sm">
-                      {l.lineCount} {l.lineCount === 1 ? "service" : "services"}
-                      {l.letter.advanceRequired && " · advance required"}
-                      {l.letter.effectiveFrom !== null && ` · from ${longDay(l.letter.effectiveFrom)}`}
-                    </div>
-                  </Td>
-                  <Td>{l.party.displayName}</Td>
-                  {/* WHO is bound, and WHERE the law is — the two questions the
-                      jurisdiction alone could never answer, side by side. */}
-                  <Td>
-                    {l.issuingEntity.displayName}
-                    <div className="mono muted text-sm">
-                      {l.letter.jurisdiction}
-                    </div>
-                  </Td>
-                  <Td>
-                    <span
-                      className="pill"
-                      data-tone={l.letter.status === "withdrawn" ? "danger" : ""}
-                    >
-                      {l.letter.status}
-                    </span>
-                  </Td>
-                  <Td style={{ textAlign: "right" }} className="mono">
-                    {formatMoney(l.totals.net, l.totals.currency)}
-                  </Td>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Ref</Th>
+                  <Th>Letter</Th>
+                  <Th>Client</Th>
+                  <Th>Issued by</Th>
+                  <Th>Status</Th>
+                  <Th style={{ textAlign: "right" }}>Value</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {letters.map((l) => (
+                  <tr key={l.letter.id}>
+                    {/* The number, first, because it is what somebody arrives
+                        holding. */}
+                    <Td className="mono">
+                      <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.ref}</Link>
+                    </Td>
+                    <Td>
+                      <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.title}</Link>
+                      <div className="muted text-sm">
+                        {l.lineCount} {l.lineCount === 1 ? "service" : "services"}
+                        {l.letter.advanceRequired && " · advance required"}
+                        {l.letter.effectiveFrom !== null && ` · from ${longDay(l.letter.effectiveFrom)}`}
+                      </div>
+                    </Td>
+                    <Td>{l.party.displayName}</Td>
+                    {/* WHO is bound, and WHERE the law is — the two questions the
+                        jurisdiction alone could never answer, side by side. */}
+                    <Td>
+                      {l.issuingEntity.displayName}
+                      <div className="mono muted text-sm">
+                        {l.letter.jurisdiction}
+                      </div>
+                    </Td>
+                    <Td>
+                      <span
+                        className="pill"
+                        data-tone={l.letter.status === "withdrawn" ? "danger" : ""}
+                      >
+                        {l.letter.status}
+                      </span>
+                    </Td>
+                    <Td style={{ textAlign: "right" }} className="mono">
+                      {formatMoney(l.totals.net, l.totals.currency)}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
         )}
       </div>
 

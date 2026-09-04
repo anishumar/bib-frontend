@@ -4,7 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis, RequestRouting } from "@/lib/api/client";
-import { Button, Field, Input, Radio, Select, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Input,
+  Radio,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -418,63 +428,65 @@ function AxisList({
           only these codes are accepted.
         </p>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <Th>Name</Th>
-              <Th>Code</Th>
-              <Th style={{ width: 110 }}>Order</Th>
-              <Th>Status</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} data-inactive={!r.isActive}>
-                <Td>
-                  <CommittedText
-                    key={`${r.id}:${r.name}`}
-                    value={r.name}
-                    /* Named by the CODE, not by the name: this is the field
-                       that changes the name, so naming it after its own value
-                       would rename the control every time somebody types. The
-                       code is immutable and shown in the next cell. */
-                    label={`Name of ${r.code}`}
-                    disabled={busy === r.id}
-                    onCommit={(name) => { onRename(r.id, name); }}
-                  />
-                </Td>
-                {/* The code never changes — every published service body names
-                    it and those bodies are frozen. Shown, not editable. */}
-                <Td className="mono muted">{r.code}</Td>
-                <Td>
-                  <CommittedNumber
-                    key={`${r.id}:${String(r.sortOrder)}`}
-                    value={r.sortOrder}
-                    label={`Order of ${r.code}`}
-                    disabled={busy === r.id}
-                    onCommit={(sortOrder) => { onReorder(r.id, sortOrder); }}
-                  />
-                </Td>
-                <Td>
-                  <span className="pill" data-tone={r.isActive ? "accent" : "danger"}>
-                    {r.isActive ? "in use" : "retired"}
-                  </span>
-                </Td>
-                <Td align="right">
-                  <Button
-                    size="sm"
-                    variant={r.isActive ? "destructive-quiet" : "secondary"}
-                    loading={busy === r.id}
-                    onClick={() => { onSetActive(r.id, !r.isActive); }}
-                  >
-                    {r.isActive ? "Retire" : "Bring back"}
-                  </Button>
-                </Td>
+        <TableWrap>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th>Code</Th>
+                <Th style={{ width: 110 }}>Order</Th>
+                <Th>Status</Th>
+                <Th />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} data-inactive={!r.isActive}>
+                  <Td>
+                    <CommittedText
+                      key={`${r.id}:${r.name}`}
+                      value={r.name}
+                      /* Named by the CODE, not by the name: this is the field
+                         that changes the name, so naming it after its own value
+                         would rename the control every time somebody types. The
+                         code is immutable and shown in the next cell. */
+                      label={`Name of ${r.code}`}
+                      disabled={busy === r.id}
+                      onCommit={(name) => { onRename(r.id, name); }}
+                    />
+                  </Td>
+                  {/* The code never changes — every published service body names
+                      it and those bodies are frozen. Shown, not editable. */}
+                  <Td className="mono muted">{r.code}</Td>
+                  <Td>
+                    <CommittedNumber
+                      key={`${r.id}:${String(r.sortOrder)}`}
+                      value={r.sortOrder}
+                      label={`Order of ${r.code}`}
+                      disabled={busy === r.id}
+                      onCommit={(sortOrder) => { onReorder(r.id, sortOrder); }}
+                    />
+                  </Td>
+                  <Td>
+                    <span className="pill" data-tone={r.isActive ? "accent" : "danger"}>
+                      {r.isActive ? "in use" : "retired"}
+                    </span>
+                  </Td>
+                  <Td align="right">
+                    <Button
+                      size="sm"
+                      variant={r.isActive ? "destructive-quiet" : "secondary"}
+                      loading={busy === r.id}
+                      onClick={() => { onSetActive(r.id, !r.isActive); }}
+                    >
+                      {r.isActive ? "Retire" : "Bring back"}
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrap>
       )}
 
       <AddAxis axis={axis} onAdded={onAdded} onError={onError} />
