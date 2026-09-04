@@ -10,12 +10,16 @@ import {
   Input,
   Radio,
   Select,
+  Card,
+  CardTitle,
+  ErrorNotice,
   Pill,
   Table,
   TableWrap,
   Td,
   Th,
 } from "@/components/ui";
+import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -157,7 +161,7 @@ export default function StructurePage() {
     );
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <Loading />;
 
   const depts = axes.filter((a) => a.axis === "dept");
   const teams = axes.filter((a) => a.axis === "team");
@@ -170,7 +174,7 @@ export default function StructurePage() {
         lede="Most firms have one of these layers, some have both, and plenty have neither. Fill in
         what your firm actually uses and leave the rest empty — nothing here is required."
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {/* T6.8's inbox, and its one setting. It sits on THIS screen because it
           is the same kind of fact as the split above it — how the firm is
@@ -268,8 +272,8 @@ function TimeZoneChooser({
     ? COMMON_ZONES
     : [...COMMON_ZONES, { value: chosen, label: chosen }];
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-      <h2 className="card-title">Which calendar are your months counted on?</h2>
+    <Card>
+      <CardTitle level={2}>Which calendar are your months counted on?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         This decides which month a document falls into on a client&rsquo;s{" "}
         <strong>Month by month</strong> page, and which day the client chaser counts from. It
@@ -302,7 +306,7 @@ function TimeZoneChooser({
         Changing this re-cuts what a past month page <em>shows</em> at its edges, because that
         page is worked out when it is opened. Nothing stored moves.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -346,8 +350,8 @@ function WorkSplitChooser({
   ];
 
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-      <h2 className="card-title">When a client signs, how is the work split up?</h2>
+    <Card>
+      <CardTitle level={2}>When a client signs, how is the work split up?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         A client signs one engagement letter for several services. This decides whether that
         becomes one job with everything in it, or several — one per group.
@@ -386,7 +390,7 @@ function WorkSplitChooser({
         delivery scheduling goes live. Until then every signed engagement produces one job,
         whatever is chosen here.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -416,8 +420,8 @@ function AxisList({
   onError: (message: string) => void;
 }) {
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-      <h2 className="card-title">{title}</h2>
+    <Card>
+      <CardTitle level={2}>{title}</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         {blurb}
       </p>
@@ -491,7 +495,7 @@ function AxisList({
       )}
 
       <AddAxis axis={axis} onAdded={onAdded} onError={onError} />
-    </div>
+    </Card>
   );
 }
 
@@ -540,6 +544,15 @@ function AddAxis({
             sit on these columns — 1 1 160px, 2 1 220px, 0 1 100px — were read
             by nothing: measured on the page, all three columns came out 362px
             wide, so the layout has never done what the code described. */}
+        {/* NAMED, no legend. This one form renders TWICE on the page, once for
+            Depts and once for delivery teams, so "Code, edit" and "Name, edit"
+            each came up twice with nothing saying which axis they belonged to —
+            and the two axes CROSS: filing a Dept as a delivery team is the exact
+            confusion this screen exists to prevent. */}
+        <fieldset
+          className="fieldset"
+          aria-label={axis === "dept" ? "Add a Dept" : "Add a delivery team"}
+        >
         <div className="field-row">
           <Field
             id={`add-${axis}-code`}
@@ -567,9 +580,12 @@ function AddAxis({
             <Input name="sortOrder" type="number" defaultValue={0} />
           </Field>
         </div>
-        <button className="btn" type="submit" disabled={busy}>
-          Add
-        </button>
+        <div className="cluster" style={{ marginTop: "var(--s-4)" }}>
+          <Button type="submit" disabled={busy}>
+            Add
+          </Button>
+        </div>
+        </fieldset>
       </form>
     </details>
   );
@@ -610,8 +626,7 @@ function CommittedText({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       aria-label={label}
       value={draft}
       disabled={disabled}
@@ -649,8 +664,7 @@ function CommittedNumber({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       type="number"
       aria-label={label}
       value={draft}
@@ -703,8 +717,8 @@ function RequestRoutingChooser({
   ];
 
   return (
-    <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-      <h2 className="card-title">When a client asks you for something, whose is it?</h2>
+    <Card>
+      <CardTitle level={2}>When a client asks you for something, whose is it?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         Clients raise requests from their own portal — a document they cannot find, a copy of
         something, a correction. This decides whether one arrives on a named desk.
@@ -737,6 +751,6 @@ function RequestRoutingChooser({
         nothing to pick one by. Changing this setting restates nothing: requests already on a
         desk keep their owner, and the next one is routed the new way.
       </p>
-    </div>
+    </Card>
   );
 }
