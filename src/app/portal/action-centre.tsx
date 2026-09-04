@@ -65,7 +65,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalActionCentre, PortalAsk, PortalAskResponse } from "@/lib/api/client";
-import { Button, Field, Notice as UiNotice, Textarea } from "@/components/ui";
+import { Button, Field, Input, Notice as UiNotice, Textarea } from "@/components/ui";
 import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
 import { longInstant } from "@/lib/day";
@@ -303,7 +303,12 @@ function AskCard({
             {ask.askKind === "document" && (
               <>
                 <Field label="The file" hint="Nothing is scanned before it reaches the firm.">
-                  <input ref={fileInput} type="file" name="file" />
+                  {/* `Input`, not a bare `<input>`. `Field` generates an id and
+                      puts it on its <label>'s `for`; a raw control never
+                      receives it, so the label pointed at nothing and the only
+                      file control a CLIENT ever touches had no name and no
+                      hint. It also wore the operating system's own chrome. */}
+                  <Input ref={fileInput} type="file" name="file" />
                 </Field>
                 <Field
                   label="Anything to say about it (optional)"

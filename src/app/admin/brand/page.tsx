@@ -22,7 +22,7 @@
  * partner would ever find out.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
   api,
@@ -34,7 +34,9 @@ import {
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
 import type { BrandAsset, BrandAssetKind } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { Button } from "@/components/ui";
+import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
+import { longInstant } from "@/lib/day";
 
 interface FirmEntity {
   readonly id: string;
@@ -162,21 +164,29 @@ export default function BrandPage() {
         change any document the firm sends today.
       </p>
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      )}
 
       {entities.length === 0 ? (
-        <div className="card">
+        <Card>
           <p className="muted">
             This firm has no companies on its issuing list yet, so there is nothing to give a
             logo to. A company appears here once it is named on{" "}
             <Link href="/invoices">the issuing table</Link> as serving clients somewhere —
             which is the same list that decides who issues an engagement letter.
           </p>
-        </div>
+        </Card>
       ) : (
         entities.map((entity) => (
-          <div className="card" key={entity.id} style={{ marginBottom: "var(--s-5)" }}>
-            <h2 className="card-title">{entity.displayName}</h2>
+          <Card key={entity.id}>
+            {/* The heading has an id because every slot's control is named by
+                it. "Logo" is not a name on a firm with two companies. */}
+            <h2 className="card-title" id={entityHeadingId(entity)}>
+              {entity.displayName}
+            </h2>
             {BRAND_ASSET_KINDS.map((kind) => (
               <Slot
                 key={kind}
@@ -188,11 +198,18 @@ export default function BrandPage() {
                 onError={setError}
               />
             ))}
-          </div>
+          </Card>
         ))
       )}
     </Page>
   );
+}
+
+/** The id of a company's own heading — what names every control under it.
+ *  Derived from the party id rather than `useId` because it is needed inside a
+ *  `.map`, where a hook cannot go. */
+function entityHeadingId(entity: FirmEntity): string {
+  return `brand-entity-${entity.id}`;
 }
 
 function Slot({
@@ -212,6 +229,9 @@ function Slot({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const headingId = useId();
+  const hintId = useId();
+  const label = BRAND_ASSET_LABELS[kind];
 
   // The preview goes through an authenticated fetch like every other read in
   // this app — the session is an httpOnly cookie on another origin, so an
@@ -243,40 +263,45 @@ function Slot({
   }, [asset]);
 
   return (
-    <div style={{ borderTop: "1px solid var(--line)", paddingTop: "var(--s-4)", marginTop: "var(--s-4)" }}>
+    <div className="mt-4 border-t border-line pt-4">
       <div className="card-head">
-        <h3 className="card-title">{BRAND_ASSET_LABELS[kind]}</h3>
-        <span className="muted text-sm">
+        <h3 className="card-title" id={headingId}>
+          {label}
+        </h3>
+        {/* An id, so the sentence on the right of the heading is the file
+            control's DESCRIPTION rather than prose sitting near it. It was
+            wired to nothing: measured, this screen described 0 of 3 controls. */}
+        <span className="muted text-sm" id={hintId}>
           {BRAND_ASSET_HINTS[kind]}
         </span>
       </div>
 
       {asset === undefined ? (
-        <p className="unstated" style={{ margin: "0 0 var(--s-4)" }}>
-          none set
-        </p>
+        <p className="unstated mb-4">none set</p>
       ) : (
-        <div className="cluster" style={{ alignItems: "center", marginBottom: "var(--s-4)" }}>
+        <div className="cluster mb-4">
           {preview !== null && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
               alt={`${entity.displayName} ${kind}`}
-              style={{
-                maxHeight: 48,
-                maxWidth: 200,
-                background: "var(--logo-plate)",
-                padding: "var(--s-1)",
-              }}
+              className="max-h-12 max-w-[200px] bg-[var(--logo-plate)] p-1"
             />
           )}
           <span className="muted text-sm">
             {asset.version.filename} · {formatBytes(asset.version.byteSize)} · since{" "}
-            {asset.createdAt.slice(0, 10)}
+            {/* `createdAt` is a `timestamptz`. `.slice(0, 10)` took the UTC day,
+                which is YESTERDAY in India until 05:30 every morning — and
+                printed it as `2026-09-04` besides. Seen rendered rather than
+                reasoned about: an asset stored at 20:10Z read "since
+                2026-09-04" at 03:53 on the fifth, local. `longInstant` parses
+                and prints the day it fell on HERE. */}
+            {longInstant(asset.createdAt)}
           </span>
-          <button
-            type="button"
-            className="btn" data-variant="secondary" data-size="sm"
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={`Download the ${label.toLowerCase()} for ${entity.displayName}`}
             onClick={() => {
               // The VERSION, named explicitly rather than "latest": a
               // superseded mark is still downloadable, and the latest version
@@ -291,7 +316,7 @@ function Slot({
             }}
           >
             Download
-          </button>
+          </Button>
         </div>
       )}
 
@@ -302,12 +327,31 @@ function Slot({
           formRef.current?.reset();
         }}
         className="cluster"
-        style={{ alignItems: "center" }}
       >
-        <input name="file" type="file" className="input" accept="image/*,application/pdf" required />
-        <button type="submit" className="btn" disabled={busy}>
+        {/* NAMED. Three of these on a card and not one had a label, an
+            `aria-label` or a wrapping <label> — the app's own probe excluded
+            `type="file"` from its control count, which is why the sweep that
+            reported "0 unnamed controls" was reporting on two of the three
+            kinds of control on this screen. Named by the COMPANY and the kind
+            together, because "Logo" repeats once per company. */}
+        <input
+          name="file"
+          type="file"
+          className="input"
+          aria-labelledby={`${entityHeadingId(entity)} ${headingId}`}
+          aria-describedby={hintId}
+          accept="image/*,application/pdf"
+          required
+        />
+        {/* The word on the button stays; the NAME says which of the three it
+            belongs to. Three buttons reading "Set" is one name, not three. */}
+        <Button
+          type="submit"
+          disabled={busy}
+          aria-label={`${asset === undefined ? "Set" : "Replace"} the ${label.toLowerCase()} for ${entity.displayName}`}
+        >
           {busy ? "Saving…" : asset === undefined ? "Set" : "Replace"}
-        </button>
+        </Button>
       </form>
       {asset !== undefined && (
         <p className="field-hint">

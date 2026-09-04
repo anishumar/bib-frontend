@@ -448,6 +448,46 @@
   min-height: 3.5rem;
   line-height: 1.55;
 }
+
+/*
+ * A file input's own button, which the browser paints and no other rule here
+ * reaches.
+ *
+ * `.input` styles the BOX; the "Choose file" control inside it is a shadow
+ * part, so every file input in this product was a design-system field wrapped
+ * around a piece of operating-system chrome — grey, square, in the system font,
+ * and the same in dark mode as in light. The same family as the `<select>`
+ * above: the class looks right in a diff and the platform draws its own.
+ *
+ * Written to match `.btn[data-variant="secondary"][data-size="sm"]`, because
+ * that is what it is: the secondary action inside a field.
+ */
+.input[type="file"] {
+  padding: 0.4rem var(--s-2);
+  line-height: 1.6;
+}
+.input[type="file"]::file-selector-button {
+  margin-right: var(--s-3);
+  padding: 0.3rem var(--s-3);
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.input[type="file"]::file-selector-button:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.input[type="file"]:disabled::file-selector-button {
+  cursor: not-allowed;
+}
 /*
  * `appearance: none` is not cosmetic here.
  *
