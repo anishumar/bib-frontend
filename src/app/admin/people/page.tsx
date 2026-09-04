@@ -284,6 +284,13 @@ export default function PeoplePage() {
                     <Button
                       size="sm"
                       variant={m.membership.isActive ? "destructive-quiet" : "secondary"}
+                      /* The three selects in this row are already named for the
+                         person; this button was not, so five rows offered five
+                         identical "Revoke access" — the one press here that
+                         takes somebody's access away. */
+                      aria-label={`${
+                        m.membership.isActive ? "Revoke access for" : "Restore access for"
+                      } ${m.displayName ?? m.email}`}
                       loading={busy === m.membership.id}
                       onClick={() => { setActive(m.membership.id, !m.membership.isActive); }}
                     >

@@ -148,6 +148,11 @@ export default function GradesPage() {
                   <GradeName
                     key={`${g.id}:${g.name}`}
                     value={g.name}
+                    /* Named by the CODE — immutable, and in the next cell.
+                       "Grade name" was the same name on all ten rows, and this
+                       is the field that changes the name, so naming it after
+                       its own value would rename the control as it is typed. */
+                    label={`Name of ${g.code}`}
                     disabled={busy === g.id}
                     onCommit={(name) => { rename(g.id, name); }}
                   />
@@ -162,6 +167,7 @@ export default function GradesPage() {
                   <GradeRank
                     key={`${g.id}:${String(g.rank)}`}
                     value={g.rank}
+                    label={`Rank of ${g.code}`}
                     disabled={busy === g.id}
                     onCommit={(rank) => { reRank(g.id, rank); }}
                   />
@@ -175,6 +181,10 @@ export default function GradesPage() {
                   <Button
                     size="sm"
                     variant={g.isActive ? "destructive-quiet" : "secondary"}
+                    /* Ten buttons reading "Retire" and nothing else. The visible
+                       word stays short because the column is narrow; the name
+                       says which grade it retires. */
+                    aria-label={`${g.isActive ? "Retire" : "Bring back"} ${g.name}`}
                     loading={busy === g.id}
                     onClick={() => { setActive(g.id, !g.isActive); }}
                   >
@@ -206,10 +216,15 @@ export default function GradesPage() {
  */
 function GradeName({
   value,
+  label,
   disabled,
   onCommit,
 }: {
   value: string;
+  /** The control's accessible name. Required, not optional: a cell in a table
+   *  has no <label> over it and a column heading is not one, so the caller has
+   *  to say which row this is. */
+  label: string;
   disabled: boolean;
   onCommit: (name: string) => void;
 }) {
@@ -233,7 +248,7 @@ function GradeName({
       size="sm"
       value={draft}
       disabled={disabled}
-      aria-label="Grade name"
+      aria-label={label}
       onChange={(e) => { setDraft(e.target.value); }}
       onBlur={commit}
       onKeyDown={(e) => {
@@ -247,10 +262,13 @@ function GradeName({
 /** The same, for the number the whole table exists to compare. */
 function GradeRank({
   value,
+  label,
   disabled,
   onCommit,
 }: {
   value: number;
+  /** See GradeName. */
+  label: string;
   disabled: boolean;
   onCommit: (rank: number) => void;
 }) {
@@ -276,7 +294,7 @@ function GradeRank({
       min={1}
       value={draft}
       disabled={disabled}
-      aria-label="Rank"
+      aria-label={label}
       onChange={(e) => { setDraft(e.target.value); }}
       onBlur={commit}
       onKeyDown={(e) => {

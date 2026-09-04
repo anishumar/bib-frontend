@@ -433,7 +433,31 @@ function LadderForm({
   return (
     <div style={{ marginTop: "var(--s-4)" }}>
       {rungs.map((rung, index) => (
-        <div key={index} className="card" style={{ marginTop: "var(--s-4)" }}>
+        /*
+         * A <fieldset> so each rung's fields are a named GROUP.
+         *
+         * Measured with the form open: 37 controls answering to five names —
+         * "When", "After how many days", "Who hears about it", "What to call
+         * this rung" and "Short name", each SEVEN times, once per rung. Every
+         * one of those names is right and none of them says which rung.
+         *
+         * `aria-label` rather than a <legend>, so no visible caption appears on
+         * a card that did not ask for one. `.card` alone and NOT `card
+         * fieldset`: `.fieldset` is declared after `.card` in components.css at
+         * the same specificity, so its `border: 0; padding: 0` would win on
+         * order and strip the card. `.card` already carries the `min-width: 0`
+         * a <fieldset> needs.
+         *
+         * Positional, not `rung.key`: the short name is one of the fields
+         * inside, so naming the group after it would rename the group as
+         * somebody types into it.
+         */
+        <fieldset
+          key={index}
+          className="card"
+          aria-label={`Rung ${String(index + 1)}`}
+          style={{ marginTop: "var(--s-4)" }}
+        >
           <FieldRow>
             <Field label="When">
               <Select
@@ -549,19 +573,26 @@ function LadderForm({
             every notice this rung has ever raised, so renaming the one does not rewrite the
             other.
           </p>
-          {/* Its own line, not a column of the row: `.field-row > *` is
-              `flex: 1 1 160px`, which turns a button into a banner. */}
+          {/* Its own line, not a column of the row. The reason written here
+              before was wrong in its detail — `.field-row` is a GRID, not
+              flex, and `flex: 1 1 160px` on its children is read by nothing —
+              but the conclusion held: a `minmax(12rem, 1fr)` column stretches
+              a button into a banner just as surely. */}
           <div className="row">
             <span />
             <Button
               variant="ghost"
               size="sm"
+              /* Seven identical "Remove this rung". A group's name is announced
+                 on entering the group and is not prepended to a button, so this
+                 one is named itself — it is the press that destroys work. */
+              aria-label={`Remove rung ${String(index + 1)}`}
               onClick={() => { setRungs((rs) => rs.filter((_, i) => i !== index)); }}
             >
               Remove this rung
             </Button>
           </div>
-        </div>
+        </fieldset>
       ))}
 
       {grades.length === 0 && (
