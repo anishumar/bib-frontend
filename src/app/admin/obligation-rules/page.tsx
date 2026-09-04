@@ -640,6 +640,15 @@ function RuleRow({
             }
           }}
           style={{ width: 64 }}
+          /* `title` alone was the accessible name here, and a title is the last
+             fallback the name computation reaches — it is not offered on touch,
+             many browsers never show it on keyboard focus, and a screen reader
+             may be set to ignore it. Worse, it is the SAME sentence on all 57
+             rows: tabbing down the column announced one identical phrase over
+             and over with nothing to say which rule was being changed. The
+             aria-label names the rule; the title stays as the sighted
+             mouse-user's tooltip, which is the job it is good at. */
+          aria-label={`Lead time in days for ${rule.name}`}
           title="Days before the legal deadline that the work should start"
         />
         <span className="muted text-xs" style={{ whiteSpace: "nowrap" }}> days</span>
@@ -650,6 +659,10 @@ function RuleRow({
         <label className="check">
           <input
             type="checkbox"
+            /* Same problem, same fix: the visible text beside the box is
+               "confirmed" / "not yet", which is the VALUE and not the
+               question, and it is identical down the column. */
+            aria-label={`Date checked against the statute for ${rule.name}`}
             checked={rule.status === "confirmed"}
             disabled={busy || !mayWrite}
             onChange={(e) => {
