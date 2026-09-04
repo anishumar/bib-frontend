@@ -21,7 +21,17 @@ import type {
   InvoiceRecord,
   Payment,
 } from "@/lib/api/client";
-import { Meta, MetaItem } from "@/components/ui";
+import {
+  Button,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Meta,
+  MetaItem,
+  Select,
+} from "@/components/ui";
+import { Loading } from "@/components/states";
 import {
   Card,
   CardTitle,
@@ -120,11 +130,13 @@ export default function InvoicePage() {
     setBusy(false);
   }
 
-  if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
+  if (!loaded) return <Loading />;
   if (record === null) {
     return (
       <Page>
-        <p className="notice" data-tone="danger" role="alert">{error ?? "No such invoice."}</p>
+        <Notice tone="danger" role="alert">
+          {error ?? "No such invoice."}
+        </Notice>
       </Page>
     );
   }
@@ -261,8 +273,9 @@ export default function InvoicePage() {
                   </Td>
                   {draft && (
                     <Td align="right">
-                      <button
-                        className="btn" data-variant="secondary" data-size="sm"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         disabled={busy}
                         onClick={() =>
                           void act(() =>
@@ -273,7 +286,7 @@ export default function InvoicePage() {
                         }
                       >
                         Remove
-                      </button>
+                      </Button>
                     </Td>
                   )}
                 </tr>
@@ -325,41 +338,30 @@ export default function InvoicePage() {
               );
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="description">
-                  Description
-                </label>
-                <input className="input" id="description" name="description" required />
+            <FieldStack>
+              <FieldRow>
+                <Field label="Description">
+                  <Input name="description" required />
+                </Field>
+                <Field label="Qty">
+                  <Input name="quantity" defaultValue="1" required />
+                </Field>
+                <Field label="Unit amount">
+                  <Input name="unitAmount" required />
+                </Field>
+                <Field label="Discount %">
+                  <Input name="discountPercent" defaultValue="0" />
+                </Field>
+                <Field label="Tax %">
+                  <Input name="taxPercent" defaultValue="0" />
+                </Field>
+              </FieldRow>
+              <div className="cluster">
+                <Button type="submit" disabled={busy}>
+                  Add line
+                </Button>
               </div>
-              <div>
-                <label className="label" htmlFor="quantity">
-                  Qty
-                </label>
-                <input className="input" id="quantity" name="quantity" defaultValue="1" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="unitAmount">
-                  Unit amount
-                </label>
-                <input className="input" id="unitAmount" name="unitAmount" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="discountPercent">
-                  Discount %
-                </label>
-                <input className="input" id="discountPercent" name="discountPercent" defaultValue="0" />
-              </div>
-              <div>
-                <label className="label" htmlFor="taxPercent">
-                  Tax %
-                </label>
-                <input className="input" id="taxPercent" name="taxPercent" defaultValue="0" />
-              </div>
-            </div>
-            <button className="btn" type="submit" disabled={busy}>
-              Add line
-            </button>
+            </FieldStack>
           </form>
         )}
       </Card>
@@ -373,10 +375,9 @@ export default function InvoicePage() {
             a permanent mark in a consecutive series a tax authority may ask about.
           </p>
         )}
-        <div className="cluster" style={{ marginBottom: 0 }}>
+        <div className="cluster">
           {draft && mayAdmin && (
-            <button
-              className="btn"
+            <Button
               disabled={busy}
               onClick={() =>
                 void act(() =>
@@ -385,11 +386,12 @@ export default function InvoicePage() {
               }
             >
               Issue
-            </button>
+            </Button>
           )}
           {(draft || issued) && mayAdmin && (
-            <button
-              className="btn" data-variant="destructive-quiet" data-size="sm"
+            <Button
+              variant="destructive-quiet"
+              size="sm"
               disabled={busy}
               onClick={() =>
                 void act(() =>
@@ -398,7 +400,7 @@ export default function InvoicePage() {
               }
             >
               Cancel
-            </button>
+            </Button>
           )}
         </div>
         {invoice.status === "cancelled" && (
@@ -432,23 +434,26 @@ export default function InvoicePage() {
                 );
               }}
             >
-              <div className="field-row">
-                <div>
-                  <label className="label" htmlFor="irn">
-                    Record the e-invoice reference
-                  </label>
-                  <input className="input" id="irn" name="irn" required />
-                  <p className="max-w-[var(--measure)] text-sm text-muted">
-                    Obtained from the IRP elsewhere. It is the registry&apos;s identifier for this
-                    document and cannot be replaced once recorded.
-                  </p>
-                </div>
-                <div style={{ alignSelf: "end" }}>
-                  <button className="btn" type="submit" disabled={busy}>
+              {/* The button was a CELL of the grid, held down with
+                  `alignSelf: end` so it lined up with an input that has a hint
+                  under it — which it did not, because the hint made the first
+                  cell taller. Out of the grid and into a cluster, it lines up
+                  with itself. */}
+              <FieldStack>
+                <FieldRow>
+                  <Field
+                    label="Record the e-invoice reference"
+                    hint="Obtained from the IRP elsewhere. It is the registry's identifier for this document and cannot be replaced once recorded."
+                  >
+                    <Input name="irn" required />
+                  </Field>
+                </FieldRow>
+                <div className="cluster">
+                  <Button type="submit" disabled={busy}>
                     Record
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </FieldStack>
             </form>
           )}
         </div>
@@ -509,48 +514,41 @@ export default function InvoicePage() {
               );
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="amount">
-                  Amount
-                </label>
-                <input className="input" id="amount" name="amount" required />
-                <p className="max-w-[var(--measure)] text-sm text-muted">Negative for a reversal.</p>
-              </div>
-              <div>
-                <label className="label" htmlFor="receivedOn">
-                  Received
-                </label>
-                <input className="input" id="receivedOn" name="receivedOn" type="date" defaultValue={today} required />
-              </div>
-              <div>
-                <label className="label" htmlFor="method">
-                  Method
-                </label>
-                <select className="select" id="method" name="method" defaultValue="bank_transfer">
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {PAYMENT_METHOD_LABELS[m]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="reference">
-                  Bank reference
-                </label>
-                <input className="input" id="reference" name="reference" />
-              </div>
-              <div>
-                <label className="label" htmlFor="note">
-                  Note
-                </label>
-                <input className="input" id="note" name="note" />
-              </div>
-            </div>
-            <button className="btn" type="submit" disabled={busy}>
-              Record payment
-            </button>
+            {/* A NAMED GROUP, no legend, so nothing moves on screen. This page
+                has two forms asking for an "Amount" — money coming in and money
+                coming off — and "Amount, edit" identifies neither of them. */}
+            <fieldset className="fieldset" aria-label="Record a payment">
+              <FieldStack>
+                <FieldRow>
+                  <Field label="Amount" hint="Negative for a reversal.">
+                    <Input name="amount" required />
+                  </Field>
+                  <Field label="Received">
+                    <Input name="receivedOn" type="date" defaultValue={today} required />
+                  </Field>
+                  <Field label="Method">
+                    <Select name="method" defaultValue="bank_transfer">
+                      {PAYMENT_METHODS.map((m) => (
+                        <option key={m} value={m}>
+                          {PAYMENT_METHOD_LABELS[m]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Bank reference">
+                    <Input name="reference" />
+                  </Field>
+                  <Field label="Note">
+                    <Input name="note" />
+                  </Field>
+                </FieldRow>
+                <div className="cluster">
+                  <Button type="submit" disabled={busy}>
+                    Record payment
+                  </Button>
+                </div>
+              </FieldStack>
+            </fieldset>
           </form>
         )}
         {!issued && (
@@ -617,41 +615,38 @@ export default function InvoicePage() {
               );
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="creditAmount">
-                  Amount
-                </label>
-                <input className="input" id="creditAmount" name="creditAmount" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="reason">
-                  Why
-                </label>
-                <select className="select" id="reason" name="reason" required style={{ width: "100%" }}>
-                  {CREDIT_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {CREDIT_REASON_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-                {/* The reason is mandatory and closed because without it the
-                    numbers always reconcile and WHY money came off does not. */}
-                <p className="max-w-[var(--measure)] text-sm text-muted">
-                  A category, not a sentence: &ldquo;how much did we write off to service
-                  failures&rdquo; is a question free text cannot answer.
-                </p>
-              </div>
-              <div>
-                <label className="label" htmlFor="creditNote">
-                  Particulars
-                </label>
-                <input className="input" id="creditNote" name="creditNote" />
-              </div>
-            </div>
-            <button className="btn" type="submit" disabled={busy}>
-              Issue credit note
-            </button>
+            <fieldset className="fieldset" aria-label="Issue a credit note">
+              <FieldStack>
+                <FieldRow>
+                  <Field label="Amount">
+                    <Input name="creditAmount" required />
+                  </Field>
+                  {/* The reason is mandatory and closed because without it the
+                      numbers always reconcile and WHY money came off does
+                      not. */}
+                  <Field
+                    label="Why"
+                    hint="A category, not a sentence: “how much did we write off to service failures” is a question free text cannot answer."
+                  >
+                    <Select name="reason" required>
+                      {CREDIT_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {CREDIT_REASON_LABELS[r]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Particulars">
+                    <Input name="creditNote" />
+                  </Field>
+                </FieldRow>
+                <div className="cluster">
+                  <Button type="submit" disabled={busy}>
+                    Issue credit note
+                  </Button>
+                </div>
+              </FieldStack>
+            </fieldset>
           </form>
         )}
         {issued && !mayAdmin && (
@@ -683,9 +678,21 @@ export default function InvoicePage() {
                   <Td>{a.action.replace("_", " ")}</Td>
                   <Td className="text-sm text-muted">D+{a.afterDays}</Td>
                   <Td>
-                    <span className="pill" data-tone={a.state === "rejected" ? "danger" : a.state === "approved" ? "accent" : "neutral"}>
+                    {/* `ok`, not `accent`. `accent` is shadcn's neutral hover
+                        ground; the status teal is `ok`, and `components/tw`'s
+                        `Pill` has no `accent` tone at all — this was a raw
+                        `<span>` and so nothing caught it. */}
+                    <Pill
+                      tone={
+                        a.state === "rejected"
+                          ? "danger"
+                          : a.state === "approved"
+                            ? "ok"
+                            : "neutral"
+                      }
+                    >
                       {a.state.replace("_", " ")}
-                    </span>
+                    </Pill>
                   </Td>
                 </tr>
               ))}
