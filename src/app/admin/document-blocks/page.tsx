@@ -185,7 +185,7 @@ export default function DocumentBlocksPage() {
               }}
             >
               <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-                <div style={{ flex: "3 1 260px" }}>
+                <div>
                   <label className="label" htmlFor={`${kind}-body`}>
                     New line
                   </label>

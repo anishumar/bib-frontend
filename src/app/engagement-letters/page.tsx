@@ -198,7 +198,7 @@ export default function LettersPage() {
           }}
         >
           <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div style={{ flex: "2 1 240px" }}>
+            <div>
               <label className="label" htmlFor="title">
                 Title
               </label>
@@ -266,7 +266,7 @@ export default function LettersPage() {
           </label>
           {advance && (
             <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div style={{ flex: "0 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="advanceAmount">
                   Advance amount
                 </label>
@@ -295,7 +295,7 @@ export default function LettersPage() {
           {moreTerms && (
             <>
               <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-                <div style={{ flex: "2 1 220px" }}>
+                <div>
                   <label className="label" htmlFor="issuingEntityPartyId">
                     Issued by
                   </label>
@@ -314,7 +314,7 @@ export default function LettersPage() {
                     ))}
                   </select>
                 </div>
-                <div style={{ flex: "2 1 220px" }}>
+                <div>
                   <label className="label" htmlFor="addressedToPartyId">
                     Addressed to
                   </label>
@@ -338,7 +338,7 @@ export default function LettersPage() {
                   Background
                 </label>
                 <textarea
-                  className="input"
+                  className="textarea"
                   id="background"
                   name="background"
                   rows={4}

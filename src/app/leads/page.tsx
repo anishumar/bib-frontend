@@ -211,6 +211,11 @@ export default function LeadsPage() {
                       <Td>
                         <select
                           className="select"
+                          /* A control in a table cell has no <label> over it —
+                             the column heading is not one. Without this the row
+                             announces "combo box, new" four times over with no
+                             statement of WHICH lead or WHICH column. */
+                          aria-label={`Stage of ${l.lead.title}`}
                           // While a close is being written the select shows the
                           // stage being moved TO, not the stored one — the
                           // request has not gone yet and snapping back would
@@ -237,6 +242,7 @@ export default function LeadsPage() {
                       <Td>
                         <select
                           className="select"
+                          aria-label={`Owner of ${l.lead.title}`}
                           value={l.owner?.userId ?? ""}
                           disabled={busy !== null || staff.length === 0}
                           onChange={(e) => {
@@ -279,7 +285,7 @@ export default function LeadsPage() {
                                 : "What happened to it?"}
                             </label>
                             <textarea
-                              className="input"
+                              className="textarea"
                               id={`lostReason-${l.lead.id}`}
                               name="lostReason"
                               rows={2}
@@ -380,13 +386,13 @@ export default function LeadsPage() {
           }}
         >
           <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div style={{ flex: "2 1 240px" }}>
+            <div>
               <label className="label" htmlFor="name">
                 Company
               </label>
               <input className="input" id="name" name="name" required />
             </div>
-            <div style={{ flex: "2 1 240px" }}>
+            <div>
               <label className="label" htmlFor="title">
                 Opportunity
               </label>

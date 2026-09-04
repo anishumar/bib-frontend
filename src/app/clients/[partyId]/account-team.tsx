@@ -311,7 +311,7 @@ export function AccountTeamPanel({
                 </select>
               </div>
             )}
-            <div style={{ flex: "2 1 220px" }}>
+            <div>
               <label className="label" htmlFor="userId">
                 Who
               </label>

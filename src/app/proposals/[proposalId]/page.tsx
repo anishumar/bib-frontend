@@ -338,7 +338,7 @@ export default function ProposalPage() {
             }}
           >
             <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div style={{ flex: "2 1 220px" }}>
+              <div>
                 <label className="label" htmlFor="serviceVersionId">
                   From the catalogue
                 </label>
@@ -361,7 +361,7 @@ export default function ProposalPage() {
                   })}
                 </select>
               </div>
-              <div style={{ flex: "2 1 220px" }}>
+              <div>
                 <label className="label" htmlFor="description">
                   As it reads on the document
                 </label>
@@ -495,7 +495,7 @@ export default function ProposalPage() {
             <label className="label" htmlFor="declinedReason">
               Why did they say no?
             </label>
-            <textarea className="input" id="declinedReason" name="declinedReason" rows={2}
+            <textarea className="textarea" id="declinedReason" name="declinedReason" rows={2}
                       autoFocus
                       placeholder="Went with their existing auditor on price." />
             <div className="cluster" style={{ marginTop: "var(--s-2)", marginBottom: 0 }}>

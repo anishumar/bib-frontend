@@ -326,7 +326,7 @@ export default function InvoicePage() {
             }}
           >
             <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div style={{ flex: "3 1 240px" }}>
+              <div>
                 <label className="label" htmlFor="description">
                   Description
                 </label>
@@ -433,7 +433,7 @@ export default function InvoicePage() {
               }}
             >
               <div className="field-row">
-                <div style={{ flex: "2 1 240px" }}>
+                <div>
                   <label className="label" htmlFor="irn">
                     Record the e-invoice reference
                   </label>
@@ -535,13 +535,13 @@ export default function InvoicePage() {
                   ))}
                 </select>
               </div>
-              <div style={{ flex: "2 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="reference">
                   Bank reference
                 </label>
                 <input className="input" id="reference" name="reference" />
               </div>
-              <div style={{ flex: "2 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="note">
                   Note
                 </label>
@@ -624,7 +624,7 @@ export default function InvoicePage() {
                 </label>
                 <input className="input" id="creditAmount" name="creditAmount" required />
               </div>
-              <div style={{ flex: "2 1 220px" }}>
+              <div>
                 <label className="label" htmlFor="reason">
                   Why
                 </label>
@@ -642,7 +642,7 @@ export default function InvoicePage() {
                   failures&rdquo; is a question free text cannot answer.
                 </p>
               </div>
-              <div style={{ flex: "2 1 220px" }}>
+              <div>
                 <label className="label" htmlFor="creditNote">
                   Particulars
                 </label>

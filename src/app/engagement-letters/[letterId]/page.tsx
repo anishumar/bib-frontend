@@ -586,7 +586,7 @@ export default function LetterPage() {
             }}
           >
             <div className="field-row">
-              <div style={{ flex: "2 1 240px" }}>
+              <div>
                 <label className="label" htmlFor="clauseVersionId">
                   Add a term
                 </label>
@@ -645,7 +645,7 @@ export default function LetterPage() {
             }}
           >
             <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div style={{ flex: "2 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="entityPartyId">
                   Delivered to
                 </label>
@@ -663,7 +663,7 @@ export default function LetterPage() {
                   ))}
                 </select>
               </div>
-              <div style={{ flex: "2 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="serviceVersionId">
                   From the catalogue
                 </label>
@@ -679,7 +679,7 @@ export default function LetterPage() {
                   })}
                 </select>
               </div>
-              <div style={{ flex: "2 1 200px" }}>
+              <div>
                 <label className="label" htmlFor="description">
                   As it reads on the letter
                 </label>

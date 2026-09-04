@@ -370,7 +370,7 @@ function PolicyForm({
     <div style={{ marginTop: "var(--s-4)" }}>
       <div className="field-row">
         {policyKey === null && (
-          <div style={{ flex: "1 1 200px" }}>
+          <div>
             <label className="label" htmlFor="vp-key">
               Short name
             </label>
@@ -387,7 +387,7 @@ function PolicyForm({
             </p>
           </div>
         )}
-        <div style={{ flex: "2 1 260px" }}>
+        <div>
           <label className="label" htmlFor="vp-label">
             What to call it
           </label>
