@@ -5,7 +5,24 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ObligationState, ResolutionOption } from "@/lib/api/client";
-import { TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Notice,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -109,17 +126,17 @@ export default function ObligationVocabularyPage() {
         title="Compliance states and decisions"
         lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what they mean — the product reads the TICK BOXES and never the names, so nothing breaks when you rename one."
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
-      <div className="card">
-        <h2 className="card-title">States a filing moves through</h2>
+      <Card>
+        <CardTitle level={2}>States a filing moves through</CardTitle>
         <p className="field-hint">
           The four columns on the right are <strong>destinations</strong> &mdash; where a filing
           goes when something happens to it. Your firm has exactly one of each, and marking
           another moves it in one step.
         </p>
         <TableWrap>
-          <table className="table">
+          <Table>
           <thead>
             <tr>
               <Th>Name</Th>
@@ -244,28 +261,32 @@ export default function ObligationVocabularyPage() {
                   onPick={() => { void act(s.id, () => patchState(s.id, { isResolution: true })); }}
                 />
                 <Td>
-                  {s.isActive ? (
-                    <span className="pill" data-tone="accent">in use</span>
-                  ) : (
-                    <span className="pill">retired</span>
-                  )}
+                  {/* `ok`, not `accent`. `accent` is shadcn's neutral hover
+                      ground; the status teal on this product is `ok`, and the
+                      sister screen /admin/work-vocabulary already said so. */}
+                  <Pill tone={s.isActive ? "ok" : "neutral"}>
+                    {s.isActive ? "in use" : "retired"}
+                  </Pill>
                 </Td>
-                <Td>
-                  <button
-                    type="button"
-                    className="pill"
-                    disabled={busy === s.id}
+                <Td align="right">
+                  {/* A pill is a STATUS. This is an action, and the same action
+                      on the sister screen is a button — so retiring a state
+                      looked like one control here and another there. */}
+                  <Button
+                    size="sm"
+                    variant={s.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === s.id}
                     onClick={() => {
                       void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
                     }}
                   >
                     {s.isActive ? "Retire" : "Bring back"}
-                  </button>
+                  </Button>
                 </Td>
               </tr>
             ))}
           </tbody>
-          </table>
+          </Table>
         </TableWrap>
         <AddState
           busy={busy !== null}
@@ -275,12 +296,10 @@ export default function ObligationVocabularyPage() {
             );
           }}
         />
-      </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">
-          What may be decided about a missed deadline
-        </h2>
+      <Card>
+        <CardTitle level={2}>What may be decided about a missed deadline</CardTitle>
         <p className="field-hint">
           When a legal deadline passes with nothing filed, a partner picks one of these and
           writes down <strong>why</strong>. The list is yours &mdash; and the four below came
@@ -288,7 +307,7 @@ export default function ObligationVocabularyPage() {
           <em>unconfirmed</em> until somebody here says they are right.
         </p>
         <TableWrap>
-          <table className="table">
+          <Table>
           <thead>
             <tr>
               <Th>Name</Th>
@@ -332,7 +351,11 @@ export default function ObligationVocabularyPage() {
                     back, the other ends it forever. A partner picking an option
                     on the calendar should never have to know which is which. */}
                 <Td>
-                  <select
+                  {/* A BARE `<select>`. With no `.select` on it, `appearance`
+                      stayed `auto` and all four of these drew the operating
+                      system's own light grey dropdown in the middle of a dark
+                      table — measured `appearance: auto` on every one. */}
+                  <Select
                     value={o.closesWithoutFiling ? "closes" : "refiles"}
                     aria-label={`What ${o.name} does to the filing`}
                     disabled={busy === o.id}
@@ -344,7 +367,7 @@ export default function ObligationVocabularyPage() {
                   >
                     <option value="refiles">The filing still happens, late</option>
                     <option value="closes">It will never be filed</option>
-                  </select>
+                  </Select>
                 </Td>
                 <Td>
                   <input
@@ -363,28 +386,26 @@ export default function ObligationVocabularyPage() {
                   />
                 </Td>
                 <Td>
-                  {o.isActive ? (
-                    <span className="pill" data-tone="accent">in use</span>
-                  ) : (
-                    <span className="pill">retired</span>
-                  )}
+                  <Pill tone={o.isActive ? "ok" : "neutral"}>
+                    {o.isActive ? "in use" : "retired"}
+                  </Pill>
                 </Td>
-                <Td>
-                  <button
-                    type="button"
-                    className="pill"
-                    disabled={busy === o.id}
+                <Td align="right">
+                  <Button
+                    size="sm"
+                    variant={o.isActive ? "destructive-quiet" : "secondary"}
+                    loading={busy === o.id}
                     onClick={() => {
                       void act(o.id, () => patchOption(o.id, { isActive: !o.isActive }));
                     }}
                   >
                     {o.isActive ? "Retire" : "Bring back"}
-                  </button>
+                  </Button>
                 </Td>
               </tr>
             ))}
           </tbody>
-          </table>
+          </Table>
         </TableWrap>
         <AddOption
           busy={busy !== null}
@@ -400,11 +421,11 @@ export default function ObligationVocabularyPage() {
             them — so an empty list is allowed and simply means nothing can be
             decided until one exists. */}
         {options.filter((o) => o.isActive).length === 0 && (
-          <p className="notice" data-tone="danger" role="alert">
+          <Notice tone="danger">
             You have no options in use, so nothing on the decision queue can be resolved.
-          </p>
+          </Notice>
         )}
-      </div>
+      </Card>
     </Page>
   );
 }
@@ -510,8 +531,7 @@ function CommitText({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -549,8 +569,7 @@ function CommitNumber({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -587,81 +606,76 @@ function AddState({
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a state</summary>
-      <div className="field-row" style={{ marginTop: "var(--s-4)" }}>
-        <label className="label">
-          Name
-          <input
-            className="input"
-            value={name}
-            placeholder="Awaiting client"
-            onChange={(e) => { setName(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Code
-          <input
-            className="input"
-            value={code}
-            placeholder="awaiting_client"
-            onChange={(e) => { setCode(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Order
-          <input
-            className="input"
-            value={sortOrder}
-            inputMode="numeric"
-            onChange={(e) => { setSortOrder(e.target.value); }}
-          />
-        </label>
-      </div>
-      {/* NONE OF THE FOUR DESTINATIONS IS OFFERED HERE, and that is the same
-          judgement the work board's form makes. Marking a brand-new state as
-          where filings start — or where missed ones go — silently moves the
-          flag off whatever holds it today. That is a real change to how the
-          nightly sweep behaves, and it belongs on the row where somebody can
-          see what it replaces. */}
-      <div className="field-row">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={isTerminal}
-            onChange={(e) => {
-              setIsTerminal(e.target.checked);
-              if (e.target.checked) setNeedsDecision(false);
-            }}
-          />
-          <span>Means finished</span>
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={needsDecision}
-            disabled={isTerminal}
-            onChange={(e) => { setNeedsDecision(e.target.checked); }}
-          />
-          <span>Needs somebody to decide what happens next</span>
-        </label>
-      </div>
-      <button
-        className="btn"
-        style={{ marginTop: "var(--s-4)" }}
-        disabled={busy || name.trim() === "" || code.trim() === ""}
-        onClick={() => {
-          onAdd({
-            code: code.trim(),
-            name: name.trim(),
-            sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 60,
-            isTerminal,
-            needsDecision: !isTerminal && needsDecision,
-          });
-          setName("");
-          setCode("");
-        }}
-      >
-        Add
-      </button>
+      {/* A GROUP, named, and with no legend so nothing moves on screen. Both
+          forms on this page ask for a Name, a Code and an Order, and both can
+          be open at once — "Name, edit" twice over identifies neither. */}
+      <fieldset className="fieldset" aria-label="Add a state">
+        <FieldStack>
+          <FieldRow>
+            <Field label="Name">
+              <Input
+                value={name}
+                placeholder="Awaiting client"
+                onChange={(e) => { setName(e.target.value); }}
+              />
+            </Field>
+            <Field label="Code">
+              <Input
+                value={code}
+                placeholder="awaiting_client"
+                onChange={(e) => { setCode(e.target.value); }}
+              />
+            </Field>
+            <Field label="Order">
+              <Input
+                value={sortOrder}
+                inputMode="numeric"
+                onChange={(e) => { setSortOrder(e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
+          {/* NONE OF THE FOUR DESTINATIONS IS OFFERED HERE, and that is the
+              same judgement the work board's form makes. Marking a brand-new
+              state as where filings start — or where missed ones go — silently
+              moves the flag off whatever holds it today. That is a real change
+              to how the nightly sweep behaves, and it belongs on the row where
+              somebody can see what it replaces. */}
+          <FieldRow>
+            <Checkbox
+              label="Means finished"
+              checked={isTerminal}
+              onChange={(e) => {
+                setIsTerminal(e.target.checked);
+                if (e.target.checked) setNeedsDecision(false);
+              }}
+            />
+            <Checkbox
+              label="Needs somebody to decide what happens next"
+              checked={needsDecision}
+              disabled={isTerminal}
+              onChange={(e) => { setNeedsDecision(e.target.checked); }}
+            />
+          </FieldRow>
+          <div className="cluster">
+            <Button
+              disabled={busy || name.trim() === "" || code.trim() === ""}
+              onClick={() => {
+                onAdd({
+                  code: code.trim(),
+                  name: name.trim(),
+                  sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 60,
+                  isTerminal,
+                  needsDecision: !isTerminal && needsDecision,
+                });
+                setName("");
+                setCode("");
+              }}
+                  >
+              Add
+            </Button>
+          </div>
+        </FieldStack>
+      </fieldset>
     </details>
   );
 }
@@ -686,63 +700,63 @@ function AddOption({
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a decision</summary>
-      <div className="field-row" style={{ marginTop: "var(--s-4)" }}>
-        <label className="label">
-          Name
-          <input
-            className="input"
-            value={name}
-            placeholder="Client deregistered mid-year"
-            onChange={(e) => { setName(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Code
-          <input
-            className="input"
-            value={code}
-            placeholder="client_deregistered"
-            onChange={(e) => { setCode(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Order
-          <input
-            className="input"
-            value={sortOrder}
-            inputMode="numeric"
-            onChange={(e) => { setSortOrder(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          What it does
-          <select
-            className="input"
-            value={closes ? "closes" : "refiles"}
-            onChange={(e) => { setCloses(e.target.value === "closes"); }}
-          >
-            <option value="refiles">The filing still happens, late</option>
-            <option value="closes">It will never be filed</option>
-          </select>
-        </label>
-      </div>
-      <button
-        className="btn"
-        style={{ marginTop: "var(--s-4)" }}
-        disabled={busy || name.trim() === "" || code.trim() === ""}
-        onClick={() => {
-          onAdd({
-            code: code.trim(),
-            name: name.trim(),
-            closesWithoutFiling: closes,
-            sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 50,
-          });
-          setName("");
-          setCode("");
-        }}
-      >
-        Add
-      </button>
+      <fieldset className="fieldset" aria-label="Add a decision">
+        <FieldStack>
+          <FieldRow>
+            <Field label="Name">
+              <Input
+                value={name}
+                placeholder="Client deregistered mid-year"
+                onChange={(e) => { setName(e.target.value); }}
+              />
+            </Field>
+            <Field label="Code">
+              <Input
+                value={code}
+                placeholder="client_deregistered"
+                onChange={(e) => { setCode(e.target.value); }}
+              />
+            </Field>
+            <Field label="Order">
+              <Input
+                value={sortOrder}
+                inputMode="numeric"
+                onChange={(e) => { setSortOrder(e.target.value); }}
+              />
+            </Field>
+            {/* `className="input"` on a `<select>`. The two classes share their
+                base rule, so this looked right — but `.select` alone carries
+                `appearance: none` and the chevron, and without it this drew the
+                operating system's own dropdown. */}
+            <Field label="What it does">
+              <Select
+                value={closes ? "closes" : "refiles"}
+                onChange={(e) => { setCloses(e.target.value === "closes"); }}
+              >
+                <option value="refiles">The filing still happens, late</option>
+                <option value="closes">It will never be filed</option>
+              </Select>
+            </Field>
+          </FieldRow>
+          <div className="cluster">
+            <Button
+              disabled={busy || name.trim() === "" || code.trim() === ""}
+              onClick={() => {
+                onAdd({
+                  code: code.trim(),
+                  name: name.trim(),
+                  closesWithoutFiling: closes,
+                  sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 50,
+                });
+                setName("");
+                setCode("");
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </FieldStack>
+      </fieldset>
       {/* There is deliberately no option meaning "ignore", and adding one would
           be a decision rather than a convenience: a passed legal deadline is a
           fork with consequences either way, and an option that let one be

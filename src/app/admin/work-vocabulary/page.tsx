@@ -5,7 +5,22 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { WorkItemPriority, WorkItemState } from "@/lib/api/client";
-import { Button, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Pill,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -100,11 +115,16 @@ export default function WorkVocabularyPage() {
         they mean — the product reads the TICK BOXES and never the names, so nothing breaks
         when you rename one."
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
-      <div className="card">
-        <h2 className="card-title">States</h2>
-        <table className="table">
+      <Card>
+        <CardTitle level={2}>States</CardTitle>
+        {/* The wrapper is not decoration. `.table` is `min-width: max-content`
+            and `.tablewrap` carries the `contain: layout paint` that keeps that
+            width off the PAGE — without one, this nine-column table pushed the
+            document 771px sideways at 390 and 393px at 768. */}
+        <TableWrap>
+          <Table>
           <thead>
             <tr>
               <Th>Name</Th>
@@ -208,9 +228,9 @@ export default function WorkVocabularyPage() {
                   />
                 </Td>
                 <Td>
-                  <span className="pill" data-tone={s.isActive ? "accent" : "danger"}>
+                  <Pill tone={s.isActive ? "ok" : "danger"}>
                     {s.isActive ? "in use" : "retired"}
-                  </span>
+                  </Pill>
                 </Td>
                 <Td align="right">
                   <Button
@@ -226,8 +246,9 @@ export default function WorkVocabularyPage() {
                 </Td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+          </Table>
+        </TableWrap>
         <p className="field-hint">
           <strong>Starting</strong> is where new work begins — exactly one, and marking another
           moves it. <strong>Finished</strong> stamps the completion time and takes the task off
@@ -244,11 +265,12 @@ export default function WorkVocabularyPage() {
             );
           }}
         />
-      </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">Priorities</h2>
-        <table className="table">
+      <Card>
+        <CardTitle level={2}>Priorities</CardTitle>
+        <TableWrap>
+          <Table>
           <thead>
             <tr>
               <Th>Name</Th>
@@ -311,9 +333,9 @@ export default function WorkVocabularyPage() {
                   />
                 </Td>
                 <Td>
-                  <span className="pill" data-tone={p.isActive ? "accent" : "danger"}>
+                  <Pill tone={p.isActive ? "ok" : "danger"}>
                     {p.isActive ? "in use" : "retired"}
-                  </span>
+                  </Pill>
                 </Td>
                 <Td align="right">
                   <Button
@@ -329,8 +351,9 @@ export default function WorkVocabularyPage() {
                 </Td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+          </Table>
+        </TableWrap>
         <p className="field-hint">
           Rank <strong>1 is the most urgent</strong>, and it is what the board sorts by — the
           names are yours. <strong>Default</strong> is what ordinary work is created with.{" "}
@@ -346,7 +369,7 @@ export default function WorkVocabularyPage() {
             );
           }}
         />
-      </div>
+      </Card>
     </Page>
   );
 }
@@ -418,8 +441,7 @@ function CommitText({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -459,8 +481,7 @@ function CommitNumber({
   }
 
   return (
-    <input
-      className="input"
+    <Input
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -499,91 +520,81 @@ function AddState({
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a state</summary>
-      <div className="field-row">
-        <label className="label">
-          Name
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => { setName(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Code
-          <input
-            className="input"
-            value={code}
-            placeholder="with_auditor"
-            onChange={(e) => { setCode(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Order
-          <input
-            className="input"
-            value={sortOrder}
-            inputMode="numeric"
-            onChange={(e) => { setSortOrder(e.target.value); }}
-          />
-        </label>
-      </div>
-      {/* "Starting" is deliberately absent from this form. Marking a NEW state
-          as the one work begins in would silently move it off whatever holds it
-          today — a real change, and one somebody should make on the row where
-          they can see what it replaces. */}
-      <div className="field-row">
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={isTerminal}
-            onChange={(e) => { setIsTerminal(e.target.checked); }}
-          />
-          <span>Means finished</span>
-        </label>
-        {/* Offered only once "finished" is ticked, because the API refuses the
-            other pair — and left unticked by default, which is the safe
-            direction: a new terminal state nobody classified leaves an
-            obligation OPEN and visible, rather than recording a filing that
-            never happened. */}
-        {isTerminal && (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={isSuccess}
-              onChange={(e) => { setIsSuccess(e.target.checked); }}
+      {/* A GROUP, named, and with no legend so nothing moves on screen. Both
+          forms on this page ask for a Name and a Code, and this page can have
+          both of them open at once — "Name, edit" twice over identifies
+          neither. The group is what tells them apart. */}
+      <fieldset className="fieldset" aria-label="Add a state">
+        <FieldStack>
+          <FieldRow>
+            <Field label="Name">
+              <Input value={name} onChange={(e) => { setName(e.target.value); }} />
+            </Field>
+            <Field label="Code">
+              <Input
+                value={code}
+                placeholder="with_auditor"
+                onChange={(e) => { setCode(e.target.value); }}
+              />
+            </Field>
+            <Field label="Order">
+              <Input
+                value={sortOrder}
+                inputMode="numeric"
+                onChange={(e) => { setSortOrder(e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
+          {/* "Starting" is deliberately absent from this form. Marking a NEW
+              state as the one work begins in would silently move it off
+              whatever holds it today — a real change, and one somebody should
+              make on the row where they can see what it replaces. */}
+          <FieldRow>
+            <Checkbox
+              label="Means finished"
+              checked={isTerminal}
+              onChange={(e) => { setIsTerminal(e.target.checked); }}
             />
-            <span>&hellip; and the work was DONE, not dropped</span>
-          </label>
-        )}
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={isBlocked}
-            onChange={(e) => { setIsBlocked(e.target.checked); }}
-          />
-          <span>Means blocked — needs a written reason</span>
-        </label>
-      </div>
-      <button
-        className="btn"
-        style={{ marginTop: "var(--s-4)" }}
-        disabled={busy || name.trim() === "" || code.trim() === ""}
-        onClick={() => {
-          onAdd({
-            code: code.trim(),
-            name: name.trim(),
-            sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 90,
-            isTerminal,
-            isBlocked,
-            isSuccess: isTerminal && isSuccess,
-          });
-          setName("");
-          setCode("");
-          setIsSuccess(false);
-        }}
-      >
-        Add
-      </button>
+            {/* Offered only once "finished" is ticked, because the API refuses
+                the other pair — and left unticked by default, which is the safe
+                direction: a new terminal state nobody classified leaves an
+                obligation OPEN and visible, rather than recording a filing that
+                never happened. */}
+            {isTerminal && (
+              <Checkbox
+                label="… and the work was DONE, not dropped"
+                checked={isSuccess}
+                onChange={(e) => { setIsSuccess(e.target.checked); }}
+              />
+            )}
+            <Checkbox
+              label="Means blocked — needs a written reason"
+              checked={isBlocked}
+              onChange={(e) => { setIsBlocked(e.target.checked); }}
+            />
+          </FieldRow>
+          <div className="cluster">
+            <Button
+              disabled={busy || name.trim() === "" || code.trim() === ""}
+              onClick={() => {
+                onAdd({
+                  code: code.trim(),
+                  name: name.trim(),
+                  sortOrder: Number.isInteger(Number(sortOrder)) ? Number(sortOrder) : 90,
+                  isTerminal,
+                  isBlocked,
+                  isSuccess: isTerminal && isSuccess,
+                });
+                setName("");
+                setCode("");
+                setIsSuccess(false);
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </FieldStack>
+      </fieldset>
     </details>
   );
 }
@@ -602,45 +613,45 @@ function AddPriority({
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
       <summary>Add a priority</summary>
-      <div className="field-row">
-        <label className="label">
-          Name
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => { setName(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Code
-          <input
-            className="input"
-            value={code}
-            placeholder="urgent"
-            onChange={(e) => { setCode(e.target.value); }}
-          />
-        </label>
-        <label className="label">
-          Rank
-          <input
-            className="input"
-            value={rank}
-            inputMode="numeric"
-            onChange={(e) => { setRank(e.target.value); }}
-          />
-        </label>
-        <button
-          className="btn"
-          disabled={busy || name.trim() === "" || code.trim() === ""}
-          onClick={() => {
-            onAdd({ code: code.trim(), name: name.trim(), rank: Number(rank) });
-            setName("");
-            setCode("");
-          }}
-        >
-          Add
-        </button>
-      </div>
+      <fieldset className="fieldset" aria-label="Add a priority">
+        <FieldStack>
+          <FieldRow>
+            <Field label="Name">
+              <Input value={name} onChange={(e) => { setName(e.target.value); }} />
+            </Field>
+            <Field label="Code">
+              <Input
+                value={code}
+                placeholder="urgent"
+                onChange={(e) => { setCode(e.target.value); }}
+              />
+            </Field>
+            <Field label="Rank">
+              <Input
+                value={rank}
+                inputMode="numeric"
+                onChange={(e) => { setRank(e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
+          {/* The Add button was the FOURTH CELL of that grid, so it was sized
+              by the column and not by its own word: 268px against the 63px the
+              same button measures on the state form above. A grid stretches
+              what it is given. */}
+          <div className="cluster">
+            <Button
+              disabled={busy || name.trim() === "" || code.trim() === ""}
+              onClick={() => {
+                onAdd({ code: code.trim(), name: name.trim(), rank: Number(rank) });
+                setName("");
+                setCode("");
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </FieldStack>
+      </fieldset>
       {/* Neither default is offered here, for the same reason "Starting" is not
           on the state form: moving one silently changes what every task created
           afterwards gets, and that belongs on the row beside what it replaces. */}
