@@ -6,7 +6,25 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
-import { Pill, Table, TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
+import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -105,7 +123,7 @@ export default function LettersPage() {
     router.push(`/engagement-letters/${result.data.id}`);
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <Loading />;
 
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
   // is yesterday in India until 05:30 every morning — so something due
@@ -130,9 +148,9 @@ export default function LettersPage() {
         lede="What each client has actually signed, and what is still a draft."
         aside={<Pill tone="quiet">{letters.length}</Pill>}
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
-      <div className="card">
+      <Card>
         {letters.length === 0 ? (
           <p className="muted">
             Nothing agreed yet.
@@ -147,7 +165,7 @@ export default function LettersPage() {
                   <Th>Client</Th>
                   <Th>Issued by</Th>
                   <Th>Status</Th>
-                  <Th style={{ textAlign: "right" }}>Value</Th>
+                  <Th align="right">Value</Th>
                 </tr>
               </thead>
               <tbody>
@@ -176,14 +194,11 @@ export default function LettersPage() {
                       </div>
                     </Td>
                     <Td>
-                      <span
-                        className="pill"
-                        data-tone={l.letter.status === "withdrawn" ? "danger" : ""}
-                      >
+                      <Pill tone={l.letter.status === "withdrawn" ? "danger" : "neutral"}>
                         {l.letter.status}
-                      </span>
+                      </Pill>
                     </Td>
-                    <Td style={{ textAlign: "right" }} className="mono">
+                    <Td align="right" className="mono">
                       {formatMoney(l.totals.net, l.totals.currency)}
                     </Td>
                   </tr>
@@ -192,213 +207,173 @@ export default function LettersPage() {
             </Table>
           </TableWrap>
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <h2 className="card-title">New engagement letter</h2>
+      <Card>
+        <CardTitle level={2}>New engagement letter</CardTitle>
         <form
           action={(form) => {
             void draft(form);
           }}
         >
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="title">
-                Title
-              </label>
-              <input className="input" id="title" name="title" required />
-            </div>
-            <div>
-              <label className="label" htmlFor="partyId">
-                Client
-              </label>
-              <select className="select" id="partyId" name="partyId" required
-                      style={{ width: "100%" }}>
-                {parties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="jurisdiction">
-                Written for
-              </label>
-              {/* Stated, not inferred: not always the client's, not always the
-                  firm's, and it decides which clauses may go on the letter. */}
-              <input className="input" id="jurisdiction" name="jurisdiction"
-                     defaultValue="IN" maxLength={2} required />
-            </div>
-          </div>
+          {/* Eight hand-written `marginBottom`s down this form, and none under
+              the last row — which is a stack, spelt out. `.select` is already
+              `width: 100%`, so the four inline widths styled nothing. */}
+          <FieldStack>
+            <FieldRow>
+              <Field label="Title">
+                <Input name="title" required />
+              </Field>
+              <Field label="Client">
+                <Select name="partyId" required>
+                  {parties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Written for">
+                {/* Stated, not inferred: not always the client's, not always the
+                    firm's, and it decides which clauses may go on the letter. */}
+                <Input name="jurisdiction" defaultValue="IN" maxLength={2} required />
+              </Field>
+            </FieldRow>
 
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="currency">
-                Currency
-              </label>
-              <input className="input" id="currency" name="currency" defaultValue="INR"
-                     maxLength={3} required />
-            </div>
-            <div>
-              <label className="label" htmlFor="fxRate">
-                Rate to the firm&apos;s currency
-              </label>
-              <input className="input" id="fxRate" name="fxRate" defaultValue="1" required />
-            </div>
-            <div>
-              <label className="label" htmlFor="fxRateDate">
-                Rate dated
-              </label>
-              <input className="input" id="fxRateDate" name="fxRateDate" type="date"
-                     defaultValue={today} required />
-            </div>
-          </div>
+            <FieldRow>
+              <Field label="Currency">
+                <Input name="currency" defaultValue="INR" maxLength={3} required />
+              </Field>
+              <Field label="Rate to the firm&apos;s currency">
+                <Input name="fxRate" defaultValue="1" required />
+              </Field>
+              <Field label="Rate dated">
+                <Input name="fxRateDate" type="date" defaultValue={today} required />
+              </Field>
+            </FieldRow>
 
-          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
-            <input
-              type="checkbox"
+            <Checkbox
+              label="An advance is required before work begins. Engagements will be held until it is recorded — no advance, no jobs."
               checked={advance}
               onChange={(e) => {
                 setAdvance(e.target.checked);
               }}
             />
-            <span>
-              An advance is required before work begins. Engagements will be held until it is
-              recorded — no advance, no jobs.
-            </span>
-          </label>
-          {advance && (
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="advanceAmount">
-                  Advance amount
-                </label>
+            {advance && (
+              <FieldRow>
                 {/* Required once the box is ticked — the API refuses a gate with
                     no figure, because nobody can pass one. */}
-                <input className="input" id="advanceAmount" name="advanceAmount" required />
-              </div>
-            </div>
-          )}
+                <Field label="Advance amount">
+                  <Input name="advanceAmount" required />
+                </Field>
+              </FieldRow>
+            )}
 
-          <label className="check" style={{ marginBottom: "var(--s-4)" }}>
-            <input
-              type="checkbox"
+            {/* Split at the em dash the sentence already had, so the words and
+                the rendering are unchanged and the NAME of the control is
+                "Write the document" rather than all three lines of it. */}
+            <Checkbox
+              label="Write the document"
+              note="who it is addressed to, why they are buying, its date, when the work begins, and the letter it replaces. Every one of these is frozen at signature, and none of them can be added afterwards."
               checked={moreTerms}
               onChange={(e) => {
                 setMoreTerms(e.target.checked);
               }}
             />
-            <span>
-              Write the document — who it is addressed to, why they are buying, its date, when
-              the work begins, and the letter it replaces. Every one of these is frozen at
-              signature, and none of them can be added afterwards.
-            </span>
-          </label>
 
-          {moreTerms && (
-            <>
-              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-                <div>
-                  <label className="label" htmlFor="issuingEntityPartyId">
-                    Issued by
-                  </label>
-                  {/* Stored, never derived: the firm's rule for picking an
-                      entity may change, and re-deriving this at read time would
-                      silently restate every letter already issued. Left blank,
-                      the API applies the firm's own preference for this
-                      jurisdiction. */}
-                  <select className="select" id="issuingEntityPartyId"
-                          name="issuingEntityPartyId" defaultValue="" style={{ width: "100%" }}>
-                    <option value="">the firm&apos;s entity for this jurisdiction</option>
-                    {parties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="addressedToPartyId">
-                    Addressed to
-                  </label>
-                  {/* A named PERSON, care-of the client above. Not who is
-                      billed — that is the client — which is why it is a second
-                      field and not a rename of the first. */}
-                  <select className="select" id="addressedToPartyId" name="addressedToPartyId"
-                          defaultValue="" style={{ width: "100%" }}>
-                    <option value="">nobody named — the organization</option>
-                    {parties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            {moreTerms && (
+              <>
+                <FieldRow>
+                  <Field label="Issued by">
+                    {/* Stored, never derived: the firm's rule for picking an
+                        entity may change, and re-deriving this at read time
+                        would silently restate every letter already issued. Left
+                        blank, the API applies the firm's own preference for this
+                        jurisdiction. */}
+                    <Select name="issuingEntityPartyId" defaultValue="">
+                      <option value="">the firm&apos;s entity for this jurisdiction</option>
+                      {parties.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.displayName}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Addressed to">
+                    {/* A named PERSON, care-of the client above. Not who is
+                        billed — that is the client — which is why it is a second
+                        field and not a rename of the first. */}
+                    <Select name="addressedToPartyId" defaultValue="">
+                      <option value="">nobody named — the organization</option>
+                      {parties.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.displayName}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </FieldRow>
 
-              <div style={{ marginBottom: "var(--s-4)" }}>
-                <label className="label" htmlFor="background">
-                  Background
-                </label>
-                <textarea
-                  className="textarea"
-                  id="background"
-                  name="background"
-                  rows={4}
-                  placeholder="Why this client is buying this — the paragraph the letter opens with."
-                />
-              </div>
+                <Field label="Background">
+                  <Textarea
+                    name="background"
+                    rows={4}
+                    placeholder="Why this client is buying this — the paragraph the letter opens with."
+                  />
+                </Field>
 
-              <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-                <div>
-                  <label className="label" htmlFor="issuedOn">
-                    Dated
-                  </label>
-                  <input className="input" id="issuedOn" name="issuedOn" type="date" />
-                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
-                    The date under the letterhead. Blank means the day it is sent.
-                  </p>
-                </div>
-                <div>
-                  <label className="label" htmlFor="effectiveFrom">
-                    Work begins
-                  </label>
-                  <input className="input" id="effectiveFrom" name="effectiveFrom"
-                         type="date" />
-                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
-                    Blank means the signature date. A line may start later still.
-                  </p>
-                </div>
-                <div>
-                  <label className="label" htmlFor="supersedesId">
-                    Replaces
-                  </label>
-                  <select className="select" id="supersedesId" name="supersedesId"
-                          defaultValue="" style={{ width: "100%" }}
-                          disabled={supersedable.length === 0}>
-                    <option value="">nothing — this is a new agreement</option>
-                    {supersedable.map((l) => (
-                      <option key={l.letter.id} value={l.letter.id}>
-                        {l.letter.ref} — {l.party.displayName}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="muted text-xs" style={{ margin: "4px 0 0" }}>
-                    {supersedable.length === 0
-                      ? "No signed letter is waiting to be replaced."
-                      : "A signed letter is never edited. This is how the change is recorded."}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
+                {/* These three sentences were loose `<p>`s under their fields,
+                    read by nobody: `.field-hint` already carries the 4px they
+                    were hand-rolling, and as `hint` they become the field's own
+                    `aria-describedby`. */}
+                <FieldRow>
+                  <Field
+                    label="Dated"
+                    hint="The date under the letterhead. Blank means the day it is sent."
+                  >
+                    <Input name="issuedOn" type="date" />
+                  </Field>
+                  <Field
+                    label="Work begins"
+                    hint="Blank means the signature date. A line may start later still."
+                  >
+                    <Input name="effectiveFrom" type="date" />
+                  </Field>
+                  <Field
+                    label="Replaces"
+                    hint={
+                      supersedable.length === 0
+                        ? "No signed letter is waiting to be replaced."
+                        : "A signed letter is never edited. This is how the change is recorded."
+                    }
+                  >
+                    <Select
+                      name="supersedesId"
+                      defaultValue=""
+                      disabled={supersedable.length === 0}
+                    >
+                      <option value="">nothing — this is a new agreement</option>
+                      {supersedable.map((l) => (
+                        <option key={l.letter.id} value={l.letter.id}>
+                          {l.letter.ref} — {l.party.displayName}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </FieldRow>
+              </>
+            )}
 
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Drafting…" : "Draft letter"}
-          </button>
+            {/* A `cluster`, because the stack is a flex COLUMN and a button laid
+                straight into one stretches the width of the card. */}
+            <div className="cluster">
+              <Button type="submit" loading={busy}>
+                {busy ? "Drafting…" : "Draft letter"}
+              </Button>
+            </div>
+          </FieldStack>
         </form>
-      </div>
+      </Card>
     </Page>
   );
 }
