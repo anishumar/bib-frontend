@@ -4,6 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, VERIFICATION_RULES } from "@/lib/api/client";
 import type { ConfigEntry, StaffGrade, VerificationRule } from "@/lib/api/client";
+import {
+  Button,
+  Card,
+  CardTitle,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  Fieldset,
+  Input,
+  Notice,
+  Radio,
+  Select,
+} from "@/components/ui";
+import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -117,7 +131,7 @@ export default function VerificationPage() {
     await load();
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <Loading />;
 
   return (
     <Page>
@@ -131,14 +145,22 @@ export default function VerificationPage() {
 
       {/* NOT a setting, and the screen has to say so where somebody would look
           for the switch. */}
-      <div className="notice" style={{ maxWidth: "64ch" }}>
-        <strong>Nobody can ever approve their own work.</strong> That is not a setting on this
-        page and there is no way to switch it off — the database refuses it, so an import, a
-        script or an automated agent cannot get past it either. What you choose below is who
-        <em> else</em> may check it.
-      </div>
+      {/* A raw `<div className="notice">` holding ONE SENTENCE with a
+          `<strong>` and an `<em>` in it. `.notice` is `display: flex`, so each
+          run of that sentence became a column — the bold clause, then the
+          prose, then the word "else" alone, then "may check it" — four
+          newspaper columns of one paragraph, measured 83px and 30px wide.
+          `Notice` puts its children in `.notice-body`, where prose belongs. */}
+      <Notice className="measure">
+        <p>
+          <strong>Nobody can ever approve their own work.</strong> That is not a setting on this
+          page and there is no way to switch it off — the database refuses it, so an import, a
+          script or an automated agent cannot get past it either. What you choose below is who
+          <em> else</em> may check it.
+        </p>
+      </Notice>
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {policies.length === 0 ? (
         <p className="muted" style={{ maxWidth: "64ch" }}>
@@ -161,8 +183,8 @@ export default function VerificationPage() {
       )}
 
       {adding ? (
-        <div className="card" style={{ marginTop: "var(--s-5)" }}>
-          <h2 className="card-title">A new rule</h2>
+        <Card>
+          <CardTitle level={2}>A new rule</CardTitle>
           <PolicyForm
             policyKey={null}
             grades={grades}
@@ -173,16 +195,14 @@ export default function VerificationPage() {
             onCancel={() => { setAdding(false); }}
             onError={setError}
           />
-        </div>
+        </Card>
       ) : (
-        <button
-          type="button"
-          className="btn"
-          style={{ marginTop: "var(--s-5)" }}
-          onClick={() => { setAdding(true); }}
-        >
-          Write a rule
-        </button>
+        /* A `cluster`, because `<Page>` is a flex COLUMN and a button laid
+           straight into one is stretched by it. Measured at 1168px — the full
+           width of the page — against the 81px "Change it" inside a card. */
+        <div className="cluster">
+          <Button onClick={() => { setAdding(true); }}>Write a rule</Button>
+        </div>
       )}
     </Page>
   );
@@ -213,7 +233,7 @@ function PolicyCard({
   const draft = entry.pendingDraft;
 
   return (
-    <div className="card" style={{ marginTop: "var(--s-5)" }}>
+    <Card>
       <div className="row">
         <div>
           <h2 className="card-title">
@@ -252,20 +272,20 @@ function PolicyCard({
       )}
 
       {draft && (
-        <div className="notice" style={{ marginTop: "var(--s-4)" }}>
-          <strong>A change is written and not yet in force.</strong> Checks opened from now on
-          use it only once it is published; ones already open keep the rule they opened under.
-          <div style={{ marginTop: "var(--s-2)" }}>
-            <button
-              type="button"
-              className="btn"
+        <Notice className="mt-4">
+          <p>
+            <strong>A change is written and not yet in force.</strong> Checks opened from now on
+            use it only once it is published; ones already open keep the rule they opened under.
+          </p>
+          <div className="cluster mt-2">
+            <Button
               disabled={busy === `publish:${entry.entry.key}`}
               onClick={() => { onPublish(entry.entry.key, draft.version); }}
             >
               Put it in force
-            </button>
+            </Button>
           </div>
-        </div>
+        </Notice>
       )}
 
       {editing ? (
@@ -281,16 +301,16 @@ function PolicyCard({
           onError={onError}
         />
       ) : (
-        <button
-          type="button"
-          className="btn" data-variant="secondary" data-size="sm"
-          style={{ marginTop: "var(--s-4)" }}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-4"
           onClick={() => { setEditing(true); }}
         >
           Change it
-        </button>
+        </Button>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -367,89 +387,84 @@ function PolicyForm({
     (needsGrade && chosen === null);
 
   return (
-    <div style={{ marginTop: "var(--s-4)" }}>
-      <div className="field-row">
+    /* NAMED, because both editors can be open at once — the rule being changed
+       and a new one — and then "What to call it" and "Who may check it" each
+       appear twice with nothing saying which rule they belong to. No legend, so
+       nothing moves on screen; the card's heading already says it to anybody
+       who can see it. */
+    <fieldset
+      className="fieldset"
+      style={{ marginTop: "var(--s-4)" }}
+      aria-label={policyKey === null ? "A new rule" : `The rule ${policyKey}`}
+    >
+      <FieldRow>
         {policyKey === null && (
-          <div>
-            <label className="label" htmlFor="vp-key">
-              Short name
-            </label>
-            <input
-              id="vp-key"
-              className="input"
+          <Field
+            label="Short name"
+            hint="What a step names to say it is checked under this rule. It cannot be changed later — every step pointing at it would stop pointing anywhere."
+          >
+            <Input
               value={key}
               placeholder="manager_review"
               onChange={(e) => { setKey(e.target.value); }}
             />
-            <p className="muted text-xs">
-              What a step names to say it is checked under this rule. It cannot be changed
-              later — every step pointing at it would stop pointing anywhere.
-            </p>
-          </div>
+          </Field>
         )}
-        <div>
-          <label className="label" htmlFor="vp-label">
-            What to call it
-          </label>
-          <input
-            id="vp-label"
-            className="input"
+        <Field label="What to call it">
+          <Input
             value={label}
             placeholder="Manager review"
             onChange={(e) => { setLabel(e.target.value); }}
           />
-        </div>
-      </div>
+        </Field>
+      </FieldRow>
 
-      <fieldset className="fieldset">
-        <legend className="label">Who may check it</legend>
+      <Fieldset legend="Who may check it">
         {VERIFICATION_RULES.map((r) => (
-          <label key={r.value} className="check" data-row="true">
-            <input
-              type="radio"
-              name={`rule-${policyKey ?? "new"}`}
-              checked={rule === r.value}
-              onChange={() => { setRule(r.value); }}
-            />
-            <span>
-              <strong>{r.label}</strong>
-              {/* The trade-off in the option itself, not in help text somebody
-                  has to go looking for. This is the choice that decides who may
-                  sign off a statutory filing. */}
-              <span className="muted text-sm" style={{ display: "block" }}>
-                {r.detail}
-              </span>
-            </span>
-          </label>
+          /* The trade-off in the option itself, not in help text somebody has
+             to go looking for — this is the choice that decides who may sign
+             off a statutory filing. As `note` it is the option's DESCRIPTION
+             and not part of its name. */
+          <Radio
+            key={r.value}
+            label={<strong>{r.label}</strong>}
+            note={r.detail}
+            name={`rule-${policyKey ?? "new"}`}
+            checked={rule === r.value}
+            onChange={() => { setRule(r.value); }}
+          />
         ))}
-      </fieldset>
+      </Fieldset>
 
       {needsGrade && (
         <div style={{ marginTop: "var(--s-4)", maxWidth: 360 }}>
-          <label className="label" htmlFor="vp-grade">
-            From which grade up
-          </label>
           {offered.length === 0 ? (
-            <p className="muted">
-              This firm has no active grades, so there is nothing to compare. Add rungs on{" "}
-              <strong>Grades</strong> first, or choose the reporting-line rule.
-            </p>
+            <>
+              <p className="label">From which grade up</p>
+              <p className="muted">
+                This firm has no active grades, so there is nothing to compare. Add rungs on{" "}
+                <strong>Grades</strong> first, or choose the reporting-line rule.
+              </p>
+            </>
           ) : (
-            <select
-              id="vp-grade"
-              className="input"
-              value={gradeCode}
-              onChange={(e) => { setGradeCode(e.target.value); }}
-            >
+            /* `className="input"` on a `<select>`. The two share a base rule so
+               it looked right, but `appearance: none` and the chevron are on
+               `.select` alone — this drew the operating system's own dropdown. */
+            <Field label="From which grade up">
+              <Select
+                value={gradeCode}
+                onChange={(e) => { setGradeCode(e.target.value); }}
+              >
               <option value="">Choose a grade…</option>
               {[...offered]
                 .sort((a, b) => b.rank - a.rank)
                 .map((g) => (
-                  <option key={g.id} value={g.code}>
-                    {g.name} and above
-                  </option>
-                ))}
-            </select>
+                    <option key={g.id} value={g.code}>
+                      {g.name} and above
+                    </option>
+                  ))}
+              </Select>
+            </Field>
           )}
         </div>
       )}
@@ -465,23 +480,20 @@ function PolicyForm({
         </p>
       )}
 
-      <div style={{ marginTop: "var(--s-4)", display: "flex", gap: "var(--s-2)" }}>
-        <button
-          type="button"
-          className="btn"
-          disabled={busy || incomplete}
-          onClick={() => void save()}
-        >
+      {/* `.cluster` is `display: flex; gap: var(--s-2)` with wrapping, which is
+          those two declarations and one it was missing. */}
+      <div className="cluster mt-4">
+        <Button disabled={busy || incomplete} onClick={() => void save()}>
           {policyKey === null ? "Save as a draft" : "Save the change"}
-        </button>
-        <button type="button" className="btn" data-variant="secondary" data-size="sm" onClick={onCancel}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
       <p className="muted text-xs">
         Saved as a draft. It governs nothing until you put it in force, and checks already open
         keep the rule they were opened under.
       </p>
-    </div>
+    </fieldset>
   );
 }
