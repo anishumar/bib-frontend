@@ -17,6 +17,7 @@ import {
   Th,
 } from "@/components/ui";
 import { Empty } from "@/components/states";
+import { longInstant } from "@/lib/day";
 
 /**
  * Tasks that are finished and waiting for somebody else to look at them.
@@ -200,7 +201,7 @@ function CheckRow({
           {check.submittedByName ?? <span className="unstated">nobody recorded</span>}
         </Td>
         <Td>
-          <span className="mono">{new Date(check.submittedAt).toLocaleDateString()}</span>
+          <span className="mono">{longInstant(check.submittedAt)}</span>
           <Sub>{waited}</Sub>
         </Td>
         <Td>

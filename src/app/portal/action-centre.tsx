@@ -395,6 +395,6 @@ function SentLine({ response }: { response: PortalAskResponse }) {
   );
 }
 
-/** "3 September 2026" from an ISO instant or day. Formatted in the reader's own
- *  locale, and never with a time: an ask has no deadline and the hour it was
- *  raised is not something a client needs. */
+/** "03 Sep 2026" from an ISO instant — `longInstant` from `@/lib/day`, the one
+ *  date format this product prints. Never with a time: an ask has no deadline
+ *  and the hour it was raised is not something a client needs. */

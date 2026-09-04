@@ -7,6 +7,7 @@ import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
+import { longInstant } from "@/lib/day";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -395,7 +396,7 @@ function CheckHistory({ checks }: { checks: StepCheck[] }) {
       {decided.map((c) => (
         <p key={c.id} className="muted text-sm" style={{ margin: "2px 0 0" }}>
           {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
-          {c.decidedAt === null ? "—" : new Date(c.decidedAt).toLocaleDateString()}
+          {c.decidedAt === null ? "—" : longInstant(c.decidedAt)}
           {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
         </p>
       ))}

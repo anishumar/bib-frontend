@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { Job, StepCheck } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
+import { longInstant } from "@/lib/day";
 import { Empty, Loading } from "@/components/states";
 import {
   Card,
@@ -203,7 +204,7 @@ export default function WorkPage() {
                     <JobState job={j} />
                   </Td>
                   <Td>
-                    <span className="mono">{new Date(j.runnableAt).toLocaleDateString()}</span>
+                    <span className="mono">{longInstant(j.runnableAt)}</span>
                   </Td>
                   <Td align="right">
                     <LinkButton size="sm" href={`/work/${j.id}`}>
@@ -269,7 +270,7 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
                 {c.submittedByName ?? <span className="unstated">a machine</span>}
               </Td>
               <Td>
-                <span className="mono">{new Date(c.submittedAt).toLocaleDateString()}</span>
+                <span className="mono">{longInstant(c.submittedAt)}</span>
               </Td>
               <Td>
                 {c.viewer.eligible ? (

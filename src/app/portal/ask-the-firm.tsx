@@ -409,14 +409,18 @@ function toneOf(status: string): "neutral" | "ok" | "warn" | "danger" {
 }
 
 /**
- * "2 September 2026" from an ISO INSTANT, in the reader's own zone.
+ * "02 Sep 2026" from an ISO INSTANT, in the reader's own zone — `longInstant`
+ * from `@/lib/day`, which is the one date format this product prints.
  *
  * ── AND THIS IS THE OPPOSITE OF WHAT A `date` COLUMN NEEDS ──────────────
  *
  * Every field this renders — `raisedAt`, `writtenAt`, `lastRepliedAt`,
  * `settledAt` — is a `timestamptz`, an INSTANT. The right day for an instant is
- * the day it happened where the READER is, which is what `toLocaleDateString`
- * gives, and it is the formatter the action centre already uses.
+ * the day it happened where the READER is, which is what `longInstant` gives by
+ * PARSING it. (This comment used to name `toLocaleDateString`; that is what the
+ * file called before `@/lib/day` existed, and it was replaced precisely because
+ * the reader's locale also decides the ORDER — the same instant read
+ * "02 Sep 2026" in London and "Sep 02, 2026" in New York.)
  *
  * The portal's other rule — *"a date is SPLIT, never parsed"* — is about a
  * `YYYY-MM-DD` DATE column, where `new Date("2026-09-20")` is UTC midnight and
