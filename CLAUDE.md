@@ -174,8 +174,16 @@ is in `@layer base`. **Unlayered CSS beats layered CSS whatever the specificity*
   screen — which was proved by diffing the emitted stylesheet, not by looking;
 - utilities beat `base.css`'s element defaults, which is what stops `button { color: inherit }`
   putting dark ink on a maroon button;
-- **a utility on an element that already carries a design-system class does nothing at all.**
-  `className="card p-4"` silently keeps the card's padding. This is the one that will bite you.
+- **a utility loses to a design-system class ON THE PROPERTIES THAT CLASS DECLARES.**
+  `className="card p-4"` silently keeps the card's padding, and `<Meta className="mb-6">` gets
+  no margin at all because `.meta` sets `margin: 0`. This is the one that will bite you — and
+  it bit twice in one file on 2025-09-05, both times invisibly.
+
+  The corollary matters as much and reads the other way: a utility for a property the class
+  says NOTHING about DOES land. `.btn` never declares `justify-self`, so
+  `<Button className="justify-self-start">` is the right way to stop a button being stretched
+  by a `.field-row` grid — measured, 68px against the 551px cell. Read the class before
+  assuming either outcome; the answer is per PROPERTY, never per element.
 
 **Mixing is fine at the COMPONENT level and not at the ELEMENT level.** `<Tabs>` or `<Button>`
 from `@/components/ui` inside a `<Page>` works, because `.tab` and `.btn` set their own padding,
