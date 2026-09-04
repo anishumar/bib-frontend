@@ -7,6 +7,7 @@ import { Page, PageHeader } from "@/components/layout";
 import { ErrorState, Loading } from "@/components/states";
 import { Stat, Strip, Table, TableWrap, Td, Th } from "@/components/ui";
 import type { SharedProposal } from "@/lib/api/client";
+import { longDay } from "@/lib/day";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -79,7 +80,10 @@ export default function SharedProposalPage() {
             {/* The number the RECIPIENT quotes back down the phone. They have
                 no account and no other way to name this document. */}
             <span className="mono">{shared.ref}</span> · Prepared for {shared.addressedTo}
-            {shared.validUntil !== null && ` · valid until ${shared.validUntil}`}
+            {/* A `date` column, so `longDay` and never `longInstant`. This is
+                the CLIENT's copy of the quote, and it was the one screen on
+                the product where a client read an ISO date. */}
+            {shared.validUntil !== null && ` · valid until ${longDay(shared.validUntil)}`}
           </>
         }
       />

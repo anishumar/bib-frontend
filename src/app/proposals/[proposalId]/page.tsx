@@ -12,7 +12,27 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
-import { LinkButton, Pill, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  LinkButton,
+  Notice,
+  Pill,
+  Select,
+  Table,
+  TableWrap,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
+import { Loading } from "@/components/states";
+import { longDay, longInstant } from "@/lib/day";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -130,11 +150,11 @@ export default function ProposalPage() {
     setBusy(null);
   }
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <Loading />;
   if (record === null) {
     return (
       <Page>
-        <p className="notice" data-tone="danger" role="alert">{error ?? "No such proposal."}</p>
+        <Notice tone="danger">{error ?? "No such proposal."}</Notice>
       </Page>
     );
   }
@@ -162,7 +182,12 @@ export default function ProposalPage() {
         lede={
           <>
             {record.party.displayName} · <Pill>{proposal.status}</Pill>
-            {proposal.validUntil !== null && ` · valid until ${proposal.validUntil}`}
+            {/* `valid_until` is a `date` column, so it is SPLIT and never
+                parsed. It read `2026-10-31` here and on the client's own share
+                page, which are the last two places on the product that still
+                printed a raw one — the demo's proposals carry no expiry, so no
+                walk had ever rendered it. */}
+            {proposal.validUntil !== null && ` · valid until ${longDay(proposal.validUntil)}`}
           </>
         }
         /* There is no history table: the ledger IS this proposal's timeline —
@@ -178,29 +203,33 @@ export default function ProposalPage() {
         }
       />
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
 
       {shareLink !== null && (
-        <div className="card">
-          <h2 className="card-title">The link to send</h2>
+        <Card>
+          <CardTitle level={2}>The link to send</CardTitle>
           <p className="muted text-md">
             Shown once. Only its fingerprint is stored, so this page is the only place it can
             ever be read — send it again to issue a new one.
           </p>
           <p className="mono" style={{ wordBreak: "break-all" }}>{shareLink}</p>
-        </div>
+        </Card>
       )}
 
-      <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-        <table className="table">
+      {/* Seven columns of money. Without a wrapper this table pushed the page
+          440px sideways at 390 and 62px at 768 — detail routes were not in the
+          sweep that measured the sidebar's twenty-seven. */}
+      <Card>
+        <TableWrap>
+          <Table>
           <thead>
             <tr>
               <Th>Line</Th>
-              <Th style={{ textAlign: "right" }}>Qty</Th>
-              <Th style={{ textAlign: "right" }}>List then</Th>
-              <Th style={{ textAlign: "right" }}>Quoted</Th>
-              <Th style={{ textAlign: "right" }}>Disc.</Th>
-              <Th style={{ textAlign: "right" }}>Net</Th>
+              <Th align="right">Qty</Th>
+              <Th align="right">List then</Th>
+              <Th align="right">Quoted</Th>
+              <Th align="right">Disc.</Th>
+              <Th align="right">Net</Th>
               <Th />
             </tr>
           </thead>
@@ -215,7 +244,7 @@ export default function ProposalPage() {
                     </div>
                   )}
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   {formatCount(l.quantity)}
                 </Td>
                 {/* The catalogue's price AS IT WAS — the thing the pin exists
@@ -229,7 +258,7 @@ export default function ProposalPage() {
                     though they are. Converting here would need a rate between
                     them, and the only rate this proposal carries goes to the
                     firm's reporting currency, not to the catalogue's. */}
-                <Td style={{ textAlign: "right" }} className="mono muted">
+                <Td align="right" className="mono muted">
                   {l.service?.listPrice ? (
                     <>
                       {formatMoney(l.service.listPrice.amount, l.service.listPrice.currency)}
@@ -241,19 +270,20 @@ export default function ProposalPage() {
                     "—"
                   )}
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   {formatMoney(l.unitAmount, l.currency)}
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
                 </Td>
-                <Td style={{ textAlign: "right" }} className="mono">
+                <Td align="right" className="mono">
                   {formatMoney(l.net, l.currency)}
                 </Td>
-                <Td style={{ textAlign: "right" }}>
+                <Td align="right">
                   {isDraft && (
-                    <button
-                      className="btn" data-variant="secondary" data-size="sm"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       disabled={busy !== null}
                       onClick={() => {
                         void act(l.id, () =>
@@ -264,7 +294,7 @@ export default function ProposalPage() {
                       }}
                     >
                       Remove
-                    </button>
+                    </Button>
                   )}
                 </Td>
               </tr>
@@ -277,7 +307,8 @@ export default function ProposalPage() {
               </tr>
             )}
           </tbody>
-        </table>
+          </Table>
+        </TableWrap>
 
         <div style={{ textAlign: "right", marginTop: "var(--s-4)" }}>
           <div className="muted text-md">
@@ -288,7 +319,7 @@ export default function ProposalPage() {
             {formatMoney(totals.net, totals.currency)}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ── The proposal's own prose ────────────────────────────────────
           The exclusions and commercial notes this document carries, COPIED from
@@ -296,8 +327,8 @@ export default function ProposalPage() {
           Indian tax note: the copy filters by the client's country, so what is
           missing here is a decision rather than an omission. */}
       {record.blocks.length > 0 && (
-        <div className="card">
-          <h2 className="card-title">Exclusions and notes</h2>
+        <Card>
+          <CardTitle level={2}>Exclusions and notes</CardTitle>
           {(["exclusion", "commercial", "team"] as const).map((kind) => {
             const mine = record.blocks.filter((b) => b.kind === kind);
             if (mine.length === 0) return null;
@@ -326,100 +357,80 @@ export default function ProposalPage() {
               </div>
             );
           })}
-        </div>
+        </Card>
       )}
 
       {isDraft && (
-        <div className="card">
-          <h2 className="card-title">Quote a service</h2>
+        <Card>
+          <CardTitle level={2}>Quote a service</CardTitle>
           <form
             action={(form) => {
               addLine(form);
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="serviceVersionId">
-                  From the catalogue
-                </label>
-                <select
-                  className="select"
-                  id="serviceVersionId"
-                  name="serviceVersionId"
-                  required
-                  style={{ width: "100%" }}
-                >
-                  {services.map((entry) => {
-                    const body = readServiceBody(entry.published?.body);
-                    return (
-                      <option key={entry.entry.id} value={entry.published?.id}>
-                        {body.name || entry.entry.key}
-                        {body.listPrice !== null &&
-                          ` — ${formatMoney(body.listPrice.amount, body.listPrice.currency)}`}
-                      </option>
-                    );
-                  })}
-                </select>
+            <FieldStack>
+              <FieldRow>
+                <Field label="From the catalogue">
+                  <Select name="serviceVersionId" required>
+                    {services.map((entry) => {
+                      const body = readServiceBody(entry.published?.body);
+                      return (
+                        <option key={entry.entry.id} value={entry.published?.id}>
+                          {body.name || entry.entry.key}
+                          {body.listPrice !== null &&
+                            ` — ${formatMoney(body.listPrice.amount, body.listPrice.currency)}`}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                </Field>
+                <Field label="As it reads on the document">
+                  <Input name="description" required />
+                </Field>
+              </FieldRow>
+              <FieldRow>
+                <Field label="Quantity">
+                  <Input name="quantity" defaultValue="1" required />
+                </Field>
+                <Field label={`Unit price (${proposal.currency})`}>
+                  <Input name="unitAmount" required />
+                </Field>
+                <Field label="Discount %">
+                  <Input name="discountPercent" defaultValue="0" required />
+                </Field>
+              </FieldRow>
+              <div className="cluster">
+                <Button type="submit" disabled={busy !== null}>
+                  Add line
+                </Button>
               </div>
-              <div>
-                <label className="label" htmlFor="description">
-                  As it reads on the document
-                </label>
-                <input className="input" id="description" name="description" required />
-              </div>
-            </div>
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="quantity">
-                  Quantity
-                </label>
-                <input className="input" id="quantity" name="quantity" defaultValue="1"
-                       required />
-              </div>
-              <div>
-                <label className="label" htmlFor="unitAmount">
-                  Unit price ({proposal.currency})
-                </label>
-                <input className="input" id="unitAmount" name="unitAmount" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="discountPercent">
-                  Discount %
-                </label>
-                <input className="input" id="discountPercent" name="discountPercent"
-                       defaultValue="0" required />
-              </div>
-            </div>
-            <button className="btn" type="submit" disabled={busy !== null}>
-              Add line
-            </button>
+            </FieldStack>
           </form>
-        </div>
+        </Card>
       )}
 
-      <div className="card">
-        <h2 className="card-title">
-          {isDraft ? "Send it" : "Where it stands"}
-        </h2>
+      <Card>
+        <CardTitle level={2}>{isDraft ? "Send it" : "Where it stands"}</CardTitle>
 
         {proposal.discountApprovedAt !== null && (
           <p className="muted text-md">
             Discount signed off by{" "}
             {record.approvedBy?.displayName ?? record.approvedBy?.email ?? "a colleague"} on{" "}
-            {proposal.discountApprovedAt.slice(0, 10)}.
+            {longInstant(proposal.discountApprovedAt)}.
           </p>
         )}
         {proposal.firstViewedAt !== null && (
           <p className="muted text-md">
-            First opened {proposal.firstViewedAt.slice(0, 10)} · {proposal.viewCount}{" "}
+            First opened {longInstant(proposal.firstViewedAt)} · {proposal.viewCount}{" "}
             {proposal.viewCount === 1 ? "view" : "views"}.
           </p>
         )}
 
-        <div className="cluster" style={{ marginBottom: 0, flexWrap: "wrap" }}>
+        <div className="cluster">
           {isDraft && canApprove && (
-            <button
-              className="btn" data-variant="secondary" data-size="sm"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={busy !== null}
               onClick={() => {
                 void act("approve", () =>
@@ -430,17 +441,16 @@ export default function ProposalPage() {
               }}
             >
               Approve the discount
-            </button>
+            </Button>
           )}
           {isDraft && (
-            <button className="btn" disabled={busy !== null} onClick={() => void send()}>
+            <Button loading={busy === "send"} disabled={busy !== null} onClick={() => void send()}>
               {busy === "send" ? "Sending…" : "Send"}
-            </button>
+            </Button>
           )}
           {proposal.status === "sent" && !declining && (
             <>
-              <button
-                className="btn"
+              <Button
                 disabled={busy !== null}
                 onClick={() => {
                   void act("accepted", () =>
@@ -452,16 +462,17 @@ export default function ProposalPage() {
                 }}
               >
                 Client accepted
-              </button>
-              <button
-                className="btn" data-variant="destructive-quiet" data-size="sm"
+              </Button>
+              <Button
+                variant="destructive-quiet"
+                size="sm"
                 disabled={busy !== null}
                 onClick={() => {
                   setDeclining(true);
                 }}
               >
                 Client declined
-              </button>
+              </Button>
             </>
           )}
           {!isDraft && proposal.status !== "sent" && (
@@ -492,32 +503,42 @@ export default function ProposalPage() {
               );
             }}
           >
-            <label className="label" htmlFor="declinedReason">
-              Why did they say no?
-            </label>
-            <textarea className="textarea" id="declinedReason" name="declinedReason" rows={2}
-                      autoFocus
-                      placeholder="Went with their existing auditor on price." />
-            <div className="cluster" style={{ marginTop: "var(--s-2)", marginBottom: 0 }}>
-              <button className="btn" data-variant="destructive-quiet" data-size="sm" type="submit"
-                      disabled={busy !== null}>
-                Record the decline
-              </button>
-              <button
-                className="btn" data-variant="secondary" data-size="sm"
-                type="button"
-                disabled={busy !== null}
-                onClick={() => {
-                  setDeclining(false);
-                }}
+            {/* The sentence under the box was a loose paragraph BELOW the
+                buttons, wired to nothing — the same shape /leads had. As `hint`
+                it is the box's own `aria-describedby`. */}
+            <FieldStack>
+              <Field
+                label="Why did they say no?"
+                hint="In the firm's own words. The status already says the quote was lost; this is the half worth anything next quarter, and it cannot be added later."
               >
-                Cancel
-              </button>
-            </div>
-            <p className="muted text-sm">
-              In the firm&apos;s own words. The status already says the quote was lost; this is
-              the half worth anything next quarter, and it cannot be added later.
-            </p>
+                <Textarea
+                  name="declinedReason"
+                  rows={2}
+                  autoFocus
+                  placeholder="Went with their existing auditor on price."
+                />
+              </Field>
+              <div className="cluster">
+                <Button
+                  variant="destructive-quiet"
+                  size="sm"
+                  type="submit"
+                  disabled={busy !== null}
+                >
+                  Record the decline
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setDeclining(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </FieldStack>
           </form>
         )}
 
@@ -535,7 +556,7 @@ export default function ProposalPage() {
             </p>
           </>
         )}
-      </div>
+      </Card>
     </Page>
   );
 }
