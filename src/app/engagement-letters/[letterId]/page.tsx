@@ -15,7 +15,7 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
-import { LinkButton } from "@/components/ui";
+import { Button, cx, Field, Input, LinkButton, Meta, MetaItem, Select } from "@/components/ui";
 import {
   Card,
   CardTitle,
@@ -135,7 +135,9 @@ export default function LetterPage() {
   if (record === null) {
     return (
       <Page>
-        <p className="notice" data-tone="danger" role="alert">{error ?? "No such engagement letter."}</p>
+        <Notice tone="danger" role="alert">
+          {error ?? "No such engagement letter."}
+        </Notice>
       </Page>
     );
   }
@@ -221,7 +223,11 @@ export default function LetterPage() {
         }
       />
 
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      {error !== null && (
+        <Notice tone="danger" role="alert">
+          {error}
+        </Notice>
+      )}
 
       {/* LINEAGE, both directions and by reference. A signed letter is never
           edited — it is replaced — and until this the instruction the model gave
@@ -229,10 +235,8 @@ export default function LetterPage() {
       {(record.supersededBy !== null || record.supersedes !== null) && (
         <Card>
           {record.supersededBy !== null && (
-            <p style={{ marginBottom: record.supersedes === null ? 0 : 8 }}>
-              <span className="pill" data-tone="danger">
-                superseded
-              </span>{" "}
+            <p className={record.supersedes === null ? "" : "mb-2"}>
+              <Pill tone="danger">superseded</Pill>{" "}
               Replaced by{" "}
               <Link className="mono" href={`/engagement-letters/${record.supersededBy.id}`}>
                 {record.supersededBy.ref}
@@ -255,82 +259,76 @@ export default function LetterPage() {
       {/* THE DOCUMENT — the half a client reads before the table of fees. */}
       <Card>
         <CardTitle level={2}>The document</CardTitle>
-        <div className="field-row"
-             style={{ alignItems: "flex-start", marginBottom: "var(--s-5)" }}>
-          <div>
-            <p className="label" style={{ marginBottom: 2 }}>
-              Addressed to
-            </p>
-            {/* A named PERSON, care-of the client — not who is BILLED, which is
-                the client and is unchanged. Until the letter could store an
-                individual there was no individual to address. */}
+        {/* `<Meta>`, which is the product's ONE way of drawing label-and-value
+            pairs — `/invoices/[invoiceId]`, `/work-items/[workItemId]` and
+            `/catalogue` all read their record this way and this screen had
+            invented a second, out of `.field-row` (a FORM primitive) and four
+            `<p className="label">`. Two of its three inline styles were
+            no-ops besides: `.field-row` already sets `align-items: start`. */}
+        {/* The gap is on a WRAPPER, not on `<Meta className="mb-6">`, which is
+            what this was first written as and which silently did nothing:
+            `.meta` is unlayered and sets `margin: 0`, and every utility is in
+            `@layer utilities`. Measured on the page — `margin-bottom: 0px` —
+            and the Background heading came up to sit 11px under the record.
+            The rule is per PROPERTY, though: `justify-self` on a `.btn` further
+            down this screen DOES land, because `.btn` never declares it. */}
+        <div className="mb-6">
+          <Meta>
+          {/* A named PERSON, care-of the client — not who is BILLED, which is
+              the client and is unchanged. Until the letter could store an
+              individual there was no individual to address. */}
+          <MetaItem label="Addressed to">
             {record.addressedTo === null ? (
-              <p className="text-sm text-muted">
+              <span className="text-sm text-muted">
                 {record.party.displayName} — no individual named
-              </p>
+              </span>
             ) : (
               <>
-                <p>{record.addressedTo.displayName}</p>
-                <p className="text-md text-muted">
+                {record.addressedTo.displayName}
+                <span className="mt-0.5 block text-md text-muted">
                   care of {record.party.displayName}
-                </p>
+                </span>
               </>
             )}
-          </div>
-          <div>
-            <p className="label" style={{ marginBottom: 2 }}>
-              Issued by
-            </p>
-            {/* WHICH of the firm's own entities is contracting. The
-                jurisdiction says WHERE the work is; this says WHO on our side
-                is bound by it, and the two are not the same question. */}
-            <p>{record.issuingEntity.displayName}</p>
-            <p className="text-md text-muted">
+          </MetaItem>
+          {/* WHICH of the firm's own entities is contracting. The jurisdiction
+              says WHERE the work is; this says WHO on our side is bound by it,
+              and the two are not the same question. */}
+          <MetaItem label="Issued by">
+            {record.issuingEntity.displayName}
+            <span className="mt-0.5 block text-md text-muted">
               under {letter.jurisdiction} law
-            </p>
-          </div>
-          <div>
-            <p className="label" style={{ marginBottom: 2 }}>
-              Dated
-            </p>
-            {/* The document's OWN date, distinct from when this system
-                transmitted it. Null defaults to the day it is sent, so the page
-                says which of the two it is showing. */}
+            </span>
+          </MetaItem>
+          {/* The document's OWN date, distinct from when this system
+              transmitted it. Null defaults to the day it is sent, so the page
+              says which of the two it is showing. */}
+          <MetaItem label="Dated">
             {letter.issuedOn !== null ? (
-              <p>{longDay(letter.issuedOn)}</p>
+              longDay(letter.issuedOn)
             ) : letter.sentAt === null ? (
-              <p className="text-sm text-muted">
-                the day it is sent
-              </p>
+              <span className="text-sm text-muted">the day it is sent</span>
             ) : (
               <>
-                <p>{longInstant(letter.sentAt)}</p>
-                <p className="text-md text-muted">
-                  the day it was sent
-                </p>
+                {longInstant(letter.sentAt)}
+                <span className="mt-0.5 block text-md text-muted">the day it was sent</span>
               </>
             )}
-          </div>
-          <div>
-            <p className="label" style={{ marginBottom: 2 }}>
-              Work begins
-            </p>
-            <p>
-              {/* A day by the time it reaches here — `effective_from` straight
-                  from the API, or the signature instant already turned into one
-                  — so it prints with `longDay`, which SPLITS. */}
-              {letterBegins.day === null ? (
-                <span className="text-sm text-muted">on the day it is signed</span>
-              ) : (
-                longDay(letterBegins.day)
-              )}
-            </p>
-            {letterBeginsNote !== "" && (
-              <p className="text-md text-muted">
-                {letterBeginsNote}
-              </p>
+          </MetaItem>
+          <MetaItem label="Work begins">
+            {/* A day by the time it reaches here — `effective_from` straight
+                from the API, or the signature instant already turned into one
+                — so it prints with `longDay`, which SPLITS. */}
+            {letterBegins.day === null ? (
+              <span className="text-sm text-muted">on the day it is signed</span>
+            ) : (
+              longDay(letterBegins.day)
             )}
-          </div>
+            {letterBeginsNote !== "" && (
+              <span className="mt-0.5 block text-md text-muted">{letterBeginsNote}</span>
+            )}
+          </MetaItem>
+          </Meta>
         </div>
         <h3 className="eyebrow">Background</h3>
         {letter.background === null ? (
@@ -342,14 +340,20 @@ export default function LetterPage() {
           // Prose, as prose: this is the paragraph the client reads first, and
           // it is a TERM — inside the canonical content the signature commits
           // to, not presentation around it.
-          <p style={{ whiteSpace: "pre-wrap" }}>{letter.background}</p>
+          <p className="whitespace-pre-wrap">{letter.background}</p>
         )}
       </Card>
 
       {isSigned && (
         <Card>
           <CardTitle level={2}>Signed</CardTitle>
-          <div className="field-row" style={{ alignItems: "flex-start" }}>
+          {/* NOT `<Meta>`, unlike the record above, and the reason is the
+              labels: these are company NAMES, and `.meta dt` is 10px uppercase
+              mono. "FOR COBALT FOODS PRIVATE LIMITED" shouted over a signature
+              block is worse than the sentence-case caption. The inline
+              `align-items` that used to be here was a no-op — `.field-row`
+              already sets `align-items: start`. */}
+          <div className="field-row">
             {/* The CLIENT's half. */}
             <div>
               <p className="label" style={{ marginBottom: 2 }}>
@@ -400,10 +404,7 @@ export default function LetterPage() {
           {/* The fingerprint of exactly what was signed. On the page because
               verifying it should not need a database session — recompute the
               canonical rendering and compare. */}
-          <p className="mono text-xs text-muted"
-             style={{ wordBreak: "break-all" }}>
-            {letter.signedContentHash}
-          </p>
+          <p className="mono break-all text-xs text-muted">{letter.signedContentHash}</p>
           <p className="text-sm text-muted">
             This letter can no longer be changed — the database refuses it. A change is a new
             letter that supersedes this one, which is what keeps this readable as what was
@@ -463,8 +464,13 @@ export default function LetterPage() {
                   </Td>
                   {isDraft && (
                     <Td align="right">
-                      <button
-                        className="btn" data-variant="secondary" data-size="sm"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        /* Named by the LINE. Six buttons reading "Remove" is
+                           one name, and the one duplicate on this screen that
+                           destroys work. */
+                        aria-label={`Remove ${l.description} from this letter`}
                         disabled={busy !== null}
                         onClick={() => {
                           void act(l.id, () =>
@@ -475,7 +481,7 @@ export default function LetterPage() {
                         }}
                       >
                         Remove
-                      </button>
+                      </Button>
                     </Td>
                   )}
                 </tr>
@@ -491,7 +497,7 @@ export default function LetterPage() {
           </tbody>
         </Table>
         </TableWrap>
-        <div style={{ textAlign: "right", marginTop: "var(--s-4)" }}>
+        <div className="mt-4 text-right">
           <div className="mono text-lg">
             {formatMoney(totals.net, totals.currency)}
           </div>
@@ -519,14 +525,13 @@ export default function LetterPage() {
             const mine = record.blocks.filter((b) => b.kind === kind);
             if (mine.length === 0) return null;
             return (
-              <div key={kind} style={{ marginBottom: "var(--s-4)" }}>
+              <div key={kind} className="mb-4">
                 <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
-                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                <ul className="mt-1 list-disc pl-[18px]">
                   {mine.map((b) => (
                     <li
                       key={b.id}
-                      className="text-md"
-                      style={{ listStyle: b.isHeading ? "none" : undefined, marginLeft: b.isHeading ? -18 : 0 }}
+                      className={cx("text-md", b.isHeading && "-ml-[18px] list-none")}
                     >
                       {b.isHeading ? <strong>{b.body}</strong> : b.body}
                       {/* Written on this document rather than copied from the
@@ -552,7 +557,7 @@ export default function LetterPage() {
           </p>
         ) : (
           record.clauses.map((c) => (
-            <div key={c.id} style={{ marginBottom: "var(--s-4)" }}>
+            <div key={c.id} className="mb-4">
               <div className="text-md strong">
                 {c.title}{" "}
                 {/* The version that was PINNED. On a signed letter this is the
@@ -569,11 +574,13 @@ export default function LetterPage() {
                   Shown so a reader can see the letter is internally consistent,
                   rather than trusting that it is. */}
               {(c.governingLaw !== null || c.courts !== null) && (
-                <div className="text-sm text-muted" style={{ marginTop: 4 }}>
+                <div className="mt-1 text-sm text-muted">
                   {c.governingLaw !== null && (
                     <span>
                       Governed by {c.governingLaw.text}{" "}
-                      <span className="pill" data-tone="code">{c.governingLaw.jurisdiction}</span>
+                      <span className="pill" data-tone="code">
+                        {c.governingLaw.jurisdiction}
+                      </span>
                     </span>
                   )}
                   {c.governingLaw !== null && c.courts !== null && " · "}
@@ -591,7 +598,7 @@ export default function LetterPage() {
 
         {isDraft && (
           <form
-            style={{ marginTop: "var(--s-4)" }}
+            className="mt-4"
             action={(form) => {
               void act("clause", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/clauses", {
@@ -602,12 +609,15 @@ export default function LetterPage() {
             }}
           >
             <div className="field-row">
-              <div>
-                <label className="label" htmlFor="clauseVersionId">
-                  Add a term
-                </label>
-                <select className="select" id="clauseVersionId" name="clauseVersionId"
-                        required style={{ width: "100%" }} disabled={available.length === 0}>
+              <Field
+                label="Add a term"
+                hint={
+                  available.length === 0
+                    ? `No published clause applies to ${letter.jurisdiction} that is not already on this letter. Publish one in the catalogue.`
+                    : undefined
+                }
+              >
+                <Select name="clauseVersionId" required disabled={available.length === 0}>
                   {available.map((entry) => {
                     const body = readClauseBody(entry.published?.body);
                     return (
@@ -616,21 +626,18 @@ export default function LetterPage() {
                       </option>
                     );
                   })}
-                </select>
-              </div>
+                </Select>
+              </Field>
               <div>
-                <button className="btn" type="submit"
-                        disabled={busy !== null || available.length === 0}>
+                <Button
+                  type="submit"
+                  className="justify-self-start"
+                  disabled={busy !== null || available.length === 0}
+                >
                   Add
-                </button>
+                </Button>
               </div>
             </div>
-            {available.length === 0 && (
-              <p className="text-sm text-muted">
-                No published clause applies to {letter.jurisdiction} that is not already on this
-                letter. Publish one in the catalogue.
-              </p>
-            )}
           </form>
         )}
       </Card>
@@ -660,31 +667,26 @@ export default function LetterPage() {
               );
             }}
           >
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="entityPartyId">
-                  Delivered to
-                </label>
-                <select
-                  className="select"
-                  id="entityPartyId"
-                  name="entityPartyId"
-                  required
-                  style={{ width: "100%" }}
-                >
+            {/* `<Field>` throughout, which is what wires a label to its
+                control and points `aria-describedby` at the hint. Hand-rolled,
+                every one of these had a HARDCODED id — `description`,
+                `quantity`, `reference` — the shape that put the cursor in the
+                wrong card on /admin/workflows the moment a second form opened.
+                `Field` generates one with `useId`. And the sentence under
+                "Begins" was a loose paragraph beside the control it explains:
+                measured, this form described 0 of its 7. */}
+            <div className="field-row mb-4">
+              <Field label="Delivered to">
+                <Select name="entityPartyId" required>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.displayName}
                     </option>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="serviceVersionId">
-                  From the catalogue
-                </label>
-                <select className="select" id="serviceVersionId" name="serviceVersionId"
-                        required style={{ width: "100%" }}>
+                </Select>
+              </Field>
+              <Field label="From the catalogue">
+                <Select name="serviceVersionId" required>
                   {services.map((entry) => {
                     const body = readServiceBody(entry.published?.body);
                     return (
@@ -693,54 +695,35 @@ export default function LetterPage() {
                       </option>
                     );
                   })}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="description">
-                  As it reads on the letter
-                </label>
-                <input className="input" id="description" name="description" required />
-              </div>
+                </Select>
+              </Field>
+              <Field label="As it reads on the letter">
+                <Input name="description" required />
+              </Field>
             </div>
-            <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-              <div>
-                <label className="label" htmlFor="quantity">
-                  Quantity
-                </label>
-                <input className="input" id="quantity" name="quantity" defaultValue="1"
-                       required />
-              </div>
-              <div>
-                <label className="label" htmlFor="unitAmount">
-                  Agreed price ({letter.currency})
-                </label>
-                <input className="input" id="unitAmount" name="unitAmount" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="discountPercent">
-                  Discount %
-                </label>
-                <input className="input" id="discountPercent" name="discountPercent"
-                       defaultValue="0" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="effectiveFrom">
-                  Begins
-                </label>
-                {/* Per line as well as per document, because per line can
-                    express a single shared date and the reverse cannot: an
-                    Incorporation line starts the day it is signed while the GST
-                    line beside it starts next period. */}
-                <input className="input" id="effectiveFrom" name="effectiveFrom"
-                       type="date" />
-                <p className="text-xs text-muted" style={{ margin: "4px 0 0" }}>
-                  Blank follows the letter.
-                </p>
-              </div>
+            <div className="field-row mb-4">
+              <Field label="Quantity">
+                <Input name="quantity" defaultValue="1" required />
+              </Field>
+              <Field label={`Agreed price (${letter.currency})`}>
+                <Input name="unitAmount" required />
+              </Field>
+              <Field label="Discount %">
+                <Input name="discountPercent" defaultValue="0" required />
+              </Field>
+              {/* Per line as well as per document, because per line can express
+                  a single shared date and the reverse cannot: an Incorporation
+                  line starts the day it is signed while the GST line beside it
+                  starts next period. */}
+              <Field label="Begins" hint="Blank follows the letter.">
+                <Input name="effectiveFrom" type="date" />
+              </Field>
             </div>
-            <button className="btn" type="submit" disabled={busy !== null}>
-              Add line
-            </button>
+            <div className="cluster">
+              <Button type="submit" disabled={busy !== null}>
+                Add line
+              </Button>
+            </div>
           </form>
         </Card>
       )}
@@ -769,8 +752,13 @@ export default function LetterPage() {
                         agreed, paid for and not started. */}
                     <span
                       className="pill"
+                      /* `undefined`, not `""`. An empty attribute is still an
+                         attribute; `data-tone=""` matches no rule and reads in
+                         the DOM as a tone that was set to nothing. */
                       data-tone={
-                        e.status === "pending_advance" || e.status === "cancelled" ? "danger" : ""
+                        e.status === "pending_advance" || e.status === "cancelled"
+                          ? "danger"
+                          : undefined
                       }
                     >
                       {e.state.replace("_", " ")}
@@ -802,48 +790,58 @@ export default function LetterPage() {
           </p>
         )}
 
-        <div className="cluster" style={{ marginBottom: 0, flexWrap: "wrap" }}>
+        {/* Both of the inline styles that used to be here were no-ops:
+            `.cluster` already sets `flex-wrap: wrap` and no margin at all. */}
+        <div className="cluster">
           {isDraft && (
-            <button className="btn" disabled={busy !== null}
-                    onClick={() => {
-                      void act("send", () =>
-                        api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                          params: { path: { letterId } },
-                        }),
-                      );
-                    }}>
+            <Button
+              disabled={busy !== null}
+              onClick={() => {
+                void act("send", () =>
+                  api.POST("/api/v1/engagement-letters/{letterId}/send", {
+                    params: { path: { letterId } },
+                  }),
+                );
+              }}
+            >
               Send for signature
-            </button>
+            </Button>
           )}
           {(isDraft || letter.status === "sent") && (
-            <button className="btn" data-variant="destructive-quiet" data-size="sm" disabled={busy !== null}
-                    onClick={() => {
-                      void act("withdraw", () =>
-                        api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
-                          params: { path: { letterId } },
-                        }),
-                      );
-                    }}>
+            <Button
+              variant="destructive-quiet"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => {
+                void act("withdraw", () =>
+                  api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
+                    params: { path: { letterId } },
+                  }),
+                );
+              }}
+            >
               Withdraw
-            </button>
+            </Button>
           )}
           {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
-            <button className="btn" disabled={busy !== null}
-                    onClick={() => {
-                      void act("advance", () =>
-                        api.POST("/api/v1/engagement-letters/{letterId}/advance", {
-                          params: { path: { letterId } },
-                        }),
-                      );
-                    }}>
+            <Button
+              disabled={busy !== null}
+              onClick={() => {
+                void act("advance", () =>
+                  api.POST("/api/v1/engagement-letters/{letterId}/advance", {
+                    params: { path: { letterId } },
+                  }),
+                );
+              }}
+            >
               Record the advance
-            </button>
+            </Button>
           )}
         </div>
 
         {letter.status === "sent" && (
           <form
-            style={{ marginTop: "var(--s-4)" }}
+            className="mt-4"
             action={(form) => {
               const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
               void act("sign", () =>
@@ -869,30 +867,23 @@ export default function LetterPage() {
               already uses. This is a colleague&apos;s attestation, and the audit trail says so.
             </p>
             <div className="field-row">
+              <Field label="Who signed">
+                <Input name="signedByName" required />
+              </Field>
+              <Field label="In what capacity" optional>
+                <Input name="signedByTitle" placeholder="Director" />
+              </Field>
+              <Field label="Reference" hint="The firm’s own note of where the paper is.">
+                <Input name="reference" placeholder="paper-001" />
+              </Field>
               <div>
-                <label className="label" htmlFor="signedByName">
-                  Who signed
-                </label>
-                <input className="input" id="signedByName" name="signedByName" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="signedByTitle">
-                  In what capacity
-                </label>
-                <input className="input" id="signedByTitle" name="signedByTitle"
-                       placeholder="Director" />
-              </div>
-              <div>
-                <label className="label" htmlFor="reference">
-                  Reference
-                </label>
-                <input className="input" id="reference" name="reference"
-                       placeholder="paper-001" />
-              </div>
-              <div>
-                <button className="btn" type="submit" disabled={busy !== null}>
+                {/* `justify-self`, and it is the grid property that matters:
+                    `.field-row` is a `minmax(12rem, 1fr)` GRID, so a bare
+                    button in a cell stretches the whole column. `.btn` never
+                    declares `justify-self`, so the utility beside it lands. */}
+                <Button type="submit" className="justify-self-start" disabled={busy !== null}>
                   Record the signature
-                </button>
+                </Button>
               </div>
             </div>
           </form>
