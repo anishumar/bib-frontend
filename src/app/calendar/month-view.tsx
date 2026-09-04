@@ -185,6 +185,19 @@ export function MonthView({
   );
   const monthLate = monthRows.filter((r) => isLate(r, basis, today)).length;
 
+  /** The month's days that have anything on them, in order — what a phone
+   *  reads instead of the grid. Same `byDay`, so the two views cannot
+   *  disagree about what falls where. */
+  const monthDays = useMemo(
+    () =>
+      monthKey === null
+        ? []
+        : [...byDay.entries()]
+            .filter(([day]) => day.startsWith(monthKey))
+            .sort(([a], [b]) => a.localeCompare(b)),
+    [byDay, monthKey],
+  );
+
   const dueDays = useMemo(() => [...byDay.keys()].map(localDate), [byDay]);
   const lateDays = useMemo(
     () =>
@@ -232,7 +245,15 @@ export function MonthView({
   return (
     /* `data-tw` opts this subtree into the scoped preflight in tailwind.css.
        The screen around it is not migrated, so nothing above supplies it. */
-    <div data-tw className="flex flex-col gap-4">
+    /* `@container`, and every breakpoint below is a CONTAINER query rather
+       than a viewport one. Two reasons, and the second is why the first was
+       never noticed: this block's width is set by the sidebar and the page's
+       own column, not by the window — and a viewport query cannot be measured
+       by cloning `<main>` into a narrow host, which is the only way this app
+       can measure a phone at all (the tab reports `innerWidth: 2560` whatever
+       the window is resized to). A `sm:` here would have looked right in the
+       source and gone on overflowing. */
+    <div data-tw className="@container flex flex-col gap-4">
       {/* Only what a GRID needs. "Include filed and resolved" and the
           authority picker are the Due tab's, and apply to the list too. */}
       <div className="flex flex-wrap items-center gap-3">
@@ -246,9 +267,12 @@ export function MonthView({
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[30rem_minmax(0,1fr)]">
+      <div className="grid gap-6 @3xl:grid-cols-[30rem_minmax(0,1fr)]">
         {/* ── The month ─────────────────────────────────────────────────── */}
-        <section className="rounded-md border border-line bg-surface p-4">
+        {/* Seven columns of dates have an intrinsic minimum of 480px, which no
+            phone has. Below 32rem of container the grid is not drawn at all
+            and the list below it is — see the comment on that section. */}
+        <section className="hidden rounded-md border border-line bg-surface p-4 @lg:block">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-line-soft pb-3">
             <h2 className="text-lg font-semibold text-ink">
               {month === null ? " " : `${MONTHS[month.getMonth()] ?? ""} ${String(month.getFullYear())}`}
@@ -319,7 +343,7 @@ export function MonthView({
         </section>
 
         {/* ── The day ───────────────────────────────────────────────────── */}
-        <aside className="rounded-md border border-line bg-surface p-4">
+        <aside className="hidden rounded-md border border-line bg-surface p-4 @lg:block">
           {selected === null ? (
             <div className="py-8 text-center">
               <Icon name="calendar" size={24} className="mx-auto mb-2 text-faint" />
@@ -345,6 +369,100 @@ export function MonthView({
             </>
           )}
         </aside>
+
+        {/* ── The month, on a phone ─────────────────────────────────────── */}
+        {/*
+         * The same month as a LIST, and it is not a fallback — it is the
+         * better answer to the question a phone is asked. A grid answers
+         * "which week of this month is going to hurt"; on a 390px screen it
+         * cannot be drawn at all, and the question somebody standing up with a
+         * phone actually has is "what is owed, soonest first". So the days
+         * with nothing on them are not drawn: an empty cell is information on
+         * a grid and it is noise in a list.
+         *
+         * `basis`, `company` and the Due tab's own filters all still apply —
+         * this reads the same `byDay` the grid does.
+         */}
+        <section className="min-w-0 rounded-md border border-line bg-surface p-4 @lg:hidden">
+          <div className="mb-3 flex items-center justify-between gap-2 border-b border-line-soft pb-3">
+            <button
+              type="button"
+              aria-label="The month before"
+              disabled={month === null}
+              className="rounded-sm p-1.5 text-muted hover:text-ink disabled:opacity-40"
+              onClick={() => {
+                if (month !== null) {
+                  setMonthOverride(new Date(month.getFullYear(), month.getMonth() - 1, 1));
+                }
+              }}
+            >
+              <Icon name="arrowLeft" size={16} />
+            </button>
+            <h2 className="text-lg font-semibold text-ink">
+              {month === null
+                ? " "
+                : `${MONTHS[month.getMonth()] ?? ""} ${String(month.getFullYear())}`}
+            </h2>
+            <button
+              type="button"
+              aria-label="The month after"
+              disabled={month === null}
+              className="rounded-sm p-1.5 text-muted hover:text-ink disabled:opacity-40"
+              onClick={() => {
+                if (month !== null) {
+                  setMonthOverride(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+                }
+              }}
+            >
+              <Icon name="arrowRight" size={16} />
+            </button>
+          </div>
+
+          {month === null || !loaded ? (
+            <div
+              aria-hidden="true"
+              className="h-40 w-full animate-pulse rounded-sm bg-surface-sunk"
+            />
+          ) : monthDays.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted">
+              Nothing falls in this month.
+            </p>
+          ) : (
+            <ol className="flex flex-col gap-5">
+              {monthDays.map(([day, load]) => (
+                <li key={day}>
+                  <h3 className="text-sm font-semibold text-ink">
+                    {longDay(day)}
+                    {day === today && <span className="text-muted"> · today</span>}
+                  </h3>
+                  <p className="mb-2 text-xs text-muted">
+                    {load.rows.length}
+                    {load.rows.length === 1 ? " filing" : " filings"}
+                    {load.late > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-danger">{load.late} past the date</span>
+                      </>
+                    )}
+                  </p>
+                  <ul className="flex flex-col gap-3">
+                    {load.rows.map((row) => (
+                      <FilingCard key={row.id} row={row} basis={basis} today={today} />
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          <p className="mt-3 border-t border-line-soft pt-3 text-xs text-muted">
+            Only the days something falls on. Laid out by{" "}
+            <span className="text-ink">
+              {basis === "internal" ? "the firm’s own start date" : "the legal deadline"}
+            </span>
+            . Red means something on that day is already past it.
+          </p>
+        </section>
       </div>
     </div>
   );
@@ -477,7 +595,13 @@ function FilingCard({
     row.statutoryDueOn < today && row.filedOn === null && !row.isTerminal;
 
   return (
-    <li className="rounded-sm border border-line-soft bg-surface-sunk p-3">
+    /* `min-w-0`. Its two `truncate` paragraphs are `white-space: nowrap`, and
+       a nowrap child's min-content is the WHOLE string — so a card for "Cobalt
+       Foods Private Limited · Cobalt Foods Private Limited" set a 391px floor
+       that its flex-column parents handed all the way up to the page. It never
+       showed because these cards only ever drew in a 656px aside, and only
+       after somebody picked a day. */
+    <li className="min-w-0 rounded-sm border border-line-soft bg-surface-sunk p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{row.name}</p>
@@ -511,11 +635,17 @@ function FilingCard({
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <dt className="text-faint">Start by</dt>
         <dt className="text-faint">Legal deadline</dt>
-        <dd className={lateInternally ? "mono text-danger" : "mono text-ink"}>
-          {row.internalTargetOn}
+        {/* `longDay`, not the raw string. Both are `date` columns and both
+            were printed as `2026-09-03` — the last two places in the app that
+            still showed a reader an ISO date, and the only reason the sweep
+            that found the other twenty-four missed them is that these cards
+            draw only after somebody picks a day on the grid. `longDay` SPLITS
+            the string; a `date` must never go through `new Date`. */}
+        <dd className={lateInternally ? "text-danger" : "text-ink"}>
+          {longDay(row.internalTargetOn)}
         </dd>
-        <dd className={lateLegally ? "mono text-danger" : "mono text-ink"}>
-          {row.statutoryDueOn}
+        <dd className={lateLegally ? "text-danger" : "text-ink"}>
+          {longDay(row.statutoryDueOn)}
           {lateLegally && " · missed"}
         </dd>
       </dl>
