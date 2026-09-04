@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis, RequestRouting } from "@/lib/api/client";
-import { Button, Td, Th } from "@/components/ui";
+import { Button, Field, Input, Radio, Select, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -265,19 +265,29 @@ function TimeZoneChooser({
         does <strong>not</strong> change how any date is displayed — everybody always sees dates
         in their own local time.
       </p>
-      <label className="field" style={{ maxWidth: "42ch" }}>
-        <span className="field-label">The firm&rsquo;s time zone</span>
-        <select
-          value={chosen}
-          disabled={busy}
-          onChange={(e) => { onChoose(e.target.value); }}
-        >
-          {options.map((z) => (
-            <option key={z.value} value={z.value}>{z.label}</option>
-          ))}
-        </select>
-      </label>
-      <p className="muted text-sm">
+      {/* This was a <span className="field-label"> over a bare <select>, and
+          NEITHER of those is a thing: `.field-label` is defined in no
+          stylesheet in the repo — it was used here and nowhere else — and the
+          select carried no `.select`, so it drew as a raw browser control
+          among styled ones. Both are what `<Field>`/`<Select>` are for. */}
+      <div style={{ maxWidth: "42ch" }}>
+        <Field id="firm-timezone" label="The firm’s time zone">
+          <Select
+            value={chosen}
+            disabled={busy}
+            /* The consequence below is deliberately WIDER than this 42ch
+               column, so it cannot be the field's `hint` without re-wrapping
+               it to three lines. Pointed at by id instead. */
+            aria-describedby="firm-timezone-hint"
+            onChange={(e) => { onChoose(e.target.value); }}
+          >
+            {options.map((z) => (
+              <option key={z.value} value={z.value}>{z.label}</option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <p className="muted text-sm" id="firm-timezone-hint">
         Changing this re-cuts what a past month page <em>shows</em> at its edges, because that
         page is worked out when it is opened. Nothing stored moves.
       </p>
@@ -331,35 +341,24 @@ function WorkSplitChooser({
         A client signs one engagement letter for several services. This decides whether that
         becomes one job with everything in it, or several — one per group.
       </p>
+      {/* The flex row, the gap, the 4px nudge on the radio and the dimming of
+          a disabled option were all typed out here; `.check` does every one of
+          them, and `.check input:disabled ~ *` does the dimming without the
+          component having to work out whether it is disabled twice. */}
       <div style={{ display: "grid", gap: "var(--s-2)" }}>
         {options.map((o) => (
-          <label
+          <Radio
             key={o.value}
-            style={{
-              display: "flex",
-              gap: "var(--s-2)",
-              alignItems: "flex-start",
-              opacity: o.disabledBecause === null ? 1 : 0.55,
-            }}
-          >
-            <input
-              type="radio"
-              name="work-split"
-              value={o.value}
-              checked={chosen === o.value}
-              disabled={busy || o.disabledBecause !== null}
-              onChange={() => { onChoose(o.value); }}
-              style={{ marginTop: 4 }}
-            />
-            <span>
-              <strong>{o.label}</strong>
-              <br />
-              <span className="muted text-sm">
-                {o.hint}
-                {o.disabledBecause !== null && ` — ${o.disabledBecause}.`}
-              </span>
-            </span>
-          </label>
+            name="work-split"
+            value={o.value}
+            label={<strong>{o.label}</strong>}
+            note={
+              o.disabledBecause === null ? o.hint : `${o.hint} — ${o.disabledBecause}.`
+            }
+            checked={chosen === o.value}
+            disabled={busy || o.disabledBecause !== null}
+            onChange={() => { onChoose(o.value); }}
+          />
         ))}
       </div>
       <p className="muted text-sm">
@@ -436,6 +435,11 @@ function AxisList({
                   <CommittedText
                     key={`${r.id}:${r.name}`}
                     value={r.name}
+                    /* Named by the CODE, not by the name: this is the field
+                       that changes the name, so naming it after its own value
+                       would rename the control every time somebody types. The
+                       code is immutable and shown in the next cell. */
+                    label={`Name of ${r.code}`}
                     disabled={busy === r.id}
                     onCommit={(name) => { onRename(r.id, name); }}
                   />
@@ -447,6 +451,7 @@ function AxisList({
                   <CommittedNumber
                     key={`${r.id}:${String(r.sortOrder)}`}
                     value={r.sortOrder}
+                    label={`Order of ${r.code}`}
                     disabled={busy === r.id}
                     onCommit={(sortOrder) => { onReorder(r.id, sortOrder); }}
                   />
@@ -518,47 +523,36 @@ function AddAxis({
           void add(form);
         }}
       >
+        {/* `.field-row` is a GRID. The three `flex:` declarations that used to
+            sit on these columns — 1 1 160px, 2 1 220px, 0 1 100px — were read
+            by nothing: measured on the page, all three columns came out 362px
+            wide, so the layout has never done what the code described. */}
         <div className="field-row">
-          <div style={{ flex: "1 1 160px" }}>
-            <label className="label" htmlFor={`add-${axis}-code`}>
-              Code
-            </label>
-            <input
-              className="input"
-              id={`add-${axis}-code`}
+          <Field
+            id={`add-${axis}-code`}
+            label="Code"
+            hint="Permanent. Upper case, spaces allowed. Every service filed here names it."
+          >
+            <Input
               name="code"
               placeholder={axis === "dept" ? "FRC" : "FINCOMPLIANCE"}
               required
             />
-            <p className="field-hint">
-              Permanent. Upper case, spaces allowed. Every service filed here names it.
-            </p>
-          </div>
-          <div style={{ flex: "2 1 220px" }}>
-            <label className="label" htmlFor={`add-${axis}-name`}>
-              Name
-            </label>
-            <input
-              className="input"
-              id={`add-${axis}-name`}
+          </Field>
+          <Field
+            id={`add-${axis}-name`}
+            label="Name"
+            hint="What people read. Changeable later."
+          >
+            <Input
               name="name"
               placeholder={axis === "dept" ? "Financial Reporting & Compliance" : "FinCompliance"}
               required
             />
-            <p className="field-hint">What people read. Changeable later.</p>
-          </div>
-          <div style={{ flex: "0 1 100px" }}>
-            <label className="label" htmlFor={`add-${axis}-order`}>
-              Order
-            </label>
-            <input
-              className="input"
-              id={`add-${axis}-order`}
-              name="sortOrder"
-              type="number"
-              defaultValue={0}
-            />
-          </div>
+          </Field>
+          <Field id={`add-${axis}-order`} label="Order">
+            <Input name="sortOrder" type="number" defaultValue={0} />
+          </Field>
         </div>
         <button className="btn" type="submit" disabled={busy}>
           Add
@@ -578,10 +572,16 @@ function AddAxis({
 
 function CommittedText({
   value,
+  label,
   disabled,
   onCommit,
 }: {
   value: string;
+  /** The control's accessible name. A cell in a table has no <label> above it,
+   *  so without this it is announced as "edit text, Payroll" — the value read
+   *  back with no statement of what it IS. Required, not optional: every one
+   *  of these was unnamed, and an optional prop is how that happens again. */
+  label: string;
   disabled: boolean;
   onCommit: (name: string) => void;
 }) {
@@ -599,6 +599,7 @@ function CommittedText({
   return (
     <input
       className="input"
+      aria-label={label}
       value={draft}
       disabled={disabled}
       onChange={(e) => { setDraft(e.target.value); }}
@@ -613,10 +614,13 @@ function CommittedText({
 
 function CommittedNumber({
   value,
+  label,
   disabled,
   onCommit,
 }: {
   value: number;
+  /** See CommittedText. */
+  label: string;
   disabled: boolean;
   onCommit: (n: number) => void;
 }) {
@@ -635,6 +639,7 @@ function CommittedNumber({
     <input
       className="input"
       type="number"
+      aria-label={label}
       value={draft}
       disabled={disabled}
       onChange={(e) => { setDraft(e.target.value); }}
@@ -693,22 +698,24 @@ function RequestRoutingChooser({
       </p>
       <div className="stack tight" style={{ marginTop: "var(--s-3)" }}>
         {options.map((o) => (
-          <label key={o.value} className="choice">
-            <input
-              type="radio"
-              name="client-request-routing"
-              value={o.value}
-              checked={chosen === o.value}
-              disabled={busy}
-              onChange={() => {
-                onChoose(o.value);
-              }}
-            />
-            <span>
-              <strong>{o.label}</strong>
-              <span className="field-hint">{o.hint}</span>
-            </span>
-          </label>
+          /* Was a hand-rolled <label className="choice">, and `.choice` is
+             defined in no stylesheet — used here and nowhere else. With no
+             rule behind it the label stayed `display: inline` and the note,
+             an inline <span>, ran straight into the end of the label:
+             "Leave them for anyone to pick upRequests arrive on nobody's
+             desk". Visible on the page for as long as it has existed. */
+          <Radio
+            key={o.value}
+            name="client-request-routing"
+            value={o.value}
+            label={<strong>{o.label}</strong>}
+            note={o.hint}
+            checked={chosen === o.value}
+            disabled={busy}
+            onChange={() => {
+              onChoose(o.value);
+            }}
+          />
         ))}
       </div>
       <p className="field-hint" style={{ marginTop: "var(--s-3)" }}>
