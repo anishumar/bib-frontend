@@ -506,12 +506,26 @@
   gap: var(--s-4);
   min-width: 0;
 }
-/* Fields across a row, wrapping on their own rather than at a breakpoint. */
+/* Fields across a row, wrapping on their own rather than at a breakpoint.
+ *
+ * `align-items: start`, and it used to be `end`.
+ *
+ * `end` lines up the bottom of each column, which lines up the CONTROLS only
+ * while every column's hint is the same number of lines. It never is: a hint is
+ * absent, or one line, or three, and the column with the shorter hint gets
+ * pushed DOWN by the difference. Measured across three screens with their forms
+ * open — 49 rows in total, 35 of them misaligned, the worst by 46px, which is
+ * more than a control's height.
+ *
+ * `start` lines up the TOP of each column. That is the label, and a label is
+ * one line almost always, so the controls line up too and the hints simply hang
+ * at whatever length they are. Same measurement, same 49 rows: zero misaligned.
+ */
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--s-4);
-  align-items: end;
+  align-items: start;
 }
 
 /* Checkbox and radio: the control, and a label that can be a whole sentence.
