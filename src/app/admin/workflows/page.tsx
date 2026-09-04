@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Field, FieldRow, Input, Select } from "@/components/ui";
+import { Checkbox, Field, FieldRow, Fieldset, Input, Select } from "@/components/ui";
 import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -694,13 +694,19 @@ function StepFields({
 
       {others.length > 0 && (
         <div style={{ marginTop: "var(--s-2)" }}>
-          <span className="label">Waits for</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--s-2)" }}>
-            {others.map((other) => (
-              <label className="text-sm" key={other}>
-                <input
-                  type="checkbox"
+          {/* A <fieldset>/<legend>, not a <span className="label">. "Waits for"
+              is the QUESTION these boxes answer, and a span answers it only for
+              somebody who can see it sitting above them — a screen reader
+              announcing "reconcile, checkbox, not checked" on its own gives an
+              answer to nothing. A legend is read with each box. */}
+          <Fieldset legend="Waits for">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--s-2)" }}>
+              {others.map((other) => (
+                <Checkbox
+                  key={other}
+                  label={other}
                   checked={step.dependsOn.includes(other)}
+                  aria-describedby={`${id}-waits-hint`}
                   onChange={(e) => {
                     onChange({
                       dependsOn: e.target.checked
@@ -708,15 +714,16 @@ function StepFields({
                         : step.dependsOn.filter((d) => d !== other),
                     });
                   }}
-                />{" "}
-                {other}
-              </label>
-            ))}
-          </div>
-          <p className="max-w-[var(--measure)] text-sm text-muted">
-            Nothing ticked means it starts as soon as the work does. Two steps waiting for the
-            same thing both start together.
-          </p>
+                />
+              ))}
+            </div>
+            {/* Wired by hand: this describes the GROUP, and `Field` — which
+                would do the wiring for us — is for one control. */}
+            <p className="field-hint" id={`${id}-waits-hint`}>
+              Nothing ticked means it starts as soon as the work does. Two steps waiting for the
+              same thing both start together.
+            </p>
+          </Fieldset>
         </div>
       )}
 
