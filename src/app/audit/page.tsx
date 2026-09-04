@@ -18,6 +18,7 @@ import {
   Th,
 } from "@/components/ui";
 import type { EventRecord } from "@/lib/api/client";
+import { longMoment } from "@/lib/day";
 
 /**
  * The audit trail — every state transition the firm has made, newest first.
@@ -131,7 +132,7 @@ function AuditFeed() {
                 <tr key={r.event.id}>
                   <Td className="nowrap">
                     <span className="mono">
-                      {r.event.occurredAt.slice(0, 16).replace("T", " ")}
+                      {longMoment(r.event.occurredAt)}
                     </span>
                   </Td>
                   <Td>

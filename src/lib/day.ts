@@ -120,3 +120,23 @@ export function instantDay(iso: string): string {
   if (Number.isNaN(at.getTime())) return iso;
   return `${String(at.getFullYear())}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 }
+
+/**
+ * An instant WITH its time, where the reader is — `04 Sep 2026 19:36`.
+ *
+ * The audit trail is the one screen that needs the clock and not just the day:
+ * "who changed this, and in what order" is the question it answers, and two
+ * events on one afternoon are the same row without it.
+ *
+ * It was `occurredAt.slice(0, 16).replace("T", " ")`, which is `2026-09-04
+ * 19:36` — the UTC clock, printed with nothing saying so. A reader in India
+ * takes that for local and is five and a half hours out, which on an audit
+ * trail can put an event on the wrong side of a deadline. This parses, like
+ * `longInstant`, and prints the day in the same shape every other date on the
+ * product uses.
+ */
+export function longMoment(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  return `${longInstant(iso)} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
