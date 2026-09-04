@@ -12,7 +12,7 @@ import {
   TERMINAL_STAGES,
 } from "@/lib/api/client";
 import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
-import { Td, Th } from "@/components/ui";
+import { Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -166,6 +166,8 @@ export default function LeadsPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Pipeline"
+        lede="Who the firm is talking to, how far along each one is, and whose it is."
+        aside={<Pill tone="quiet">{open.length}</Pill>}
       />
       {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
       {note !== null && (

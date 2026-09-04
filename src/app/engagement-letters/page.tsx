@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import { browserDay } from "@/lib/day";
 import type { LetterSummary, PartySummary } from "@/lib/api/client";
-import { Td, Th } from "@/components/ui";
+import { Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -127,6 +127,8 @@ export default function LettersPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Engagement letters"
+        lede="What each client has actually signed, and what is still a draft."
+        aside={<Pill tone="quiet">{letters.length}</Pill>}
       />
       {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
 

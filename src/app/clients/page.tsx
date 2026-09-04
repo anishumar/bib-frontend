@@ -118,6 +118,7 @@ export default function ClientsPage() {
         eyebrow="Commercial"
         title="Clients"
         lede="Everyone the firm holds a record for, and the ones you were put in charge of."
+        aside={<Pill tone="quiet">{parties.length}</Pill>}
       />
 
       <ErrorNotice error={error} />
