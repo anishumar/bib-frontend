@@ -236,9 +236,9 @@ function PolicyCard({
     <Card>
       <div className="row">
         <div>
-          <h2 className="card-title">
+          <CardTitle level={2}>
             {inForce?.label ?? readBody(draft?.body)?.label ?? entry.entry.key}
-          </h2>
+          </CardTitle>
           <p className="muted text-sm">
             <code>{entry.entry.key}</code> — this is what a step names to say it is checked
             under this rule.
