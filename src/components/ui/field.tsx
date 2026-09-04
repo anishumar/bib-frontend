@@ -210,13 +210,55 @@ export interface CheckboxProps
   ref?: Ref<HTMLInputElement>;
 }
 
-export function Checkbox({ label, note, className, ...rest }: CheckboxProps) {
+/**
+ * `note` is a DESCRIPTION and never part of the name.
+ *
+ * Wrapped in a `<label>`, an input is named by everything the label contains,
+ * so a `note` inside it was being appended to the control's accessible name:
+ * on /admin/roles several run to five sentences, and every one of them was
+ * read back in full on every focus, and again on every arrow key through a
+ * radio group. `aria-labelledby` narrows the name to the label itself and the
+ * note moves to `aria-describedby`, where a description is announced once,
+ * after the name, and can be skipped.
+ *
+ * The `<label>` still WRAPS the control, so the whole row stays a click target
+ * — that is what a label is for, and none of it changes on screen. Nothing is
+ * added at all when there is no note: the native naming is right then.
+ *
+ * A caller's own `aria-describedby` is kept and the note is appended to it
+ * (/admin/workflows points a checkbox at a hint describing the whole group),
+ * because replacing it would silently drop the group's explanation.
+ */
+export function Checkbox({
+  label,
+  note,
+  className,
+  "aria-describedby": describedBy,
+  ...rest
+}: CheckboxProps) {
+  const generated = useId();
+  const labelId = `${generated}-label`;
+  const noteId = `${generated}-note`;
+  const described = [describedBy, note === undefined ? undefined : noteId]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <label className={cx("check", className)}>
-      <input type="checkbox" {...rest} />
+      <input
+        type="checkbox"
+        {...(note === undefined ? {} : { "aria-labelledby": labelId })}
+        {...(described === "" ? {} : { "aria-describedby": described })}
+        {...rest}
+      />
       <span>
-        {label}
-        {note !== undefined && <span className="note"> — {note}</span>}
+        {note === undefined ? label : <span id={labelId}>{label}</span>}
+        {note !== undefined && (
+          <span className="note">
+            {" — "}
+            <span id={noteId}>{note}</span>
+          </span>
+        )}
       </span>
     </label>
   );
@@ -238,16 +280,37 @@ export interface RadioProps
   ref?: Ref<HTMLInputElement>;
 }
 
-export function Radio({ label, note, className, ...rest }: RadioProps) {
+/** See `Checkbox` above for why the note is not part of the name. */
+export function Radio({
+  label,
+  note,
+  className,
+  "aria-describedby": describedBy,
+  ...rest
+}: RadioProps) {
+  const generated = useId();
+  const labelId = `${generated}-label`;
+  const noteId = `${generated}-note`;
+  const described = [describedBy, note === undefined ? undefined : noteId]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <label className={cx("check", className)} data-row="true">
-      <input type="radio" {...rest} />
+      <input
+        type="radio"
+        {...(note === undefined ? {} : { "aria-labelledby": labelId })}
+        {...(described === "" ? {} : { "aria-describedby": described })}
+        {...rest}
+      />
       <span>
-        {label}
+        {note === undefined ? label : <span id={labelId}>{label}</span>}
         {note !== undefined && (
           <>
             <br />
-            <span className="note">{note}</span>
+            <span className="note" id={noteId}>
+              {note}
+            </span>
           </>
         )}
       </span>
