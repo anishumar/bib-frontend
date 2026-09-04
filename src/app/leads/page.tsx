@@ -12,8 +12,24 @@ import {
   TERMINAL_STAGES,
 } from "@/lib/api/client";
 import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
-import { Pill, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  ErrorNotice,
+  Field,
+  FieldRow,
+  FieldStack,
+  Input,
+  Pill,
+  Select,
+  Table,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
+import { longInstant } from "@/lib/day";
 
 /**
  * The pipeline.
@@ -169,21 +185,25 @@ export default function LeadsPage() {
         lede="Who the firm is talking to, how far along each one is, and whose it is."
         aside={<Pill tone="quiet">{open.length}</Pill>}
       />
-      {error !== null && <p className="notice" data-tone="danger" role="alert">{error}</p>}
+      <ErrorNotice error={error} />
       {note !== null && (
-        <p className="muted text-md">
+        /* What capture ANSWERED — created, merged, or landed on a party the
+           firm already had. A live region, because it is the outcome of a
+           submit: somebody who cannot see a paragraph appear above the form
+           they are still standing in is otherwise told nothing at all. */
+        <p className="muted text-md" role="status" aria-live="polite">
           {note}
         </p>
       )}
 
-      <div className="card">
-        <h2 className="card-title">Open</h2>
+      <Card>
+        <CardTitle level={2}>Open</CardTitle>
         {open.length === 0 ? (
           <p className="muted">
             Nothing in the pipeline.
           </p>
         ) : (
-          <table className="table">
+          <Table>
             <thead>
               <tr>
                 <Th>Opportunity</Th>
@@ -211,8 +231,7 @@ export default function LeadsPage() {
                       </Td>
                       <Td className="muted">{l.lead.source}</Td>
                       <Td>
-                        <select
-                          className="select"
+                        <Select
                           /* A control in a table cell has no <label> over it —
                              the column heading is not one. Without this the row
                              announces "combo box, new" four times over with no
@@ -239,11 +258,10 @@ export default function LeadsPage() {
                               {s}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </Td>
                       <Td>
-                        <select
-                          className="select"
+                        <Select
                           aria-label={`Owner of ${l.lead.title}`}
                           value={l.owner?.userId ?? ""}
                           disabled={busy !== null || staff.length === 0}
@@ -266,7 +284,7 @@ export default function LeadsPage() {
                               {m.displayName ?? m.email}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </Td>
                     </tr>
                     {closingThis !== null && (
@@ -281,46 +299,53 @@ export default function LeadsPage() {
                               );
                             }}
                           >
-                            <label className="label" htmlFor={`lostReason-${l.lead.id}`}>
-                              {closingThis.stage === "lost"
-                                ? "Why did it go elsewhere?"
-                                : "What happened to it?"}
-                            </label>
-                            <textarea
-                              className="textarea"
-                              id={`lostReason-${l.lead.id}`}
-                              name="lostReason"
-                              rows={2}
-                              required
-                              autoFocus
-                              placeholder={
-                                closingThis.stage === "lost"
-                                  ? "Went with their existing auditor on price."
-                                  : "Three calls and two emails, no reply since June."
-                              }
-                            />
-                            <div className="cluster"
-                                 style={{ marginTop: "var(--s-2)", marginBottom: 0 }}>
-                              <button className="btn" type="submit"
-                                      disabled={busy !== null}>
-                                Close as {closingThis.stage}
-                              </button>
-                              <button
-                                className="btn" data-variant="secondary" data-size="sm"
-                                type="button"
-                                disabled={busy !== null}
-                                onClick={() => {
-                                  setClosing(null);
-                                }}
+                            <FieldStack>
+                              {/* The sentence under the box used to be a loose
+                                  paragraph BELOW the buttons, which is nowhere:
+                                  it explained the box to anybody who could see
+                                  it and to nobody who could not. As `hint` it
+                                  becomes the field's `aria-describedby`, read
+                                  out with the box it is about. */}
+                              <Field
+                                label={
+                                  closingThis.stage === "lost"
+                                    ? "Why did it go elsewhere?"
+                                    : "What happened to it?"
+                                }
+                                hint="In your own words, and required — the stage says only THAT it did not close won. Lost and abandoned are different findings and this is the half worth reading next quarter."
                               >
-                                Keep it open
-                              </button>
-                            </div>
-                            <p className="muted text-sm">
-                              In your own words, and required — the stage says only THAT it did
-                              not close won. Lost and abandoned are different findings and this
-                              is the half worth reading next quarter.
-                            </p>
+                                <Textarea
+                                  name="lostReason"
+                                  rows={2}
+                                  required
+                                  autoFocus
+                                  placeholder={
+                                    closingThis.stage === "lost"
+                                      ? "Went with their existing auditor on price."
+                                      : "Three calls and two emails, no reply since June."
+                                  }
+                                />
+                              </Field>
+                              {/* A `cluster` and not a bare pair of buttons: the
+                                  stack is a flex COLUMN, and a button laid
+                                  straight into it stretches the width of the
+                                  card. */}
+                              <div className="cluster">
+                                <Button type="submit" disabled={busy !== null}>
+                                  Close as {closingThis.stage}
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={busy !== null}
+                                  onClick={() => {
+                                    setClosing(null);
+                                  }}
+                                >
+                                  Keep it open
+                                </Button>
+                              </div>
+                            </FieldStack>
                           </form>
                         </Td>
                       </tr>
@@ -329,14 +354,26 @@ export default function LeadsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {closed.length > 0 && (
-        <div className="card" style={{ marginBottom: "var(--s-5)" }}>
-          <h2 className="card-title">Closed</h2>
-          <table className="table">
+        <Card>
+          <CardTitle level={2}>Closed</CardTitle>
+          {/* This table had no `thead` at all. Four columns of somebody's
+              record, and nothing said which was the stage, which was the
+              reason and which was the date — a screen reader announces the
+              cells with no column to hang them on, and so does a person. */}
+          <Table>
+            <thead>
+              <tr>
+                <Th>Opportunity</Th>
+                <Th>Stage</Th>
+                <Th>Why</Th>
+                <Th>Closed</Th>
+              </tr>
+            </thead>
             <tbody>
               {closed.map((l) => (
                 <tr key={l.lead.id} data-inactive="true">
@@ -350,12 +387,9 @@ export default function LeadsPage() {
                     {/* `lost` and `abandoned` render as themselves. Collapsing
                         them into one word would throw away the only signal that
                         separates a pricing problem from a follow-up one. */}
-                    <span
-                      className="pill"
-                      data-tone={recordsLostReason(l.lead.stage) ? "danger" : ""}
-                    >
+                    <Pill tone={recordsLostReason(l.lead.stage) ? "danger" : "neutral"}>
                       {l.lead.stage}
-                    </span>
+                    </Pill>
                   </Td>
                   {/* WHY, in the closer's own words. Null on a converted lead is
                       right; null on a closed-unwon one means it was closed
@@ -368,16 +402,23 @@ export default function LeadsPage() {
                         ""
                       ))}
                   </Td>
-                  <Td className="muted">{l.lead.closedAt?.slice(0, 10) ?? ""}</Td>
+                  {/* `closed_at` is a `timestamptz` — an INSTANT, so it is
+                      PARSED and not split. `.slice(0, 10)` was wrong twice: it
+                      printed `2026-09-02` where every other date on the product
+                      reads `02 Sep 2026`, and it printed the UTC day, which is
+                      the day before for anything closed after 05:30 IST. */}
+                  <Td className="muted">
+                    {l.lead.closedAt === null ? "" : longInstant(l.lead.closedAt)}
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </Card>
       )}
 
-      <div className="card">
-        <h2 className="card-title">Capture a lead</h2>
+      <Card>
+        <CardTitle level={2}>Capture a lead</CardTitle>
         <p className="muted text-md">
           At least one way to reach them. Email, phone and PAN are what the firm
           deduplicates on, so the same prospect arriving twice lands on one record.
@@ -387,63 +428,47 @@ export default function LeadsPage() {
             void capture(form);
           }}
         >
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="name">
-                Company
-              </label>
-              <input className="input" id="name" name="name" required />
+          {/* The gaps down this form were three hand-written margins — one on
+              each row and none under the last, which is exactly what a stack
+              already does. `.select` is `width: 100%` in the design system, so
+              the inline width on Source styled nothing either. */}
+          <FieldStack>
+            <FieldRow>
+              <Field label="Company">
+                <Input name="name" required />
+              </Field>
+              <Field label="Opportunity">
+                <Input name="title" placeholder="FY26 statutory audit" required />
+              </Field>
+              <Field label="Source">
+                <Select name="source">
+                  {LEAD_SOURCES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+            <FieldRow>
+              <Field label="Email">
+                <Input name="email" type="email" />
+              </Field>
+              <Field label="Phone">
+                <Input name="phone" />
+              </Field>
+              <Field label="PAN">
+                <Input name="pan" placeholder="AAACL1234M" />
+              </Field>
+            </FieldRow>
+            <div className="cluster">
+              <Button type="submit" disabled={busy !== null}>
+                {busy === "capture" ? "Capturing…" : "Capture"}
+              </Button>
             </div>
-            <div>
-              <label className="label" htmlFor="title">
-                Opportunity
-              </label>
-              <input
-                className="input"
-                id="title"
-                name="title"
-                placeholder="FY26 statutory audit"
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="source">
-                Source
-              </label>
-              <select className="select" id="source" name="source" style={{ width: "100%" }}>
-                {LEAD_SOURCES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="field-row" style={{ marginBottom: "var(--s-4)" }}>
-            <div>
-              <label className="label" htmlFor="email">
-                Email
-              </label>
-              <input className="input" id="email" name="email" type="email" />
-            </div>
-            <div>
-              <label className="label" htmlFor="phone">
-                Phone
-              </label>
-              <input className="input" id="phone" name="phone" />
-            </div>
-            <div>
-              <label className="label" htmlFor="pan">
-                PAN
-              </label>
-              <input className="input" id="pan" name="pan" placeholder="AAACL1234M" />
-            </div>
-          </div>
-          <button className="btn" type="submit" disabled={busy !== null}>
-            {busy === "capture" ? "Capturing…" : "Capture"}
-          </button>
+          </FieldStack>
         </form>
-      </div>
+      </Card>
     </Page>
   );
 }
