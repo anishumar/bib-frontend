@@ -9,6 +9,7 @@ import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
 import { Button, Pill, Td, Th } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
+import { browserDay } from "@/lib/day";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -155,7 +156,12 @@ export default function PartyPage() {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // THE READER'S OWN CALENDAR DAY. `new Date().toISOString().slice(0, 10)` is
+  // the UTC day: a firm in India is on tomorrow's date from 00:00 to 05:30
+  // local every morning, so this date field defaulted to TOMORROW for five and
+  // a half hours a day. Fixed on five other screens already; this file was
+  // Anish's and uncommitted at the time, so it was left alone until now.
+  const today = browserDay();
   // The same permission the Files panel on this page is gated on, and the one
   // the API takes for archiving.
   const canWrite = permissions.includes("party:write");
@@ -278,7 +284,7 @@ export default function PartyPage() {
                          maxLength={2} placeholder="IN" required
                          style={{ textTransform: "uppercase" }} />
                 </div>
-                <div style={{ flex: "2 1 200px" }}>
+                <div>
                   <label className="label" htmlFor="entityType">Kind of company</label>
                   <input className="input" id="entityType" name="entityType"
                          placeholder="private_limited" required />
@@ -414,7 +420,7 @@ export default function PartyPage() {
                 ))}
               </select>
             </div>
-            <div style={{ flex: "2 1 220px" }}>
+            <div>
               <label className="label" htmlFor="value">
                 Value
               </label>
