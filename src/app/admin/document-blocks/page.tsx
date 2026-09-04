@@ -143,6 +143,10 @@ export default function DocumentBlocksPage() {
                             <button
                               className="btn" data-variant="secondary" data-size="sm"
                               disabled={busy}
+                              /* Nine of these read "Retire". Named by the LINE,
+                                 truncated — it is the only identity a block
+                                 has that a person would recognise. */
+                              aria-label={`Retire the ${BLOCK_KIND_LABELS[kind].toLowerCase()} line “${b.body.slice(0, 60)}”`}
                               onClick={() =>
                                 void act(() =>
                                   api.PATCH("/api/v1/document-blocks/standard/{blockId}", {
@@ -160,6 +164,7 @@ export default function DocumentBlocksPage() {
                               <button
                                 className="btn" data-variant="secondary" data-size="sm"
                                 disabled={busy}
+                                aria-label={`Restore the ${BLOCK_KIND_LABELS[kind].toLowerCase()} line “${b.body.slice(0, 60)}”`}
                                 onClick={() =>
                                   void act(() =>
                                     api.PATCH("/api/v1/document-blocks/standard/{blockId}", {
@@ -235,7 +240,14 @@ export default function DocumentBlocksPage() {
                     <Checkbox label="Heading" name={`${kind}-heading`} />
                   </FieldRow>
                   <div className="cluster">
-                    <Button type="submit" disabled={busy}>
+                    {/* Three identical forms on this page, so three identical
+                        "Add line". The `<fieldset>` around each names its
+                        FIELDS and not its button. */}
+                    <Button
+                      type="submit"
+                      disabled={busy}
+                      aria-label={`Add a line to ${BLOCK_KIND_LABELS[kind]}`}
+                    >
                       Add line
                     </Button>
                   </div>

@@ -276,6 +276,7 @@ export default function ObligationVocabularyPage() {
                     size="sm"
                     variant={s.isActive ? "destructive-quiet" : "secondary"}
                     loading={busy === s.id}
+                    aria-label={`${s.isActive ? "Retire" : "Bring back"} the state ${s.name}`}
                     onClick={() => {
                       void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
                     }}
@@ -395,6 +396,7 @@ export default function ObligationVocabularyPage() {
                     size="sm"
                     variant={o.isActive ? "destructive-quiet" : "secondary"}
                     loading={busy === o.id}
+                    aria-label={`${o.isActive ? "Retire" : "Bring back"} the outcome ${o.name}`}
                     onClick={() => {
                       void act(o.id, () => patchOption(o.id, { isActive: !o.isActive }));
                     }}
@@ -670,7 +672,8 @@ function AddState({
                 setName("");
                 setCode("");
               }}
-                  >
+              aria-label="Add a filing state"
+            >
               Add
             </Button>
           </div>
@@ -751,6 +754,7 @@ function AddOption({
                 setName("");
                 setCode("");
               }}
+              aria-label="Add an outcome"
             >
               Add
             </Button>

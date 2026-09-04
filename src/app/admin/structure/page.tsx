@@ -478,10 +478,14 @@ function AxisList({
                     </Pill>
                   </Td>
                   <Td align="right">
+                    {/* By the CODE, which is permanent — the name in the box
+                        beside it is not, and a button that renames itself on
+                        every keystroke is not named. */}
                     <Button
                       size="sm"
                       variant={r.isActive ? "destructive-quiet" : "secondary"}
                       loading={busy === r.id}
+                      aria-label={`${r.isActive ? "Retire" : "Bring back"} ${r.code}`}
                       onClick={() => { onSetActive(r.id, !r.isActive); }}
                     >
                       {r.isActive ? "Retire" : "Bring back"}
@@ -581,7 +585,11 @@ function AddAxis({
           </Field>
         </div>
         <div className="cluster" style={{ marginTop: "var(--s-4)" }}>
-          <Button type="submit" disabled={busy}>
+          <Button
+            type="submit"
+            disabled={busy}
+            aria-label={axis === "dept" ? "Add a Dept" : "Add a delivery team"}
+          >
             Add
           </Button>
         </div>

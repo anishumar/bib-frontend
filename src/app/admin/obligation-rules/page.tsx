@@ -692,11 +692,18 @@ function RuleRow({
       <Td align="right">
         {mayWrite && (
           <Cluster>
+            {/* NAMED BY THE RULE. Fifty-seven of these read "Edit" and
+                fifty-seven more read "Retire" — the same shape the checkboxes
+                in this row were fixed for, and the buttons were left behind
+                because the probe only ever counted `input`/`select`/`textarea`.
+                A `<fieldset>`'s name does not get prepended to a BUTTON the way
+                a field's label does, so a group cannot rescue these. */}
             <Button
               variant="ghost"
               size="sm"
               disabled={busy}
               onClick={onOpen}
+              aria-label={`${open ? "Close" : "Edit"} the rule for ${rule.name}`}
               title="The formula, the exceptions, and what this rule is waiting for."
             >
               {open ? "Close" : "Edit"}
@@ -706,6 +713,7 @@ function RuleRow({
               size="sm"
               disabled={busy}
               onClick={() => { onPatch({ isActive: !rule.isActive }, "Saved."); }}
+              aria-label={`${rule.isActive ? "Retire" : "Reactivate"} the rule for ${rule.name}`}
               title={
                 rule.isActive
                   ? "Stop generating. Filings already produced stay, because a retired rule still explains their dates."

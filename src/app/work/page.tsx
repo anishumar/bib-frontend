@@ -207,7 +207,16 @@ export default function WorkPage() {
                     <span className="mono">{longInstant(j.runnableAt)}</span>
                   </Td>
                   <Td align="right">
-                    <LinkButton size="sm" href={`/work/${j.id}`}>
+                    {/* Six links reading "Open", which is a list of six
+                        identical destinations to anybody who cannot see the
+                        row they sit in. */}
+                    <LinkButton
+                      size="sm"
+                      href={`/work/${j.id}`}
+                      aria-label={`Open the ${
+                        j.services[0]?.serviceName ?? "job"
+                      } for ${j.entityName ?? "an unnamed company"}`}
+                    >
                       Open
                     </LinkButton>
                   </Td>
@@ -287,7 +296,11 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
                 {/* Open the JOB, not a modal. Approving somebody's filing without
                     seeing what the rest of the job did is the kind of sign-off
                     this whole feature exists to make real. */}
-                <LinkButton size="sm" href={`/work/${c.jobId}`}>
+                <LinkButton
+                  size="sm"
+                  href={`/work/${c.jobId}`}
+                  aria-label={`Open the job holding ${c.stepLabel}`}
+                >
                   Open
                 </LinkButton>
               </Td>

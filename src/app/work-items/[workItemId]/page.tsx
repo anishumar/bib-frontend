@@ -442,6 +442,9 @@ function MoveState({
              A utility rather than an inline style: `.btn` never declares
              `justify-self`, so there is nothing unlayered for it to lose to. */
           className="justify-self-start"
+          /* Two cards on this screen each have a "Save". They do different
+             things to different fields and the word alone says neither. */
+          aria-label="Save the new state"
           disabled={busy || stateId === currentStateId || (needsReason && reason.trim() === "")}
           onClick={() => {
             onMove(stateId, needsReason ? reason.trim() : null);
@@ -565,6 +568,7 @@ function Assign({
         </Field>
         <Button
           className="justify-self-start"
+          aria-label="Save whose desk this sits on"
           disabled={busy || userId === (currentUserId ?? "")}
           onClick={() => {
             onAssign(userId === "" ? null : userId);

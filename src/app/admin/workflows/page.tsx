@@ -337,9 +337,14 @@ function TemplateCard({
             Put v{draft.version} in force
           </Button>
         )}
+        {/* One per process, so four read "Change it". By the handle, which
+            is what every job that ever ran resolves through. */}
         <Button
           variant="secondary"
           size="sm"
+          aria-label={`${
+            editing ? "Stop editing" : draft === null ? "Change" : "Edit the draft of"
+          } ${entry.entry.key}`}
           onClick={() => {
             setEditing((e) => !e);
           }}

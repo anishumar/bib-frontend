@@ -468,7 +468,13 @@ function ServiceCard({
             />
             {note(`version:${row.key}`)}
             <div className="cluster">
-              <Button type="submit" disabled={busy !== null}>
+              {/* One per service, so five read "Draft it". By the service's
+                  permanent handle. */}
+              <Button
+                type="submit"
+                disabled={busy !== null}
+                aria-label={`Draft a new version of ${row.key}`}
+              >
                 Draft it
               </Button>
             </div>

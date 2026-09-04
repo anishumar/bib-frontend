@@ -233,10 +233,13 @@ export default function WorkVocabularyPage() {
                   </Pill>
                 </Td>
                 <Td align="right">
+                  {/* Named by the state. Twelve buttons on this screen read
+                      "Retire", and it is the destructive one. */}
                   <Button
                     size="sm"
                     variant={s.isActive ? "destructive-quiet" : "secondary"}
                     loading={busy === s.id}
+                    aria-label={`${s.isActive ? "Retire" : "Bring back"} the state ${s.name}`}
                     onClick={() => {
                       void act(s.id, () => patchState(s.id, { isActive: !s.isActive }));
                     }}
@@ -342,6 +345,7 @@ export default function WorkVocabularyPage() {
                     size="sm"
                     variant={p.isActive ? "destructive-quiet" : "secondary"}
                     loading={busy === p.id}
+                    aria-label={`${p.isActive ? "Retire" : "Bring back"} the priority ${p.name}`}
                     onClick={() => {
                       void act(p.id, () => patchPriority(p.id, { isActive: !p.isActive }));
                     }}
@@ -589,6 +593,7 @@ function AddState({
                 setCode("");
                 setIsSuccess(false);
               }}
+              aria-label="Add a work state"
             >
               Add
             </Button>
@@ -646,6 +651,7 @@ function AddPriority({
                 setName("");
                 setCode("");
               }}
+              aria-label="Add a priority"
             >
               Add
             </Button>
