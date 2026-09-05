@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
+import { DocumentBlocks } from "@/lib/ui/document-blocks";
 import {
   BLOCK_KIND_LABELS,
   api,
@@ -569,35 +570,18 @@ export default function LetterPage() {
           notes and team block — COPIED from the firm's standard set when the
           letter was drafted, and this letter's from then on. Editing the
           standard set changes the next letter and never this one. */}
-      {record.blocks.length > 0 && (
-        <Card>
-          <CardTitle level={2}>Exclusions, notes and team</CardTitle>
-          {(["exclusion", "commercial", "team"] as const).map((kind) => {
-            const mine = record.blocks.filter((b) => b.kind === kind);
-            if (mine.length === 0) return null;
-            return (
-              <div key={kind} className="mb-4">
-                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
-                <ul className="mt-1 list-disc pl-[18px]">
-                  {mine.map((b) => (
-                    <li
-                      key={b.id}
-                      className={cx("text-md", b.isHeading && "-ml-[18px] list-none")}
-                    >
-                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
-                      {/* Written on this document rather than copied from the
-                          firm's standard set — what this client negotiated. */}
-                      {b.sourceId === null && (
-                        <span className="text-xs text-muted"> · this letter&apos;s own</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </Card>
-      )}
+      {/* THE PROSE IS EDITABLE UNTIL IT IS SIGNED, and the database is what
+          says so: `crm.refuse_signed_child_change()` fires on this table too,
+          resolving its parent from `engagement_letter_id`. The exclusions a
+          client agreed to are part of what they agreed to. */}
+      <DocumentBlocks
+        blocks={record.blocks}
+        owner={{ engagementLetterId: letterId }}
+        canWrite={permissions.includes("party:write")}
+        editable={!isSigned}
+        frozenNote="This letter is signed, so its prose is frozen with its terms — the database refuses a change, the same way it refuses one to a line or a clause. A different wording is a new letter."
+        onChanged={load}
+      />
 
       <Card>
         <CardTitle level={2}>Terms</CardTitle>

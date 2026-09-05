@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
 import { groupCompanies } from "@/lib/group";
+import { DocumentBlocks } from "@/lib/ui/document-blocks";
 import type { GroupCompany } from "@/lib/group";
 import {
   Button,
@@ -429,39 +430,20 @@ export default function ProposalPage() {
           the firm's standard set at drafting. A UAE proposal correctly has no
           Indian tax note: the copy filters by the client's country, so what is
           missing here is a decision rather than an omission. */}
-      {record.blocks.length > 0 && (
-        <Card>
-          <CardTitle level={2}>Exclusions and notes</CardTitle>
-          {(["exclusion", "commercial", "team"] as const).map((kind) => {
-            const mine = record.blocks.filter((b) => b.kind === kind);
-            if (mine.length === 0) return null;
-            return (
-              <div key={kind} style={{ marginBottom: "var(--s-4)" }}>
-                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
-                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                  {mine.map((b) => (
-                    <li
-                      key={b.id}
-                      style={{
-                        listStyle: b.isHeading ? "none" : undefined,
-                        marginLeft: b.isHeading ? -18 : 0,
-                      }}
-                    >
-                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
-                      {b.sourceId === null && (
-                        <span className="muted text-xs">
-                          {" "}
-                          · this proposal&apos;s own
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </Card>
-      )}
+      {/* EDITABLE WHILE IT IS A DRAFT, which is this SCREEN’s rule and not
+          the database’s — the freeze trigger reads `engagement_letter_id`,
+          which is NULL on a proposal’s blocks, so Postgres would accept an
+          edit to a quote the client has already read. This page already draws
+          that line for its lines and its prices, and the exclusions are part of
+          the same offer. */}
+      <DocumentBlocks
+        blocks={record.blocks}
+        owner={{ proposalId }}
+        canWrite={canWrite}
+        editable={isDraft}
+        frozenNote={`This quote is ${proposal.status}, so its wording is the record of what the client was shown. A different offer is a new quote.`}
+        onChanged={load}
+      />
 
       {isDraft && (
         <Card>

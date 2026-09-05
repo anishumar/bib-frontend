@@ -16545,6 +16545,8 @@ export interface components {
             sortOrder: number;
             /** Format: uuid */
             sourceId: string | null;
+            /** @description Whether this line has been CHANGED since it landed on the document. `sourceId` survives an edit, so a house line somebody reworded for this client goes on pointing at the standard row — 0025's own comment asks for a screen that says 'standard' beside an untouched line and 'edited' beside a changed one, and `sourceId` alone can only say the first half. Derived from `updated_at > created_at`; the only UPDATE this table takes is an edit. */
+            isEdited: boolean;
         };
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
@@ -16886,6 +16888,8 @@ export interface components {
             sortOrder: number;
             /** Format: uuid */
             sourceId: string | null;
+            /** @description Whether this line has been CHANGED since it landed on the document. `sourceId` survives an edit, so a house line somebody reworded for this client goes on pointing at the standard row — 0025's own comment asks for a screen that says 'standard' beside an untouched line and 'edited' beside a changed one, and `sourceId` alone can only say the first half. Derived from `updated_at > created_at`; the only UPDATE this table takes is an edit. */
+            isEdited: boolean;
         };
         Engagement: {
             /** Format: uuid */
@@ -17044,6 +17048,8 @@ export interface components {
             sortOrder: number;
             /** Format: uuid */
             sourceId: string | null;
+            /** @description Whether this line has been CHANGED since it landed on the document. `sourceId` survives an edit, so a house line somebody reworded for this client goes on pointing at the standard row — 0025's own comment asks for a screen that says 'standard' beside an untouched line and 'edited' beside a changed one, and `sourceId` alone can only say the first half. Derived from `updated_at > created_at`; the only UPDATE this table takes is an edit. */
+            isEdited: boolean;
         };
         AddDocumentBlockRequest: {
             /** Format: uuid */

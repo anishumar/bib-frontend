@@ -814,7 +814,17 @@ export const BLOCK_KIND_LABELS: Readonly<Record<BlockKind, string>> = {
   team: "Team",
 };
 
-/** One line of prose a DOCUMENT says — its own copy, editable per document. */
+/**
+ * One line of ONE document's own prose — an exclusion, a commercial note, a
+ * line of the team block. Its own copy, editable per document.
+ *
+ * `sourceId` is the firm's standard line it was copied from at drafting, and
+ * NULL is the interesting value: somebody wrote this line for THIS client and
+ * it is not in the house set. A signed letter's blocks are frozen by the same
+ * database trigger that freezes its lines and its clauses; a proposal's are
+ * not, and that difference is why each screen decides for itself whether to
+ * offer the editor.
+ */
 export type DocumentBlock = LetterRecord["blocks"][number];
 
 /** Whose desk covers leads from a country. */
