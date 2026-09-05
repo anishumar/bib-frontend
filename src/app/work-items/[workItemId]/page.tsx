@@ -418,6 +418,30 @@ function MoveState({
 }) {
   const [stateId, setStateId] = useState(currentStateId);
   const [reason, setReason] = useState("");
+
+  /**
+   * RE-SYNC WHEN THE ITEM MOVES UNDER US, and it now does.
+   *
+   * `useState(currentStateId)` reads the prop ONCE, at mount, and this
+   * component never unmounts — so anything that changed the state from
+   * somewhere else left the picker showing the old one. It was latent until
+   * 0073: sending a task for review MOVES it into the firm's "with a checker"
+   * state, and walking that found the picker still reading "Not Started" on an
+   * item the API had already put in "Under Review". The whole point of that
+   * change is that the screen stops disagreeing with the record, so a stale
+   * picker undoes it exactly.
+   *
+   * React's own recipe for adjusting state to a prop — compare against what was
+   * last seen and set during render — rather than an effect (which renders the
+   * wrong value once first) or a `key` on the parent (which remounts, blurring
+   * whatever had focus). Only the SELECTION is reset: a half-typed block reason
+   * belongs to the person typing it.
+   */
+  const [seenStateId, setSeenStateId] = useState(currentStateId);
+  if (seenStateId !== currentStateId) {
+    setSeenStateId(currentStateId);
+    setStateId(currentStateId);
+  }
   const target = vocabulary.states.find((s) => s.id === stateId) ?? null;
   const needsReason = target?.isBlocked ?? false;
 

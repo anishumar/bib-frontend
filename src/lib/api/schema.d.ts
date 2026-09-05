@@ -15428,6 +15428,8 @@ export interface components {
             isBlocked: boolean;
             /** @description Reaching it means the work was actually DONE, not abandoned. Only a terminal state may carry it. A firm starts with TWO terminal states — Completed and Cancelled — and this is what tells them apart: the compliance calendar marks a filing filed from this flag, and cancelling a task must never record that a statutory return was filed. */
             isSuccess: boolean;
+            /** @description Work in this state is WITH A CHECKER, and sending an item for review moves it here automatically — so the board column and the open review cannot disagree. Before this flag they routinely did: the buttons said Approve / Send back while the header still read 'In Progress'. At most one state per firm may carry it, it cannot also be blocked, terminal or the starting state, and FALSE EVERYWHERE is the shipped answer: a firm that has not said which of its own states means this keeps the old behaviour, because deciding that a state NAMED 'Under Review' means under review is this product having an opinion about the firm's words. */
+            isUnderReview: boolean;
             sortOrder: number;
             /** @description Whether the firm still moves work into it. A retired state still renders everywhere it is already held — retiring is not deleting. */
             isActive: boolean;
@@ -15635,6 +15637,7 @@ export interface components {
             isTerminal?: boolean;
             isBlocked?: boolean;
             isSuccess?: boolean;
+            isUnderReview?: boolean;
             sortOrder?: number;
         };
         UpdateWorkItemStateRequest: {
@@ -15643,6 +15646,7 @@ export interface components {
             isTerminal?: boolean;
             isBlocked?: boolean;
             isSuccess?: boolean;
+            isUnderReview?: boolean;
             sortOrder?: number;
             isActive?: boolean;
         };

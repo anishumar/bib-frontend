@@ -4,7 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { WorkItemPriority, WorkItemState } from "@/lib/api/client";
+import type {
+  UpdateWorkItemStateRequest,
+  WorkItemPriority,
+  WorkItemState,
+} from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -44,6 +48,9 @@ import { Page, PageHeader } from "@/components/layout";
  *   Starting   where new work begins. Exactly one, always.
  *   Finished   nothing further happens; the completion time is stamped.
  *   Blocked    a REASON becomes mandatory the moment anything enters it.
+ *   Checking   sending a task for review MOVES it here (0073). At most one,
+ *              and NONE is a real answer — leave every box unticked and the
+ *              product behaves as it did before the flag existed.
  *
  * So ticking "Blocked" on "Waiting for Client" starts demanding a sentence
  * there too, with no deploy — and each box says what it turns on rather than
@@ -134,6 +141,7 @@ export default function WorkVocabularyPage() {
               <Th>Finished</Th>
               <Th>Done, not dropped</Th>
               <Th>Blocked</Th>
+              <Th>With a checker</Th>
               <Th>Status</Th>
               <Th />
             </tr>
@@ -227,6 +235,46 @@ export default function WorkVocabularyPage() {
                     }}
                   />
                 </Td>
+                {/* THE ONE BOX THAT MOVES WORK BY ITSELF. Ticking it means
+                    "Send for review" puts the task here, so the board column
+                    and the open review stop disagreeing — before this they
+                    routinely did: the buttons said Approve / Send back while
+                    the header still read "In Progress". A radio, not a
+                    checkbox, for the starting state's reason: at most one, and
+                    marking another moves it in one act with no moment in
+                    between. It cannot sit on a finished or blocked state and
+                    the API says why. */}
+                <Td>
+                  <input
+                    type="radio"
+                    name="underReview"
+                    aria-label={`${s.name} is where work sent for review goes`}
+                    checked={s.isUnderReview}
+                    disabled={
+                      busy === s.id ||
+                      !s.isActive ||
+                      s.isTerminal ||
+                      s.isBlocked ||
+                      // THE STARTING STATE TOO, and it is easy to miss: the API
+                      // refuses the pair (new work would be created as though
+                      // somebody had already sent it to be checked), so leaving
+                      // this row enabled offers a refusal. Found by looking at
+                      // the rendered table — "Not Started" was the one row that
+                      // could be ticked and could not be saved.
+                      s.isInitial
+                    }
+                    title={
+                      s.isTerminal || s.isBlocked
+                        ? "Work waiting to be checked is neither finished nor stuck, so this cannot sit on a finished or blocked state."
+                        : s.isInitial
+                          ? "The starting state cannot be this one: every new task would be created as though it had already been sent for review."
+                          : "Sending a task for review moves it into this state."
+                    }
+                    onChange={() => {
+                      void act(s.id, () => patchState(s.id, { isUnderReview: true }));
+                    }}
+                  />
+                </Td>
                 <Td>
                   <Pill tone={s.isActive ? "ok" : "danger"}>
                     {s.isActive ? "in use" : "retired"}
@@ -257,8 +305,11 @@ export default function WorkVocabularyPage() {
           moves it. <strong>Finished</strong> stamps the completion time and takes the task off
           the open board. <strong>Blocked</strong> makes a written reason mandatory the moment
           anything enters that state, which is the only thing that ever explains a delay later.
-          Retiring keeps a state readable on every task already in it; it just stops being
-          offered.
+          <strong> With a checker</strong> is the one box that moves work on its own: sending a
+          task for review puts it in that state, so the board column and the review queue cannot
+          disagree. Leaving every one of them unticked is a real answer &mdash; nothing moves,
+          which is what this product did before the box existed. Retiring keeps a state readable
+          on every task already in it; it just stops being offered.
         </p>
         <AddState
           busy={busy === "new-state"}
@@ -378,17 +429,17 @@ export default function WorkVocabularyPage() {
   );
 }
 
+/**
+ * `UpdateWorkItemStateRequest` and NOT a hand-written shape.
+ *
+ * It was one, and it went stale the moment the API grew `isUnderReview` — the
+ * failure this repo's CLAUDE.md opens with, caught here only because the new
+ * field happened to be used on the very next line. A retyped request body is a
+ * type that compiles, is wrong, and says nothing when the backend moves.
+ */
 function patchState(
   stateId: string,
-  body: {
-    name?: string;
-    sortOrder?: number;
-    isInitial?: boolean;
-    isTerminal?: boolean;
-    isBlocked?: boolean;
-    isSuccess?: boolean;
-    isActive?: boolean;
-  },
+  body: UpdateWorkItemStateRequest,
 ): Promise<{ error?: unknown }> {
   return api.PATCH("/api/v1/work-vocabulary/states/{stateId}", {
     params: { path: { stateId } },

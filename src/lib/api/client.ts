@@ -243,6 +243,18 @@ export type WorkItemPriority = WorkItem["priority"];
 export type WorkVocabulary =
   paths["/api/v1/work-vocabulary"]["get"]["responses"][200]["content"]["application/json"];
 
+/**
+ * The edit a state accepts — every field optional, because the API resolves
+ * absent ones to their current values.
+ *
+ * DERIVED, not retyped. The admin screen carried a hand-written copy of this
+ * shape and it went stale the moment the API grew `isUnderReview` (0073) — the
+ * exact failure `bib-frontend/CLAUDE.md` opens with. A retyped request body is
+ * a type that compiles, is wrong, and says nothing when the backend moves.
+ */
+export type UpdateWorkItemStateRequest =
+  paths["/api/v1/work-vocabulary/states/{stateId}"]["patch"]["requestBody"]["content"]["application/json"];
+
 /** A member of staff, and whether they may check one particular work item. The
  *  same rule a process step's check uses. */
 export type WorkItemChecker =
