@@ -341,12 +341,22 @@ function RequestCard({
         )}
 
         {live && mayRequest && (
-          <>
+          /* NAMED BY THE SUBJECT — the same reason the firm's half of this page
+             names its controls by the job. Two live requests draw two "Add to
+             this" boxes and two "Send" buttons, and "Send" already collides
+             with the answer button on an ask further up the SAME page: one word
+             for two different lanes. The subject is what the reader typed when
+             they opened the request and nothing on this card can edit it. */
+          <fieldset
+            className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"
+            aria-label={`Your request: ${request.subject}`}
+          >
             <Field label="Add to this">
               <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
             <div className="cluster">
               <Button
+                aria-label={`Send your reply on ${request.subject}`}
                 onClick={() => void act("replies")}
                 disabled={busy || note.trim().length === 0}
               >
@@ -355,11 +365,16 @@ function RequestCard({
               {/* THE CLIENT'S OWN ENDING, and the firm cannot do it for them:
                   "we decided you did not need this" is a refusal, which the
                   firm has to close with a reply saying so. */}
-              <Button variant="ghost" onClick={() => void act("withdraw")} disabled={busy}>
+              <Button
+                variant="ghost"
+                aria-label={`Never mind — withdraw ${request.subject}`}
+                onClick={() => void act("withdraw")}
+                disabled={busy}
+              >
                 Never mind
               </Button>
             </div>
-          </>
+          </fieldset>
         )}
       </div>
     </Card>

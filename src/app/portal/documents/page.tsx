@@ -182,21 +182,36 @@ export default function PortalLibraryPage() {
             </div>
           )}
 
-          {shown.length === 0 ? (
-            <NoResults
-              action={
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setQuery("");
-                  }}
-                >
-                  Clear the search
-                </Button>
-              }
-            />
-          ) : (
-            <Section title={heading(documents.length, shown.length)} level={2}>
+          {/* THE SECTION WRAPS BOTH BRANCHES, and that is the fix rather than
+              the tidying it looks like. `NoResults` renders an <h3>; with the
+              <Section> inside the ternary the no-match branch had no <h2> at
+              all, so the heading ladder went h1 -> h3 on the one screen state a
+              reader reaches by typing. It is invisible in the demo, which holds
+              one document and never draws the search box. `heading()` reads
+              "0 of 12" here, which is also the fact worth having.
+
+              And the sentence is the SCREEN's, not the component's default:
+              this page has no filters, it has a search box and a button that
+              says "Clear the search". "Nothing matches the current filters"
+              sends a client looking for a control that is not there. */}
+          <Section title={heading(documents.length, shown.length)} level={2}>
+            {shown.length === 0 ? (
+              <NoResults
+                action={
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setQuery("");
+                    }}
+                  >
+                    Clear the search
+                  </Button>
+                }
+              >
+                Nothing here matches what you typed. Try a shorter word — part of a file
+                name, or the month it was for.
+              </NoResults>
+            ) : (
               <TableWrap>
                 <Table>
                   <thead>
@@ -217,8 +232,8 @@ export default function PortalLibraryPage() {
                   </tbody>
                 </Table>
               </TableWrap>
-            </Section>
-          )}
+            )}
+          </Section>
         </>
       )}
 
@@ -322,10 +337,17 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
           <span className="mono">{longInstant(doc.addedOn)}</span>
         </Td>
         <Td align="right" className="nowrap">
+          {/* NAMED BY THE FILE. Every row draws this button and they all say
+              the same word: with twelve documents that is twelve buttons called
+              "Download", which tells a reader moving between them by name
+              nothing at all. The demo holds ONE, which is why no sweep has ever
+              caught it. The file name is what the row is; the title is not,
+              because two filings can share one. */}
           <Button
             variant="secondary"
             size="sm"
             loading={busy}
+            aria-label={`Download ${doc.filename}`}
             icon={<Icon name="download" size={15} />}
             onClick={() => void download()}
           >

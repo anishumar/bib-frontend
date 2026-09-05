@@ -205,6 +205,26 @@ function AskCard({
   const [note, setNote] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
+  /**
+   * WHAT THIS CARD IS ABOUT, and every control on it is named by it.
+   *
+   * The demo firm holds one ask of each kind, so this page has always measured
+   * as though every name on it were distinct. Rendered with six — two documents,
+   * two questions, two approvals, which is an ORDINARY month for a client with
+   * twenty-one filings owed — it reads **11 controls, 5 names** and **16
+   * buttons, 6 names**: "The file" twice, "Your answer" three times, and "Send"
+   * FIVE times, spanning both lanes of the page so the same word answers the
+   * firm's question and adds to your own request.
+   *
+   * The heading says the KIND and the line under it says which job — so the
+   * identity is on the screen already and only the accessible names lack it.
+   * It is `workItemTitle`, which the client cannot edit and the firm does not
+   * change under them: never the prompt, which is prose, and never the status,
+   * which moves the moment they answer.
+   */
+  const kind = KIND_LABEL[ask.askKind] ?? "A request";
+  const about = `${kind} — ${ask.workItemTitle}`;
+
   async function run(send: () => Promise<{ error?: unknown }>): Promise<void> {
     setBusy(true);
     setError(null);
@@ -261,9 +281,7 @@ function AskCard({
           heading cost a line in every card on the page a client actually has
           to work through. */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h3 className="text-md font-semibold text-ink">
-          {KIND_LABEL[ask.askKind] ?? "A request"}
-        </h3>
+        <h3 className="text-md font-semibold text-ink">{kind}</h3>
         <Pill tone={ask.status === "open" ? "warn" : "neutral"}>
           {ask.status === "open" ? "Waiting on you" : "Sent"}
         </Pill>
@@ -299,7 +317,13 @@ function AskCard({
         )}
 
         {mayRespond && (
-          <div className="flex flex-col gap-3">
+          /* A <fieldset> with NO legend: nothing moves on screen, and each
+             field's name is now announced under the job it belongs to. It
+             cannot rescue the BUTTONS — a group's name is announced when you
+             ENTER the group and is not prepended to a button the way a field's
+             label is — so those carry their own `aria-label`, and their visible
+             words never change. */
+          <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0" aria-label={about}>
             {ask.askKind === "document" && (
               <>
                 <Field label="The file" hint="Nothing is scanned before it reaches the firm.">
@@ -321,11 +345,16 @@ function AskCard({
                   />
                 </Field>
                 <div className="cluster">
-                  <Button onClick={() => void upload()} disabled={busy}>
+                  <Button
+                    aria-label={`Send the file for ${about}`}
+                    onClick={() => void upload()}
+                    disabled={busy}
+                  >
                     Send the file
                   </Button>
                   <Button
                     variant="ghost"
+                    aria-label={`Answer in words instead for ${about}`}
                     onClick={() => void answer()}
                     disabled={busy || note.trim().length === 0}
                   >
@@ -342,6 +371,7 @@ function AskCard({
                 </Field>
                 <div className="cluster">
                   <Button
+                    aria-label={`Send your answer for ${about}`}
                     onClick={() => void answer()}
                     disabled={busy || note.trim().length === 0}
                   >
@@ -357,11 +387,16 @@ function AskCard({
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
                 </Field>
                 <div className="cluster">
-                  <Button onClick={() => void decide("approved")} disabled={busy}>
+                  <Button
+                    aria-label={`Approve ${about}`}
+                    onClick={() => void decide("approved")}
+                    disabled={busy}
+                  >
                     Approve
                   </Button>
                   <Button
                     variant="ghost"
+                    aria-label={`Decline ${about}`}
                     onClick={() => void decide("declined")}
                     disabled={busy}
                   >
@@ -370,7 +405,7 @@ function AskCard({
                 </div>
               </>
             )}
-          </div>
+          </fieldset>
         )}
       </div>
     </Card>
