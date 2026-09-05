@@ -15725,6 +15725,11 @@ export interface components {
             workItemId: string;
             /** Format: uuid */
             dependsOnWorkItemId: string;
+            dependsOnTitle: string;
+            /** @description The FIRM's own word for the state that item is in, never a code. */
+            dependsOnStateName: string;
+            /** @description Whether the item this one waits on is FINISHED. The flag, never a state code — a firm owns the names of its states. An unfinished blocker refuses this item's start; a finished one is a record of what it used to wait on and refuses nothing, and a screen drawing them the same offers somebody a reason to lift a dependency that is not costing anything. */
+            dependsOnIsTerminal: boolean;
         };
         WorkItemReview: {
             /** Format: uuid */

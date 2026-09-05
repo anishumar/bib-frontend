@@ -199,6 +199,17 @@ export type ChecklistItem = WorkItemDetail["checklist"][number];
 export type WorkItemReview = WorkItemDetail["reviews"][number];
 
 /**
+ * One thing a task waits on, with the task at the other end RESOLVED.
+ *
+ * It was three uuids on the wire until a screen tried to draw it — the sixth
+ * time this product has learnt that a bare edge renders as a bare edge.
+ * `dependsOnIsTerminal` is the FLAG and not a state code: a firm owns the names
+ * of its states, and this is what separates a blocker still holding the task
+ * back from a record of what it used to wait on.
+ */
+export type WorkItemDependency = WorkItemDetail["dependencies"][number];
+
+/**
  * One row of the firm's own check queue — a review, plus the VIEWER's verdict.
  *
  * A different type from `WorkItemReview` because it answers a different

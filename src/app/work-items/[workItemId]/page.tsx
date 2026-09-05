@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
@@ -8,6 +8,7 @@ import {
   Button,
   cx,
   Field,
+  FieldStack,
   Input,
   LinkButton,
   Meta,
@@ -15,12 +16,15 @@ import {
   Select,
   Switch,
   Textarea,
+  useSwapFocus,
 } from "@/components/ui";
 import type {
   ChecklistItem,
   Member,
   Principal,
+  WorkItem,
   WorkItemChecker,
+  WorkItemDependency,
   WorkItemDetail,
   WorkItemReview,
   WorkVocabulary,
@@ -37,7 +41,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { longDay, longInstant } from "@/lib/day";
+import { browserDay, longDay, longInstant } from "@/lib/day";
 import { ClientAsks } from "./client-asks";
 import { Documents } from "@/lib/ui/documents";
 
@@ -122,19 +126,51 @@ export default function WorkItemPage() {
     })();
   }, [load]);
 
-  /** Every mutation funnels through here so one place owns the busy flag, the
-   *  error message and the reload. */
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  /**
+   * A REFUSAL TAKES FOCUS, because this page is long and its error notice is at
+   * the top of it.
+   *
+   * `role="alert"` already announces the sentence to a screen reader. A sighted
+   * keyboard or mouse user pressing a button 3,000px down the page gets
+   * nothing: focus stays on the button they pressed, which now looks like a
+   * button that did nothing. Focusing the notice scrolls it into view and puts
+   * the next Tab beside it.
+   *
+   * `tabIndex={-1}` on the notice is what makes it focusable without adding a
+   * tab stop — the same half-fix the skip link needed.
+   */
+  const errorRef = useRef<HTMLDivElement>(null);
+  const [errorAt, setErrorAt] = useState(0);
+  useEffect(() => {
+    if (errorAt > 0) errorRef.current?.focus();
+  }, [errorAt]);
+
+  /**
+   * Every mutation funnels through here so one place owns the busy flag, the
+   * error message and the reload.
+   *
+   * IT RETURNS WHETHER IT WORKED, and that is not bookkeeping. A panel that
+   * closes its own form on submit closes it on a REFUSAL too — measured on the
+   * dependency picker: the API refused a cycle, the sentence rendered at the
+   * top of a 3,000px page, and the form the reader would have corrected it in
+   * had already gone. Callers that do not care go on writing `void act(…)`.
+   */
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(key);
     setError(null);
     const result = await call();
     if (result.error) {
       setError(apiError(result.error).message);
+      // BUMPED EVEN WHEN THE SENTENCE IS THE SAME. Pressing a refused button
+      // twice must move focus twice, and `error` alone does not change on the
+      // second press.
+      setErrorAt((n) => n + 1);
       setBusy(null);
-      return;
+      return false;
     }
     await load();
     setBusy(null);
+    return true;
   }
 
   if (!loaded) return <p className="muted">Loading…</p>;
@@ -189,7 +225,9 @@ export default function WorkItemPage() {
         }
       />
       {error !== null && (
-        <Notice tone="danger" role="alert">{error}</Notice>
+        <div ref={errorRef} tabIndex={-1}>
+          <Notice tone="danger" role="alert">{error}</Notice>
+        </div>
       )}
 
       <Card>
@@ -364,6 +402,33 @@ export default function WorkItemPage() {
           void act(checklistItemId, () =>
             api.DELETE("/api/v1/work-items/{workItemId}/checklist/{checklistItemId}", {
               params: { path: { workItemId, checklistItemId } },
+            }),
+          );
+        }}
+      />
+
+      {/* WHAT THIS WAITS ON. The checklist above is what is INSIDE this task;
+          this is what is outside it, and it is the thing that decides whether
+          the task can be started at all. `detail.dependencies` has been on the
+          wire since T3.1 and no screen has ever drawn it. */}
+      <Dependencies
+        workItemId={workItemId}
+        clientPartyId={item.clientPartyId}
+        deps={detail.dependencies}
+        canWrite={canWrite}
+        busy={busy}
+        onAdd={(dependsOnWorkItemId) =>
+          act("dependency", () =>
+            api.POST("/api/v1/work-items/{workItemId}/dependencies", {
+              params: { path: { workItemId } },
+              body: { dependsOnWorkItemId },
+            }),
+          )
+        }
+        onRemove={(dependencyId) => {
+          void act(dependencyId, () =>
+            api.DELETE("/api/v1/work-items/{workItemId}/dependencies/{dependencyId}", {
+              params: { path: { workItemId, dependencyId } },
             }),
           );
         }}
@@ -974,5 +1039,254 @@ function DecideReview({
         )}
       </details>
     </>
+  );
+}
+
+/**
+ * WHAT THIS TASK WAITS ON — add one, and lift one (T3.1's last unrendered read).
+ *
+ * ## It had no screen at all, and the read had no reader
+ *
+ * `POST /work-items/{id}/dependencies` and its DELETE shipped with the module,
+ * `WorkItemDetail.dependencies` came back on every read of this page, and
+ * nothing rendered any of it. So "the annual filing waits on twelve monthly
+ * ones" — the API's own example — was a curl command, and the only place the
+ * relationship surfaced was a refusal when somebody tried to start the task.
+ *
+ * ## The API is the thing that refuses, and its sentences are shown verbatim
+ *
+ * Three refusals live behind these two buttons and none of them is
+ * re-implemented here:
+ *
+ * - **A cycle.** Direct or through a chain, and the service walks the firm's
+ *   whole edge list to find it — reachability is not expressible as a CHECK, so
+ *   the database catches only the self-edge. A picker cannot prevent this
+ *   without duplicating that walk in the browser, which is a second answer to a
+ *   question that must only have one.
+ * - **A duplicate.** "this item already waits on that one".
+ * - **Starting while it still waits.** Moving out of the starting state is
+ *   refused while any blocker is unfinished — and moving straight to a terminal
+ *   state is still allowed, because cancelling something that never started is
+ *   a real act. That refusal arrives on the state picker, not here, and this
+ *   panel is what explains it.
+ *
+ * ## Finished blockers are shown, and shown as finished
+ *
+ * A dependency does not disappear when the thing it waits on is done — it
+ * becomes the record of what this task used to wait on. Drawing it like a live
+ * one would put a reason in front of somebody to lift a dependency that is not
+ * costing anything; hiding it would make the history vanish. `dependsOnIsTerminal`
+ * is the FLAG, so a firm that calls its finished state "Filed" gets the right
+ * answer without this screen knowing the word.
+ *
+ * ## The picker offers this client's OTHER work, and nothing else
+ *
+ * A firm's board is thousands of rows and a `<select>` over it is not a choice
+ * anybody can make. The dependency that actually gets recorded is between two
+ * pieces of work for the same client — the API's own example is one company's
+ * twelve monthly returns and its annual one — so the list is
+ * `?clientPartyId=…&includeDone=true`, minus this item and minus what it
+ * already waits on. **A dependency across two clients cannot be recorded from
+ * this screen**, and that is a real limit rather than an oversight: the
+ * alternative is a picker nobody can read, and the route is still there for the
+ * day somebody needs one.
+ */
+function Dependencies({
+  workItemId,
+  clientPartyId,
+  deps,
+  canWrite,
+  busy,
+  onAdd,
+  onRemove,
+}: {
+  workItemId: string;
+  clientPartyId: string;
+  deps: readonly WorkItemDependency[];
+  canWrite: boolean;
+  busy: string | null;
+  /** Resolves true when the API accepted it. The form stays open otherwise —
+   *  see the note on the `action` below. */
+  onAdd: (dependsOnWorkItemId: string) => Promise<boolean>;
+  onRemove: (dependencyId: string) => void;
+}) {
+  const [candidates, setCandidates] = useState<WorkItem[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const { panel: formRef, trigger: openRef } = useSwapFocus(adding);
+
+  /**
+   * The candidate list, loaded when the FORM opens and not when the select is
+   * focused.
+   *
+   * A native `<select>` opens the instant it is clicked, so options fetched on
+   * its own focus arrive after the reader is already looking at an empty list —
+   * `/client-requests` shipped that bug and this is the same shape. Opening the
+   * disclosure is the earliest honest moment, and it is a whole interaction
+   * ahead of the click.
+   */
+  async function open(): Promise<void> {
+    setAdding(true);
+    if (candidates !== null) return;
+    const result = await api.GET("/api/v1/work-items", {
+      params: {
+        query: {
+          clientPartyId,
+          // Finished work is offered too. It records what this task used to
+          // wait on, which is a legitimate thing to write down after the fact,
+          // and the option says so rather than the list quietly being short.
+          includeDone: "true",
+          asOf: browserDay(),
+        },
+      },
+    });
+    setCandidates(result.error ? [] : result.data.items);
+  }
+
+  const already = new Set(deps.map((d) => d.dependsOnWorkItemId));
+  const offerable = (candidates ?? []).filter(
+    (i) => i.id !== workItemId && !already.has(i.id),
+  );
+  const open_ = deps.filter((d) => !d.dependsOnIsTerminal);
+
+  return (
+    <Card>
+      <CardTitle level={2}>
+        What this waits on{" "}
+        {deps.length > 0 && (
+          <span className="annot text-sm">
+            {open_.length}/{deps.length} still open
+          </span>
+        )}
+      </CardTitle>
+      <p className="muted text-md">
+        &ldquo;This cannot start until that is finished&rdquo; — an annual filing waits on
+        twelve monthly ones. While anything here is unfinished, moving this task out of its
+        starting state is refused; cancelling it outright is not, because abandoning something
+        that never started is a real act.
+      </p>
+
+      {deps.length === 0 ? (
+        <p className="muted text-md">
+          Nothing. This can be started whenever somebody picks it up.
+        </p>
+      ) : (
+        deps.map((d) => (
+          <div key={d.id} className="row py-1">
+            <span>
+              <Link href={`/work-items/${d.dependsOnWorkItemId}`}>{d.dependsOnTitle}</Link>{" "}
+              {/* THE FIRM'S OWN WORD FOR THE STATE, with the tone taken from
+                  the FLAG. Nothing here compares a state code — a firm may call
+                  its finished state anything, and `/work-items` and this page
+                  must not disagree about which of its own states means done. */}
+              <Pill tone={d.dependsOnIsTerminal ? "ok" : "warn"}>{d.dependsOnStateName}</Pill>
+            </span>
+            {canWrite && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === d.id}
+                /* NAMED BY WHAT IT WAITS ON. A task waiting on four things
+                   draws four of these and the visible word never changes. */
+                aria-label={`Stop waiting on ${d.dependsOnTitle}`}
+                onClick={() => {
+                  onRemove(d.id);
+                }}
+              >
+                Lift it
+              </Button>
+            )}
+          </div>
+        ))
+      )}
+
+      {canWrite &&
+        (adding ? (
+          <div ref={formRef} tabIndex={-1}>
+            <form
+              style={{ marginTop: "var(--s-3)" }}
+              /* CLOSES ONLY ON SUCCESS. A form that closes on submit closes
+                 on a REFUSAL too, and the API refuses a cycle through a chain —
+                 which is not something a picker could have prevented. Measured:
+                 the sentence rendered at the top of the page and the form the
+                 reader would have corrected it in had already gone. */
+              action={(form) => {
+                const id = String(form.get("dependsOn") ?? "");
+                if (id === "") return;
+                void onAdd(id).then((ok) => {
+                  if (ok) setAdding(false);
+                });
+              }}
+            >
+              <fieldset className="fieldset" aria-label="Make this task wait on another">
+                <FieldStack>
+                  <Field
+                    label="Wait on"
+                    hint="This client's other work. A dependency between two clients' tasks is not offered here — a picker over the whole firm's board is not a choice anybody can make."
+                  >
+                    {/* NO PRE-SELECTED TASK. A dependency recorded against
+                        whatever sorted first is a wrong fact rather than a
+                        typo, and it is one that stops work. */}
+                    <Select name="dependsOn" required defaultValue="" disabled={candidates === null}>
+                      <option value="" disabled>
+                        {candidates === null
+                          ? "Loading this client's work…"
+                          : offerable.length === 0
+                            ? "Nothing left to wait on"
+                            : "Choose a task"}
+                      </option>
+                      {offerable.map((i) => (
+                        /* PARENTHESES, NOT AN EM DASH. A calendar-raised
+                           title is already "TDS deposit — Cobalt Logistics
+                           Private Limited — Jul 2026", so a dash before the
+                           state made it read as a fourth part of the title. */
+                        <option key={i.id} value={i.id}>
+                          {i.title} ({i.state.name})
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <div className="cluster">
+                    <Button type="submit" loading={busy === "dependency"}>
+                      {busy === "dependency" ? "Adding…" : "Make it wait"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setAdding(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    {/* THE REFUSAL IS BETTER THAN ANY PICKER. A loop through a
+                        chain is not visible in a dropdown, and the service
+                        walks the firm's whole edge list to find one — so the
+                        screen says the check exists rather than pretending to
+                        have prevented it. The sentence itself is rendered raw
+                        by the page's error notice. */}
+                    <p className="field-hint">
+                      A dependency that would make two tasks wait on each other, directly or
+                      through a chain, is refused — neither could ever start.
+                    </p>
+                  </div>
+                </FieldStack>
+              </fieldset>
+            </form>
+          </div>
+        ) : (
+          <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
+            <Button
+              ref={openRef}
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void open();
+              }}
+            >
+              Make it wait on something
+            </Button>
+          </div>
+        ))}
+    </Card>
   );
 }
