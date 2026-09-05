@@ -447,7 +447,21 @@ export function RuleEditor({
           <Button onClick={onSave} loading={busy}>
             {creating ? "Write the rule" : "Save the formula"}
           </Button>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          <Button
+            variant="ghost"
+            /* SAYS WHICH CANCEL. Open a rule and then "The law changed" and
+               there are two buttons on screen saying only "Cancel" — this one
+               abandons an edit to the formula, the other abandons an
+               AMENDMENT, which is a new rule taking over from a date. Named by
+               `rule.name`, which is the saved name and does not move while the
+               name box is being typed in; `draft.name` would rename the button
+               on every keystroke. The visible word is unchanged. */
+            {...(rule === null
+              ? {}
+              : { "aria-label": `Cancel the edit to ${rule.name}` })}
+            onClick={onCancel}
+            disabled={busy}
+          >
             Cancel
           </Button>
         </Cluster>

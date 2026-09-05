@@ -501,7 +501,14 @@ function Rules() {
             {open !== null && (
               <Stack>
                 <div>
-                  <h3 style={{ marginBottom: 4 }}>{open.name}</h3>
+                  {/* h2, NOT h3. This panel is a section of the page, and the
+                      cards inside it — Exceptions, The law changed — are
+                      `CardTitle`s, which are h3. At h3 the rule's own name
+                      ranked EQUAL to the cards under it, and the ladder went
+                      h1 -> h3 with nothing between. Neither was ever seen,
+                      because this panel only exists once a rule row is open
+                      and no sweep had opened one. */}
+                  <h2 style={{ marginBottom: 4 }}>{open.name}</h2>
                   <p className="muted">
                     {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
                   </p>
@@ -599,9 +606,9 @@ function RuleRow({
         {/* THE REASON, in place of a date. This is what a partner reads and
             answers; without it an undated rule is indistinguishable from a
             broken import. */}
-        {rule.unresolvedReason !== null && <p className="field-hint">{rule.unresolvedReason}</p>}
+        {rule.unresolvedReason !== null && <p className="cell-note">{rule.unresolvedReason}</p>}
         {rule.exceptions.length > 0 && (
-          <p className="field-hint">
+          <p className="cell-note">
             {rule.exceptions
               .map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`)
               .join(" · ")}

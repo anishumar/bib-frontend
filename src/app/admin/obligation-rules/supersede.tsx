@@ -177,7 +177,14 @@ export function Supersede({
           >
             Hand over on this date
           </Button>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          <Button
+            variant="ghost"
+            /* The other half of the pair — see the note on the editor's
+               Cancel in `rule-editor.tsx`. */
+            aria-label={`Cancel the amendment to ${rule.name}`}
+            onClick={onCancel}
+            disabled={busy}
+          >
             Cancel
           </Button>
         </Cluster>

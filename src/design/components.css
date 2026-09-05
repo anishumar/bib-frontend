@@ -539,6 +539,19 @@
   color: var(--danger);
   margin: var(--s-1) 0 0;
 }
+/* SMALL PRINT IN A CELL — the same type as a field's hint, and a different
+   thing. `.field-hint` is wired to a control by `aria-describedby` and its
+   name says so; a note under a table cell's value describes the ROW, is read
+   as cell content in document order, and is described by nothing. 48 of these
+   sat on /admin/obligation-rules under `.field-hint`, which is the same
+   species of lie as `data-inactive` outside a table: a name that claims a
+   relationship the element does not have. Same declarations on purpose — this
+   is a rename, not a restyle. */
+.cell-note {
+  font-size: var(--t-sm);
+  color: var(--muted);
+  margin: var(--s-1) 0 0;
+}
 /* Fields down a form. */
 .field-stack {
   display: flex;
