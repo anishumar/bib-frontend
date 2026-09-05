@@ -15,6 +15,7 @@ import {
   formatMoney,
 } from "@/lib/api/client";
 import type {
+  BillableEngagement,
   CreditNote,
   DunningAction,
   InvoiceBalance,
@@ -75,6 +76,18 @@ export default function InvoicePage() {
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [chased, setChased] = useState<DunningAction[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  /**
+   * WHAT THIS CLIENT HAS SIGNED FOR, so a line can be billed from it.
+   *
+   * Loaded beside the invoice rather than when the picker is touched: a native
+   * `<select>` opens the instant it is clicked, so options fetched on focus
+   * arrive after the reader is already looking at an empty list — the mistake
+   * `/client-requests`' document picker made and this file should not repeat.
+   */
+  const [billable, setBillable] = useState<BillableEngagement[]>([]);
+  /** The engagement the new line is being billed from, or null for a one-off —
+   *  a certificate, a recharge, something that never had a contract. */
+  const [chosen, setChosen] = useState<BillableEngagement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -104,6 +117,16 @@ export default function InvoicePage() {
     if (credited.data) setCredits(credited.data.creditNotes);
     if (dunning.data) setChased(dunning.data.actions);
     if (me.data) setPermissions(me.data.permissions);
+
+    // A SECOND ROUND TRIP, and it needs the invoice first: the engagements
+    // belong to the CLIENT, whose id is on the record that has only just
+    // arrived. A 403 here is ordinary — it is `party:read` — and leaves the
+    // picker absent rather than the page broken.
+    const engagements = await api.GET("/api/v1/parties/{partyId}/billable-engagements", {
+      params: { path: { partyId: one.data.invoice.partyId } },
+    });
+    setBillable(engagements.data?.engagements ?? []);
+
     setError(null);
     setLoaded(true);
   }, [invoiceId, router]);
@@ -335,8 +358,9 @@ export default function InvoicePage() {
             action={(form) => {
               const discount = String(form.get("discountPercent") ?? "");
               const tax = String(form.get("taxPercent") ?? "");
-              void act(() =>
-                api.POST("/api/v1/invoices/{invoiceId}/lines", {
+              const engagementId = String(form.get("engagementId") ?? "");
+              void act(async () => {
+                const result = await api.POST("/api/v1/invoices/{invoiceId}/lines", {
                   params: { path: { invoiceId } },
                   body: {
                     description: String(form.get("description")),
@@ -344,24 +368,103 @@ export default function InvoicePage() {
                     unitAmount: String(form.get("unitAmount")),
                     ...(discount === "" ? {} : { discountPercent: discount }),
                     ...(tax === "" ? {} : { taxPercent: tax }),
+                    // WHAT THE WORK WAS. `crm.invoice_line.engagement_id` has
+                    // existed since T3.4 with nothing offering it, so every
+                    // line billed a client for something the system could not
+                    // connect to the contract that agreed it.
+                    ...(engagementId === "" ? {} : { engagementId }),
                   },
-                }),
-              );
+                });
+                if (!result.error) setChosen(null);
+                return result;
+              });
             }}
           >
             <FieldStack>
+              {/* THE OTHER END OF THE CARRY-FORWARD. Walked: the letter's
+                  agreed price reached nothing here — there was no picker and
+                  no link to the contract, so ₹1,75,000 was typed a THIRD time.
+                  Choosing an engagement fills the description, the quantity,
+                  the price and the discount from the letter LINE, and they stay
+                  editable: an invoice bills a period, and a month at 1/12 of a
+                  yearly fee is an ordinary thing to type over the top. */}
+              {billable.length > 0 && (
+                <Field
+                  label="What is this for?"
+                  hint="Picks up the wording and the price this client agreed on the engagement letter. Everything below stays editable — an invoice bills a period, not the whole contract."
+                >
+                  <Select
+                    name="engagementId"
+                    value={chosen?.engagementId ?? ""}
+                    onChange={(e) => {
+                      const next =
+                        billable.find((b) => b.engagementId === e.target.value) ?? null;
+                      setChosen(next);
+                    }}
+                  >
+                    <option value="">Not from an engagement — type it below</option>
+                    {billable.map((b) => (
+                      <option
+                        key={b.engagementId}
+                        value={b.engagementId}
+                        /* THE ADVANCE GATE, said rather than hidden. The row
+                           comes back either way so the screen can explain why
+                           a service the client signed for cannot be billed
+                           yet — a picker that silently dropped it could not. */
+                        disabled={b.status !== "active"}
+                      >
+                        {b.entityName} — {b.description}
+                        {b.unitAmount === null ? " (no price agreed)" : ""}
+                        {b.status === "active" ? "" : " — waiting on the advance"}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              {chosen !== null && (
+                <p className="field-hint">
+                  From <span className="mono">{chosen.letterRef}</span>
+                  {chosen.pricingNote === null ? "" : ` · ${chosen.pricingNote}`}
+                  {chosen.unitAmount === null
+                    ? " — this line was agreed with no price, so type the figure you are billing."
+                    : ""}
+                </p>
+              )}
               <FieldRow>
                 <Field label="Description">
-                  <Input name="description" required />
+                  {/* KEYED ON THE CHOICE. `defaultValue` is read once at mount,
+                      so without the key a second pick would leave the first
+                      one's wording in the box — the state-picker bug this repo
+                      fixed on the work item, in a new place. */}
+                  <Input
+                    key={`d-${chosen?.engagementId ?? "none"}`}
+                    name="description"
+                    defaultValue={chosen?.description ?? ""}
+                    required
+                  />
                 </Field>
                 <Field label="Qty">
-                  <Input name="quantity" defaultValue="1" required />
+                  <Input
+                    key={`q-${chosen?.engagementId ?? "none"}`}
+                    name="quantity"
+                    defaultValue={chosen?.quantity ?? "1"}
+                    required
+                  />
                 </Field>
                 <Field label="Unit amount">
-                  <Input name="unitAmount" required />
+                  <Input
+                    key={`u-${chosen?.engagementId ?? "none"}`}
+                    name="unitAmount"
+                    defaultValue={chosen?.unitAmount ?? ""}
+                    required
+                  />
                 </Field>
                 <Field label="Discount %">
-                  <Input name="discountPercent" defaultValue="0" />
+                  <Input
+                    key={`x-${chosen?.engagementId ?? "none"}`}
+                    name="discountPercent"
+                    defaultValue={chosen?.discountPercent ?? "0"}
+                  />
                 </Field>
                 <Field label="Tax %">
                   <Input name="taxPercent" defaultValue="0" />

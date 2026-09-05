@@ -158,6 +158,7 @@ export default function InvoicesPage() {
                 <Th>Status</Th>
                 <Th>Due</Th>
                 <Th align="right">Total</Th>
+                <Th align="right">Outstanding</Th>
               </tr>
             </thead>
             <tbody>
@@ -192,6 +193,44 @@ export default function InvoicesPage() {
                     <Sub>
                       {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
                     </Sub>
+                  </Td>
+                  {/* WHAT IS STILL OWED, and the column this list went four
+                      tasks without. Walked: a fully-settled invoice sat beside
+                      one seventy-five days overdue, both reading `issued` and
+                      both showing their full value — because `status` is about
+                      the DOCUMENT and says nothing about money. /receivables
+                      already dropped the settled one, so the data existed and
+                      the list simply never asked for it.
+
+                      There is still no "paid" badge, and there must not be:
+                      paid is arithmetic over invoices, payments and credit
+                      notes, and a cached flag drifts the first time a payment
+                      is corrected. The figure IS the answer. */}
+                  <Td align="right">
+                    {i.balance === null ? (
+                      /* A DRAFT OWES NOTHING because nobody has been asked, and
+                         that is not the same as nothing being outstanding — a
+                         zero here would read as settled. */
+                      <span className="empty">—</span>
+                    ) : isZero(i.balance.outstanding) ? (
+                      <Pill tone="ok">Settled</Pill>
+                    ) : (
+                      <>
+                        <span className="mono">
+                          {formatMoney(i.balance.outstanding, i.totals.currency)}
+                        </span>
+                        {!isZero(i.balance.paid) && (
+                          <Sub>
+                            {formatMoney(i.balance.paid, i.totals.currency)} received
+                          </Sub>
+                        )}
+                        {!isZero(i.balance.credited) && (
+                          <Sub>
+                            {formatMoney(i.balance.credited, i.totals.currency)} credited
+                          </Sub>
+                        )}
+                      </>
+                    )}
                   </Td>
                 </tr>
               ))}
@@ -278,4 +317,20 @@ export default function InvoicesPage() {
 function toneOf(status: InvoiceSummary["invoice"]["status"]): PillTone {
   if (status === "cancelled") return "danger";
   return status === "issued" ? "ok" : "neutral";
+}
+
+/**
+ * Is this decimal string zero?
+ *
+ * A STRING TEST, not `Number(x) === 0`. Money is a decimal string from the
+ * database to the screen here and nothing in this app turns one into a float —
+ * `formatMoney` hands the string straight to `Intl`, which formats it exactly.
+ * A zero comparison is the thin end of that wedge, and the pattern answers it
+ * without one: any number of zeros before or after the point, with or without a
+ * sign, is zero and nothing else is.
+ */
+function isZero(amount: string): boolean {
+  // At least one DIGIT is required: the looser `0*(\.0*)?` also matches the
+  // empty string, and "we hold no figure" is not "nothing is owed".
+  return /^[+-]?(?:0+(?:\.0*)?|\.0+)$/.test(amount.trim());
 }

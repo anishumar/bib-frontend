@@ -571,6 +571,18 @@ export function formatCount(value: string): string {
   return value.includes(".") ? value.replace(/\.?0+$/, "") : value;
 }
 
+/**
+ * One thing a client can be billed for, with the price its letter agreed.
+ *
+ * `unitAmount` is the LETTER LINE's figure and not the catalogue's list price —
+ * reading the list price would quietly bill a negotiated discount away. NULL is
+ * a real answer ("as mutually agreed", with `pricingNote` saying why), and an
+ * invoice line cannot be unpriced, so a screen asks for the figure rather than
+ * prefilling one.
+ */
+export type BillableEngagement =
+  paths["/api/v1/parties/{partyId}/billable-engagements"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+
 /** An engagement letter as a LIST shows it. */
 export type LetterSummary =
   paths["/api/v1/engagement-letters"]["get"]["responses"][200]["content"]["application/json"]["letters"][number];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import {
@@ -71,6 +71,26 @@ export default function LetterPage() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * WHICH CATALOGUE VERSION the add-a-line form is pointed at.
+   *
+   * A `<select>` with no state cannot say what was chosen, which is why picking
+   * a service used to fill in nothing at all. Declared with the other hooks
+   * rather than beside the value it feeds: this component returns early while
+   * it loads, and a hook after an early return runs in a different order on the
+   * two paths.
+   */
+  const [picked, setPicked] = useState("");
+  /**
+   * Did the carry-forward that made this letter leave lines behind?
+   *
+   * Read from the URL, once, and deliberately NOT stored: which lines a
+   * particular act skipped is a fact about that act — the ledger has it — and a
+   * letter opened next week has nothing to say about it. `useSearchParams`
+   * rather than `location.search` so this still reads correctly under the App
+   * Router's client navigation, which is how the reader gets here.
+   */
+  const carriedPartially = useSearchParams().get("carried") === "partial";
   const [loaded, setLoaded] = useState(false);
   // What to OFFER, never what is allowed — the API is the only place the answer
   // lives, and its refusal is shown verbatim when one arrives.
@@ -143,6 +163,13 @@ export default function LetterPage() {
   }
 
   const { letter, totals, lines, engagements } = record;
+  // The catalogue version the picker is on, so the two boxes beside it can be
+  // filled from it. Falls back to the FIRST option, because that is what a
+  // `<select>` shows before anybody touches it.
+  const pickedService = (() => {
+    const entry = services.find((e) => e.published?.id === picked) ?? services[0];
+    return entry === undefined ? null : readServiceBody(entry.published?.body);
+  })();
   const isDraft = letter.status === "draft";
   const isSigned = letter.status === "signed";
   // The day it was SIGNED, where the reader is. `signed_at` is a
@@ -226,6 +253,30 @@ export default function LetterPage() {
       {error !== null && (
         <Notice tone="danger" role="alert">
           {error}
+        </Notice>
+      )}
+
+      {/* WHAT DID NOT COME ACROSS, said on the page you land on.
+          The quote screen warns before it carries, which is where the decision
+          is; this is the other half, because a letter that dropped two of eight
+          terms LOOKS complete — and the whole failure this carry-forward exists
+          to prevent is a contract that reads as finished and is not. Carried in
+          the URL rather than on the record: which lines were skipped is a fact
+          about one act, not a property of the letter, and a letter opened next
+          week has nothing to say about it. */}
+      {carriedPartially && (
+        <Notice tone="warn" eyebrow="Some lines did not carry">
+          <p>
+            This letter was written up from a quote and not every line came across — a line has
+            to name the company the work is for, because signing it creates an engagement for
+            one legal entity. Compare it against{" "}
+            {letter.proposalId === null ? (
+              "the quote"
+            ) : (
+              <Link href={`/proposals/${letter.proposalId}`}>the quote</Link>
+            )}{" "}
+            and add what is missing before you send it.
+          </p>
         </Notice>
       )}
 
@@ -689,20 +740,48 @@ export default function LetterPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="From the catalogue">
-                <Select name="serviceVersionId" required>
+              {/* IT FILLS THE TWO BOXES BESIDE IT NOW, and it says the price
+                  in the option so the choice can be checked before it is made.
+                  Walked: picking a service left both the wording and the price
+                  empty, so the catalogue's own figure was typed in by hand —
+                  and the price is exactly what a catalogue exists to stop
+                  somebody mistyping. Prefilled and EDITABLE: what a client
+                  agreed is routinely not the list price, which is why the line
+                  keeps its own copy of both. */}
+              <Field
+                label="From the catalogue"
+                hint="Fills in the wording and the list price below. Change either — what this client agreed is what the letter records."
+              >
+                <Select
+                  name="serviceVersionId"
+                  required
+                  value={picked}
+                  onChange={(e) => {
+                    setPicked(e.target.value);
+                  }}
+                >
                   {services.map((entry) => {
                     const body = readServiceBody(entry.published?.body);
                     return (
                       <option key={entry.entry.id} value={entry.published?.id}>
                         {body.name || entry.entry.key}
+                        {body.listPrice !== null &&
+                          ` — ${formatMoney(body.listPrice.amount, body.listPrice.currency)}`}
                       </option>
                     );
                   })}
                 </Select>
               </Field>
               <Field label="As it reads on the letter">
-                <Input name="description" required />
+                {/* KEYED ON THE PICK: `defaultValue` is read once at mount, so
+                    without this a second choice leaves the first one's wording
+                    in the box. */}
+                <Input
+                  key={`d-${picked}`}
+                  name="description"
+                  defaultValue={pickedService?.name ?? ""}
+                  required
+                />
               </Field>
             </div>
             <div className="field-row mb-4">
@@ -710,7 +789,23 @@ export default function LetterPage() {
                 <Input name="quantity" defaultValue="1" required />
               </Field>
               <Field label={`Agreed price (${letter.currency})`}>
-                <Input name="unitAmount" required />
+                {/* THE LIST PRICE ONLY IN THIS LETTER'S OWN CURRENCY. A
+                    catalogue priced in USD on a rupee letter would put the
+                    number in the box with the wrong currency beside it, which
+                    is worse than an empty field: one is obviously unanswered,
+                    the other is quietly wrong on a document somebody signs. */}
+                <Input
+                  key={`u-${picked}`}
+                  name="unitAmount"
+                  defaultValue={
+                    pickedService?.listPrice !== null &&
+                    pickedService?.listPrice !== undefined &&
+                    pickedService.listPrice.currency === letter.currency
+                      ? pickedService.listPrice.amount
+                      : ""
+                  }
+                  required
+                />
               </Field>
               <Field label="Discount %">
                 <Input name="discountPercent" defaultValue="0" required />

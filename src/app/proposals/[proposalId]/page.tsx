@@ -60,6 +60,18 @@ export default function ProposalPage() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * WHICH CATALOGUE VERSION the add-a-line form is pointed at.
+   *
+   * A `<select>` with a `defaultValue` and no state cannot tell anybody what
+   * was chosen, which is why picking a service used to fill in nothing at all —
+   * the price the option had just printed was then typed by hand underneath it.
+   *
+   * Up here with the other hooks and not beside the value it feeds: this
+   * component returns early while it is loading, and a hook after an early
+   * return runs in a different order on the two paths.
+   */
+  const [picked, setPicked] = useState("");
   const [loaded, setLoaded] = useState(false);
   // A decline in progress. The status already says a quote was lost; WHY is the
   // half worth anything later, and asking for it after the fact means asking
@@ -171,6 +183,13 @@ export default function ProposalPage() {
   // without it still gets an accurate refusal — but not offering it is not the
   // same as refusing it afterwards.
   const canApprove = permissions.includes("proposal:approve");
+  // What may be OFFERED. Drafting a letter from this quote is the same
+  // permission as drafting one by hand, because that is what it is.
+  const canWrite = permissions.includes("party:write");
+  const pickedService = (() => {
+    const entry = services.find((e) => e.published?.id === picked) ?? services[0];
+    return entry === undefined ? null : readServiceBody(entry.published?.body);
+  })();
 
   return (
     <Page>
@@ -414,8 +433,29 @@ export default function ProposalPage() {
           >
             <FieldStack>
               <FieldRow>
-                <Field label="From the catalogue">
-                  <Select name="serviceVersionId" required>
+                {/* IT FILLS THE TWO BOXES BESIDE IT NOW. Walked: picking
+                    "Statutory audit — ₹1,75,000.00" left both the wording and
+                    the price empty, so the figure the catalogue had just
+                    printed in the option was typed in by hand underneath it.
+                    The price is exactly what a catalogue exists to stop
+                    somebody mistyping.
+
+                    PREFILLED AND EDITABLE, not locked: the wording is
+                    routinely tailored per client and the price is negotiated,
+                    which is why the line stores its own copy of both rather
+                    than pointing at the catalogue's. */}
+                <Field
+                  label="From the catalogue"
+                  hint="Fills in the wording and the list price below. Change either — the line keeps its own copy, which is what makes this document readable years after the price list moves on."
+                >
+                  <Select
+                    name="serviceVersionId"
+                    required
+                    value={picked}
+                    onChange={(e) => {
+                      setPicked(e.target.value);
+                    }}
+                  >
                     {services.map((entry) => {
                       const body = readServiceBody(entry.published?.body);
                       return (
@@ -429,7 +469,15 @@ export default function ProposalPage() {
                   </Select>
                 </Field>
                 <Field label="As it reads on the document">
-                  <Input name="description" required />
+                  {/* KEYED ON THE PICK. `defaultValue` is read once at mount,
+                      so without the key a second choice would leave the first
+                      one's wording in the box. */}
+                  <Input
+                    key={`d-${picked}`}
+                    name="description"
+                    defaultValue={pickedService?.name ?? ""}
+                    required
+                  />
                 </Field>
               </FieldRow>
               <FieldRow>
@@ -437,7 +485,23 @@ export default function ProposalPage() {
                   <Input name="quantity" defaultValue="1" required />
                 </Field>
                 <Field label={`Unit price (${proposal.currency})`}>
-                  <Input name="unitAmount" required />
+                  {/* THE LIST PRICE ONLY WHEN IT IS IN THIS DOCUMENT'S OWN
+                      CURRENCY. A catalogue priced in USD on a rupee proposal
+                      would otherwise put the number in the box with the wrong
+                      currency beside it, which is worse than an empty field:
+                      one is obviously unanswered, the other is quietly wrong. */}
+                  <Input
+                    key={`u-${picked}`}
+                    name="unitAmount"
+                    defaultValue={
+                      pickedService?.listPrice !== null &&
+                      pickedService?.listPrice !== undefined &&
+                      pickedService.listPrice.currency === proposal.currency
+                        ? pickedService.listPrice.amount
+                        : ""
+                    }
+                    required
+                  />
                 </Field>
                 <Field label="Discount %">
                   <Input name="discountPercent" defaultValue="0" required />
@@ -527,6 +591,43 @@ export default function ProposalPage() {
             </p>
           )}
         </div>
+      </Card>
+
+      {/* WHAT HAPPENS NEXT, and until now nothing did. Pressing "Client
+          accepted" left a page with zero controls on it: it explained, well,
+          why nothing can change — and said nothing about what to do now. The
+          next thing IS an engagement letter, and the product neither said so
+          nor offered it, so the agreed price was typed out again by hand. */}
+      {proposal.status === "accepted" && canWrite && (
+        <WriteItUp
+          proposalId={proposalId}
+          record={record}
+          busy={busy}
+          onDraft={(body) => {
+            void act("letter", async () => {
+              const result = await api.POST(
+                "/api/v1/proposals/{proposalId}/engagement-letter",
+                { params: { path: { proposalId } }, body },
+              );
+              // A WRITE TAKES YOU TO THE THING YOU MADE — this app's own rule,
+              // and here it also carries the skipped-line report with it, so
+              // nobody lands on a letter looking complete without being told
+              // what did not come across.
+              if (!result.error) {
+                const skipped = result.data.skipped.length;
+                router.push(
+                  `/engagement-letters/${result.data.letter.id}${skipped > 0 ? "?carried=partial" : ""}`,
+                );
+              }
+              return result;
+            });
+          }}
+        />
+      )}
+
+      <Card>
+        <div className="cluster">
+        </div>
 
         {proposal.status === "sent" && declining && (
           <div ref={declinePanel} tabIndex={-1}>
@@ -605,5 +706,171 @@ export default function ProposalPage() {
         )}
       </Card>
     </Page>
+  );
+}
+
+
+/**
+ * Write an accepted quote up as an engagement letter.
+ *
+ * ## The dead end this replaces
+ *
+ * Press "Client accepted" and the page had ZERO controls. It explained why
+ * nothing on the quote can change any more, which is true and useful, and said
+ * nothing about what happens next — so the letter was drafted from scratch and
+ * the agreed price was typed a second time. Walked: ₹1,75,000, by hand, with
+ * nothing in the system that would have caught a fourth digit.
+ *
+ * ## It says what will carry BEFORE it carries it
+ *
+ * The API reports which lines could not be copied and why; this screen says the
+ * same thing in advance, because a firm about to create a contract should not
+ * discover on the next page that two of its eight terms are missing. Both
+ * halves are shown either way — a carry that silently dropped lines is worse
+ * than one that never ran, since the letter LOOKS complete.
+ *
+ * ## The country field appears only when the quote cannot answer it
+ *
+ * A letter states ONE country and a proposal states one per line. When they
+ * agree there is nothing to ask; when they disagree the field appears with the
+ * reason, because that value settles governing law and the courts. Asking for
+ * it every time would be a form field whose answer is already on the page.
+ */
+function WriteItUp({
+  proposalId,
+  record,
+  busy,
+  onDraft,
+}: {
+  proposalId: string;
+  record: ProposalRecord;
+  busy: string | null;
+  onDraft: (body: {
+    advanceRequired: boolean;
+    advanceAmount?: string;
+    jurisdiction?: string;
+    title?: string;
+  }) => void;
+}) {
+  const [advanceRequired, setAdvanceRequired] = useState(false);
+
+  const countries = [
+    ...new Set(
+      record.lines
+        .map((l) => l.jurisdiction)
+        .filter((j): j is string => j !== null && j !== ""),
+    ),
+  ];
+  // The API derives it when the lines agree, and refuses otherwise. The field
+  // is offered on exactly that second case.
+  const mustState = countries.length !== 1;
+  const withoutEntity = record.lines.filter((l) => l.entityPartyId === null);
+  const carrying = record.lines.length - withoutEntity.length;
+
+  const lineWord = (n: number): string => `${String(n)} ${n === 1 ? "line" : "lines"}`;
+
+  return (
+    <Card>
+      <CardTitle level={2}>Write it up as an engagement letter</CardTitle>
+      <p className="muted">
+        The terms come across as they were agreed — every line with its service, its wording,
+        its quantity, its price and its discount, in this quote&rsquo;s own currency. Nothing is
+        retyped, so nothing can be mistyped. The letter opens as a draft: its clauses are chosen
+        from the library afterwards, against the country it is written under.
+      </p>
+
+      {carrying === 0 ? (
+        /* The API refuses this before drawing a reference number, so the screen
+           says so rather than offering a button whose only outcome is a
+           refusal. */
+        <Notice tone="warn" eyebrow="Nothing to carry">
+          <p>
+            No line on this quote names the company the work is for. A letter line has to,
+            because signing it creates an engagement — one service for one legal entity. A
+            proposal may quote a prospect that holds no entity yet, which is exactly this case.
+            Draft the letter from <Link href="/engagement-letters">Engagement letters</Link> and
+            add the lines naming each company.
+          </p>
+        </Notice>
+      ) : (
+        <>
+          {withoutEntity.length > 0 && (
+            <Notice tone="warn" eyebrow="Some lines stay behind">
+              <p>
+                {lineWord(carrying)} will carry across. {lineWord(withoutEntity.length)}{" "}
+                {withoutEntity.length === 1 ? "names" : "name"} no company —{" "}
+                {withoutEntity.map((l) => l.description).join(", ")} — and a letter line has
+                to name one, because signing it creates an engagement for one legal entity. Add
+                {withoutEntity.length === 1 ? " it" : " them"} to the letter by hand afterwards.
+              </p>
+            </Notice>
+          )}
+
+          {/* A FORM and its own FormData, not `document.querySelector`. This
+              page already carries an "Amount" input on the add-a-line form, so
+              a lookup by name would read whichever the document happened to
+              hold first — the duplicate-id bug this repo fixed on the client
+              screen, in a new costume. */}
+          <form
+            action={(form) => {
+              const j = String(form.get("jurisdiction") ?? "").trim();
+              const amount = String(form.get("advanceAmount") ?? "").trim();
+              onDraft({
+                advanceRequired,
+                ...(advanceRequired && amount !== "" ? { advanceAmount: amount } : {}),
+                ...(j === "" ? {} : { jurisdiction: j.toUpperCase() }),
+              });
+            }}
+          >
+          <FieldStack>
+            {mustState && (
+              <Field
+                label="Which country is this letter under?"
+                hint={
+                  countries.length === 0
+                    ? "No line on this quote says where the work is, and a letter states one for the whole document — it settles governing law, the courts, and which of your own companies contracts."
+                    : `This quote covers ${countries.join(" and ")}. A letter states ONE country because that is what decides its governing law, so either say which this one is under, or write one letter per country.`
+                }
+              >
+                <Input name="jurisdiction" maxLength={2} placeholder="IN" />
+              </Field>
+            )}
+
+            {/* THE ADVANCE IS THE FIRM'S DECISION AND NOT THE QUOTE'S — a
+                proposal has no advance, so there is nothing here to inherit
+                and the field starts empty rather than at zero. */}
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={advanceRequired}
+                onChange={(e) => {
+                  setAdvanceRequired(e.target.checked);
+                }}
+              />
+              <span>Hold the work until an advance is received</span>
+            </label>
+            {advanceRequired && (
+              <Field
+                label="How much"
+                hint="Every engagement this letter opens stays closed until somebody records the advance as received."
+              >
+                <Input name="advanceAmount" inputMode="decimal" />
+              </Field>
+            )}
+
+            <div className="cluster">
+              <Button type="submit" loading={busy === "letter"}>
+                {busy === "letter" ? "Drafting…" : "Draft the engagement letter"}
+              </Button>
+              <p className="field-hint">
+                {lineWord(carrying)} carried at the price this client agreed. The
+                quote stays exactly as it is — it is the record of what they were shown.
+              </p>
+            </div>
+          </FieldStack>
+          </form>
+        </>
+      )}
+    </Card>
   );
 }

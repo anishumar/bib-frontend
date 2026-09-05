@@ -10663,6 +10663,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/engagement-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write an accepted quote up as a draft engagement letter
+         * @description CARRIES THE TERMS ACROSS so nobody types a price twice. Every line comes over with its pinned service version, its wording, its quantity, its price, its discount, its billing frequency, its scope overrides and its pricing note; the currency and the exchange rate come from the quote and CANNOT be overridden, because changing the currency underneath copied amounts reinterprets every figure on the document. The advance and the clauses are not carried: a proposal has no advance, and a letter's terms are chosen from the library against ITS jurisdiction. Refused unless the client has ACCEPTED — recording the acceptance is the act that turns an offer into something to write up.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DraftLetterFromProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Drafted, with an account of any line that could not be carried */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterFromProposal"];
+                    };
+                };
+                /** @description The quote's lines name more than one country, so say which this letter is under */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The quote is not accepted, has no lines, or names no company for any of them */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/billable-engagements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What this client can be billed for, and the price its letters agreed
+         * @description THE OTHER HALF OF THE CARRY-FORWARD. `crm.invoice_line.engagement_id` has existed since T3.4 with nothing offering it, so a letter's agreed price reached the invoice only by somebody typing it a third time. This is the read an invoice line's picker is built on: one row per engagement, carrying the LETTER LINE's wording, quantity, agreed price and discount, plus the letter it came from. It is a read and not a 'raise an invoice from this letter' write, because a letter is the whole contract and an invoice bills a period of it — which period and which services is a decision somebody takes every month.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every engagement of this client, billable or not yet */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillableEngagementsResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}": {
         parameters: {
             query?: never;
@@ -16480,6 +16629,73 @@ export interface components {
             /** @description When the engagements this letter opens begin. Omit for the signature date, which is the ordinary case. A line may override it. */
             effectiveFrom?: string;
         };
+        SkippedQuoteLine: {
+            /** Format: uuid */
+            proposalLineId: string;
+            description: string;
+            reason: string;
+        };
+        LetterFromProposal: {
+            letter: components["schemas"]["EngagementLetter"];
+            linesCopied: number;
+            /** @description Quote lines that did NOT become letter lines, each with the reason. NOT an error list, and a screen must show it beside the success rather than instead of it: a carry-forward that silently dropped three of eight lines is worse than one that never ran, because the letter LOOKS complete. */
+            skipped: components["schemas"]["SkippedQuoteLine"][];
+        };
+        DraftLetterFromProposalRequest: {
+            /** @description The country this letter is under. OMIT IT when every line of the quote names the same one — that is the answer, and nobody should retype it. Required only when the lines disagree or none says, because a letter states ONE and it settles governing law, the courts and which of the firm's own companies contracts. Derived when it is obvious, asked for otherwise, never guessed. */
+            jurisdiction?: string;
+            /** @description Defaults to the quote's own title. */
+            title?: string;
+            /**
+             * @description The FIRM's decision and not the quote's — a proposal has no advance, so this is not carried across and there is nothing here to inherit.
+             * @default false
+             */
+            advanceRequired: boolean;
+            advanceAmount?: string;
+            /**
+             * Format: uuid
+             * @description Which company to file a quote line against when the LINE names none. Explicit, never inferred: a proposal may quote a prospect that holds no entity yet, and a letter line must name one because signing it creates an engagement — one service for one legal entity. Omit it and those lines are SKIPPED and reported rather than filed against a company nobody chose, which on a signed page is indistinguishable from one somebody agreed to.
+             */
+            defaultEntityPartyId?: string;
+            /**
+             * Format: uuid
+             * @description Defaults to the QUOTE's issuer. The firm already decided which of its companies was offering this, and contracting through a different one would change the client's counterparty between the offer and the contract.
+             */
+            issuingEntityPartyId?: string;
+            background?: string;
+            /** Format: uuid */
+            addressedToPartyId?: string;
+            issuedOn?: string;
+            effectiveFrom?: string;
+        };
+        BillableEngagement: {
+            /** Format: uuid */
+            engagementId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            /** @description Who the work is DELIVERED TO. An engagement is one service for one legal entity, so a group of four companies appears as four of these — which is exactly the distinction an invoice line has to get right. */
+            entityName: string;
+            /** Format: uuid */
+            letterId: string;
+            /** @description Where the figure comes from, so a screen can cite the signed document. */
+            letterRef: string;
+            /** @description The LETTER LINE's own wording — what the client read and agreed to, not the catalogue's standard description. */
+            description: string;
+            quantity: string;
+            /** @description The price AGREED, not the catalogue's list price — reading the list price here would quietly bill a negotiated discount away. NULL is a real answer: 'as mutually agreed' is a term two parties signed, and `pricingNote` says why. An invoice line cannot be unpriced, so a screen has to ASK for the figure there rather than prefill one. */
+            unitAmount: string | null;
+            pricingNote: string | null;
+            currency: string;
+            discountPercent: string;
+            billingFrequency: string | null;
+            /** @description The commercial gate. `pending_advance` means the letter asked for an advance nobody has recorded, and billing then is the firm invoicing work it has not been cleared to start. Every engagement is returned including those — a picker that silently dropped them could not explain why a signed service is missing from it. */
+            status: string;
+            effectiveFrom: string;
+            endsOn: string | null;
+        };
+        BillableEngagementsResponse: {
+            engagements: components["schemas"]["BillableEngagement"][];
+        };
         EngagementLetterTotals: {
             gross: string | null;
             discount: string | null;
@@ -16818,6 +17034,12 @@ export interface components {
             total: string | null;
             currency: string;
         };
+        /** @description What is still owed, from the same view /receivables reads. On the LIST because `status` is about the document and says nothing about money: walked, a fully-settled invoice sat beside one 75 days overdue, both reading `issued` and both showing their full value. NULL on a draft — nobody has been asked yet, and a zero outstanding there would read as settled. Redacted with every other figure for a caller without the fee axis. */
+        InvoiceListBalance: {
+            paid: string;
+            credited: string;
+            outstanding: string;
+        } | null;
         InvoiceSummary: {
             invoice: components["schemas"]["Invoice"];
             party: {
@@ -16826,6 +17048,7 @@ export interface components {
                 displayName: string;
             };
             totals: components["schemas"]["InvoiceTotals"];
+            balance: components["schemas"]["InvoiceListBalance"];
         };
         InvoiceLine: {
             /** Format: uuid */
