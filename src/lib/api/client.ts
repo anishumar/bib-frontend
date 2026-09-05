@@ -827,6 +827,20 @@ export const BLOCK_KIND_LABELS: Readonly<Record<BlockKind, string>> = {
  */
 export type DocumentBlock = LetterRecord["blocks"][number];
 
+/**
+ * One invoice number series — a company, a financial year, and a document type.
+ *
+ * A row exists only once that company has issued its first document of that
+ * type in that year: the counter is created by the write that allocates the
+ * number. So an empty list is not "no companies", it is "nothing invoiced yet",
+ * and a screen must not read the two the same way.
+ *
+ * `lastNumber` is where the series has REACHED, which is also how many it has
+ * issued — a gapless series has no zeroth document.
+ */
+export type InvoiceSeries =
+  paths["/api/v1/invoice-series"]["get"]["responses"][200]["content"]["application/json"]["series"][number];
+
 /** Whose desk covers leads from a country. */
 export type TerritoryRule =
   paths["/api/v1/territory-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];

@@ -33,9 +33,19 @@ import {
   BRAND_ASSET_HINTS,
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
-import type { BrandAsset, BrandAssetKind } from "@/lib/api/client";
-import { Button } from "@/components/ui";
-import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
+import type { BrandAsset, BrandAssetKind, InvoiceSeries } from "@/lib/api/client";
+import { Button, Field, FieldRow, Input } from "@/components/ui";
+import {
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+} from "@/components/tw";
 import { longInstant } from "@/lib/day";
 
 interface FirmEntity {
@@ -45,12 +55,37 @@ interface FirmEntity {
 
 export default function BrandPage() {
   const [entities, setEntities] = useState<readonly FirmEntity[]>([]);
+  /**
+   * The firm's invoice number series — one row per company, per financial year,
+   * per document type.
+   *
+   * On THIS page because the two questions are one question: what each of the
+   * firm's companies puts on the documents it issues. And it has to be this
+   * page rather than a screen built on `GET /invoice-series` alone, because
+   * that read only returns a row once an invoice HAS been raised — a company
+   * with no invoices yet would simply not be listed, and nobody would learn
+   * why the prefix cannot be set. The entity list here is the issuing table's,
+   * so the absence is visible and explained.
+   */
+  const [series, setSeries] = useState<readonly InvoiceSeries[]>([]);
   const [assets, setAssets] = useState<Record<string, readonly BrandAsset[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [canWrite, setCanWrite] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
+    // `config:read`, a weaker permission than the write it feeds — so somebody
+    // who may not rename a series can still see what the numbers read as.
+    const [seriesResult, me] = await Promise.all([
+      api.GET("/api/v1/invoice-series", {}),
+      api.GET("/api/v1/auth/me", {}),
+    ]);
+    setSeries(seriesResult.data?.series ?? []);
+    // What to OFFER. Renaming a series is `tenant:admin`, and the API's refusal
+    // is what gets shown if one arrives anyway.
+    setCanWrite(me.data?.permissions.includes("tenant:admin") ?? false);
+
     // The firm's own companies, derived from the ISSUING PREFERENCES — the same
     // source `/invoices` uses, so the two screens cannot disagree about which
     // companies the firm has.
@@ -89,6 +124,29 @@ export default function BrandPage() {
       await load();
     })();
   }, [load]);
+
+  /**
+   * Rename what one company's invoice numbers READ as.
+   *
+   * There is no confirmation dialog and there is deliberately not going to be
+   * one — the page says what this does before the button, which is the shape
+   * `/admin/verification` uses for maker != checker. A dialog that repeats a
+   * warning somebody has already read trains people to dismiss warnings.
+   */
+  async function setPrefix(entity: FirmEntity, prefix: string): Promise<void> {
+    setBusy(`${entity.id}:series`);
+    setError(null);
+    const result = await api.POST("/api/v1/invoice-series/{entityPartyId}/prefix", {
+      params: { path: { entityPartyId: entity.id } },
+      body: { prefix },
+    });
+    setBusy(null);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
 
   /**
    * Two calls, and the order matters.
@@ -198,6 +256,17 @@ export default function BrandPage() {
                 onError={setError}
               />
             ))}
+            {/* THE ONE THING ON THIS PAGE THAT IS ALREADY LIVE. Everything
+                above is stored and not yet rendered anywhere (T3.8); an invoice
+                number is on every invoice the firm has issued, and this is what
+                the next one will read as. */}
+            <InvoiceNumbers
+              entity={entity}
+              series={series.filter((r) => r.entityPartyId === entity.id)}
+              canWrite={canWrite}
+              busy={busy === `${entity.id}:series`}
+              onSet={(prefix) => void setPrefix(entity, prefix)}
+            />
           </Card>
         ))
       )}
@@ -361,4 +430,196 @@ function Slot({
       )}
     </div>
   );
+}
+
+/**
+ * WHAT THIS COMPANY'S INVOICE NUMBERS READ AS — and it is a tax document act.
+ *
+ * `GET /invoice-series` and `POST /invoice-series/{entityPartyId}/prefix` are
+ * the last two of the thirteen routes with no caller. The read is the more
+ * useful half on its own: an invoice series is CONSECUTIVE, a tax authority may
+ * ask about it, and until now no screen in the product said where each of the
+ * firm's series had reached.
+ *
+ * ## Everything on this panel comes from reading `setSeriesPrefix`, not its name
+ *
+ * - **It changes FUTURE numbers only.** Every issued invoice keeps the number
+ *   it was issued with; the freeze trigger refuses to move one. So a firm that
+ *   changes its mind gets a series that reads differently from a point in time,
+ *   which is what actually happens at a real firm.
+ * - **It changes EVERY FINANCIAL YEAR's row for this company**, not this year's
+ *   — the UPDATE has no `financial_year` predicate. That is the sentence that
+ *   makes this not a rename: a back-dated invoice into a closed year would then
+ *   be numbered with the NEW prefix and sit in the same consecutive series as
+ *   the old-prefix numbers already issued for that year.
+ * - **It leaves CREDIT NOTES alone** — the UPDATE is `document_type =
+ *   'invoice'`. Two legal series that must not interleave, so a firm renaming
+ *   one has not renamed the other, and the table below shows both.
+ * - **The shape is refused, not normalised**: up to twelve characters, upper
+ *   case letters, digits, "-" and "/", starting with a letter or digit. It
+ *   prints on a legal document.
+ *
+ * ## A company with no series is a REAL state and the commonest one
+ *
+ * A row appears the first time an invoice is raised for that company in that
+ * year. Before then `POST …/prefix` updates nothing and answers 204 — a silent
+ * success that changes not one number. So a company with no series is told
+ * exactly that, and offered no box, rather than being left out of a list.
+ */
+function InvoiceNumbers({
+  entity,
+  series,
+  canWrite,
+  busy,
+  onSet,
+}: {
+  entity: FirmEntity;
+  series: readonly InvoiceSeries[];
+  canWrite: boolean;
+  busy: boolean;
+  onSet: (prefix: string) => void;
+}) {
+  const invoices = series.filter((r) => r.documentType === "invoice");
+  // The current prefix is whatever the rows agree on; they are all set by one
+  // UPDATE, so they always do. Taking the newest year's is the honest reading
+  // if a direct database edit ever made them disagree.
+  const current = [...invoices].sort((a, b) => b.financialYear - a.financialYear)[0]?.prefix;
+
+  return (
+    <div style={{ marginTop: "var(--s-5)" }}>
+      <h3 className="card-title text-md">Invoice numbers</h3>
+
+      {series.length === 0 ? (
+        <p className="muted text-md">
+          {entity.displayName} has not issued an invoice yet. A series begins with the first
+          one — <span className="mono">INV/&lt;year&gt;/0001</span> — and the prefix can be
+          named from then on. Setting it now would change nothing: there is no row to change,
+          and the API would accept it and do exactly that.
+        </p>
+      ) : (
+        <>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Year</Th>
+                  <Th>Series</Th>
+                  <Th align="right">Issued</Th>
+                  <Th>The next one</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {series.map((r) => (
+                  <tr key={`${r.financialYear}:${r.documentType}`}>
+                    <Td className="mono">{financialYearLabel(r.financialYear)}</Td>
+                    <Td>
+                      {r.documentType === "invoice" ? "Invoices" : "Credit notes"}{" "}
+                      <span className="mono annot">{r.prefix}</span>
+                    </Td>
+                    {/* WHERE THE SERIES HAS REACHED, which is also how many
+                        documents it has issued — a gapless series has no zeroth
+                        document, so the counter and the count are the same
+                        number. */}
+                    <Td align="right" className="mono">
+                      {r.lastNumber}
+                    </Td>
+                    <Td className="mono">
+                      {r.prefix}/{financialYearLabel(r.financialYear)}/
+                      {String(r.lastNumber + 1).padStart(4, "0")}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+
+          {canWrite && (
+            <>
+              {/* THE CONSEQUENCES, BEFORE THE BUTTON. The same shape
+                  /admin/verification uses to put maker != checker above its
+                  form: somebody about to rename a statutory series should meet
+                  the explanation, not the refusal. */}
+              <Notice tone="warn" eyebrow="This is not a rename">
+                <p>
+                  An invoice series is <strong>consecutive</strong>, and a tax authority may
+                  ask about it. Changing the prefix changes the numbers{" "}
+                  <strong>from now on</strong> — every invoice already issued keeps the number
+                  it was issued with, because the database refuses to move one.
+                </p>
+                <p>
+                  It also applies to <strong>every financial year</strong> of{" "}
+                  {entity.displayName}&rsquo;s invoices, not just the current one. So an
+                  invoice back-dated into a closed year would be numbered with the new prefix
+                  and sit in the same consecutive series as the old-prefix numbers already
+                  issued for it. Credit notes are untouched and keep their own series.
+                </p>
+              </Notice>
+
+              <form
+                action={(form) => {
+                  const next = String(form.get(`prefix-${entity.id}`) ?? "")
+                    .trim()
+                    .toUpperCase();
+                  if (next === "" || next === current) return;
+                  onSet(next);
+                }}
+              >
+                {/* NAMED BY THE COMPANY, with no legend. A firm with three
+                    companies draws three of these forms on one page, each
+                    asking for "The prefix" — which is 3 controls under 1 name
+                    and the exact defect probe 6 exists to catch. Named by the
+                    company because that is the immutable thing here; the prefix
+                    itself is in the box. */}
+                <fieldset
+                  className="fieldset"
+                  aria-label={`${entity.displayName} invoice numbers`}
+                >
+                  <FieldRow>
+                    <Field
+                      label="The prefix"
+                      hint="Up to twelve characters — upper-case letters, digits, “-” and “/”, starting with a letter or digit. It prints on a legal document, so it is refused rather than tidied up."
+                    >
+                      {/* THE CURRENT VALUE, not a placeholder. Somebody renaming
+                          a series should be editing what is there rather than
+                          typing into a box whose emptiness suggests there is
+                          nothing set. */}
+                      <Input
+                        name={`prefix-${entity.id}`}
+                        defaultValue={current ?? ""}
+                        maxLength={12}
+                        required
+                      />
+                    </Field>
+                  </FieldRow>
+                  <div className="cluster">
+                    <Button
+                      type="submit"
+                      variant="destructive-quiet"
+                      loading={busy}
+                      aria-label={`Change what ${entity.displayName}'s invoice numbers read as`}
+                    >
+                      {busy ? "Changing…" : "Change the series"}
+                    </Button>
+                  </div>
+                </fieldset>
+              </form>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * `2026` -> `2026-27`, the label the API's own `formatInvoiceNumber` builds a
+ * number from.
+ *
+ * Written here rather than imported because it is not on the wire: the series
+ * row carries the YEAR as an integer, and every invoice number the product has
+ * ever issued spells it this way. The two must not disagree, which is why this
+ * is one line with the rule stated rather than a format somebody chose.
+ */
+function financialYearLabel(year: number): string {
+  return `${String(year)}-${String((year + 1) % 100).padStart(2, "0")}`;
 }
