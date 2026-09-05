@@ -44,6 +44,7 @@ import {
   Td,
   Th,
   Tooltip,
+  useSwapFocus,
 } from "@/components/ui";
 import type {
   DocumentSubjectKind,
@@ -124,6 +125,10 @@ export function Documents({
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  // "Add a file" is hidden while the form is open, so pressing it unmounts the
+  // focused button and focus falls to <body>. This component is on six
+  // screens, so that is six screens. See `useSwapFocus`.
+  const { panel: addPanel, trigger: addTrigger } = useSwapFocus(adding);
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/subjects/{subjectKind}/{subjectRef}/documents", {
@@ -285,6 +290,7 @@ export function Documents({
             )}
             {canWrite && !adding && (
               <Button
+                ref={addTrigger}
                 variant="secondary"
                 size="sm"
                 icon={<Icon name="plus" size={15} />}
@@ -302,6 +308,7 @@ export function Documents({
       <ErrorNotice error={error} />
 
       {canWrite && adding && (
+        <div ref={addPanel} tabIndex={-1}>
         <form ref={formRef} action={(fd) => void upload(fd)}>
           <div className="stack">
             <FieldRow>
@@ -344,6 +351,7 @@ export function Documents({
             </Cluster>
           </div>
         </form>
+        </div>
       )}
 
       {!loaded ? (

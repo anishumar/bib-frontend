@@ -51,6 +51,7 @@ import {
   Notice as UiNotice,
   Select,
   Textarea,
+  useSwapFocus,
 } from "@/components/ui";
 import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
@@ -77,6 +78,7 @@ export function AskTheFirm({
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [composing, setComposing] = useState(false);
+  const { panel: composePanel, trigger: composeTrigger } = useSwapFocus(composing);
 
   const load = useCallback(async (): Promise<void> => {
     // The BROWSER's own calendar day, for the reason the status home sends it:
@@ -122,13 +124,22 @@ export function AskTheFirm({
     >
       <div className="flex flex-col gap-3">
 
+        {/* THE BUTTON UNMOUNTS ITSELF, so focus has to be carried across.
+            Measured on this very screen: pressing Enter on "Ask for
+            something" left focus on <body>, and the next Tab started at the
+            top of the portal. This is the CLIENT half of the product, where
+            somebody who does not use the firm's software every day is the one
+            being asked to find their way back. See `useSwapFocus`. */}
         {mayRequest && !composing && (
           <div className="cluster">
-            <Button onClick={() => setComposing(true)}>Ask for something</Button>
+            <Button ref={composeTrigger} onClick={() => setComposing(true)}>
+              Ask for something
+            </Button>
           </div>
         )}
 
         {mayRequest && composing && (
+          <div ref={composePanel} tabIndex={-1}>
           <NewRequest
             companies={companies}
             asOf={asOf}
@@ -138,6 +149,7 @@ export function AskTheFirm({
             }}
             onCancel={() => setComposing(false)}
           />
+          </div>
         )}
 
         {live.length === 0 && requests.settled.length === 0 && (

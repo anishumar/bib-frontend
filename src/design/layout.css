@@ -217,8 +217,14 @@
   font-size: 0.6875rem;
   color: var(--faint);
 }
+/* `--brand-ink`, the same token the LABEL beside it already uses. `--brand` is
+   the plum for a ground or an edge; as 11px text on `--brand-wash` it measures
+   4.49:1 in dark, which is under the floor by a hair and was the only thing
+   the portal's dark sweep found. The badge is the count of unanswered
+   requests — the one number that makes splitting the two request lanes safe —
+   so it is not a place to be a hair under anything. */
 .nav-link[aria-current="page"] .count {
-  color: var(--brand);
+  color: var(--brand-ink);
 }
 
 /* ── An open group's screens ────────────────────────────────────────────── */

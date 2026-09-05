@@ -30,6 +30,7 @@ import {
   Td,
   Textarea,
   Th,
+  useSwapFocus,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { longDay, longInstant } from "@/lib/day";
@@ -64,6 +65,9 @@ export default function ProposalPage() {
   // half worth anything later, and asking for it after the fact means asking
   // somebody who has moved on. So the button opens the box rather than posting.
   const [declining, setDeclining] = useState(false);
+  // "Client declined" replaces itself with the reason form, so focus has to
+  // be handed over and handed back. See `useSwapFocus`.
+  const { panel: declinePanel, trigger: declineTrigger } = useSwapFocus(declining);
 
   const load = useCallback(async (): Promise<void> => {
     const [one, catalogue, me] = await Promise.all([
@@ -469,6 +473,7 @@ export default function ProposalPage() {
                 Client accepted
               </Button>
               <Button
+                ref={declineTrigger}
                 variant="destructive-quiet"
                 size="sm"
                 disabled={busy !== null}
@@ -489,6 +494,7 @@ export default function ProposalPage() {
         </div>
 
         {proposal.status === "sent" && declining && (
+          <div ref={declinePanel} tabIndex={-1}>
           <form
             style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
@@ -545,6 +551,7 @@ export default function ProposalPage() {
               </div>
             </FieldStack>
           </form>
+          </div>
         )}
 
         {proposal.status === "rejected" && (
