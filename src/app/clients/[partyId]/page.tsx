@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type {
+  ConfigEntry,
   IdentifierType,
   PartyProfile,
   PartyRelationship,
@@ -14,6 +15,7 @@ import type {
 } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
+import { ChasingPanel } from "./chasing";
 import {
   Button,
   Card,
@@ -85,9 +87,19 @@ export default function PartyPage() {
    *  fourth joining them would put every submit button on the screen into a
    *  loading state whenever any one of them saved. */
   const [relBusy, setRelBusy] = useState(false);
+  /**
+   * The firm's published reminder cadence, for the chasing panel's lede.
+   *
+   * Read here rather than in the panel because it is one request for the whole
+   * page and because it is the FIRM's setting, not this client's — the panel
+   * takes it as a fact and says what it says. Empty is a real answer: with no
+   * published ladder the sweep chases nobody, and a freeze would change
+   * nothing.
+   */
+  const [rungs, setRungs] = useState<ChaseRung[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, me, vocab, book] = await Promise.all([
+    const [one, me, vocab, book, chaser] = await Promise.all([
       api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } }),
       api.GET("/api/v1/auth/me", {}),
       api.GET("/api/v1/parties/relationship-types", {}),
@@ -95,6 +107,10 @@ export default function PartyPage() {
       // company the firm has put away is not one to record a new live
       // relationship with.
       api.GET("/api/v1/parties", {}),
+      // Only a PUBLISHED version chases — a draft cadence is one somebody is
+      // still thinking about, and `ladderFor` in the backend reads exactly the
+      // same way.
+      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "chaser" } } }),
     ]);
     setPermissions(me.data?.permissions ?? []);
     // Neither of these is worth failing the page for. The profile is the
@@ -102,6 +118,7 @@ export default function PartyPage() {
     // form, and the card says so rather than the whole page refusing.
     setTypes(vocab.data?.types ?? []);
     setParties(book.data?.parties ?? []);
+    setRungs(readRungs(chaser.data?.entries ?? []));
     if (one.response.status === 401) {
       router.push("/login");
       return;
@@ -348,6 +365,19 @@ export default function PartyPage() {
            not offer a sister company is a sister company nobody has written
            down yet. */
         group={groupCompanies(profile, today)}
+      />
+
+      {/* THE THIRD THING ABOUT TALKING TO THIS CLIENT, after who owns them and
+          who at their end can see us: whether the product is reminding them
+          about what they owe. It is the panel whose NAME is most misleading —
+          "freeze the client" stops the outward reminder ladder and nothing
+          else — so the card states what it does not do above the control that
+          does it. */}
+      <ChasingPanel
+        partyId={partyId}
+        clientName={profile.party.displayName}
+        canFreeze={permissions.includes("tenant:admin")}
+        rungs={rungs}
       />
 
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
@@ -815,4 +845,37 @@ function relationChoices(
     { value: `${t.code}:out`, sentence: `${thisName} is ${t.label} ${otherName}` },
     { value: `${t.code}:in`, sentence: `${otherName} is ${t.label} ${thisName}` },
   ]);
+}
+
+/**
+ * The firm's reminder cadence, off a config body that is typed as `unknown`.
+ *
+ * `config.version.body` is jsonb and reaches the wire as an open object, so
+ * there is no generated type to lean on — which means this is the one place in
+ * this file that has to check what it got. It reads the same shape the
+ * backend's `readChaserBody` does and drops anything that is not it, because
+ * the alternative is a lede that says "reminder after undefined days".
+ *
+ * A missing entry, an unpublished draft and a malformed body all return the
+ * same empty list, and the panel renders that as the real state it is: nothing
+ * is being chased at all.
+ */
+function readRungs(entries: readonly ConfigEntry[]): ChaseRung[] {
+  const body = entries.find((e) => e.entry.key === "default")?.published?.body;
+  const raw = (body as { rungs?: unknown } | undefined)?.rungs;
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((r): ChaseRung[] => {
+    const row = r as { key?: unknown; label?: unknown; afterDays?: unknown };
+    return typeof row.key === "string" &&
+      typeof row.label === "string" &&
+      typeof row.afterDays === "number"
+      ? [{ key: row.key, label: row.label, afterDays: row.afterDays }]
+      : [];
+  });
+}
+
+interface ChaseRung {
+  key: string;
+  label: string;
+  afterDays: number;
 }

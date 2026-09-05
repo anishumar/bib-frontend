@@ -438,6 +438,21 @@ export type AssignmentRole = ClientAssignment["role"];
 export type PortalGrant =
   paths["/api/v1/portal-access/clients/{partyId}"]["get"]["responses"][200]["content"]["application/json"]["grants"][number];
 
+/**
+ * One period during which the firm stopped chasing a client (T4.4).
+ *
+ * Live AND historic in one list, newest first: "was this client being chased in
+ * March" is the question, and a list of only the current freeze answers it with
+ * silence. `validTo` is HALF-OPEN — the first day NOT frozen.
+ *
+ * `reason` is required by the API and is deliberately NOT in the audit ledger —
+ * it is a partner's words about a client and that log cannot be erased. This
+ * row is the only place it is ever readable, which is why the panel quotes it
+ * rather than summarising it.
+ */
+export type ClientFreeze =
+  paths["/api/v1/clients/{partyId}/freezes"]["get"]["responses"][200]["content"]["application/json"][number];
+
 /** One client on the signed-in person's book, with every role they hold over
  *  it — a partner is commonly the Key Manager AND a Dept's SPOC on the same
  *  client, and this is one row either way. */
