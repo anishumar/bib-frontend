@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import {
   Button,
@@ -75,6 +75,9 @@ export function AccountTeamPanel({
   const [role, setRole] = useState<AssignmentRole>("spoc");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // An id of its own, because this control is not a `<Field>` — it sits in the
+  // card's heading row, opposite the title, and `<Field>` is a stacked block.
+  const asOfId = useId();
 
   const load = useCallback(
     async (onDate: string): Promise<void> => {
@@ -176,10 +179,19 @@ export function AccountTeamPanel({
           a heading with something opposite it, which is this. */}
       <div className="row">
         <CardTitle level={2}>Account team</CardTitle>
-        <label className="label" style={{ marginBottom: 0 }}>
-          As of{" "}
-          <input
-            className="input"
+        {/* THE LAST `label.label` WRAPPER IN THE APP, and it outlived the sweep
+            that removed the other thirteen (42a7d79) because that sweep read
+            the source. A wrapping <label> makes the control's name the whole
+            label's text — here "As of" plus the date the browser renders inside
+            it, so the name changed every time the value did. `aria-label` and a
+            `<label for>` cannot both be right; the visible words stay, the name
+            is fixed, and the box is `<Input>` rather than a raw
+            `<input className="input">` so it wears the same chrome as every
+            other date on the screen. */}
+        <span className="label" style={{ marginBottom: 0 }}>
+          <label htmlFor={asOfId}>As of</label>{" "}
+          <Input
+            id={asOfId}
             type="date"
             value={asOf}
             style={{ width: "auto", marginLeft: 6 }}
@@ -187,7 +199,7 @@ export function AccountTeamPanel({
               setAsOf(e.target.value === "" ? today() : e.target.value);
             }}
           />
-        </label>
+        </span>
       </div>
 
       {!showingToday && (
@@ -232,10 +244,20 @@ export function AccountTeamPanel({
                   <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
                   <Td>
                     {showingToday && a.validTo === null && (
+                      /* NAMED BY THE ROW. Cobalt Foods has four people on it and
+                         every button said only "End today" — and the holder's
+                         name does not separate them either, because one person
+                         is SPOC for two Depts. Role + who + which Dept is what
+                         the row IS, and none of the three is editable here. The
+                         sweep that reported this route clean ran against a
+                         client with no account team at all. */
                       <Button
                         variant="secondary"
                         size="sm"
                         disabled={busy}
+                        aria-label={`End today — ${roleLabel(a.role)}, ${
+                          a.holderName ?? a.holderEmail
+                        }, ${a.axis === null ? "whole relationship" : a.axis.name}`}
                         onClick={() => {
                           void end(a);
                         }}

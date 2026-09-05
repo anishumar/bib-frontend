@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { ServiceAxis, ServiceAxisKind, WorkSplitAxis, RequestRouting } from "@/lib/api/client";
@@ -323,6 +323,7 @@ function WorkSplitChooser({
   busy: boolean;
   onChoose: (axis: WorkSplitAxis) => void;
 }) {
+  const splitId = useId();
   const options: {
     value: WorkSplitAxis;
     label: string;
@@ -360,7 +361,19 @@ function WorkSplitChooser({
           a disabled option were all typed out here; `.check` does every one of
           them, and `.check input:disabled ~ *` does the dimming without the
           component having to work out whether it is disabled twice. */}
-      <div style={{ display: "grid", gap: "var(--s-2)" }}>
+      {/* A RADIO GROUP WITH NO GROUP. The two sentences under these options —
+          that changing this restates nothing, and that it is not in effect yet
+          — describe the CHOICE, not any one option, and sat loose so that
+          nothing announced them. A <fieldset> with no legend is what carries
+          both: the name is the card's own question, the description is the two
+          paragraphs, and each is read ONCE on entering the group rather than
+          appended to every option and repeated on every arrow key. */}
+      <fieldset
+        className="fieldset"
+        style={{ display: "grid", gap: "var(--s-2)" }}
+        aria-label="When a client signs, how is the work split up?"
+        aria-describedby={`${splitId}-restates ${splitId}-not-live`}
+      >
         {options.map((o) => (
           <Radio
             key={o.value}
@@ -375,8 +388,8 @@ function WorkSplitChooser({
             onChange={() => { onChoose(o.value); }}
           />
         ))}
-      </div>
-      <p className="muted text-sm">
+      </fieldset>
+      <p id={`${splitId}-restates`} className="muted text-sm">
         Changing this restates nothing. Work already under way keeps the shape it started
         with; the next engagement is split the new way.
       </p>
@@ -385,7 +398,7 @@ function WorkSplitChooser({
           control that looks live and is not is exactly the "feature that looks
           finished" this codebase has been caught by before — a registered event
           verb with no writer — so the screen says which half exists. */}
-      <p className="muted text-sm">
+      <p id={`${splitId}-not-live`} className="muted text-sm">
         <strong>Not in effect yet.</strong> Your answer is saved and will be used the moment
         delivery scheduling goes live. Until then every signed engagement produces one job,
         whatever is chosen here.
@@ -711,6 +724,7 @@ function RequestRoutingChooser({
   busy: boolean;
   onChoose: (routing: RequestRouting) => void;
 }) {
+  const routingId = useId();
   const options: { value: RequestRouting; label: string; hint: string }[] = [
     {
       value: "none",
@@ -731,7 +745,15 @@ function RequestRoutingChooser({
         Clients raise requests from their own portal — a document they cannot find, a copy of
         something, a correction. This decides whether one arrives on a named desk.
       </p>
-      <div className="stack tight" style={{ marginTop: "var(--s-3)" }}>
+      {/* Named and DESCRIBED as a group, for the reason the work-split card
+          above is: the paragraph under these options is about the choice, not
+          about any one of them. */}
+      <fieldset
+        className="fieldset stack tight"
+        style={{ marginTop: "var(--s-3)" }}
+        aria-label="When a client asks you for something, whose is it?"
+        aria-describedby={`${routingId}-note`}
+      >
         {options.map((o) => (
           /* Was a hand-rolled <label className="choice">, and `.choice` is
              defined in no stylesheet — used here and nowhere else. With no
@@ -752,8 +774,8 @@ function RequestRoutingChooser({
             }}
           />
         ))}
-      </div>
-      <p className="field-hint" style={{ marginTop: "var(--s-3)" }}>
+      </fieldset>
+      <p id={`${routingId}-note`} className="field-hint" style={{ marginTop: "var(--s-3)" }}>
         There is no &ldquo;send it to the SPOC&rdquo; here, and that is deliberate: a SPOC
         covers a Dept or a delivery team, and a request names no service — so there would be
         nothing to pick one by. Changing this setting restates nothing: requests already on a

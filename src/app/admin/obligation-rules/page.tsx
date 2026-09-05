@@ -426,6 +426,13 @@ function Rules() {
               {mayWrite && (
                 <Button
                   variant="secondary"
+                  /* SAYS WHICH CANCEL. Open the new-rule form and there are two
+                     buttons on screen saying only "Cancel" — this one at the
+                     top of the page and the form's own at the bottom of it —
+                     and they do the same thing, which somebody moving between
+                     buttons by name has no way to know. The visible word is
+                     unchanged. */
+                  {...(creating ? { "aria-label": "Cancel the new rule" } : {})}
                   onClick={() => {
                     setEditing(null);
                     setDraft(draftOf(null));

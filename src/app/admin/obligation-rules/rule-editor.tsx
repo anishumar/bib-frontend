@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
 import { Cluster, Row, Stack } from "@/components/layout";
 import {
@@ -221,6 +221,14 @@ export function RuleEditor({
   const produced = rule?.instanceCount ?? 0;
   const shapeLocked = produced > 0;
   const group = `formula-${rule?.id ?? "new"}`;
+  // Two paragraphs on this form sit BELOW a `.field-row` rather than inside a
+  // column of it — deliberately, because a hint inside one column makes that
+  // field taller and leaves four inputs at four heights. Sitting outside, they
+  // have to be pointed at by hand, and neither was: each describes two fields
+  // at once, which is also why neither could be a `<Field hint>`.
+  const noteId = useId();
+  const periodNoteId = `${noteId}-period`;
+  const groupingNoteId = `${noteId}-grouping`;
 
   return (
     <Card>
@@ -265,6 +273,7 @@ export function RuleEditor({
             <Select
               value={draft.recurrence}
               disabled={shapeLocked}
+              {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
               onChange={(e) => { set("recurrence", e.target.value); }}
             >
               <option value="monthly">Every month</option>
@@ -278,6 +287,7 @@ export function RuleEditor({
             <Select
               value={String(draft.fiscalYearStartMonth)}
               disabled={shapeLocked}
+              {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
               onChange={(e) => { set("fiscalYearStartMonth", Number(e.target.value)); }}
             >
               {MONTHS.map((m, i) => (
@@ -294,7 +304,11 @@ export function RuleEditor({
             it is written in CLAUDE.md; this screen re-made it, and looking at
             the page is what found it again. */}
         {!shapeLocked && (
-          <p className="field-hint">
+          /* Pointed at by BOTH selects above, and only while it is rendered —
+             a `describedby` naming an element that is not on the page describes
+             nothing, and this paragraph is replaced by a Notice once the shape
+             is locked. */
+          <p id={periodNoteId} className="field-hint">
             April for India: a quarter runs Apr&ndash;Jun, so leaving the year at January would put
             every quarterly filing in the wrong period.
           </p>
@@ -392,6 +406,7 @@ export function RuleEditor({
             <Input
               value={draft.module}
               placeholder="TDS"
+              aria-describedby={groupingNoteId}
               onChange={(e) => { set("module", e.target.value); }}
             />
           </Field>
@@ -399,6 +414,7 @@ export function RuleEditor({
             <Input
               value={draft.entityType}
               placeholder="private_limited"
+              aria-describedby={groupingNoteId}
               onChange={(e) => { set("entityType", e.target.value); }}
             />
           </Field>
@@ -414,7 +430,9 @@ export function RuleEditor({
             </Select>
           </Field>
         </FieldRow>
-        <p className="field-hint">
+        {/* One paragraph, TWO fields — which is exactly why it cannot be a
+            `<Field hint>` and had to be wired by hand. */}
+        <p id={groupingNoteId} className="field-hint">
           <strong>Statute grouping</strong> is the law&rsquo;s &mdash; GST, TDS, MCA &mdash; not
           the firm&rsquo;s revenue Dept, which is a different axis. Leaving{" "}
           <strong>entity type</strong> blank means every kind of company, which is the ordinary
@@ -478,7 +496,12 @@ export function Exceptions({
       <CardHead>
         <CardTitle>Exceptions</CardTitle>
         {mayWrite && rule.recurrence !== "event" && (
-          <Button variant="ghost" size="sm" onClick={() => { setOpen((o) => !o); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            {...(open ? { "aria-label": "Cancel the new exception" } : {})}
+            onClick={() => { setOpen((o) => !o); }}
+          >
             {open ? "Cancel" : "Add an exception"}
           </Button>
         )}

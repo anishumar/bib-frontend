@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, VERIFICATION_RULES } from "@/lib/api/client";
 import type { ConfigEntry, StaffGrade, VerificationRule } from "@/lib/api/client";
@@ -342,6 +342,13 @@ function PolicyForm({
   const [rule, setRule] = useState<VerificationRule>(initial?.rule ?? "rank_threshold");
   const [gradeCode, setGradeCode] = useState(initial?.minGradeCode ?? "");
   const [busy, setBusy] = useState(false);
+  // Two sentences on this form describe a control and were wired to nothing.
+  // A paragraph too wide for a `<Field>`'s column, or that describes a whole
+  // group, has to be given an id and pointed at by hand — the `<Field hint>`
+  // that does it automatically is only for the ones that fit.
+  const editorId = useId();
+  const reportingNoteId = `${editorId}-reporting`;
+  const draftNoteId = `${editorId}-draft`;
 
   // Retired rungs are not offered. Somebody who holds one keeps it and still
   // meets a threshold written against it — that is the point of retiring rather
@@ -431,6 +438,13 @@ function PolicyForm({
             note={r.detail}
             name={`rule-${policyKey ?? "new"}`}
             checked={rule === r.value}
+            /* CONDITIONAL, because the paragraph is. It is only rendered once
+               the reporting-line rule is chosen, and a `describedby` naming an
+               element that is not on the page describes nothing. `Radio`
+               APPENDS to its own `note`, so both are read. */
+            {...(r.value === "reporting_line" && rule === "reporting_line"
+              ? { "aria-describedby": reportingNoteId }
+              : {})}
             onChange={() => { setRule(r.value); }}
           />
         ))}
@@ -473,7 +487,7 @@ function PolicyForm({
         // Said before they choose it, not discovered when the queue turns out to
         // be unactionable. Every firm is in exactly this state the day the
         // feature ships, because nothing has filled the column in.
-        <p className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "60ch" }}>
+        <p id={reportingNoteId} className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "60ch" }}>
           This rule reads <strong>who reports to whom</strong>, which is set on{" "}
           <strong>People</strong>. Anybody whose manager is not recorded there has nobody who
           may check their work, and the queue will say so.
@@ -483,14 +497,22 @@ function PolicyForm({
       {/* `.cluster` is `display: flex; gap: var(--s-2)` with wrapping, which is
           those two declarations and one it was missing. */}
       <div className="cluster mt-4">
-        <Button disabled={busy || incomplete} onClick={() => void save()}>
+        {/* THE SENTENCE UNDER THIS BUTTON IS ABOUT THIS BUTTON. It says what
+            pressing it does — a draft, not a rule in force — and sitting loose
+            underneath, it reached nobody who could not see it. It describes the
+            save and not the cancel, so only the save points at it. */}
+        <Button
+          disabled={busy || incomplete}
+          aria-describedby={draftNoteId}
+          onClick={() => void save()}
+        >
           {policyKey === null ? "Save as a draft" : "Save the change"}
         </Button>
         <Button variant="secondary" size="sm" onClick={onCancel}>
           Cancel
         </Button>
       </div>
-      <p className="muted text-xs">
+      <p id={draftNoteId} className="muted text-xs">
         Saved as a draft. It governs nothing until you put it in force, and checks already open
         keep the rule they were opened under.
       </p>
