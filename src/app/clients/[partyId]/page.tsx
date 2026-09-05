@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
@@ -88,6 +88,30 @@ export default function PartyPage() {
    *  loading state whenever any one of them saved. */
   const [relBusy, setRelBusy] = useState(false);
   /**
+   * Which relationship is being CLOSED, if any — one panel for the whole table.
+   *
+   * A date field and a confirm button per open row would be N forms sharing two
+   * names, and the row's own button already says which relationship it is
+   * about. The panel names it again in a sentence, because a reader who has
+   * scrolled past the table needs to know what they are about to end.
+   */
+  const [ending, setEnding] = useState<PartyRelationship | null>(null);
+  const [endBusy, setEndBusy] = useState(false);
+  /** The refusal lives IN the panel. This page is 3,000px long and its one
+   *  error notice is at the top of it, so a refusal about a date typed at the
+   *  bottom would render where the reader cannot see it happen. */
+  const [endError, setEndError] = useState<string | null>(null);
+  const [endErrorAt, setEndErrorAt] = useState(0);
+  const endErrorRef = useRef<HTMLDivElement>(null);
+  const endPanelRef = useRef<HTMLDivElement>(null);
+  /** The button that opened the panel, so Cancel gives focus back to it rather
+   *  than dropping it on `<body>` when the panel unmounts. */
+  const endTriggerRef = useRef<HTMLButtonElement | null>(null);
+  /** Where focus goes when the row that held the trigger is gone — which is
+   *  what SUCCESS looks like here: the relationship is closed, so the button
+   *  that opened the panel no longer exists. */
+  const relCardRef = useRef<HTMLHeadingElement>(null);
+  /**
    * The firm's published reminder cadence, for the chasing panel's lede.
    *
    * Read here rather than in the panel because it is one request for the whole
@@ -97,6 +121,16 @@ export default function PartyPage() {
    * nothing.
    */
   const [rungs, setRungs] = useState<ChaseRung[]>([]);
+
+  useEffect(() => {
+    if (ending !== null) endPanelRef.current?.focus();
+  }, [ending]);
+
+  useEffect(() => {
+    // Bumped even when the sentence repeats: pressing a refused button twice
+    // has to move focus twice, and `endError` alone does not change.
+    if (endErrorAt > 0) endErrorRef.current?.focus();
+  }, [endErrorAt]);
 
   const load = useCallback(async (): Promise<void> => {
     const [one, me, vocab, book, chaser] = await Promise.all([
@@ -244,14 +278,13 @@ export default function PartyPage() {
    * read from both ends — and the chosen sentence decides which uuid goes in
    * which field. There is nothing left to get backwards.
    *
-   * ## There is no way to END one here, and that is not an oversight
+   * ## Ending one is a DIFFERENT act, and it now exists
    *
-   * The domain knows about it — `party_relationship.ended` is a declared ledger
-   * verb — but there is no route, no service method and no repository method
-   * behind it. So this form offers an end DATE, which records a relationship
-   * that is already over, and offers no button to close an open one. A screen
-   * that offered "End it" and then had nothing to call would be worse than the
-   * gap it was covering up.
+   * This form's end date records a relationship that was already over when the
+   * firm heard about it. Closing one that is open is `endRelationship` below,
+   * against `POST /parties/relationships/{id}/end` — the route that was missing
+   * while `party_relationship.ended` sat in the ledger vocabulary with nothing
+   * raising it, which is what this comment used to say instead.
    */
   async function addRelationship(form: FormData): Promise<void> {
     const other = String(form.get("otherParty") ?? "");
@@ -277,6 +310,47 @@ export default function PartyPage() {
     }
     setRelOther("");
     await load();
+  }
+
+  /**
+   * Close an open relationship on the day it stopped being in force.
+   *
+   * ── A DATE, NOT "TODAY", and that is the difference from the account team ──
+   *
+   * `AccountTeamPanel` ends an assignment on the caller's own day, because that
+   * is an operational fact the firm controls as it happens. A directorship is
+   * not: it ended on the day the registrar recorded, the firm hears afterwards,
+   * and "End today" would be wrong by however long the post took. So this asks.
+   *
+   * ── HALF-OPEN, LIKE EVERY OTHER RANGE IN THIS PRODUCT ─────────────────────
+   *
+   * `validTo` is the FIRST DAY NOT IN FORCE. A director who resigned on the
+   * 12th is ended on the 12th and the 11th is her last day, and the field says
+   * so rather than leaving a partner to guess which convention this screen is
+   * on. The API refuses a date that is not after the day it began — so does the
+   * database — and that refusal renders here, beside the field.
+   */
+  async function endRelationship(form: FormData): Promise<void> {
+    if (ending === null) return;
+    const validTo = String(form.get("endValidTo") ?? "").trim();
+    if (validTo === "") return;
+    setEndBusy(true);
+    setEndError(null);
+    const result = await api.POST("/api/v1/parties/relationships/{relationshipId}/end", {
+      params: { path: { relationshipId: ending.relationship.id } },
+      body: { validTo },
+    });
+    setEndBusy(false);
+    if (result.error) {
+      setEndError(apiError(result.error).message);
+      setEndErrorAt((n) => n + 1);
+      return;
+    }
+    setEnding(null);
+    await load();
+    // The row's button is gone with the relationship it belonged to, so focus
+    // goes to the card's own heading — the table underneath it is what changed.
+    relCardRef.current?.focus();
   }
 
   if (!loaded) return <Loading />;
@@ -538,7 +612,13 @@ export default function PartyPage() {
       </Card>
 
       <Card>
-        <CardTitle level={2}>Relationships</CardTitle>
+        {/* `tabIndex={-1}` so it can be FOCUSED without becoming a tab stop —
+            the same half-fix the skip link needed. It is where focus goes when
+            a relationship has just been closed and the button that closed it no
+            longer exists. */}
+        <CardTitle level={2} ref={relCardRef} tabIndex={-1}>
+          Relationships
+        </CardTitle>
         <p className="muted">
           Who owns this company, who signs for it, and which other companies it is grouped
           with — each one effective-dated, because compliance never asks who a director is,
@@ -561,6 +641,7 @@ export default function PartyPage() {
                   <Th>Whom</Th>
                   <Th>From</Th>
                   <Th>Until</Th>
+                  <Th />
                 </tr>
               </thead>
               <tbody>
@@ -588,11 +669,101 @@ export default function PartyPage() {
                         ? "open"
                         : longDay(r.relationship.validTo)}
                     </Td>
+                    <Td>
+                      {canWrite && r.relationship.validTo === null && (
+                        /* NAMED BY THE ROW, not by the word on it. A company
+                           with four directors draws four buttons saying "End
+                           it", and the sentence plus the counterparty is what
+                           the row IS — neither is editable anywhere on this
+                           screen. */
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`End it — ${profile.party.displayName} ${relationSentence(
+                            r,
+                            types,
+                          )} ${r.counterparty.displayName}`}
+                          onClick={(e) => {
+                            endTriggerRef.current = e.currentTarget;
+                            setEndError(null);
+                            setEnding(r);
+                          }}
+                        >
+                          End it
+                        </Button>
+                      )}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
             </Table>
           </TableWrap>
+        )}
+
+        {ending !== null && (
+          /*
+           * ONE PANEL FOR THE WHOLE TABLE, and it names what it is about.
+           *
+           * A date field per open row would be N forms answering to two names,
+           * which is the shape this repo has had to unpick on six screens. The
+           * panel is focused when it opens and Cancel hands focus back to the
+           * button that opened it — a form that appears below the control that
+           * summoned it still loses focus to `<body>` when it closes.
+           */
+          <div
+            ref={endPanelRef}
+            tabIndex={-1}
+            className="card"
+            style={{ marginTop: "var(--s-4)" }}
+          >
+            <CardTitle>End this relationship</CardTitle>
+            <p className="muted">
+              <strong>{profile.party.displayName}</strong> {relationSentence(ending, types)}{" "}
+              <strong>{ending.counterparty.displayName}</strong>, from{" "}
+              {longDay(ending.relationship.validFrom)}.
+            </p>
+            <div ref={endErrorRef} tabIndex={-1}>
+              <ErrorNotice error={endError} />
+            </div>
+            <form action={endRelationship}>
+              <FieldStack>
+                {/* A DATE BOX, NOT A BANNER — and `FieldRow` does not do it,
+                    which was worth measuring rather than assuming.
+                    `.field-row` is `repeat(auto-fit, minmax(12rem, 1fr))`, and
+                    auto-fit COLLAPSES the tracks nothing sits in and hands
+                    their space to the one that is filled: measured at 1068px
+                    with a single field in it, the same width `FieldStack`
+                    already gave it. The cap is what makes it a control. It is
+                    an inline width because this system has no token for one —
+                    the same case as the `maxWidth: 62ch` prose measures on
+                    /admin/structure. */}
+                <div style={{ maxWidth: "16rem" }}>
+                <Field
+                  label="The first day it is no longer in force"
+                  hint="Half-open, like every date range here: a director who resigned on the 12th is ended on the 12th, and the 11th is her last day. It has to be after the day the relationship began, and it cannot be changed afterwards — the ledger records an ending once."
+                >
+                  <Input type="date" name="endValidTo" defaultValue={today} required />
+                </Field>
+                </div>
+                <div className="cluster">
+                  <Button type="submit" loading={endBusy}>
+                    {endBusy ? "Ending…" : "End it"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setEnding(null);
+                      setEndError(null);
+                      endTriggerRef.current?.focus();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </FieldStack>
+            </form>
+          </div>
         )}
 
         {canWrite && types.length > 0 && (
@@ -696,17 +867,14 @@ export default function PartyPage() {
                   <Button type="submit" loading={relBusy}>
                     {relBusy ? "Recording…" : "Record it"}
                   </Button>
-                  {/* SAYS WHAT THIS SCREEN CANNOT DO. The domain has a
-                      `party_relationship.ended` event and the API has no route
-                      behind it — no service method, no repository method. A
-                      relationship that is already over is recorded with its end
-                      date here; an open one cannot be closed from this screen,
-                      and offering a button that had nothing to call would be
-                      worse than the gap it covered. */}
+                  {/* TWO DIFFERENT ACTS, and the form says which one it is.
+                      Filling in Until records a relationship that was already
+                      over when the firm heard about it. Closing one that is
+                      still open is the row's own "End it" — it writes
+                      `party_relationship.ended`, and it happens once. */}
                   <p className="field-hint">
-                    An open relationship cannot be closed from here yet — the product has no
-                    route for it. Record one that has already ended by filling in{" "}
-                    <em>Until</em>.
+                    <em>Until</em> is for one that has already ended. To close a relationship
+                    that is still open, use <em>End it</em> on its row above.
                   </p>
                 </div>
               </FieldStack>

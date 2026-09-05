@@ -8647,6 +8647,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/relationships/{relationshipId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close an open relationship with the day it stopped being in force */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    relationshipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndRelationshipRequest"];
+                };
+            };
+            responses: {
+                /** @description Relationship closed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PartyRelationship"];
+                    };
+                };
+                /** @description The end date is not after the day it began */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such relationship */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The relationship has already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/archive": {
         parameters: {
             query?: never;
@@ -16180,6 +16267,10 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+        };
+        EndRelationshipRequest: {
+            /** Format: date */
+            validTo: string;
         };
         Party: {
             /** Format: uuid */

@@ -107,13 +107,23 @@ export function CardTitle({
   /** See `CardHead`. `level={2}` for a top-level section of the page. */
   level = 3,
   className,
+  ...rest
 }: {
   children: ReactNode;
   level?: 2 | 3;
   className?: string;
-}) {
+  /* Declared for the same reason `Card` declares it: a heading is where focus
+     goes when the control that acted has just unmounted itself — closing a
+     relationship removes the row whose button did it — and a heading with
+     `tabIndex={-1}` can hold focus without becoming a tab stop. */
+  ref?: React.Ref<HTMLHeadingElement>;
+} & Omit<React.HTMLAttributes<HTMLHeadingElement>, "className">) {
   const Heading = level === 2 ? "h2" : "h3";
-  return <Heading className={cx("card-title", className)}>{children}</Heading>;
+  return (
+    <Heading {...rest} className={cx("card-title", className)}>
+      {children}
+    </Heading>
+  );
 }
 
 /** A footer rule and the note or actions under it. */
