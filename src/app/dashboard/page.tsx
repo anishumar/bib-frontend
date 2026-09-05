@@ -48,7 +48,7 @@ import {
   formatMoney,
 } from "@/lib/api/client";
 import type { DashboardOverview, DashboardSlice } from "@/lib/api/client";
-import { Tabs } from "@/components/ui";
+import { TabPanel, Tabs } from "@/components/ui";
 import {
   Card,
   CardTitle,
@@ -234,6 +234,11 @@ export default function DashboardPage() {
             ]}
           />
         </div>
+        {/* THE PANEL IS WHAT THE TAB CONTROLS, and it has to be a real element
+            with the id `<Tabs>` promises — the split table was a loose sibling
+            of the tablist, so "By client" and "By service" both pointed
+            `aria-controls` at nothing. */}
+        <TabPanel tabsId={axisTabs} value={axis}>
         {mrrSlices.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
             Nothing to split — no engagement has a fee this can turn into a monthly figure yet.
@@ -266,6 +271,7 @@ export default function DashboardPage() {
             </TableWrap>
           </div>
         )}
+        </TabPanel>
       </Card>
 
       {/* ── What is owed, and how long it has been owed ────────────────────── */}

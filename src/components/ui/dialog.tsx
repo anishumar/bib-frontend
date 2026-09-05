@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cx } from "./class-names";
 import { Button } from "./button";
 
@@ -36,6 +36,11 @@ export function Dialog({
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  /* A `<dialog>` HAS NO NAME OF ITS OWN. The browser gives it the `dialog`
+     role and the focus trap, and then announces it as an unnamed dialog —
+     the visible `<h2>` inside is just content until something points at it.
+     So the title gets an id and `aria-labelledby` names the dialog by it. */
+  const titleId = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -52,6 +57,7 @@ export function Dialog({
     <dialog
       ref={ref}
       className={cx("dialog", className)}
+      aria-labelledby={titleId}
       {...(size === undefined ? {} : { "data-size": size })}
       /* Fires for Escape too, which is why closing is handled here rather than
          on the button — otherwise Escape would close the element and leave the
@@ -64,7 +70,9 @@ export function Dialog({
       }}
     >
       <div className="dialog-head">
-        <h2 className="card-title">{title}</h2>
+        <h2 className="card-title" id={titleId}>
+          {title}
+        </h2>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
           ✕
         </Button>

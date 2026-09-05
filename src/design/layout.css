@@ -110,9 +110,19 @@
   color: var(--faint);
   transition: border-color var(--dur-fast) var(--ease);
 }
+/* THE RING GOES ON THE BOX, because the input inside it clears its own.
+   `.nav-search input` sets `outline: 0` so the text field brings none of its
+   own chrome into the bordered box — but that rule and `input:focus-visible`
+   in base.css have the SAME specificity (one class + one type against one type
+   + one pseudo-class), and this file loads later, so `outline: 0` won and the
+   search box was the one control in the app a keyboard user could not see
+   themselves land on. The border-colour change alone is not a replacement: it
+   is a 1px shift on a colour, and the app's rule is one ring, learnt once. */
 .nav-search:focus-within {
   border-color: var(--brand);
   color: var(--brand);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .nav-search input {
   flex: 1;

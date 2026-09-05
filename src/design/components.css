@@ -367,7 +367,7 @@
 .pill[data-tone="warn"] {
   border-color: transparent;
   background: var(--warn-wash);
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .pill[data-tone="danger"] {
   border-color: transparent;
@@ -789,7 +789,7 @@
 .strip > div:has(dd[data-tone="danger"]) {
   border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
 }
-.strip dd[data-tone="warn"] { color: var(--warn); }
+.strip dd[data-tone="warn"] { color: var(--warn-ink); }
 .strip > div:has(dd[data-tone="warn"]) {
   border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
 }
@@ -853,7 +853,7 @@
 /* A count that is toned deliberately keeps its tone whether or not its tab is
    current — see `tone` on TabItem. It has to win over both rules above. */
 .tab .count.tone-danger { color: var(--danger); }
-.tab .count.tone-warn { color: var(--warn); }
+.tab .count.tone-warn { color: var(--warn-ink); }
 
 /* ── Dialog ───────────────────────────────────────────────────────────────
    Native `<dialog>`. The browser already owns the focus trap, the Escape key,
@@ -1371,13 +1371,17 @@
 /* WHO IT IS FOR, in the eyebrow face. Uppercased on purpose: it is the line
    the eye skips to when scanning a column for one client's work, and set as
    ordinary text it competes with the title instead. */
+/* `--muted`, not `--faint`. This is the CLIENT the task is for — the one
+   thing on a work card that says whose it is — and it is not small print. It
+   also sits on the tinted ground of an escalated card, where `--faint`
+   measured 4.41:1, under the floor for 11px. */
 .wcard-for {
   margin: 0;
   font-family: var(--mono);
   font-size: 0.6875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1402,7 +1406,7 @@
   font-variant-numeric: tabular-nums;
 }
 .wcard-due[data-tone="danger"] { color: var(--danger); font-weight: 600; }
-.wcard-due[data-tone="warn"] { color: var(--warn); font-weight: 600; }
+.wcard-due[data-tone="warn"] { color: var(--warn-ink); font-weight: 600; }
 
 /* Priority as a dot and a word. The dot's tone comes from the RANK the firm
    set, never from the name — a firm that calls rank 1 "Statutory" must not
@@ -1699,8 +1703,14 @@
   box-shadow: var(--shadow);
   transition: border-color var(--dur) var(--ease);
 }
+/* Same shape as `.nav-search`: the textarea below clears its outline so the
+   BOX is the control, so the box is what has to carry the ring. Border-colour
+   alone was not enough here either — and the colour it moved to was the HOVER
+   border, which says "the pointer is over this", not "the keyboard is in it". */
 .chat-composer:focus-within {
   border-color: var(--input-border-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 /* The field brings none of `.input`'s chrome: the BOX is the input here, and a
    bordered control inside a bordered box is two frames around one thing. */
@@ -1743,7 +1753,7 @@
    under a date, a figure that has gone the wrong way. Same three tones as
    everything else, so there is never a reason to reach for an inline colour. */
 .tone-danger { color: var(--danger); }
-.tone-warn { color: var(--warn); }
+.tone-warn { color: var(--warn-ink); }
 .tone-ok { color: var(--accent); }
 
 /* The type scale, as classes.

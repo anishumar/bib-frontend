@@ -22,7 +22,10 @@ import { cx } from "./class-names";
  * three hand-rolled versions could not offer.
  *
  * `id` is REQUIRED rather than generated, and that is deliberate: it is the
- * only thing tying a tab to the panel it controls. Generating it here would
+ * only thing tying a tab to the panel it controls. It is also what a page
+ * OWES this component: `<Tabs>` alone cannot tell whether a `<TabPanel>` was
+ * rendered, so a page that draws tab content as loose siblings leaves even the
+ * selected tab's `aria-controls` pointing at nothing. Generating it here would
  * mean `<TabPanel>` had to be told a value it could not see, and the failure —
  * `aria-controls` pointing at nothing — is invisible to everyone who is not
  * using a screen reader. Put `const tabs = useId()` on the page and hand it to
@@ -116,7 +119,14 @@ export function Tabs<T extends string>({
             role="tab"
             className="tab"
             aria-selected={selected}
-            aria-controls={`${base}-${tab.value}-panel`}
+            /* ONLY THE SELECTED TAB CLAIMS A PANEL. Every page here renders
+               one `<TabPanel>` — the current one — so pointing the other tabs
+               at `…-panel` ids that are not in the document made four of the
+               six tablists in the app carry a dangling `aria-controls`. A
+               reference to nothing is worse than no reference: the attribute
+               promises a relationship and then breaks it, and the failure is
+               invisible to anyone not using a screen reader. */
+            {...(selected ? { "aria-controls": `${base}-${tab.value}-panel` } : {})}
             /* Only the selected tab is in the tab order. The arrow keys reach
                the others — that is the roving-tabindex pattern a tablist is
                required to implement. */

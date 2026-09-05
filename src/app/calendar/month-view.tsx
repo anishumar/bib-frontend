@@ -658,7 +658,7 @@ function FilingCard({
         {row.ruleUnconfirmed && (
           <span
             title={`Rule pack ${row.rulePack}`}
-            className="rounded-sm bg-warn-wash px-2 py-0.5 text-xs text-warn"
+            className="rounded-sm bg-warn-wash px-2 py-0.5 text-xs text-warn-ink"
           >
             unconfirmed rule
           </span>
@@ -680,7 +680,7 @@ function FilingCard({
       </div>
 
       {basis === "statutory" && lateInternally && !lateLegally && (
-        <p className="mt-2 text-xs text-warn">
+        <p className="mt-2 text-xs text-warn-ink">
           Past the firm&rsquo;s own start date, though the legal one has not arrived.
         </p>
       )}

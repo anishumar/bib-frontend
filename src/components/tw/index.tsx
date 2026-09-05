@@ -241,7 +241,7 @@ export function Stat({
           tone === "danger"
             ? "text-danger"
             : tone === "warn"
-              ? "text-warn"
+              ? "text-warn-ink"
               : tone === "muted"
                 ? "text-muted"
                 : "text-ink",
@@ -364,7 +364,7 @@ export function Pill({
         tone === "ok"
           ? "bg-ok-wash text-ok-ink"
           : tone === "warn"
-            ? "bg-warn-wash text-warn"
+            ? "bg-warn-wash text-warn-ink"
             : tone === "danger"
               ? "bg-danger-wash text-danger"
               : "bg-surface-sunk text-muted",
@@ -406,7 +406,7 @@ export function Notice({
         tone === "danger"
           ? "border-l-danger bg-danger-wash text-danger"
           : tone === "warn"
-            ? "border-l-warn bg-warn-wash text-warn"
+            ? "border-l-warn bg-warn-wash text-warn-ink"
             : tone === "ok"
               ? "border-l-ok bg-ok-wash text-ok-ink"
               : "border-l-line bg-surface-sunk text-muted",

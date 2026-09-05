@@ -407,6 +407,13 @@ function FileRows({
   onShare: (visible: boolean) => void;
 }) {
   const v = doc.latestVersion;
+  /* THE ONE TRUE DISCLOSURE IN THIS APP. Everywhere else a form REPLACES the
+     button that opened it, so the button is gone and there is no state left to
+     announce. Here the button stays and a row appears under it, which is
+     precisely what `aria-expanded` is for — and without it a reader was told
+     "3 versions, button" and then, after pressing it, "Hide, button", with
+     nothing saying a row had opened or where it was. */
+  const versionsId = `doc-${doc.id}-versions`;
   return (
     <>
       <tr>
@@ -469,7 +476,13 @@ function FileRows({
                 rather than hiding behind the toggle: "which version did they
                 sign" is the question this table exists to answer. */}
             {doc.versionCount > 1 && (
-              <Button variant="secondary" size="sm" onClick={onToggle}>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-expanded={expanded}
+                aria-controls={expanded ? versionsId : undefined}
+                onClick={onToggle}
+              >
                 {expanded ? "Hide" : `${String(doc.versionCount)} versions`}
               </Button>
             )}
@@ -487,7 +500,7 @@ function FileRows({
         </Td>
       </tr>
       {expanded && (
-        <tr>
+        <tr id={versionsId}>
           <Td colSpan={7} style={{ paddingTop: 0 }}>
             <Table>
               <tbody>

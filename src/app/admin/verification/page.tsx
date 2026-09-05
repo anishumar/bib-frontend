@@ -16,6 +16,7 @@ import {
   Notice,
   Radio,
   Select,
+  useSwapFocus,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
@@ -84,6 +85,9 @@ export default function VerificationPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // The form below REPLACES the button that opens it, so focus has to be
+  // carried across the swap by hand. See `useSwapFocus`.
+  const { panel: addPanel, trigger: addTrigger } = useSwapFocus(adding);
 
   const load = useCallback(async (): Promise<void> => {
     // Both in one pass. The ladder is not decoration here: a rank threshold is
@@ -183,7 +187,7 @@ export default function VerificationPage() {
       )}
 
       {adding ? (
-        <Card>
+        <Card ref={addPanel} tabIndex={-1}>
           <CardTitle level={2}>A new rule</CardTitle>
           <PolicyForm
             policyKey={null}
@@ -201,7 +205,9 @@ export default function VerificationPage() {
            straight into one is stretched by it. Measured at 1168px — the full
            width of the page — against the 81px "Change it" inside a card. */
         <div className="cluster">
-          <Button onClick={() => { setAdding(true); }}>Write a rule</Button>
+          <Button ref={addTrigger} onClick={() => { setAdding(true); }}>
+            Write a rule
+          </Button>
         </div>
       )}
     </Page>
@@ -229,6 +235,9 @@ function PolicyCard({
   onError: (message: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  // Same swap as the page-level "Write a rule": the form takes the button's
+  // place, so focus has to be handed over. See `useSwapFocus`.
+  const { panel: editPanel, trigger: editTrigger } = useSwapFocus(editing);
   const inForce = readBody(entry.published?.body);
   const draft = entry.pendingDraft;
 
@@ -289,19 +298,22 @@ function PolicyCard({
       )}
 
       {editing ? (
-        <PolicyForm
-          policyKey={entry.entry.key}
-          initial={inForce ?? readBody(draft?.body)}
-          grades={grades}
-          onDone={() => {
-            setEditing(false);
-            onSaved();
-          }}
-          onCancel={() => { setEditing(false); }}
-          onError={onError}
-        />
+        <div ref={editPanel} tabIndex={-1}>
+          <PolicyForm
+            policyKey={entry.entry.key}
+            initial={inForce ?? readBody(draft?.body)}
+            grades={grades}
+            onDone={() => {
+              setEditing(false);
+              onSaved();
+            }}
+            onCancel={() => { setEditing(false); }}
+            onError={onError}
+          />
+        </div>
       ) : (
         <Button
+          ref={editTrigger}
           variant="secondary"
           size="sm"
           className="mt-4"

@@ -22,6 +22,7 @@ import {
   TableWrap,
   Td,
   Th,
+  useSwapFocus,
 } from "@/components/ui";
 
 /**
@@ -155,6 +156,9 @@ export default function EscalationLadderPage() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // The ladder form REPLACES the button that opens it, so focus has to be
+  // carried across the swap by hand. See `useSwapFocus`.
+  const { panel: editPanel, trigger: editTrigger } = useSwapFocus(editing);
 
   const load = useCallback(async (): Promise<void> => {
     // Both in one pass. The ladder is not decoration: a rung addressed to a
@@ -234,7 +238,7 @@ export default function EscalationLadderPage() {
       </Notice>
 
       {editing ? (
-        <Card>
+        <Card ref={editPanel} tabIndex={-1}>
           <h2 className="card-title">{inForce.length === 0 ? "Write the ladder" : "A new version"}</h2>
           <LadderForm
             initial={draftRungs.length > 0 ? draftRungs : inForce}
@@ -253,7 +257,7 @@ export default function EscalationLadderPage() {
           <Card>
             <div className="row">
               <h2 className="card-title">In force</h2>
-              <Button size="sm" onClick={() => { setEditing(true); }}>
+              <Button ref={editTrigger} size="sm" onClick={() => { setEditing(true); }}>
                 {inForce.length === 0 ? "Write the ladder" : "New version"}
               </Button>
             </div>

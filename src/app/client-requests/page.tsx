@@ -79,6 +79,7 @@ import {
   Notice,
   Pill,
   Select,
+  TabPanel,
   Tabs,
   Textarea,
 } from "@/components/ui";
@@ -195,6 +196,11 @@ export default function ClientRequestsPage() {
         ]}
       />
 
+      {/* THE PANEL IS WHAT THE TAB CONTROLS. All three blocks below change with
+          `tab`, and all three were loose siblings of the tablist — so every one
+          of the three tabs pointed `aria-controls` at an id that is not in the
+          document. */}
+      <TabPanel tabsId={tabsId} value={tab}>
       {requests.length === 0 && (
         <Empty title="Nothing outstanding" icon="check">
           No client has an open request. Anything raised from a client&rsquo;s portal arrives
@@ -227,6 +233,7 @@ export default function ClientRequestsPage() {
           ))}
         </Stack>
       )}
+      </TabPanel>
     </Page>
   );
 }

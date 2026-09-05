@@ -20,6 +20,12 @@ export function Card({
   flush?: boolean;
   pad?: "sm";
   className?: string;
+  /* Declared so a card can be FOCUSED, which is the whole trick behind
+     `useSwapFocus`: a form that replaces its own button has to be given focus
+     when it appears, and the card is the element that names it. It rides in
+     `rest` and is spread onto the div like any other prop — React 19 treats a
+     function component's `ref` as one. */
+  ref?: React.Ref<HTMLDivElement>;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "className">) {
   return (
     <div

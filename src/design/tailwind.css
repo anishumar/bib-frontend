@@ -201,6 +201,10 @@
   --color-ok-ink: var(--accent-ink);
   --color-ok-wash: var(--ok-wash);
   --color-warn: var(--warn);
+  /* `text-warn-ink` for TEXT, `border-l-warn`/`bg-warn-wash` for the bar and
+     the ground. See the note on `--warn-ink` in tokens.css: the amber that
+     reads as a border does not read as 12px type. */
+  --color-warn-ink: var(--warn-ink);
   --color-warn-wash: var(--warn-wash);
   --color-danger: var(--danger);
   --color-danger-wash: var(--danger-wash);

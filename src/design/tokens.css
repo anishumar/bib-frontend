@@ -127,7 +127,20 @@
   --ink: #0f1a20;
   --ink-2: #35454f;
   --muted: #5b6b75;
-  --faint: #8b979f;
+  /* `--faint` IS TEXT, so it carries a contrast floor rather than a taste.
+     It was #8b979f, which measures 2.79:1 on `--paper` and 2.99:1 on a card —
+     under the 4.5:1 that WCAG asks of anything below 24px. Nothing about it
+     looked wrong, which is the point: every use of it is small (a table's
+     `<th>` at 10px, a tab's count, the sidebar's section labels, "(optional)"
+     beside a field), and small quiet text is exactly where the eye stops
+     noticing that it cannot read. #62727c measures 4.64:1 on `--paper`.
+
+     The cost is that the quiet end of the ramp is now tight — `--muted` is
+     5.14:1 and these two read as nearly the same grey. Re-spreading the ramp
+     means moving `--muted` and `--ink-2` too, which changes the weight of
+     every screen, and that is a decision to make with somebody's eye on it
+     rather than a measurement. */
+  --faint: #62727c;
   --line: #e4e8ea;
   --line-soft: #eef1f2;
 
@@ -168,6 +181,13 @@
      named for what they mean here: this product has no 24/48-hour ladder, it
      has revoked memberships, refused API calls and overdue filings. */
   --warn: #b26a00;
+  /* `--warn-ink` IS THE READABLE ONE, exactly as `--accent-ink` is — and warn
+     was the tone that never got one. `--warn` is a fine BAR down the side of a
+     notice and a fine dot on a card, and as TEXT it measures 4.24:1 on white,
+     3.95:1 on paper and 3.86:1 on its own wash: under the floor on every
+     ground the app puts it on. The amber that says "held up" is the one a firm
+     most needs to read at 12px in a pill. */
+  --warn-ink: #9c5c00;
   --warn-wash: #fdf3e3;
   --danger: #b4382c;
   --danger-wash: #fdeeec;
@@ -248,7 +268,8 @@
     --ink: #e6ecee;
     --ink-2: #c2ced3;
     --muted: #93a3aa;
-    --faint: #6d7d85;
+    /* 3.95:1 before, on a card. Same floor as the light block above. */
+    --faint: #86949c;
     --line: #253238;
     --line-soft: #1b262b;
 
@@ -266,6 +287,10 @@
     --brand-on: #1a0f13;
 
     --warn: #d99a3d;
+    /* Dark amber already measures 6.27:1 on its wash and 6.91:1 on a card, so
+       there is nothing to separate here — the token exists so a component can
+       name one thing in both themes. */
+    --warn-ink: var(--warn);
     --warn-wash: #2e2413;
     --danger: #e0776a;
     --danger-wash: #331a17;
@@ -303,7 +328,7 @@
   --ink: #e6ecee;
   --ink-2: #c2ced3;
   --muted: #93a3aa;
-  --faint: #6d7d85;
+  --faint: #86949c;
   --line: #253238;
   --line-soft: #1b262b;
 
@@ -318,6 +343,7 @@
   --brand-on: #1a0f13;
 
   --warn: #d99a3d;
+  --warn-ink: var(--warn);
   --warn-wash: #2e2413;
   --danger: #e0776a;
   --danger-wash: #331a17;
