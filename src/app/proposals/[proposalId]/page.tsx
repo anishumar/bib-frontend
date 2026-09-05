@@ -65,6 +65,7 @@ export default function ProposalPage() {
   // half worth anything later, and asking for it after the fact means asking
   // somebody who has moved on. So the button opens the box rather than posting.
   const [declining, setDeclining] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle");
   // "Client declined" replaces itself with the reason form, so focus has to
   // be handed over and handed back. See `useSwapFocus`.
   const { panel: declinePanel, trigger: declineTrigger } = useSwapFocus(declining);
@@ -216,7 +217,41 @@ export default function ProposalPage() {
             Shown once. Only its fingerprint is stored, so this page is the only place it can
             ever be read — send it again to issue a new one.
           </p>
-          <p className="mono" style={{ wordBreak: "break-all" }}>{shareLink}</p>
+          <p className="mono" style={{ wordBreak: "break-all" }} id="share-link">
+            {shareLink}
+          </p>
+          {/* A COPY BUTTON, because the sentence above is not a figure of
+              speech: this is ninety characters that can never be read again,
+              and asking for them to be selected by hand is asking for a
+              half-selected link to be pasted into an email. Found by sending
+              a proposal and then looking for the copy control that was not
+              there. `writeText` can be refused — a denied permission, a
+              browser without the API — so the failure says so rather than
+              looking like nothing happened. */}
+          <div className="cluster">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-describedby="share-link"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(shareLink)
+                  .then(() => { setCopied("done"); })
+                  .catch(() => { setCopied("failed"); });
+              }}
+            >
+              {copied === "done" ? "Copied" : "Copy the link"}
+            </Button>
+            {/* Polite, and it replaces its own text rather than adding a line,
+                so the card does not grow the first time it is pressed. */}
+            <span role="status" className="muted text-sm">
+              {copied === "done"
+                ? "On the clipboard."
+                : copied === "failed"
+                  ? "The browser refused the clipboard — select the link above and copy it by hand."
+                  : ""}
+            </span>
+          </div>
         </Card>
       )}
 

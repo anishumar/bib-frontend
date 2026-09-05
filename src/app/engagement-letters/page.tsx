@@ -225,7 +225,15 @@ export default function LettersPage() {
                 <Input name="title" required />
               </Field>
               <Field label="Client">
+                {/* AN UNCHOSEN PLACEHOLDER, because a party select that opens
+                    on its first option opens on the FIRM. The list is
+                    alphabetical and "10x Global" sorts above every client, so
+                    filling the rest of this form and pressing the button quoted
+                    or billed the firm to itself — a valid write the API has no
+                    reason to refuse. `required` plus an empty value makes the
+                    browser stop it instead. Found by walking the product. */}
                 <Select name="partyId" required>
+                  <option value="">Choose a client…</option>
                   {parties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.displayName}

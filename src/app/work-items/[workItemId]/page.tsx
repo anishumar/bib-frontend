@@ -155,6 +155,12 @@ export default function WorkItemPage() {
 
   return (
     <Page>
+      {/* The tab carries the identifier, the same as the proposal and the
+          engagement letter. Walked with several tabs open and this one was
+          "BiB — 10X Workspace" while its neighbours said which document they
+          were: the tab strip is how a person finds their way back. */}
+      <title>{`${item.title} — ${item.clientName}`}</title>
+
       <PageHeader
         eyebrow="Delivery"
         title={item.title}
@@ -367,6 +373,7 @@ export default function WorkItemPage() {
         reviews={detail.reviews}
         openReview={openReview}
         canWrite={canWrite}
+        meUserId={me?.userId ?? null}
         busy={busy}
         onRequest={() => {
           void act("review", () =>
@@ -708,6 +715,7 @@ function Reviews({
   reviews,
   openReview,
   canWrite,
+  meUserId,
   busy,
   onRequest,
   onDecide,
@@ -715,6 +723,7 @@ function Reviews({
   reviews: readonly WorkItemReview[];
   openReview: WorkItemReview | null;
   canWrite: boolean;
+  meUserId: string | null;
   busy: string | null;
   onRequest: () => void;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
@@ -737,7 +746,13 @@ function Reviews({
           )}
         </>
       ) : (
-        <DecideReview review={openReview} canWrite={canWrite} busy={busy} onDecide={onDecide} />
+        <DecideReview
+          review={openReview}
+          canWrite={canWrite}
+          meUserId={meUserId}
+          busy={busy}
+          onDecide={onDecide}
+        />
       )}
 
       {reviews.length > 0 && (
@@ -806,11 +821,13 @@ function Reviews({
 function DecideReview({
   review,
   canWrite,
+  meUserId,
   busy,
   onDecide,
 }: {
   review: WorkItemReview;
   canWrite: boolean;
+  meUserId: string | null;
   busy: string | null;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
@@ -832,7 +849,31 @@ function DecideReview({
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
       </Notice>
 
-      {canWrite && (
+      {/* MAKER IS NEVER CHECKER, and this screen used to offer Approve to the
+          one person guaranteed to be refused by it — the person whose name is
+          in the sentence directly above. Walked: pressing it returned "the
+          person who did the work can never be the person who checks it", which
+          is a good sentence to read AFTER a mistake and a poor thing to make
+          somebody press a button to find out.
+
+          It SAYS why rather than greying the button out, which is the shape the
+          API asks for in its own words on `WorkItemCheckViewer`: "you did this
+          work" and "nobody has put you on the ladder" are different problems
+          and only one of them is the viewer's to fix.
+
+          THIS ONLY COVERS MAKER-CHECKER. The queue screen shows the full
+          verdict because `/work-item-checks` sends one per row; the work item's
+          own `reviews` carry `submittedBy` and no `viewer`, so the ladder and
+          grade rules are still only discovered by pressing. Adding `viewer` to
+          `WorkItemReview` is the backend change that would close it. */}
+      {canWrite && meUserId !== null && review.submittedBy === meUserId && (
+        <Notice tone="warn">
+          You made this work, so you cannot be the one who checks it. Somebody else on the list
+          below has to.
+        </Notice>
+      )}
+
+      {canWrite && !(meUserId !== null && review.submittedBy === meUserId) && (
         <>
           {/* Measured on the page: this control's accessible NAME was
               "NoteRequired when you send it back. Why work came back is the only

@@ -153,6 +153,12 @@ export default function InvoicePage() {
   return (
     <Page>
 
+      {/* The tab carries the identifier, the same as the proposal and the
+          engagement letter. Walked with several tabs open and this one was
+          "BiB — 10X Workspace" while its neighbours said which document they
+          were: the tab strip is how a person finds their way back. */}
+      <title>{`${invoice.number} — ${record.party.displayName}`}</title>
+
       <PageHeader
         eyebrow="Commercial"
         /* The number IS the identifier, so it keeps the mono face the rest of
@@ -461,7 +467,19 @@ export default function InvoicePage() {
                   </Field>
                 </FieldRow>
                 <div className="cluster">
-                  <Button type="submit" disabled={busy}>
+                  <Button
+                    type="submit"
+                    disabled={busy}
+                    /* SAYS WHAT IT RECORDS. This button sits in the same card
+                       as "Cancel", which VOIDS the invoice and keeps its number
+                       forever, and its own visible word is "Record" — record
+                       what? Somebody moving between buttons by name heard
+                       "Cancel invoice INV/2026-27/0004" and then one bare verb.
+                       The field beside it already carries the full sentence;
+                       the button did not use it. The visible word is
+                       unchanged. */
+                    aria-label={`Record the e-invoice reference for ${invoice.number}`}
+                  >
                     Record
                   </Button>
                 </div>

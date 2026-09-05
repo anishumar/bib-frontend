@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import { useEffect, useRef } from "react";
 import type { ButtonHTMLAttributes, ComponentProps, ReactNode, Ref } from "react";
 import { cx } from "./class-names";
 import { Spinner } from "./spinner";
@@ -42,9 +43,14 @@ export interface ButtonProps
    * Working. Shows a spinner, keeps the label, and blocks the click.
    *
    * The label STAYS — swapping it for "Saving…" changes the button's width
-   * mid-click and moves everything beside it. Loading also implies disabled,
-   * so no caller has to remember to pass both and none can pass one without
-   * the other.
+   * mid-click and moves everything beside it.
+   *
+   * IT DOES NOT SET `disabled`, AND THAT IS THE WHOLE POINT. It used to, and
+   * the cost was measured by walking the product: a disabled element is blurred
+   * by the browser, so pressing Enter on any submit in this app dropped focus
+   * to `<body>` for the length of the request and left it there. Every write,
+   * every screen. `aria-disabled` says the same thing to assistive technology,
+   * the click is swallowed here, and the keyboard user keeps their place.
    */
   loading?: boolean;
   /** An icon before the label. Sized by the icon component, spaced by the CSS. */
@@ -76,8 +82,39 @@ export function Button({
   children,
   className,
   type = "button",
+  onClick,
+  ref,
   ...rest
 }: ButtonProps) {
+  /**
+   * FOCUS COMES BACK WHEN THE BUTTON DOES.
+   *
+   * `loading` no longer disables (see the prop's note), but a hundred and
+   * twenty call sites in this app pass `disabled={busy}` directly, and a
+   * disabled element is blurred by the browser. Rewriting them all is a worse
+   * change than this one: half of them read `busy || somethingElse`, where the
+   * second half is a REAL unavailability that should disable.
+   *
+   * So this watches the transition back. When the button becomes pressable
+   * again and nothing holds focus — which is exactly the state the browser
+   * leaves behind when it blurs a disabled element — it takes focus back. It
+   * never steals: `document.body` is the only activeElement it will act on.
+   *
+   * Found by walking the product: pressing Enter on any submit dropped the
+   * keyboard user to the top of the document for the length of the request and
+   * left them there.
+   */
+  const own = useRef<HTMLButtonElement>(null);
+  const wasUnavailable = useRef(false);
+  const unavailable = disabled === true;
+
+  useEffect(() => {
+    if (wasUnavailable.current && !unavailable) {
+      const active = document.activeElement;
+      if (active === null || active === document.body) own.current?.focus();
+    }
+    wasUnavailable.current = unavailable;
+  }, [unavailable]);
   // A button with no children is an icon button: square, and it needs the
   // caller to have given it an `aria-label` — there is no text to fall back on.
   const iconOnly = children === undefined && icon !== undefined;
@@ -85,12 +122,35 @@ export function Button({
   return (
     <button
       {...rest}
+      /* Both refs: this component needs one to give focus back, and callers
+         pass their own (`useSwapFocus` does). A spread `ref` would silently
+         win over one set here, so they are merged rather than chosen between. */
+      ref={(node) => {
+        own.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref !== null && ref !== undefined) ref.current = node;
+      }}
       type={type}
       className={cx("btn", className)}
       data-variant={variant}
       data-size={size}
-      disabled={disabled === true || loading}
-      {...(loading ? { "data-loading": "true", "aria-busy": true } : {})}
+      /* A button the caller DISABLED is really disabled — it is offering
+         nothing and should leave the tab order. A button that is merely BUSY
+         stays focusable and says so, because taking it out from under a
+         keyboard for the length of a request is how a form loses its user. */
+      disabled={disabled === true}
+      {...(loading
+        ? { "data-loading": "true", "aria-busy": true, "aria-disabled": true }
+        : {})}
+      onClick={(event) => {
+        // The click is swallowed rather than prevented by `disabled`, so a
+        // second press while saving cannot submit twice.
+        if (loading) {
+          event.preventDefault();
+          return;
+        }
+        onClick?.(event);
+      }}
       {...(block ? { "data-block": "true" } : {})}
       {...(iconOnly ? { "data-icon-only": "true" } : {})}
     >

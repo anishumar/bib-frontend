@@ -42,7 +42,7 @@
   transition: background var(--dur-fast) var(--ease),
     border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
-.btn:hover:not(:disabled) {
+.btn:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--btn-bg-hover);
   border-color: var(--btn-bg-hover);
   color: var(--btn-ink);
@@ -52,7 +52,11 @@
    `not-allowed`; a busy one is working and says so with `progress`. The old
    stylesheet gave both `cursor: progress`, which told somebody to wait for a
    button that was never going to become available. */
-.btn:disabled {
+.btn:disabled,
+/* A BUSY button is not `:disabled` any more — it keeps its focus so a keyboard
+   user is not thrown to the top of the document for the length of a request —
+   so the dimming has to answer to the attribute as well as the property. */
+.btn[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -66,8 +70,8 @@
   color: var(--ink-2);
   border-color: var(--line);
 }
-.btn[data-variant="secondary"]:hover:not(:disabled),
-.btn[data-variant="outline"]:hover:not(:disabled) {
+.btn[data-variant="secondary"]:hover:not(:disabled):not([aria-disabled="true"]),
+.btn[data-variant="outline"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--paper);
   border-color: var(--line);
   color: var(--ink);
@@ -78,7 +82,7 @@
   color: var(--muted);
   border-color: transparent;
 }
-.btn[data-variant="ghost"]:hover:not(:disabled) {
+.btn[data-variant="ghost"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--surface-hover);
   border-color: transparent;
   color: var(--ink);
@@ -90,7 +94,7 @@
   border-color: var(--danger);
   color: #ffffff;
 }
-.btn[data-variant="destructive"]:hover:not(:disabled) {
+.btn[data-variant="destructive"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--danger-hover);
   border-color: var(--danger-hover);
   color: #ffffff;
@@ -107,7 +111,7 @@
   color: var(--danger);
   border-color: var(--line);
 }
-.btn[data-variant="destructive-quiet"]:hover:not(:disabled) {
+.btn[data-variant="destructive-quiet"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--danger-wash);
   border-color: var(--danger);
   color: var(--danger);
@@ -125,7 +129,7 @@
   font-size: var(--t-sm);
   font-weight: 400;
 }
-.btn[data-variant="link"]:hover:not(:disabled) {
+.btn[data-variant="link"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: none;
   border-color: transparent;
   color: var(--accent-ink);

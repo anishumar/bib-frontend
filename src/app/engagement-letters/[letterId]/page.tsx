@@ -677,7 +677,11 @@ export default function LetterPage() {
                 measured, this form described 0 of its 7. */}
             <div className="field-row mb-4">
               <Field label="Delivered to">
+                {/* UNCHOSEN, for the same reason as the party selects on the
+                    list screens: this one opened on "10x Global", so a line
+                    added without touching it was delivered to the firm. */}
                 <Select name="entityPartyId" required>
+                  <option value="">Choose the entity…</option>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.displayName}
