@@ -8514,6 +8514,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/relationship-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The relationship vocabulary — every code, and the sentence it reads as
+         * @description Product-owned and the same for every firm, like a currency list: no tenant, nothing editable. It is a READ rather than a constant in each client because the alternative is a copy of a migration's seed data living in a screen, which goes stale the first time the product adds a code — and because a picker that offers `parent_of` is offering a column value to a partner.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The vocabulary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RelationshipTypeList"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/relationships": {
         parameters: {
             query?: never;
@@ -16070,6 +16127,18 @@ export interface components {
             validFrom: string;
             /** Format: date */
             validTo?: string;
+        };
+        RelationshipType: {
+            code: string;
+            /** @description Reads as "{from} is {label} {to}". */
+            label: string;
+            /** @description The same row from the other end. */
+            inverseLabel: string;
+            /** @description governance · ownership · employment · commercial. */
+            category: string;
+        };
+        RelationshipTypeList: {
+            types: components["schemas"]["RelationshipType"][];
         };
         PartyRelationship: {
             /** Format: uuid */

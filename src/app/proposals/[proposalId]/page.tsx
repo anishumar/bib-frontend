@@ -12,6 +12,8 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
+import { groupCompanies } from "@/lib/group";
+import type { GroupCompany } from "@/lib/group";
 import {
   Button,
   Card,
@@ -33,7 +35,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
-import { longDay, longInstant } from "@/lib/day";
+import { browserDay, longDay, longInstant } from "@/lib/day";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -55,6 +57,19 @@ export default function ProposalPage() {
   const proposalId = params.proposalId;
 
   const [record, setRecord] = useState<ProposalRecord | null>(null);
+  /**
+   * The companies a line with no company of its own could be filed against.
+   *
+   * The client this quote is FOR, and the companies its own page records as its
+   * group — nothing else. A picker over the firm's whole book would offer a
+   * different client's company as the counterparty on a contract, and a signed
+   * letter naming the wrong legal entity is not a typo somebody notices later.
+   *
+   * Empty is the ordinary case and is handled as one: with nothing to offer,
+   * the entity-less lines are skipped and REPORTED, which is what this screen
+   * did before the picker existed.
+   */
+  const [entityChoices, setEntityChoices] = useState<GroupCompany[]>([]);
   const [services, setServices] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -98,6 +113,31 @@ export default function ProposalPage() {
       return;
     }
     setRecord(one.data);
+    // The client's own profile, for the companies a line could be filed
+    // against. A second round trip on a page that already makes three, and it
+    // is worth it: the alternative is a picker over every party at the firm.
+    // A refusal here costs the picker and nothing else — the screen falls back
+    // to skipping and reporting, so this is never allowed to fail the page.
+    const client = await api.GET("/api/v1/parties/{partyId}", {
+      params: { path: { partyId: one.data.proposal.partyId } },
+    });
+    setEntityChoices(
+      client.data === undefined
+        ? []
+        : [
+            // THE CLIENT ITSELF FIRST, and it is not in `groupCompanies` —
+            // that function returns the OTHER companies, because a party
+            // cannot hold a relationship with itself. On a quote for Cobalt
+            // Foods the commonest right answer is Cobalt Foods, so it must be
+            // on the list and it must not be pre-chosen.
+            {
+              id: client.data.party.id,
+              name: client.data.party.displayName,
+              relation: "the client this quote is for",
+            },
+            ...groupCompanies(client.data, browserDay()),
+          ],
+    );
     // Published only. A service that exists as a draft was never in force, and
     // the API refuses to quote one — offering it here would be a dropdown entry
     // whose only outcome is an error.
@@ -602,6 +642,7 @@ export default function ProposalPage() {
         <WriteItUp
           proposalId={proposalId}
           record={record}
+          entityChoices={entityChoices}
           busy={busy}
           onDraft={(body) => {
             void act("letter", async () => {
@@ -739,17 +780,23 @@ export default function ProposalPage() {
 function WriteItUp({
   proposalId,
   record,
+  entityChoices,
   busy,
   onDraft,
 }: {
   proposalId: string;
   record: ProposalRecord;
+  /** The client and its group — what a line with no company of its own can be
+   *  filed against. Empty means the screen offers nothing and reports the
+   *  skips, which is exactly what it did before this existed. */
+  entityChoices: readonly GroupCompany[];
   busy: string | null;
   onDraft: (body: {
     advanceRequired: boolean;
     advanceAmount?: string;
     jurisdiction?: string;
     title?: string;
+    defaultEntityPartyId?: string;
   }) => void;
 }) {
   const [advanceRequired, setAdvanceRequired] = useState(false);
@@ -766,6 +813,22 @@ function WriteItUp({
   const mustState = countries.length !== 1;
   const withoutEntity = record.lines.filter((l) => l.entityPartyId === null);
   const carrying = record.lines.length - withoutEntity.length;
+  /**
+   * WHETHER THE PICKER IS OFFERED, AND WHETHER IT IS REQUIRED.
+   *
+   * Offered whenever a line names no company and there is a company to name.
+   * REQUIRED when nothing at all would carry without it: the API refuses to
+   * draw a reference number for a letter with no lines, so a button whose only
+   * outcome is that refusal is worse than a field.
+   *
+   * This is the gap T3.5b left open and said so: the route has taken
+   * `defaultEntityPartyId` since it shipped and no screen offered it, so a
+   * quote whose lines named no company was a dead end on this page — the
+   * notice sent people to /engagement-letters to retype the terms by hand,
+   * which is the exact thing carrying the price forward was built to stop.
+   */
+  const offerDefault = withoutEntity.length > 0 && entityChoices.length > 0;
+  const defaultRequired = offerDefault && carrying === 0;
 
   const lineWord = (n: number): string => `${String(n)} ${n === 1 ? "line" : "lines"}`;
 
@@ -779,7 +842,7 @@ function WriteItUp({
         from the library afterwards, against the country it is written under.
       </p>
 
-      {carrying === 0 ? (
+      {carrying === 0 && !offerDefault ? (
         /* The API refuses this before drawing a reference number, so the screen
            says so rather than offering a button whose only outcome is a
            refusal. */
@@ -794,7 +857,7 @@ function WriteItUp({
         </Notice>
       ) : (
         <>
-          {withoutEntity.length > 0 && (
+          {withoutEntity.length > 0 && !offerDefault && (
             <Notice tone="warn" eyebrow="Some lines stay behind">
               <p>
                 {lineWord(carrying)} will carry across. {lineWord(withoutEntity.length)}{" "}
@@ -802,6 +865,20 @@ function WriteItUp({
                 {withoutEntity.map((l) => l.description).join(", ")} — and a letter line has
                 to name one, because signing it creates an engagement for one legal entity. Add
                 {withoutEntity.length === 1 ? " it" : " them"} to the letter by hand afterwards.
+              </p>
+            </Notice>
+          )}
+          {offerDefault && (
+            <Notice tone="warn" eyebrow={defaultRequired ? "Say which company" : "Some lines name no company"}>
+              <p>
+                {lineWord(withoutEntity.length)}{" "}
+                {withoutEntity.length === 1 ? "does" : "do"} not say which company the work is
+                for — {withoutEntity.map((l) => l.description).join(", ")}. A letter line has
+                to name one, because signing it creates an engagement, and one engagement is
+                one service for one legal entity.{" "}
+                {defaultRequired
+                  ? "No line on this quote names a company, so the letter cannot be written until you say which one below."
+                  : "Choose a company below and they come across too; leave it empty and they stay behind, and the letter says so when it opens."}
               </p>
             </Notice>
           )}
@@ -815,10 +892,15 @@ function WriteItUp({
             action={(form) => {
               const j = String(form.get("jurisdiction") ?? "").trim();
               const amount = String(form.get("advanceAmount") ?? "").trim();
+              const entity = String(form.get("defaultEntityPartyId") ?? "").trim();
               onDraft({
                 advanceRequired,
                 ...(advanceRequired && amount !== "" ? { advanceAmount: amount } : {}),
                 ...(j === "" ? {} : { jurisdiction: j.toUpperCase() }),
+                // OMITTED WHEN EMPTY, never sent as "". Absent means "file
+                // nothing against a company nobody chose", which is the API's
+                // own default and the safe one on a document somebody signs.
+                ...(entity === "" ? {} : { defaultEntityPartyId: entity }),
               });
             }}
           >
@@ -833,6 +915,34 @@ function WriteItUp({
                 }
               >
                 <Input name="jurisdiction" maxLength={2} placeholder="IN" />
+              </Field>
+            )}
+
+            {offerDefault && (
+              <Field
+                label={
+                  defaultRequired
+                    ? "Which company is this work for?"
+                    : "Which company are the remaining lines for? (optional)"
+                }
+                hint="The client this quote is for, and the companies its own page records as its group — nothing else is offered, because a letter line names the counterparty on a contract. Every line that already names a company keeps the one it names; this only fills the blanks."
+              >
+                {/* NO PRE-SELECTED COMPANY, EVEN WHEN THERE IS ONLY ONE. The
+                    API's own words: a guessed party on a signed page is
+                    indistinguishable from one somebody agreed to. A default
+                    here would be the product choosing a counterparty. */}
+                <Select name="defaultEntityPartyId" defaultValue="" required={defaultRequired}>
+                  <option value="">
+                    {defaultRequired
+                      ? "Choose a company"
+                      : `Leave them behind — ${lineWord(withoutEntity.length)} will not carry`}
+                  </option>
+                  {entityChoices.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.relation}
+                    </option>
+                  ))}
+                </Select>
               </Field>
             )}
 

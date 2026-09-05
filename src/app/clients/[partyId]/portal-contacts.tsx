@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalGrant } from "@/lib/api/client";
 import {
@@ -14,6 +14,7 @@ import {
   Input,
   Notice,
   Pill,
+  Select,
   Table,
   TableWrap,
   Td,
@@ -21,6 +22,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { browserDay, longDay, instantDay } from "@/lib/day";
+import type { GroupCompany } from "@/lib/group";
 
 /**
  * The client's OWN people, and what each of them can see (G3.4, T6.5, T7.0b).
@@ -53,23 +55,62 @@ import { browserDay, longDay, instantDay } from "@/lib/day";
  * **Who let them in** is the granter, and it is a LEFT join in the API: an
  * account since erased must not take the grant off the screen.
  *
- * ## One client per grant, on purpose
+ * ## One client per grant, on purpose — and the three more times
  *
  * A contact who should see four of a group's companies is invited once and
- * granted three more times, one visible decision each — access is never derived
- * from a group relationship. So this panel invites and grants THIS client, and
- * says so; the other three are granted from the other three pages.
+ * granted three more times, one visible decision each. Access is never DERIVED
+ * from a group relationship: the API refuses to walk `core.party_relationship`
+ * on a firm's behalf, because a grant that widened itself when somebody
+ * recorded a shareholding would make "who decided this contact may see Kaveri"
+ * unanswerable, and would turn the CRM into an access-control screen without
+ * anybody reviewing it as one.
+ *
+ * So the other three grants are three deliberate acts — and until now there was
+ * nowhere to perform them. The invite route was the only writer this panel had,
+ * and it grants exactly one company: the one whose page you are on. Somebody
+ * who should also see the subsidiary had to be invited a second time at a
+ * second address, or the firm reached for curl.
+ *
+ * `Give another company` is that act, and three things about it are deliberate:
+ *
+ * - **The list is the recorded GROUP, not the book.** `groupCompanies` reads
+ *   the ownership relationships on this client's own profile and nothing else.
+ *   A picker over every party at the firm would put one mis-click between a
+ *   contact at Cobalt Foods and another client's invoices; a picker over every
+ *   RELATIONSHIP would offer 10x Global itself, which is a `client_of` row.
+ * - **What they can already see is the SERVER's answer**, from
+ *   `/portal-access/memberships/{id}/scope`, and not this screen re-deriving a
+ *   half-open date range. The scope route is what the portal's own requests are
+ *   filtered by, so a company missing from the picker is missing because the
+ *   thing that will actually let them in says they are already through it.
+ * - **It says the company's name in the outcome.** A grant made from Cobalt
+ *   Foods' page is a grant to a DIFFERENT company, and a sentence that only
+ *   said "access granted" would read as though it had acted on the page it was
+ *   on.
  */
 export function PortalContactsPanel({
   partyId,
   clientName,
   canGrant,
+  group,
 }: {
   partyId: string;
   clientName: string;
   /** `portal:grant`. Decides what is OFFERED — the API's refusal is what is
    *  shown if one arrives anyway. */
   canGrant: boolean;
+  /**
+   * The OTHER companies in this client's group, in force today — the whole of
+   * what "give them another company" may offer.
+   *
+   * Passed in rather than read here because the page above already holds the
+   * party profile these come from, and a second fetch of the same record would
+   * be one round trip to answer a question already answered. Empty is the
+   * ordinary case and the panel says nothing at all about grouping when it is:
+   * a firm with no recorded shareholdings must not be shown a picker with
+   * nothing in it and left wondering what it was for.
+   */
+  group: readonly GroupCompany[];
 }) {
   const [grants, setGrants] = useState<PortalGrant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,10 +133,23 @@ export function PortalContactsPanel({
    * the API is the thing that refuses anything genuinely conflicting.
    */
   const [acting, setActing] = useState<string | null>(null);
-  /** What the last write did, in words. A resend is otherwise invisible: the
-   *  row it acts on does not change, so without this the button would look like
-   *  it had done nothing at all. */
-  const [outcome, setOutcome] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  /**
+   * What the last write did, in words. A resend is otherwise invisible: the
+   * row it acts on does not change, so without this the button would look like
+   * it had done nothing at all.
+   *
+   * THE EYEBROW IS CARRIED, NOT DERIVED FROM THE TONE. It was
+   * `tone === "ok" ? "Sent" : "Removed"` while this panel did two things and
+   * one of them was an email — and granting a second company then arrived under
+   * the word SENT, over a sentence saying somebody can now see a company.
+   * Nothing had been sent. A tone says how a thing reads; it does not know what
+   * the act was.
+   */
+  const [outcome, setOutcome] = useState<{
+    tone: "ok" | "warn";
+    eyebrow: string;
+    text: string;
+  } | null>(null);
 
   /**
    * WHERE FOCUS GOES WHEN A ROW REMOVES ITSELF.
@@ -114,6 +168,54 @@ export function PortalContactsPanel({
    * to — that is the whole situation.
    */
   const { panel: outcomeRef } = useSwapFocus(outcome !== null);
+
+  /**
+   * WHICH CONTACT IS BEING GIVEN ANOTHER COMPANY, and what that login can
+   * already see.
+   *
+   * `elsewhere` is null while the two reads are in flight, which is a real
+   * state and not a flicker: the picker cannot be drawn until the server has
+   * said what this person already sees, because drawing it early would offer a
+   * company they hold and turn a duplicate into the commonest outcome of the
+   * button.
+   */
+  const [granting, setGranting] = useState<PortalGrant | null>(null);
+  const [elsewhere, setElsewhere] = useState<Elsewhere | null>(null);
+
+  /**
+   * WHERE FOCUS GOES, and why this one is NOT `useSwapFocus`.
+   *
+   * The hook is for a button that unmounts by its own click. This button does
+   * not: it stays in its row, and the panel it opens is below the whole table.
+   * So focus is never LOST — it is left somewhere far from the thing that just
+   * appeared, which is a different defect with a different fix. The button
+   * carries `aria-expanded` and `aria-controls` (the app's rule: a disclosure
+   * whose region is elsewhere on the page says so), and focus is moved to the
+   * panel deliberately.
+   *
+   * The trigger node is captured from the event rather than through a ref,
+   * because there is one of these per row and a single ref would end up
+   * pointing at whichever row rendered last. React keeps the same DOM node
+   * across re-renders — the rows are keyed by grant id — so the captured node
+   * is still the live button when the panel closes.
+   *
+   * When the grant SUCCEEDS the button may be gone (it was the last company
+   * left to give). Focusing a detached node is a no-op and leaves focus on
+   * `<body>`, which is exactly the condition the outcome notice's own hook
+   * waits for — so the sentence takes focus instead, and nothing is dropped
+   * either way round.
+   */
+  const grantPanelRef = useRef<HTMLDivElement>(null);
+  const grantTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const grantPanelId = useId();
+  const grantOpen = granting !== null;
+  const grantWasOpen = useRef(false);
+  useEffect(() => {
+    if (grantWasOpen.current === grantOpen) return;
+    grantWasOpen.current = grantOpen;
+    if (grantOpen) grantPanelRef.current?.focus();
+    else grantTriggerRef.current?.focus();
+  }, [grantOpen]);
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/portal-access/clients/{partyId}", {
@@ -180,6 +282,7 @@ export function PortalContactsPanel({
     await load();
     setOutcome({
       tone: "ok",
+      eyebrow: "Sent",
       text:
         `${email} has been emailed an invitation to ${clientName}'s records. ` +
         `The link works once, and stops working on ${expiryDay(result.data.expiresAt)}.`,
@@ -211,6 +314,7 @@ export function PortalContactsPanel({
     await load();
     setOutcome({
       tone: "ok",
+      eyebrow: "Sent again",
       text:
         `The invitation has gone to ${grant.contactEmail} again. It replaces any earlier ` +
         `link, and stops working on ${expiryDay(result.data.expiresAt)}.`,
@@ -235,9 +339,102 @@ export function PortalContactsPanel({
     await load();
     setOutcome({
       tone: "warn",
+      eyebrow: "Removed",
       text:
         `${grant.contactEmail} can no longer see ${clientName}. Their login still works — ` +
         `this removed one company, not the account.`,
+    });
+  }
+
+  /**
+   * Open the panel for one contact, and ASK THE SERVER what they can see.
+   *
+   * Two reads, in parallel, and they answer different questions:
+   *
+   *   `/portal-access/memberships/{id}` — every company this login has EVER
+   *   been able to see, live and closed, with each one's name. The names are
+   *   only on this read: the scope route answers in ids, because it is what a
+   *   session resolver consumes and not what a screen renders.
+   *
+   *   `…/scope?asOf=` — which of them are in force TODAY, resolved by the same
+   *   code the portal's own requests are filtered by. This screen could
+   *   compute it from the rows above and deliberately does not: a half-open
+   *   range re-implemented in a component is a second answer to a question
+   *   that must only have one, and the day it disagrees is the day somebody is
+   *   offered a company they already hold or refused one they do not.
+   *
+   * `asOf` is the BROWSER's calendar day. A UTC server is a day behind a firm
+   * in India every morning, and this value decides which grants are in force.
+   */
+  async function openGrant(grant: PortalGrant, node: HTMLButtonElement): Promise<void> {
+    grantTriggerRef.current = node;
+    setError(null);
+    setOutcome(null);
+    setElsewhere(null);
+    setGranting(grant);
+    const [held, scope] = await Promise.all([
+      api.GET("/api/v1/portal-access/memberships/{membershipId}", {
+        params: { path: { membershipId: grant.membershipId } },
+      }),
+      api.GET("/api/v1/portal-access/memberships/{membershipId}/scope", {
+        params: {
+          path: { membershipId: grant.membershipId },
+          query: { asOf: browserDay() },
+        },
+      }),
+    ]);
+    if (held.error || scope.error) {
+      setError(apiError(held.error ?? scope.error).message);
+      setGranting(null);
+      return;
+    }
+    setElsewhere({ grants: held.data.grants, inForce: scope.data.clientPartyIds });
+  }
+
+  /**
+   * Grant one more company — one call, one company, one event.
+   *
+   * The value comes off `FormData` and not a `document.querySelector`: this
+   * card holds a second form (the invite) and the client page around it holds
+   * several more, and a lookup by name reads whichever the document happens to
+   * hold first. That is the duplicate-id bug this repo already fixed on this
+   * very page, in a new costume.
+   */
+  async function grantAnother(form: FormData): Promise<void> {
+    const grant = granting;
+    if (grant === null) return;
+    const clientPartyId = String(form.get("grantCompany") ?? "");
+    const company = group.find((c) => c.id === clientPartyId);
+    if (company === undefined) return;
+    setBusy(true);
+    setError(null);
+    setOutcome(null);
+    const result = await api.POST("/api/v1/portal-access/memberships/{membershipId}", {
+      params: { path: { membershipId: grant.membershipId } },
+      // The BROWSER's day again, for the same reason: a grant starting the
+      // server's "today" is not in force yet for a firm in India before 05:30.
+      body: { clientPartyId, validFrom: browserDay() },
+    });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    // CLOSE FIRST, then reload, then say what happened — the order every write
+    // on this panel uses, so the outcome notice APPEARS as the thing it
+    // describes finishes and the focus effects have a transition to watch.
+    setGranting(null);
+    setElsewhere(null);
+    await load();
+    setOutcome({
+      tone: "ok",
+      eyebrow: "Granted",
+      // NAMES THE OTHER COMPANY. This grant was made from Cobalt Foods' page
+      // and is not about Cobalt Foods; a sentence saying only "access granted"
+      // would read as though it had acted on the page it was on.
+      text:
+        `${grant.contactEmail} can now see ${company.name} as well. They sign in with the ` +
+        `same login — this added a company, not an account.`,
     });
   }
 
@@ -253,6 +450,40 @@ export function PortalContactsPanel({
   const today = browserDay();
   const live = grants.filter((g) => g.validTo === null || g.validTo > today);
   const ended = grants.filter((g) => !(g.validTo === null || g.validTo > today));
+
+  /**
+   * What the open panel offers, derived once rather than inside the JSX.
+   *
+   * `inForce` is the SERVER's list for today; `queued` is a grant written to
+   * start later, which this app never makes but the API accepts — and a
+   * company in either state must not be on the picker, because the API refuses
+   * an overlapping duplicate and a refusal is a poor way to learn that
+   * somebody already has access.
+   *
+   * `removedOn` annotates an option the firm has taken away before. Putting
+   * somebody BACK on a company they were removed from is a different decision
+   * from granting a new one, and the option is the only place that fact is in
+   * front of the person deciding.
+   */
+  const inForce = new Set(elsewhere?.inForce ?? []);
+  const queued = (elsewhere?.grants ?? []).filter(
+    (g) => g.validFrom > today && (g.validTo === null || g.validTo > today),
+  );
+  const seesToday = [...inForce]
+    .map(
+      (id) =>
+        (elsewhere?.grants ?? []).find((g) => g.clientPartyId === id)?.clientName ?? "a company",
+    )
+    .sort((a, b) => a.localeCompare(b));
+  const removedOn = new Map<string, string>();
+  for (const g of elsewhere?.grants ?? []) {
+    if (g.validTo === null || g.validTo > today) continue;
+    const prev = removedOn.get(g.clientPartyId);
+    if (prev === undefined || g.validTo > prev) removedOn.set(g.clientPartyId, g.validTo);
+  }
+  const offerable = group.filter(
+    (c) => !inForce.has(c.id) && !queued.some((g) => g.clientPartyId === c.id),
+  );
 
   return (
     <Card>
@@ -271,7 +502,7 @@ export function PortalContactsPanel({
            `role="status"`, so the sentence is announced whether or not focus
            lands here. */
         <div ref={outcomeRef} tabIndex={-1}>
-          <Notice tone={outcome.tone} eyebrow={outcome.tone === "ok" ? "Sent" : "Removed"}>
+          <Notice tone={outcome.tone} eyebrow={outcome.eyebrow}>
             <p>{outcome.text}</p>
           </Notice>
         </div>
@@ -349,6 +580,31 @@ export function PortalContactsPanel({
                             Send it again
                           </Button>
                         )}
+                        {/* OFFERED ONLY WHEN THERE IS A GROUP TO OFFER. A
+                            client with no recorded shareholding has no other
+                            company this could name, and a button that opens a
+                            panel with an empty picker is worse than no button
+                            — it reads as a feature that is broken rather than
+                            one that has nothing to act on. */}
+                        {group.length > 0 && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            /* A DISCLOSURE WHOSE REGION IS ELSEWHERE. The panel
+                               opens below the whole table, not under this row,
+                               so the state has to be announced — the same
+                               reason the Documents versions row carries it and
+                               a label-flipping toggle does not. */
+                            aria-expanded={granting?.id === g.id}
+                            aria-controls={granting?.id === g.id ? grantPanelId : undefined}
+                            aria-label={`Give ${g.contactEmail} another of ${clientName}'s group companies`}
+                            onClick={(e) => {
+                              void openGrant(g, e.currentTarget);
+                            }}
+                          >
+                            Give another company
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           size="sm"
@@ -368,6 +624,119 @@ export function PortalContactsPanel({
             </tbody>
           </Table>
         </TableWrap>
+      )}
+
+
+      {granting !== null && (
+        /* `tabIndex={-1}` makes it focusable by script without adding a tab
+           stop. Focus lands on the PANEL and not its select, so a reader hears
+           the heading and the sentence about what this person can already see
+           before it reaches the choice — which is the order somebody would
+           read it in, and the sentence is the thing the choice depends on. */
+        <div
+          ref={grantPanelRef}
+          tabIndex={-1}
+          id={grantPanelId}
+          style={{ marginTop: "var(--s-4)" }}
+        >
+          <form
+            action={(form) => {
+              void grantAnother(form);
+            }}
+          >
+            <FieldStack>
+              <CardTitle level={3}>
+                Give {granting.contactDisplayName ?? granting.contactEmail} another company
+              </CardTitle>
+
+              {elsewhere === null ? (
+                <p className="muted">Asking what they can already see…</p>
+              ) : (
+                <>
+                  <p className="muted">
+                    {/* THE COMPANY, NOT THE PAGE. Everything else on this card is
+                        about {clientName}; this one sentence is about every
+                        company the login opens onto, and it is the fact the
+                        choice below depends on. */}
+                    {granting.contactEmail} can see{" "}
+                    {seesToday.length === 0 ? (
+                      <>nothing at all today</>
+                    ) : (
+                      <strong>{seesToday.join(", ")}</strong>
+                    )}
+                    {queued.length > 0 && <> today, and {String(queued.length)} more from a later date</>}. They
+                    keep the same login and the same password — this adds a company, not an
+                    account.
+                  </p>
+
+                  {offerable.length === 0 ? (
+                    <Notice tone="neutral" eyebrow="Nothing left to give">
+                      <p>
+                        Every company recorded in {clientName}&rsquo;s group is already open to{" "}
+                        {granting.contactEmail}. A company that is not on that list is granted
+                        from its own page — access is never worked out from a group
+                        relationship, so a company nobody recorded as part of this group is a
+                        company nobody decided about.
+                      </p>
+                    </Notice>
+                  ) : (
+                    /* A NAMED GROUP, because this card holds a second form. The
+                       invite form below asks for an email and a name; without a
+                       fieldset naming this one, two forms on one card are told
+                       apart only by the order somebody happens to reach them. */
+                    <fieldset
+                      className="fieldset"
+                      aria-label={`Another company for ${granting.contactEmail}`}
+                    >
+                      <Field
+                        label="Which company"
+                        hint={`Read from the shareholdings recorded on ${clientName}'s own page — a parent, a subsidiary or a shareholder, in force today. Nothing else is offered: a client's records are not opened by a relationship somebody typed into the CRM.`}
+                      >
+                        {/* NO PRE-SELECTED COMPANY. The first option is an empty
+                            disabled placeholder, so opening this panel and
+                            pressing the button cannot grant a company nobody
+                            chose. A select whose default is a real value turns
+                            an access decision into a default. */}
+                        <Select name="grantCompany" required defaultValue="">
+                          <option value="" disabled>
+                            Choose a company
+                          </option>
+                          {offerable.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} — {c.relation}
+                              {removedOn.has(c.id)
+                                ? ` · access removed ${longDay(removedOn.get(c.id) ?? "")}`
+                                : ""}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </fieldset>
+                  )}
+
+                  <div className="cluster">
+                    {offerable.length > 0 && (
+                      <Button type="submit" loading={busy}>
+                        {busy ? "Giving access…" : "Give access"}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      aria-label={`Leave ${granting.contactEmail}'s access as it is`}
+                      onClick={() => {
+                        setGranting(null);
+                        setElsewhere(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
+            </FieldStack>
+          </form>
+        </div>
       )}
 
       {ended.length > 0 && (
@@ -439,6 +808,19 @@ export function PortalContactsPanel({
       )}
     </Card>
   );
+}
+
+/**
+ * What one portal login can see, from the two reads that answer it.
+ *
+ * `grants` carries the NAMES (live and closed); `inForce` is the server's
+ * resolved list of ids for today. Kept apart rather than merged because they
+ * are two different facts and merging them would hide which one a screen is
+ * relying on — the names are a convenience, the ids are the access.
+ */
+interface Elsewhere {
+  readonly grants: readonly PortalGrant[];
+  readonly inForce: readonly string[];
 }
 
 /**

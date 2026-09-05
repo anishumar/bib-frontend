@@ -393,6 +393,23 @@ export type PartyIdentifier = PartyProfile["identifiers"][number];
 export type PartyRelationship = PartyProfile["relationships"][number];
 
 /**
+ * One code from the product's relationship vocabulary, with the sentence it
+ * reads as from either end.
+ *
+ * The same six rows for every firm — product data, like a currency list. It is
+ * fetched rather than written into a component because the alternative is a
+ * copy of `core.relationship_type`'s seed living in a screen: the day the
+ * product adds `beneficial_owner_of`, the copy is silently a code short and the
+ * picker cannot offer it.
+ *
+ * `label` reads "{from} is {label} {to}". `inverseLabel` reads
+ * "{to} {inverseLabel} {from}" — a verb phrase, so it completes the sentence on
+ * its own ("has director", "is a subsidiary of").
+ */
+export type RelationshipType =
+  paths["/api/v1/parties/relationship-types"]["get"]["responses"][200]["content"]["application/json"]["types"][number];
+
+/**
  * Who at the firm owns a client, as it stood on one day (G3.2).
  *
  * `inForce` is the account team on `onDate`; `all` is every assignment the

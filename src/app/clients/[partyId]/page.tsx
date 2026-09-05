@@ -5,7 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
-import type { IdentifierType, PartyProfile } from "@/lib/api/client";
+import type {
+  IdentifierType,
+  PartyProfile,
+  PartyRelationship,
+  PartySummary,
+  RelationshipType,
+} from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import {
@@ -29,6 +35,7 @@ import {
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
+import { groupCompanies } from "@/lib/group";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -58,13 +65,43 @@ export default function PartyPage() {
   // stays outside them and they point at it. A hook, so it lives up here with
   // the others and not after an early return.
   const registerHintId = useId();
+  /**
+   * The two lists the Relationships card needs, and neither is about this
+   * party.
+   *
+   * `types` is the product's own vocabulary — six codes and the English each
+   * one reads as. `parties` is the firm's book, for the other end of a new
+   * relationship. Both are loaded once with the profile rather than when the
+   * form opens: the card BELOW them renders the existing relationships as
+   * sentences, and a vocabulary that arrived only when somebody pressed a
+   * button would leave the table printing `parent_of` until they did.
+   */
+  const [types, setTypes] = useState<RelationshipType[]>([]);
+  const [parties, setParties] = useState<PartySummary[]>([]);
+  /** Which party the new relationship is with. Controlled, because the
+   *  sentences offered beneath it NAME it — see `RecordRelationship`. */
+  const [relOther, setRelOther] = useState("");
+  /** Its OWN busy flag. Three forms on this page already share `busy`, so a
+   *  fourth joining them would put every submit button on the screen into a
+   *  loading state whenever any one of them saved. */
+  const [relBusy, setRelBusy] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, me] = await Promise.all([
+    const [one, me, vocab, book] = await Promise.all([
       api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } }),
       api.GET("/api/v1/auth/me", {}),
+      api.GET("/api/v1/parties/relationship-types", {}),
+      // Archived parties are out by default, which is what a picker wants: a
+      // company the firm has put away is not one to record a new live
+      // relationship with.
+      api.GET("/api/v1/parties", {}),
     ]);
     setPermissions(me.data?.permissions ?? []);
+    // Neither of these is worth failing the page for. The profile is the
+    // screen; a vocabulary that did not arrive costs the sentences and the
+    // form, and the card says so rather than the whole page refusing.
+    setTypes(vocab.data?.types ?? []);
+    setParties(book.data?.parties ?? []);
     if (one.response.status === 401) {
       router.push("/login");
       return;
@@ -170,6 +207,61 @@ export default function PartyPage() {
     await load();
   }
 
+  /**
+   * Record a relationship — the write this card has never had.
+   *
+   * `POST /api/v1/parties/relationships` shipped with the party model and had
+   * no caller anywhere in this app. The card below RENDERED relationships and
+   * could not record one, so a directorship or a group shareholding reached the
+   * database by curl or not at all — which matters more than it sounds, because
+   * `core.party_relationship` is what a group is, and a group is how a portal
+   * contact reaches a sister company.
+   *
+   * ## Direction is chosen as a SENTENCE, and that is the whole design
+   *
+   * The API takes `fromPartyId` and `toPartyId`, and getting them the wrong way
+   * round is silent: "Cobalt Foods is the parent of Nilgiri Textiles" and the
+   * reverse are both valid rows, and only one is true. So the form does not ask
+   * for a direction at all. It asks for the other company first, then offers
+   * twelve complete sentences with both real names in them — six codes, each
+   * read from both ends — and the chosen sentence decides which uuid goes in
+   * which field. There is nothing left to get backwards.
+   *
+   * ## There is no way to END one here, and that is not an oversight
+   *
+   * The domain knows about it — `party_relationship.ended` is a declared ledger
+   * verb — but there is no route, no service method and no repository method
+   * behind it. So this form offers an end DATE, which records a relationship
+   * that is already over, and offers no button to close an open one. A screen
+   * that offered "End it" and then had nothing to call would be worse than the
+   * gap it was covering up.
+   */
+  async function addRelationship(form: FormData): Promise<void> {
+    const other = String(form.get("otherParty") ?? "");
+    // "parent_of:out" — the code and which end THIS party is standing at.
+    const [type = "", end = ""] = String(form.get("relation") ?? "").split(":");
+    if (other === "" || type === "") return;
+    const validTo = String(form.get("relValidTo") ?? "").trim();
+    setRelBusy(true);
+    setError(null);
+    const result = await api.POST("/api/v1/parties/relationships", {
+      body: {
+        fromPartyId: end === "out" ? partyId : other,
+        toPartyId: end === "out" ? other : partyId,
+        type,
+        validFrom: String(form.get("relValidFrom")),
+        ...(validTo === "" ? {} : { validTo }),
+      },
+    });
+    setRelBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    setRelOther("");
+    await load();
+  }
+
   if (!loaded) return <Loading />;
   if (profile === null) {
     return (
@@ -249,6 +341,13 @@ export default function PartyPage() {
         partyId={partyId}
         clientName={profile.party.displayName}
         canGrant={permissions.includes("portal:grant")}
+        /* THE GROUP, READ FROM THE RELATIONSHIPS ON THIS PAGE. Derived here
+           rather than inside the panel because the profile is already loaded —
+           and because the card lower down is where those relationships are
+           RECORDED, so the two are visibly the same fact: a picker that does
+           not offer a sister company is a sister company nobody has written
+           down yet. */
+        group={groupCompanies(profile, today)}
       />
 
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
@@ -410,44 +509,180 @@ export default function PartyPage() {
 
       <Card>
         <CardTitle level={2}>Relationships</CardTitle>
+        <p className="muted">
+          Who owns this company, who signs for it, and which other companies it is grouped
+          with — each one effective-dated, because compliance never asks who a director is,
+          it asks who was a director on 31 March. Read every row as a sentence beginning{" "}
+          <strong>{profile.party.displayName}</strong>.
+        </p>
         {profile.relationships.length === 0 ? (
           <p className="muted">
-            None recorded.
+            None recorded.{" "}
+            {canWrite
+              ? "Recording a shareholding or a parent company here is also what lets a portal contact be given a sister company to look at — that picker reads this list and nothing else."
+              : "Recording one needs permission to write parties."}
           </p>
         ) : (
           <TableWrap>
             <Table>
               <thead>
                 <tr>
-                  <Th>Type</Th>
-                  <Th>Counterparty</Th>
+                  <Th>Is</Th>
+                  <Th>Whom</Th>
                   <Th>From</Th>
-                  <Th>To</Th>
+                  <Th>Until</Th>
                 </tr>
               </thead>
               <tbody>
                 {profile.relationships.map((r) => (
                   <tr key={r.relationship.id}>
-                    {/* Direction matters: "Priya is a director of Meridian" and
-                        "Meridian has Priya as a director" are one row read from
-                        two ends, and the sentence is different each way. */}
-                    <Td>
-                      {r.relationship.type} {r.direction === "outgoing" ? "→" : "←"}
-                    </Td>
+                    {/* THE SENTENCE, NOT THE COLUMN VALUE. This cell printed
+                        `parent_of →` until the vocabulary became readable — a
+                        database code and an arrow, shown to a partner. Direction
+                        matters and is the reason the lookup carries both halves:
+                        "Priya is a director of Cobalt Foods" and "Cobalt Foods
+                        has director Priya" are ONE row read from two ends. */}
+                    <Td>{relationSentence(r, types)}</Td>
                     <Td>
                       <Link href={`/clients/${r.counterparty.id}`}>
                         {r.counterparty.displayName}
                       </Link>
                     </Td>
                     <Td className="muted">{longDay(r.relationship.validFrom)}</Td>
-                    {/* Effective dating: an open relationship has no end, which is
-                        a different fact from one that ended today. */}
-                    <Td className="muted">{r.relationship.validTo === null ? "open" : longDay(r.relationship.validTo)}</Td>
+                    {/* Half-open, like every other date range in this product:
+                        `validTo` is the first day NOT in force. An open
+                        relationship has no end at all, which is a different fact
+                        from one that ended today. */}
+                    <Td className="muted">
+                      {r.relationship.validTo === null
+                        ? "open"
+                        : longDay(r.relationship.validTo)}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
             </Table>
           </TableWrap>
+        )}
+
+        {canWrite && types.length > 0 && (
+          <details style={{ marginTop: "var(--s-4)" }}>
+            {/* THE DISCLOSURE AND THE BUTTON INSIDE IT ARE TWO ACTIONS, and
+                naming both "Record a relationship" only moves the collision.
+                The summary opens a form; the button writes the row. */}
+            <summary aria-label="The form for a new relationship">
+              Record a relationship
+            </summary>
+            <form
+              style={{ marginTop: "var(--s-3)" }}
+              action={(form) => {
+                void addRelationship(form);
+              }}
+            >
+              {/* A NAMED GROUP WITH NO LEGEND, and it is not decoration.
+                  Measured on this page with the form open: the account team's
+                  Assign form asks for a date called "From" and so does this
+                  one, so two controls on one document shared one whole
+                  accessible name. `.fieldset` is border 0, margin 0, padding 0
+                  — nothing moves, and the two "From"s stop being the same
+                  field to anybody who cannot see which card they are in. */}
+              <fieldset className="fieldset" aria-label="A new relationship">
+              <FieldStack>
+                <FieldRow>
+                  <Field
+                    label="The other party"
+                    hint="Every company and person on the firm's book, except this one and anything archived. A relationship needs two ends and a party cannot be its own."
+                  >
+                    {/* CONTROLLED, because the sentences below NAME what is
+                        chosen here. No pre-selected party: a relationship
+                        recorded against whoever happened to sort first is a
+                        wrong fact, not a typo. */}
+                    <Select
+                      name="otherParty"
+                      required
+                      value={relOther}
+                      onChange={(e) => {
+                        setRelOther(e.target.value);
+                      }}
+                    >
+                      <option value="" disabled>
+                        Choose a company or a person
+                      </option>
+                      {parties
+                        .filter((c) => c.id !== partyId)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.displayName}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                </FieldRow>
+
+                <Field
+                  label="How they are related"
+                  hint="Twelve sentences, and each one names both companies — six kinds of relationship, read from each end. The API stores a from and a to, and choosing the sentence is what decides which is which."
+                >
+                  {/* DIRECTION IS NOT A SEPARATE QUESTION. Asking for it as a
+                      radio or an arrow is asking somebody to translate a fact
+                      they know into a field order they do not — and getting it
+                      backwards is SILENT, because both rows are valid and only
+                      one is true. Naming both parties in every option means
+                      there is nothing left to get backwards. */}
+                  <Select name="relation" required defaultValue="" disabled={relOther === ""}>
+                    <option value="" disabled>
+                      {relOther === ""
+                        ? "Choose the other party first"
+                        : "Choose what is true"}
+                    </option>
+                    {relationChoices(
+                      types,
+                      profile.party.displayName,
+                      parties.find((c) => c.id === relOther)?.displayName ?? "",
+                    ).map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.sentence}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <FieldRow>
+                  <Field
+                    label="From"
+                    hint="The day it became true — an incorporation, a share transfer, a board resolution. Not today unless today is the day."
+                  >
+                    <Input type="date" name="relValidFrom" defaultValue={today} required />
+                  </Field>
+                  <Field
+                    label="Until (optional)"
+                    hint="The first day it is NO LONGER true, not the last day it was. Leave it empty while it still stands."
+                  >
+                    <Input type="date" name="relValidTo" />
+                  </Field>
+                </FieldRow>
+
+                <div className="cluster">
+                  <Button type="submit" loading={relBusy}>
+                    {relBusy ? "Recording…" : "Record it"}
+                  </Button>
+                  {/* SAYS WHAT THIS SCREEN CANNOT DO. The domain has a
+                      `party_relationship.ended` event and the API has no route
+                      behind it — no service method, no repository method. A
+                      relationship that is already over is recorded with its end
+                      date here; an open one cannot be closed from this screen,
+                      and offering a button that had nothing to call would be
+                      worse than the gap it covered. */}
+                  <p className="field-hint">
+                    An open relationship cannot be closed from here yet — the product has no
+                    route for it. Record one that has already ended by filling in{" "}
+                    <em>Until</em>.
+                  </p>
+                </div>
+              </FieldStack>
+              </fieldset>
+            </form>
+          </details>
         )}
       </Card>
 
@@ -533,3 +768,51 @@ const IDENTIFIER_TYPES = [
   "phone",
   "other",
 ] as const satisfies readonly IdentifierType[];
+
+/**
+ * One relationship as a PREDICATE, read from this party's end.
+ *
+ * The row's subject is the party whose page this is, printed once in the card's
+ * lede rather than on every row, so the table stays narrow and still reads as a
+ * sentence across: "Cobalt Foods · is the parent of · Cobalt Logistics".
+ *
+ * `label` completes "{from} is {label} {to}", so an OUTGOING row — this party
+ * is the `from` — needs the "is" put back. `inverseLabel` is a verb phrase that
+ * completes "{to} … {from}" on its own ("has director", "is a subsidiary of"),
+ * so an INCOMING row takes it as it stands. Migration 0074 exists because one
+ * of the six was a noun phrase and produced a sentence with no verb in it.
+ *
+ * Falls back to the raw code, which is what the whole app showed before this
+ * function: the vocabulary is a separate read and a page that rendered before
+ * it arrived would otherwise print nothing where the relationship should be.
+ */
+function relationSentence(r: PartyRelationship, types: readonly RelationshipType[]): string {
+  const t = types.find((x) => x.code === r.relationship.type);
+  if (t === undefined) return r.relationship.type;
+  return r.direction === "outgoing" ? `is ${t.label}` : t.inverseLabel;
+}
+
+/**
+ * The twelve sentences a new relationship could be, with both real names in
+ * each — six codes read from both ends.
+ *
+ * The VALUE encodes the code and which end this party stands at (`out` = this
+ * party is the `from`), which is the only thing the writer needs to fill
+ * `fromPartyId` and `toPartyId` correctly. Nothing else on the form asks about
+ * direction, because the sentence has already answered it.
+ *
+ * Returns nothing at all until the other party is chosen: a sentence with a
+ * blank in it is not a sentence, and offering "Cobalt Foods is the parent of"
+ * with nothing after it invites somebody to choose it.
+ */
+function relationChoices(
+  types: readonly RelationshipType[],
+  thisName: string,
+  otherName: string,
+): { value: string; sentence: string }[] {
+  if (otherName === "") return [];
+  return types.flatMap((t) => [
+    { value: `${t.code}:out`, sentence: `${thisName} is ${t.label} ${otherName}` },
+    { value: `${t.code}:in`, sentence: `${otherName} is ${t.label} ${thisName}` },
+  ]);
+}
