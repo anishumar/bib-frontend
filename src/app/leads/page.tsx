@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -97,7 +97,7 @@ export default function LeadsPage() {
     })();
   }, [load]);
 
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(key);
     setError(null);
     setNote(null);
@@ -105,15 +105,91 @@ export default function LeadsPage() {
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(null);
-      return;
+      return false;
     }
     await load();
     setBusy(null);
+    return true;
   }
 
-  /** Move a lead, with the reason when the stage is one that takes one. */
-  function move(leadId: string, stage: LeadStage, lostReason?: string): void {
-    void act(leadId, async () => {
+  /**
+   * WHERE FOCUS GOES AFTER A ROW WRITE, and why this is an EFFECT and not two
+   * lines after the await.
+   *
+   * `disabled={busy !== null}` disables every select on the page while one
+   * writes, and the browser blurs a control the moment it is disabled — so a
+   * keyboard user who has just changed a stage is on `<body>` and the next Tab
+   * restarts at the skip link.
+   *
+   * The obvious fix — check for `<body>` straight after the await — was written
+   * first and MEASURED NOT WORKING, which is the whole reason this is written
+   * down. `Button` restores focus to itself when it becomes pressable again and
+   * nothing holds focus (see its own note; it was fixed for exactly this
+   * reason), so there is a race between that and this, and the walk found a
+   * `Button` holding focus and the select left behind. A child's effects run
+   * before its parent's, so a PAGE-level effect is the one that runs last and
+   * settles it — deterministically, rather than whichever happened to fire.
+   *
+   * The cost, stated: somebody who clicks a stage and then clicks something
+   * else inside the ~200ms the write takes has focus pulled back to the select.
+   * That is the same trade `Button` already makes in the other direction, and
+   * it is smaller than the one it replaces, which lost focus on every write.
+   */
+  const restoreTo = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (busy !== null) return;
+    const node = restoreTo.current;
+    restoreTo.current = null;
+    node?.focus();
+  }, [busy]);
+
+  /**
+   * A WRITE FROM A ROW CONTROL — and it owes two things a plain `act` does not.
+   *
+   * ## It says what happened
+   *
+   * Changing a `<select>` in a table row wrote and announced nothing. The
+   * visible value IS the feedback for somebody who can see it; for a screen
+   * reader the row simply goes quiet, and for anybody the difference between
+   * "saved" and "the click did not register" is invisible. `note` is already a
+   * live region on this page — it was carrying what CAPTURE answered and
+   * nothing else — so this is the same sentence in the same place.
+   *
+   * ## It asks for focus back
+   *
+   * By handing the node to the effect above rather than focusing it here. The
+   * node survives the reload: the rows are keyed by lead id, so React
+   * reconciles rather than remounting, and the element the reader was standing
+   * in is still the element that comes back.
+   */
+  async function rowAct(
+    key: string,
+    node: HTMLElement | null,
+    said: string,
+    call: () => Promise<{ error?: unknown }>,
+  ): Promise<void> {
+    restoreTo.current = node !== null && document.activeElement === node ? node : null;
+    const ok = await act(key, call);
+    if (!ok) return;
+    setNote(said);
+  }
+
+  /**
+   * Move a lead, with the reason when the stage is one that takes one.
+   *
+   * `title` and `node` are for the sentence and the focus — see `rowAct`. The
+   * close-out FORM passes no node deliberately: its submit button unmounts by
+   * succeeding, so there is nothing to hand focus back to and the note is what
+   * says the write landed.
+   */
+  function move(
+    leadId: string,
+    title: string,
+    stage: LeadStage,
+    node: HTMLElement | null,
+    lostReason?: string,
+  ): void {
+    void rowAct(leadId, node, `${title} is now ${stage}.`, async () => {
       const result = await api.POST("/api/v1/leads/{leadId}/stage", {
         params: { path: { leadId } },
         body: {
@@ -252,7 +328,10 @@ export default function LeadsPage() {
                                 return;
                               }
                               setClosing(null);
-                              move(l.lead.id, stage);
+                              // The node is captured from the event: after the
+                              // reload it is still this element, and it is
+                              // where the reader was standing.
+                              move(l.lead.id, l.lead.title, stage, e.currentTarget);
                             }}
                           >
                             {LEAD_STAGES.map((s) => (
@@ -268,13 +347,34 @@ export default function LeadsPage() {
                             value={l.owner?.userId ?? ""}
                             disabled={busy !== null || staff.length === 0}
                             onChange={(e) => {
-                              void act(l.lead.id, () =>
-                                api.PUT("/api/v1/leads/{leadId}/owner", {
-                                  params: { path: { leadId: l.lead.id } },
-                                  body: {
-                                    ownerUserId: e.target.value === "" ? null : e.target.value,
-                                  },
-                                }),
+                              // THE SAME SILENT WRITE AS THE STAGE BESIDE IT,
+                              // and it was not on the board — one of these two
+                              // was named and they are one defect. Whose desk a
+                              // lead sits on is exactly the sort of change
+                              // somebody makes twice by mistake when nothing
+                              // said it worked the first time.
+                              const node = e.currentTarget;
+                              const ownerId = e.target.value;
+                              const who =
+                                ownerId === ""
+                                  ? "on nobody's desk"
+                                  : `with ${
+                                      staff.find((m) => m.membership.userId === ownerId)
+                                        ?.displayName ??
+                                      staff.find((m) => m.membership.userId === ownerId)?.email ??
+                                      "somebody else"
+                                    }`;
+                              void rowAct(
+                                l.lead.id,
+                                node,
+                                `${l.lead.title} is now ${who}.`,
+                                () =>
+                                  api.PUT("/api/v1/leads/{leadId}/owner", {
+                                    params: { path: { leadId: l.lead.id } },
+                                    body: {
+                                      ownerUserId: ownerId === "" ? null : ownerId,
+                                    },
+                                  }),
                               );
                             }}
                           >
@@ -296,7 +396,12 @@ export default function LeadsPage() {
                               action={(form) => {
                                 move(
                                   l.lead.id,
+                                  l.lead.title,
                                   closingThis.stage,
+                                  // NOTHING TO HAND FOCUS BACK TO: this form's
+                                  // submit unmounts by succeeding, and the note
+                                  // is what says the write landed.
+                                  null,
                                   String(form.get("lostReason") ?? "").trim(),
                                 );
                               }}

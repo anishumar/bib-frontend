@@ -92,12 +92,12 @@
 .btn[data-variant="destructive"] {
   background: var(--danger);
   border-color: var(--danger);
-  color: #ffffff;
+  color: var(--danger-on);
 }
 .btn[data-variant="destructive"]:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--danger-hover);
   border-color: var(--danger-hover);
-  color: #ffffff;
+  color: var(--danger-on);
 }
 
 /* A quiet destructive: the row action that must read as dangerous without
@@ -687,7 +687,7 @@
   height: 1rem;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 1px 2px rgb(15 26 32 / 0.25);
+  box-shadow: var(--shadow-sm);
   transition: transform var(--dur) var(--ease);
   pointer-events: none;
 }
@@ -1216,7 +1216,7 @@
 .themeswitch button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 2px rgb(15 26 32 / 0.08);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ── Work board ───────────────────────────────────────────────────────────

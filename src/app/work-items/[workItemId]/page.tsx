@@ -437,8 +437,8 @@ export default function WorkItemPage() {
       <Reviews
         reviews={detail.reviews}
         openReview={openReview}
+        openReviewViewer={detail.openReviewViewer}
         canWrite={canWrite}
-        meUserId={me?.userId ?? null}
         busy={busy}
         onRequest={() => {
           void act("review", () =>
@@ -803,16 +803,18 @@ function Checklist({
 function Reviews({
   reviews,
   openReview,
+  openReviewViewer,
   canWrite,
-  meUserId,
   busy,
   onRequest,
   onDecide,
 }: {
   reviews: readonly WorkItemReview[];
   openReview: WorkItemReview | null;
+  /** The API's verdict on whether the CALLER may decide the open review. Null
+   *  when there is none open. */
+  openReviewViewer: WorkItemDetail["openReviewViewer"];
   canWrite: boolean;
-  meUserId: string | null;
   busy: string | null;
   onRequest: () => void;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
@@ -837,8 +839,8 @@ function Reviews({
       ) : (
         <DecideReview
           review={openReview}
+          viewer={openReviewViewer}
           canWrite={canWrite}
-          meUserId={meUserId}
           busy={busy}
           onDecide={onDecide}
         />
@@ -909,14 +911,14 @@ function Reviews({
  */
 function DecideReview({
   review,
+  viewer,
   canWrite,
-  meUserId,
   busy,
   onDecide,
 }: {
   review: WorkItemReview;
+  viewer: WorkItemDetail["openReviewViewer"];
   canWrite: boolean;
-  meUserId: string | null;
   busy: string | null;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
@@ -938,31 +940,32 @@ function DecideReview({
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
       </Notice>
 
-      {/* MAKER IS NEVER CHECKER, and this screen used to offer Approve to the
-          one person guaranteed to be refused by it — the person whose name is
-          in the sentence directly above. Walked: pressing it returned "the
-          person who did the work can never be the person who checks it", which
-          is a good sentence to read AFTER a mistake and a poor thing to make
-          somebody press a button to find out.
+      {/* THE WHOLE RULE, FROM THE API — and it used to be a third of it.
+          This screen derived maker != checker from `submittedBy` and could see
+          nothing else, so a Manager who was not senior enough, or who was not
+          on the firm's ladder at all, was offered a button whose only outcome
+          was a 403. The queue screen has shown the full verdict since T2.9
+          because `/work-item-checks` sends one per row; the same person, asking
+          the same question, got two different answers depending on which screen
+          they were standing on. `openReviewViewer` closes that, and it is the
+          queue's own computation rather than a second copy of it.
 
-          It SAYS why rather than greying the button out, which is the shape the
-          API asks for in its own words on `WorkItemCheckViewer`: "you did this
-          work" and "nobody has put you on the ladder" are different problems
-          and only one of them is the viewer's to fix.
-
-          THIS ONLY COVERS MAKER-CHECKER. The queue screen shows the full
-          verdict because `/work-item-checks` sends one per row; the work item's
-          own `reviews` carry `submittedBy` and no `viewer`, so the ladder and
-          grade rules are still only discovered by pressing. Adding `viewer` to
-          `WorkItemReview` is the backend change that would close it. */}
-      {canWrite && meUserId !== null && review.submittedBy === meUserId && (
-        <Notice tone="warn">
-          You made this work, so you cannot be the one who checks it. Somebody else on the list
-          below has to.
-        </Notice>
+          IT SAYS WHY rather than greying the button out. "You did this work"
+          and "nobody has put you on the ladder" are different problems and only
+          one of them is the reader's to fix — the API returns the sentence, and
+          this prints it. */}
+      {canWrite && viewer !== null && !viewer.eligible && (
+        /* THE API'S SENTENCE ALONE. It ended "…Somebody else on the list
+           below has to" while the local rule was the only thing here, and the
+           API's own maker sentence already ends "Somebody else has to — that is
+           the rule the firm is audited on" — so the two ran together and said
+           it twice, which is this repo's oldest bug in its newest costume.
+           Every message in `INELIGIBILITY_MESSAGES` is a complete sentence, and
+           the list of who CAN is a disclosure directly beneath this. */
+        <Notice tone="warn">{viewer.reason ?? "You cannot check this one."}</Notice>
       )}
 
-      {canWrite && !(meUserId !== null && review.submittedBy === meUserId) && (
+      {canWrite && (viewer === null || viewer.eligible) && (
         <>
           {/* Measured on the page: this control's accessible NAME was
               "NoteRequired when you send it back. Why work came back is the only

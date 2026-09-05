@@ -180,3 +180,28 @@ the teal is `ok`.
 
 The full rules are in `bib-frontend/CLAUDE.md` under "Tailwind and shadcn". Read them before
 adding a utility to a screen that still names a class from this folder.
+
+## A control that opens something: `aria-expanded`, or `useSwapFocus`, never both
+
+Settled 2026-09-05, after three of the app's disclosures had it and three did not
+and nothing said which was right. **Which one a control wants is decided by ONE
+question: does the button survive its own click?**
+
+**It stays → `aria-expanded`.** The nav group head, the versions toggle on a
+documents row, "Send back" on a check, "Write a rule", "Add an exception",
+"Change it". A flipping label is not a substitute and the versions row is the
+proof: it says `3 versions` / `Hide` *and* carries `aria-expanded`, because the
+label tells somebody who is READING it and the attribute tells somebody who has
+just arrived on the control. Add `aria-controls` only when the region has an id
+to point at — and always when the region opens ELSEWHERE on the page rather than
+directly beneath the button, because that is the case where nothing else says
+where the thing went.
+
+**It is replaced by what it opens → `useSwapFocus`, and no `aria-expanded`.**
+`{editing ? <Form/> : <Button/>}` unmounts the focused button, so the attribute
+would describe a control that is not there. What is owed is where focus went.
+The hook's own docstring makes this argument at length; this is the other half
+of it, written where somebody choosing between the two will look.
+
+**A `<details>`/`<summary>` needs neither.** The browser sets the state itself,
+and adding `aria-expanded` to a `<summary>` overrides what it already reports.

@@ -190,6 +190,21 @@
   --warn-ink: #9c5c00;
   --warn-wash: #fdf3e3;
   --danger: #b4382c;
+  /* INK ON THE DANGER GROUND — its own token for the same reason `--brand-on`
+     is: the two diverge the moment a theme changes one, and here they already
+     had.
+
+     The destructive button carried a literal `color: #ffffff` in both themes.
+     Measured, that is 5.93:1 in light and 2.99:1 in DARK (2.45:1 on hover),
+     because dark's `--danger` is a light coral rather than a dark red — a
+     straight AA failure on the label of the one button in the system whose
+     whole job is to be read before it is pressed.
+
+     It is rendered nowhere: only `destructive-quiet` has call sites, so this is
+     a trap disarmed rather than a bug fixed. Which is exactly why it needed a
+     token — a literal that is right today and wrong in a theme nobody has drawn
+     it in yet is the shape that ships. */
+  --danger-on: #ffffff;
   --danger-wash: #fdeeec;
   --danger-hover: #9c3025;
 
@@ -234,6 +249,26 @@
   --overlay: rgb(15 26 32 / 0.4);
 
   --shadow: 0 1px 2px rgb(15 26 32 / 0.04), 0 8px 24px -12px rgb(15 26 32 / 0.14);
+
+  /* THE OTHER TWO RUNGS OF THE SAME LADDER, and they exist because two
+     components were carrying their own `rgb(15 26 32 / …)` — the last literal
+     shadows in the app, and the only two declarations in `components.css` that
+     could not follow the theme.
+
+     They are two tokens rather than one because the two jobs need different
+     strengths, and that was MEASURED rather than assumed. The obvious tidy-up
+     was to give both the same value and, better, to delete the weaker one on
+     the grounds that a 0.08 shadow does nothing next to a background change.
+     It is not nothing: the pressed theme chip is `--surface` (#ffffff) on
+     `--paper` (#fafbfb), a difference of five in one channel, so this shadow is
+     most of what separates the chip from the strip it sits in. Deleting it
+     would have removed the only thing saying which theme is selected for
+     anybody not looking hard.
+
+     --shadow-sm  a knob sitting ON something — the switch thumb, over a track.
+     --shadow-xs  a chip raised off a ground it nearly matches. */
+  --shadow-sm: 0 1px 2px rgb(15 26 32 / 0.25);
+  --shadow-xs: 0 1px 2px rgb(15 26 32 / 0.08);
 
   /* The plate a brand mark sits on. White in BOTH themes, deliberately: a logo
      supplied as a transparent PNG was drawn for white paper, and a dark ground
@@ -293,6 +328,10 @@
     --warn-ink: var(--warn);
     --warn-wash: #2e2413;
     --danger: #e0776a;
+    /* Dark ink on a light coral, the same move dark's `--brand-on` makes and
+       for the same measured reason: 6.28:1 against `--danger` and 7.66:1
+       against `--danger-hover`, where white was 2.99 and 2.45. */
+    --danger-on: #1a0f13;
     --danger-wash: #331a17;
     --danger-hover: #ec8b7e;
 
@@ -312,6 +351,11 @@
     --overlay: rgb(0 0 0 / 0.6);
 
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
+    /* Black rather than the ink, and stronger, for the same reason `--shadow`
+       is: an ink-coloured shadow on a dark ground is invisible, which is
+       exactly how the two literals behaved before they were tokens. */
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.6);
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
   }
 }
 
@@ -346,6 +390,7 @@
   --warn-ink: var(--warn);
   --warn-wash: #2e2413;
   --danger: #e0776a;
+  --danger-on: #1a0f13;
   --danger-wash: #331a17;
   --danger-hover: #ec8b7e;
 
@@ -364,4 +409,6 @@
   --overlay: rgb(0 0 0 / 0.6);
 
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.6);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
 }

@@ -345,6 +345,7 @@ function TemplateCard({
           aria-label={`${
             editing ? "Stop editing" : draft === null ? "Change" : "Edit the draft of"
           } ${entry.entry.key}`}
+          aria-expanded={editing}
           onClick={() => {
             setEditing((e) => !e);
           }}

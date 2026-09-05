@@ -514,6 +514,7 @@ export function Exceptions({
             variant="ghost"
             size="sm"
             {...(open ? { "aria-label": "Cancel the new exception" } : {})}
+            aria-expanded={open}
             onClick={() => { setOpen((o) => !o); }}
           >
             {open ? "Cancel" : "Add an exception"}

@@ -433,6 +433,11 @@ function Rules() {
                      buttons by name has no way to know. The visible word is
                      unchanged. */
                   {...(creating ? { "aria-label": "Cancel the new rule" } : {})}
+                  /* IT STAYS AND A FORM APPEARS UNDER IT, so the state is
+                     announced. The flipping label already says it to somebody
+                     reading; `aria-expanded` is what says it to somebody
+                     arriving on the control. See `src/design/README.md`. */
+                  aria-expanded={creating}
                   onClick={() => {
                     setEditing(null);
                     setDraft(draftOf(null));

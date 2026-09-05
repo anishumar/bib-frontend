@@ -15759,6 +15759,12 @@ export interface components {
             dependencies: components["schemas"]["WorkItemDependency"][];
             /** @description Every review this item has ever had, newest first. The REJECTIONS are the point: a list of only open ones makes work that came back twice read as work that sailed through. */
             reviews: components["schemas"]["WorkItemReview"][];
+            /** @description May the CALLER decide the open review — the same verdict `/work-item-checks` puts on every one of its rows, and null when there is no open review. One field rather than one per row, because the question only exists for the open one: 'may you check this' is not asked of a review already approved or sent back. Before this the item's page could derive only maker != checker from `submittedBy` — one third of the rule — so the ladder and the grade threshold were found by pressing Approve and reading a 403, while the queue screen had been showing the same person the full answer since T2.9. */
+            openReviewViewer: {
+                eligible: boolean;
+                /** @description What to SAY when they may not — the SENTENCE, not a code, and the same prose the checkers endpoint returns, so one refusal is never phrased two ways. Null when they may check it. */
+                reason: string | null;
+            } | null;
         };
         CreateWorkItemRequest: {
             /** Format: uuid */
