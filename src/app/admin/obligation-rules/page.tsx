@@ -405,7 +405,7 @@ function Rules() {
                 Both in one `Cluster` pushed "Write a rule" onto its own line
                 the moment the checkbox's sentence wrapped, which reads as a
                 button somebody forgot to place. Found by looking at it. */}
-            <Row>
+            <Row align="end">
               {/* IN A `Field`, like every other Select in this app. A bare one
                   is `width: 100%` by design — right inside a form, and here it
                   filled the row and pushed the button onto its own line. The

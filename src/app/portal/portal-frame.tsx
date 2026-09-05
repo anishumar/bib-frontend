@@ -293,6 +293,12 @@ export function PortalFrame({ children }: { children: ReactNode }) {
     <PortalSessionContext.Provider value={principal}>
       <PortalRequestCountContext.Provider value={requestCount}>
       <div className="shell">
+        {/* The same skip link the staff shell carries, and the portal needs it
+            no less: five nav links plus the theme switch stand between a
+            client and what they came to read. */}
+        <a href="#page" className="skip-link">
+          Skip to the page
+        </a>
         <aside className="sidebar">
           {/* THE FIRM'S NAME, not the product's. This page is a firm talking to
               its client, and "BiB" means nothing to the reader. `tenantName` is

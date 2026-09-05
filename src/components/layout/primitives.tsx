@@ -28,7 +28,19 @@ export function Page({
   className?: string;
 }) {
   return (
-    <main className={cx("page", width === undefined ? undefined : width, className)}>
+    <main
+      /* THE TARGET OF THE SKIP LINK in both shells. One id, because there
+         is one `<main>` on a page and `Page` is the only thing that renders
+         it — see `app-shell.tsx` for why the link exists. */
+      id="page"
+      /* `-1` so the skip link can actually PUT FOCUS HERE. Without it the
+         browser scrolls to `#page` and leaves focus on the link, so the next
+         Tab carries on from the sidebar — the link moves the view and not the
+         keyboard, which is the half-fix that makes a skip link look like it
+         works. It adds no tab stop. */
+      tabIndex={-1}
+      className={cx("page", width === undefined ? undefined : width, className)}
+    >
       <div className="stack loose">{children}</div>
     </main>
   );
@@ -96,12 +108,28 @@ export function Stack({
 /** A heading and the thing opposite it, baseline-aligned, wrapping on narrow. */
 export function Row({
   children,
+  /**
+   * Align the BOTTOMS rather than the baselines.
+   *
+   * `.row` aligns on the baseline, which is right when both sides are text.
+   * It is wrong when one side is a `Field` — label above control — because
+   * the baseline it finds is the LABEL's, so the control ends up 41px below
+   * the button beside it and tab order walks back up the page to reach it.
+   * Measured on /admin/obligation-rules, whose filter and "Write a rule" are
+   * meant to be one line.
+   */
+  align,
   className,
 }: {
   children: ReactNode;
+  align?: "end";
   className?: string;
 }) {
-  return <div className={cx("row", className)}>{children}</div>;
+  return (
+    <div className={cx("row", align === "end" ? "align-end" : undefined, className)}>
+      {children}
+    </div>
+  );
 }
 
 /** Things beside each other that wrap: buttons, pills, filters. */

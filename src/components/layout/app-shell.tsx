@@ -518,6 +518,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SessionContext.Provider value={principal}>
       <div className="shell">
+        {/* TWENTY-ONE TAB STOPS STOOD BETWEEN THE PAGE AND THE KEYBOARD.
+            Measured: the sidebar is 14 to 21 stops depending on which
+            groups are open, and every one of them came before `<main>` on
+            every route and after every navigation. Somebody working this
+            product from the keyboard was walking the whole menu to reach
+            the screen they had just opened.
+
+            It is invisible until it is focused, which is the point: it
+            costs a sighted mouse user nothing and it is the first thing a
+            keyboard user meets. */}
+        <a href="#page" className="skip-link">
+          Skip to the page
+        </a>
         <aside className="sidebar">
           <Link href="/" className="brand">
             <span className="mark" aria-hidden="true">

@@ -405,6 +405,46 @@
 .cluster.tight { gap: var(--s-1); }
 .cluster.loose { gap: var(--s-4); }
 .cluster.end { justify-content: flex-end; }
+/* NOT the same word as `.cluster.end`, which moves things along the row. This
+   moves them across it. See the note on `Row`'s `align` prop. */
+.row.align-end { align-items: flex-end; }
+
+/* ── Skip link ────────────────────────────────────────────────────────────
+   Clipped away until it takes focus, then a real button in the top-left
+   corner. Clipped rather than moved: the same technique as `.sr-only`, which
+   is what the rest of this app already uses to take something out of sight
+   without taking it out of the accessibility tree.
+
+   `:focus`, NOT `:focus-visible`. The link is unreachable by pointer, so there
+   is no mouse focus to suppress — and `:focus-visible` does not match a
+   programmatic focus, which is the only way this can be tested from a script. */
+.skip-link {
+  position: fixed;
+  top: var(--s-3);
+  left: var(--s-3);
+  z-index: 100;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+.skip-link:focus {
+  width: auto;
+  height: auto;
+  padding: 0.5rem 0.9rem;
+  overflow: visible;
+  clip-path: none;
+}
 
 /* Columns that collapse on their own, without a breakpoint per screen. */
 .grid-2 {

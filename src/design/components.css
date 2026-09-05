@@ -634,9 +634,23 @@
 
 /* ── Switch ───────────────────────────────────────────────────────────────
    A real checkbox underneath, sized to cover the track, so it keeps every
-   keyboard and screen-reader behaviour a checkbox already has. */
+   keyboard and screen-reader behaviour a checkbox already has.
+
+   `position: relative` IS LOAD-BEARING, and it was missing. The input below is
+   `position: absolute; inset: 0`, which resolves against the nearest POSITIONED
+   ancestor — and with nothing positioned on this label that was whatever the
+   page happened to offer. Measured on /work-items/[workItemId]: an invisible
+   checkbox 1585x856, covering the entire viewport, and `elementFromPoint` at
+   five places across the page returned IT rather than what was drawn there. A
+   click anywhere on the page toggled "Show this on the client portal".
+
+   On a documents table it is worse, because every row draws one: the last
+   switch in the document wins, so a click on empty space flipped the LAST
+   row's Shared / Not shared — a client-visibility flag, changed by a click
+   that was aimed at nothing. */
 
 .switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
