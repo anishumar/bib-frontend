@@ -607,7 +607,7 @@ function AddState({
 
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
-      <summary>Add a state</summary>
+      <summary aria-label="The form for a new state">Add a state</summary>
       {/* A GROUP, named, and with no legend so nothing moves on screen. Both
           forms on this page ask for a Name, a Code and an Order, and both can
           be open at once — "Name, edit" twice over identifies neither. */}
@@ -702,7 +702,7 @@ function AddOption({
 
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
-      <summary>Add a decision</summary>
+      <summary aria-label="The form for a new decision">Add a decision</summary>
       <fieldset className="fieldset" aria-label="Add a decision">
         <FieldStack>
           <FieldRow>

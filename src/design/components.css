@@ -1015,9 +1015,18 @@
   color: var(--faint);
   margin-bottom: var(--s-1);
 }
-.state h3 {
+/* THE TITLE OF AN EMPTY STATE IS NOT A HEADING. It was an <h3>, and on a tab
+   panel with no <h2> above it — /work's "To check", /client-requests' "Mine"
+   and "Unassigned", all three empty — the ladder went h1 -> h3 on the one
+   state a reader reaches by clicking a tab. `components/tw`'s own `Empty` had
+   already decided this the other way and draws its title as a <p>; the two
+   vocabularies disagreeing about whether "Nothing here yet" is a section of
+   the document is the inconsistency, and this settles it. Nothing moves on
+   screen: the rule is the same, the selector is what changed. */
+.state .state-title {
   font-size: var(--t-base);
   font-weight: 600;
+  color: var(--ink);
 }
 .state p {
   max-width: 34rem;

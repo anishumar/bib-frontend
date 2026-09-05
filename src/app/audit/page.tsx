@@ -152,9 +152,20 @@ function AuditFeed() {
                     {scoped ? (
                       <span className="muted">{r.event.objectType}</span>
                     ) : (
+                      /* NAMED BY THE RECORD, not by its TYPE. This column
+                         filters the trail to one object, and a hundred rows
+                         drew a hundred links called `work_item` (nine of them),
+                         `user_account` (five), `work_item_approval` (eight) —
+                         each going somewhere different. A link list is how
+                         somebody who cannot see the table navigates it. The id
+                         is the only thing that separates them, and this screen
+                         already shows raw ids on purpose: an audit trail is
+                         read when something has gone wrong, and prettifying is
+                         one more thing between the reader and the record. */
                       <Link
                         href={`/audit?type=${r.event.objectType}&id=${r.event.objectId}`}
                         className="mono"
+                        aria-label={`Every event on ${r.event.objectType} ${r.event.objectId}`}
                       >
                         {r.event.objectType}
                       </Link>

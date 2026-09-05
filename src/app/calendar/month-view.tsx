@@ -664,9 +664,15 @@ function FilingCard({
           </span>
         )}
         {row.workItemId !== null && (
+          /* Named by the row, for the reason the list view's is: a month with
+             two filings on the same day draws two links reading "on the board"
+             and a link list is how somebody who cannot see the grid reads it. */
           <Link
             href={`/work-items/${row.workItemId}`}
             className="ml-auto text-xs text-brand underline-offset-2 hover:underline"
+            aria-label={`${[row.name, row.entityName, row.periodLabel]
+              .filter(Boolean)
+              .join(", ")} — on the board`}
           >
             on the board &rarr;
           </Link>

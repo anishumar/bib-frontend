@@ -550,7 +550,18 @@ function AddAxis({
 
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
-      <summary>Add one</summary>
+      {/* THE DISCLOSURE THAT OPENS THE FORM, and no probe had ever counted a
+          <summary>. The form inside was named by axis months ago — the fieldset
+          below says "Add a Dept" or "Add a delivery team" — but the control you
+          reach FIRST said only "Add one", twice on one page, for the two axes
+          this screen exists to keep apart. The visible word is unchanged. */}
+      <summary
+        aria-label={
+          axis === "dept" ? "The form for a new Dept" : "The form for a new delivery team"
+        }
+      >
+        Add one
+      </summary>
       <form
         style={{ marginTop: "var(--s-4)" }}
         action={(form) => {

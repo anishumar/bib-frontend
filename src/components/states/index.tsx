@@ -96,7 +96,7 @@ export function Empty({
       <span className="state-icon">
         <Icon name={icon} size={28} />
       </span>
-      <h3>{title}</h3>
+      <p className="state-title">{title}</p>
       {children !== undefined && <p>{children}</p>}
       {action !== undefined && <div className="cluster">{action}</div>}
     </div>
@@ -122,7 +122,7 @@ export function NoResults({
       <span className="state-icon">
         <Icon name="search" size={28} />
       </span>
-      <h3>No matches</h3>
+      <p className="state-title">No matches</p>
       <p>{children}</p>
       {action !== undefined && <div className="cluster">{action}</div>}
     </div>
@@ -154,7 +154,7 @@ export function ErrorState({
       <span className="state-icon">
         <Icon name="alert" size={28} />
       </span>
-      <h3>{title}</h3>
+      <p className="state-title">{title}</p>
       <p>{message}</p>
       {onRetry !== undefined && <div className="cluster">{onRetry}</div>}
     </div>
@@ -180,7 +180,7 @@ export function Denied({
       <span className="state-icon">
         <Icon name="lock" size={28} />
       </span>
-      <h3>Not available to this account</h3>
+      <p className="state-title">Not available to this account</p>
       <p>
         {children ?? "Your role does not reach this part of the workspace."}
         {permission !== undefined && (

@@ -523,7 +523,7 @@ function AddState({
 
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
-      <summary>Add a state</summary>
+      <summary aria-label="The form for a new state">Add a state</summary>
       {/* A GROUP, named, and with no legend so nothing moves on screen. Both
           forms on this page ask for a Name and a Code, and this page can have
           both of them open at once — "Name, edit" twice over identifies
@@ -617,7 +617,7 @@ function AddPriority({
 
   return (
     <details style={{ marginTop: "var(--s-4)" }}>
-      <summary>Add a priority</summary>
+      <summary aria-label="The form for a new priority">Add a priority</summary>
       <fieldset className="fieldset" aria-label="Add a priority">
         <FieldStack>
           <FieldRow>

@@ -15,7 +15,7 @@ import { Cluster, Page, PageHeader, Stack } from "@/components/layout";
 import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
-import { browserDay } from "@/lib/day";
+import { browserDay, longDay } from "@/lib/day";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -269,8 +269,16 @@ export default function CalendarPage() {
 }
 
 function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
+  // COMPARED as ISO, PRINTED as prose. The ordering below is string ordering on
+  // `YYYY-MM-DD`, which is why it is correct and must stay on the raw value;
+  // only what a reader sees changes. All three are `date` columns, so `longDay`
+  // — it SPLITS the string and never builds a Date, because `new Date("2026-09-20")`
+  // is UTC midnight and prints as the 19th west of Greenwich, which moves a
+  // statutory deadline by a day.
   const lateInternally = row.internalTargetOn < today && !row.isTerminal;
   const lateLegally = row.statutoryDueOn < today && row.filedOn === null && !row.isTerminal;
+  // What this row IS, for the link at the end of it — see below.
+  const about = [row.name, row.entityName, row.periodLabel].filter(Boolean).join(", ");
 
   return (
     <tr>
@@ -301,17 +309,23 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
       </Td>
       <Td>
         <span className={lateInternally ? "mono tone-danger" : "mono"}>
-          {row.internalTargetOn}
+          {longDay(row.internalTargetOn)}
         </span>
         {row.workItemId !== null && (
           <Sub>
-            <Link href={`/work-items/${row.workItemId}`}>on the board &rarr;</Link>
+            {/* ELEVEN OF THESE ON ONE SCREEN, all saying "on the board". A link
+                list is how somebody who cannot see the table navigates it, and
+                eleven identical entries going to eleven different work items
+                tell them nothing. The visible words do not change. */}
+            <Link href={`/work-items/${row.workItemId}`} aria-label={`${about} — on the board`}>
+              on the board &rarr;
+            </Link>
           </Sub>
         )}
       </Td>
       <Td>
         <span className={lateLegally ? "mono tone-danger" : "mono"}>
-          {row.statutoryDueOn}
+          {longDay(row.statutoryDueOn)}
           {lateLegally && " · missed"}
         </span>
       </Td>
@@ -327,7 +341,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         {row.filedOn !== null && (
           <Sub>
             <span className="mono">
-              {row.filedOn}
+              {longDay(row.filedOn)}
               {row.filedOn > row.statutoryDueOn ? " · late" : ""}
             </span>
           </Sub>
@@ -647,8 +661,14 @@ function DecisionLine({
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const consequenceId = useId();
 
   const chosen = options.find((o) => o.id === optionId);
+  // WHAT THIS ROW IS. Nine rows draw nine of every control below, and any
+  // number of them can be open at once — `open` is per row. Filing the wrong
+  // decision against the wrong return is not a typo; it closes a statutory
+  // obligation that is still owed.
+  const about = [row.name, row.entityName, row.periodLabel].filter(Boolean).join(", ");
 
   async function record(): Promise<void> {
     setSaving(true);
@@ -690,7 +710,7 @@ function DecisionLine({
         <span className="mono">{row.periodLabel}</span>
       </Td>
       <Td>
-        <span className="mono">{row.statutoryDueOn}</span>
+        <span className="mono">{longDay(row.statutoryDueOn)}</span>
       </Td>
       <Td>
         <Pill tone="danger">
@@ -698,13 +718,27 @@ function DecisionLine({
         </Pill>
         {row.workItemId !== null && (
           <Sub>
-            <Link href={`/work-items/${row.workItemId}`}>on somebody&rsquo;s desk →</Link>
+            {/* Named by the row, for the reason the "on the board" link on the
+                Due tab is: nine rows, nine identical link names. */}
+            <Link
+              href={`/work-items/${row.workItemId}`}
+              aria-label={`${[row.name, row.entityName, row.periodLabel]
+                .filter(Boolean)
+                .join(", ")} — on somebody's desk`}
+            >
+              on somebody&rsquo;s desk →
+            </Link>
           </Sub>
         )}
       </Td>
       <Td>
         {!open ? (
-          <Button size="sm" variant="secondary" onClick={() => { setOpen(true); }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-label={`Decide — ${about}`}
+            onClick={() => { setOpen(true); }}
+          >
             Decide
           </Button>
         ) : (
@@ -721,7 +755,11 @@ function DecisionLine({
             <Select
               size="sm"
               value={optionId}
-              aria-label="What was decided"
+              aria-label={`What was decided — ${about}`}
+              /* CONDITIONAL: the consequence sentence below is only drawn once
+                 an option is chosen, and a describedby naming an element that
+                 is not rendered describes nothing. */
+              {...(chosen === undefined ? {} : { "aria-describedby": consequenceId })}
               onChange={(e) => { setOptionId(e.target.value); }}
             >
               <option value="">What was decided…</option>
@@ -737,7 +775,7 @@ function DecisionLine({
                 one ends it forever — and a partner should not have to know
                 which option means which. */}
             {chosen !== undefined && (
-              <p className="field-hint">
+              <p id={consequenceId} className="field-hint">
                 {chosen.closesWithoutFiling
                   ? "This ENDS the filing. It will never be made, and the obligation closes."
                   : "The filing still has to happen. It goes back to be worked and filed late."}
@@ -746,7 +784,7 @@ function DecisionLine({
             <Input
               size="sm"
               value={reason}
-              aria-label="Reason"
+              aria-label={`Reason — ${about}`}
               placeholder="Why — client sent books late, portal was down…"
               onChange={(e) => { setReason(e.target.value); }}
             />
@@ -758,6 +796,7 @@ function DecisionLine({
                 // says so before the click rather than after it — but the
                 // server's refusal is still what the message comes from.
                 disabled={optionId === "" || reason.trim() === ""}
+                aria-label={`Record decision — ${about}`}
                 onClick={() => { void record(); }}
               >
                 Record decision
@@ -765,6 +804,7 @@ function DecisionLine({
               <Button
                 size="sm"
                 variant="ghost"
+                aria-label={`Cancel the decision on ${about}`}
                 onClick={() => { setOpen(false); setError(null); }}
               >
                 Cancel

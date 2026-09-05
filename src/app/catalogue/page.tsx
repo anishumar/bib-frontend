@@ -447,7 +447,13 @@ function ServiceCard({
 
       {canWrite && draft === null && published !== null && (
         <details style={{ marginTop: "var(--s-5)" }}>
-          <summary>Draft a new version</summary>
+          {/* THE BUTTON INSIDE WAS NAMED BY THE HANDLE MONTHS AGO — see the note
+              on it below — and the <summary> that opens the form was not,
+              because nothing has ever counted a <summary>. Five services, five
+              disclosures reading "Draft a new version". Visible word unchanged. */}
+          <summary aria-label={`The form for a new version of ${row.key}`}>
+            Draft a new version
+          </summary>
           <form
             style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
