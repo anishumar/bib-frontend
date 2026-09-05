@@ -287,6 +287,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   {s.status === "blocked" && openCheckFor(checks, s.stepKey) !== null ? (
                     <CheckActions
                       check={openCheckFor(checks, s.stepKey) as StepCheck}
+                      stepKey={s.stepKey}
                       busy={busy}
                       onApprove={(id) => void decideCheck(id, "approved", null)}
                       onSendBack={(id) => void sendBack(id)}
@@ -297,8 +298,16 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     canComplete &&
                     (s.proposal ? (
                       <>
+                        {/* NAMED BY THE STEP'S HANDLE. A process runs more than
+                            one step at a time — "Collect the books" and
+                            "Prepare the return" can both be waiting — and every
+                            one of these four buttons said only its verb. The
+                            handle is permanent, it is already on screen beside
+                            the step's label, and none of these is a decision to
+                            take against the wrong step. */}
                         <Button
                           disabled={busy === s.stepKey}
+                          aria-label={`Accept ${s.stepKey}`}
                           onClick={() => {
                             void decide(s.stepKey, "accepted", null, null);
                           }}
@@ -309,6 +318,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           variant="secondary"
                           size="sm"
                           disabled={busy === s.stepKey}
+                          aria-label={`Correct ${s.stepKey}`}
                           onClick={() => {
                             if (s.proposal) void correct(s.stepKey, s.proposal);
                           }}
@@ -319,6 +329,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           variant="secondary"
                           size="sm"
                           disabled={busy === s.stepKey}
+                          aria-label={`Reject ${s.stepKey}`}
                           onClick={() => {
                             void reject(s.stepKey);
                           }}
@@ -329,6 +340,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     ) : (
                       <Button
                         disabled={busy === s.stepKey}
+                        aria-label={`Done — ${s.stepKey}`}
                         onClick={() => {
                           void complete(s.stepKey);
                         }}
@@ -423,11 +435,15 @@ function CheckHistory({ checks }: { checks: StepCheck[] }) {
  */
 function CheckActions({
   check,
+  stepKey,
   busy,
   onApprove,
   onSendBack,
 }: {
   check: StepCheck;
+  /** The step's PERMANENT handle, so these two buttons can say which step they
+   *  are about. A process can have more than one step waiting to be checked. */
+  stepKey: string;
   busy: string | null;
   onApprove: (approvalId: string) => void;
   onSendBack: (approvalId: string) => void;
@@ -451,6 +467,7 @@ function CheckActions({
     <>
       <Button
         disabled={busy === check.id}
+        aria-label={`Approve ${stepKey}`}
         onClick={() => {
           onApprove(check.id);
         }}
@@ -461,6 +478,7 @@ function CheckActions({
         variant="secondary"
         size="sm"
         disabled={busy === check.id}
+        aria-label={`Send back ${stepKey}`}
         onClick={() => {
           onSendBack(check.id);
         }}

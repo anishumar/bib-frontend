@@ -273,10 +273,15 @@ export default function InvoicePage() {
                   </Td>
                   {draft && (
                     <Td align="right">
+                      {/* NAMED BY THE LINE, for the reason the proposal's is:
+                          no demo invoice is a draft, so this column has only
+                          ever been seen by forcing `draft` true for one
+                          reload, and never with more than one line under it. */}
                       <Button
                         variant="secondary"
                         size="sm"
                         disabled={busy}
+                        aria-label={`Remove ${l.description} from this invoice`}
                         onClick={() =>
                           void act(() =>
                             api.DELETE("/api/v1/invoices/{invoiceId}/lines/{lineId}", {
@@ -389,10 +394,17 @@ export default function InvoicePage() {
             </Button>
           )}
           {(draft || issued) && mayAdmin && (
+            /* SAYS WHICH CANCEL, because the other one on this screen is
+               nothing like it. Open the Documents dialog and there are two
+               buttons reading "Cancel": that one closes an upload form, this
+               one VOIDS THE INVOICE and it keeps its number forever. Somebody
+               moving between buttons by name had no way to tell them apart.
+               The visible word is unchanged. */
             <Button
               variant="destructive-quiet"
               size="sm"
               disabled={busy}
+              aria-label={`Cancel invoice ${invoice.number}`}
               onClick={() =>
                 void act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/cancel", { params: { path: { invoiceId } } }),

@@ -291,7 +291,12 @@ function AskLine({
           answer (`flex: 1; min-width: 0`), and `stack tight` gives the gaps the
           flex row was accidentally providing. */}
       <div className="notice-body stack tight">
-        <div className="row gap between">
+        {/* `.row` is `display:flex; align-items:baseline; justify-content:
+            space-between; gap: var(--s-4); flex-wrap: wrap` — so `gap` and
+            `between` were describing what it already does and were defined in
+            no stylesheet. Probe 1 finds these; it had never been run on a
+            detail route with an ask on it. */}
+        <div className="row">
           <strong>{ask.prompt}</strong>
           <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
         </div>

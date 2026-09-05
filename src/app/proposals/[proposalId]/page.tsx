@@ -281,10 +281,15 @@ export default function ProposalPage() {
                 </Td>
                 <Td align="right">
                   {isDraft && (
+                    /* NAMED BY THE LINE. The demo's one DRAFT proposal has a
+                       single line, so this button has never been seen repeat —
+                       its six-line sibling is already sent, which is what hides
+                       it. A quote with six services draws six "Remove"s. */
                     <Button
                       variant="secondary"
                       size="sm"
                       disabled={busy !== null}
+                      aria-label={`Remove ${l.description} from this quote`}
                       onClick={() => {
                         void act(l.id, () =>
                           api.DELETE("/api/v1/proposals/{proposalId}/lines/{lineId}", {

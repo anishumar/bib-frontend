@@ -644,10 +644,15 @@ function Checklist({
             </span>
           </label>
           {canWrite && line.doneAt === null && (
+            /* NAMED BY THE LINE. A checklist is a LIST — five lines draw five
+               buttons saying only "Remove", and the demo's checklist is empty,
+               which is why no sweep has seen them. The label is what the row
+               is, and nothing on this screen renames a line. */
             <Button
               variant="secondary"
               size="sm"
               disabled={busy === line.id}
+              aria-label={`Remove "${line.label}" from the checklist`}
               onClick={() => {
                 onRemove(line.id);
               }}
