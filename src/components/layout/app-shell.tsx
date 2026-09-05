@@ -278,6 +278,18 @@ const GROUPS: NavGroup[] = [
         icon: "alert",
         needs: "tenant:admin",
       },
+      /* T4.4 and T6.7, and it sits directly under the escalation ladder because
+         it is the SAME mechanism pointed the other way: rungs, thresholds in
+         days, nothing set by default. That one is the firm telling itself its
+         work has gone quiet; this one is the firm speaking to a client. Reading
+         them as a pair is how somebody notices that the outward one lands on
+         people who do not work here. */
+      {
+        href: "/admin/client-reminders",
+        label: "Client reminders",
+        icon: "refresh",
+        needs: "tenant:admin",
+      },
     ],
   },
   {

@@ -259,6 +259,7 @@ porting a screen; it is invisible in the source.
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
 | `/admin/escalation-ladder` | when the firm hears that its own work has gone quiet — the rungs, and who each one tells |
+| `/admin/client-reminders` | when a CLIENT hears from the firm — the chase ladder (forward from the day we asked, stopped by a freeze) and the heads-up ladder (back from a statutory date, not stopped by one). Two config kinds, one screen. |
 | `/clients` | the firm's book — every counterparty, and the caller's OWN clients |
 | `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
