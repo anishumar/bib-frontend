@@ -393,6 +393,22 @@ export type AccountTeam =
 export type ClientAssignment = AccountTeam["all"][number];
 export type AssignmentRole = ClientAssignment["role"];
 
+/**
+ * One person at a client who can see that client's records — gate 4's grant,
+ * with the contact and the granter resolved (G3.4).
+ *
+ * Live AND historic in one list, deliberately: ending a grant is never a
+ * delete, and the closed row is the only thing that answers "could this person
+ * see us in March". `validTo` is HALF-OPEN — the first day NOT in force.
+ *
+ * `contactAccepted` says whether they have ever set a password. It is what
+ * decides whether re-sending the invitation is worth offering: once somebody
+ * has one there is no invitation left, and re-issuing would be the firm
+ * resetting its own client's password.
+ */
+export type PortalGrant =
+  paths["/api/v1/portal-access/clients/{partyId}"]["get"]["responses"][200]["content"]["application/json"]["grants"][number];
+
 /** One client on the signed-in person's book, with every role they hold over
  *  it — a partner is commonly the Key Manager AND a Dept's SPOC on the same
  *  client, and this is one row either way. */

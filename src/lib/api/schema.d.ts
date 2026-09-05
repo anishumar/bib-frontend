@@ -3985,6 +3985,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal-invites/{membershipId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a client contact their portal invitation again
+         * @description SAME PERSON, SAME ADDRESS — the letter goes to the email already on the account and no parameter can change it. This exists because the first send can fail once a real relay carries it (a bounce, a typo, a full mailbox), and the contact is then created, granted and — before this route — permanently uninvitable: staff can ask the sign-in page for a fresh link, a client contact who has never set a password has no other door. Issuing a new link SPENDS every live one, so nobody ever holds two password setters at once. Refused once they have set a password: at that point re-issuing would be the firm resetting its own client's password, which is what the invite flow exists to prevent. Throttled per contact, because the cost of getting it wrong lands on their inbox.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The letter has gone again */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResentPortalInvitation"];
+                    };
+                };
+                /** @description No authenticated session, or the account cannot be written to */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A staff login, a revoked one, or a contact who has already set their password */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Too many invitations to this contact — wait, and try again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal-invites/accept": {
         parameters: {
             query?: never;
@@ -14861,6 +14947,8 @@ export interface components {
             /** @description The person this login belongs to. BOTH halves are sent — `display_name` is nullable and genuinely empty at real firms, so a name alone cannot say whether we hold no name or there is no person. */
             contactEmail: string;
             contactDisplayName: string | null;
+            /** @description Whether they have ever set a password — i.e. whether the invitation was ACCEPTED. False is an ordinary state and not a fault: it means the letter went and nobody has acted on it yet. It is on this response because it is what decides whether re-sending the invitation is an action worth offering — once somebody has a password there is no invitation left, and re-issuing one would be the firm resetting its own client's password. Not a date: WHEN they accepted is not a fact this table holds, and a plausible one derived from the grant would be indistinguishable from a real one. */
+            contactAccepted: boolean;
             validFrom: string;
             /** @description HALF-OPEN: the FIRST DAY NOT IN FORCE, never the last day of access. Null while the grant stands. Equal to `validFrom` when a grant was withdrawn on the day it was made — in force on no day at all, which is a real record and not a broken row. */
             validTo: string | null;
@@ -14918,6 +15006,17 @@ export interface components {
             clientPartyId: string;
             /** @description The day the grant starts — send the BROWSER's calendar day. */
             validFrom?: string;
+        };
+        ResentPortalInvitation: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: date-time
+             * @description When the NEW link stops working. The token is not here, for the same reason it is not on the first invitation: a firm that could read its client's link could sign in as that client.
+             */
+            expiresAt: string;
         };
         AcceptPortalInviteResponse: {
             /** @enum {boolean} */

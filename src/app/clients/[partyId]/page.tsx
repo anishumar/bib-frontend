@@ -7,6 +7,7 @@ import { Documents } from "@/lib/ui/documents";
 import { api, apiError } from "@/lib/api/client";
 import type { IdentifierType, PartyProfile } from "@/lib/api/client";
 import { AccountTeamPanel } from "./account-team";
+import { PortalContactsPanel } from "./portal-contacts";
 import {
   Button,
   Card,
@@ -238,6 +239,17 @@ export default function PartyPage() {
           question somebody opening a client page most often has, and until
           G3.2 nothing in this product could answer it. */}
       <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
+
+      {/* THE CLIENT'S OWN PEOPLE. Two panels in a row and they are opposite
+          halves of the same question: the one above is who at the FIRM owns
+          this client, this one is who at the CLIENT can see us. Neither is
+          derivable from the other, and until now only the first had a screen —
+          `/admin/people` pointed at this one and it did not exist. */}
+      <PortalContactsPanel
+        partyId={partyId}
+        clientName={profile.party.displayName}
+        canGrant={permissions.includes("portal:grant")}
+      />
 
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
           company is not a blank space on this page — it is the reason its
