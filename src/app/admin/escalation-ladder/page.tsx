@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry, StaffGrade } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
+import { ConfigHistory } from "@/lib/ui/config-history";
 import { Empty, Loading } from "@/components/states";
 import {
   Button,
@@ -294,6 +295,12 @@ export default function EscalationLadderPage() {
               <RungTable rungs={draftRungs} grades={grades} />
             </Card>
           )}
+
+          {/* WHAT IT SAID BEFORE. Every notice this ladder ever raised carries
+              the threshold it fired at, copied onto the row — so a shortened
+              ladder cannot make an old escalation look early. This is the other
+              half of that: which ladder was in force when it fired. */}
+          <ConfigHistory kind="escalation" entryKey={KEY} name="the escalation ladder" />
         </>
       )}
     </Page>

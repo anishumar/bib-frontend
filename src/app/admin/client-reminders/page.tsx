@@ -7,6 +7,7 @@ import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
 import { Page, PageHeader, Section } from "@/components/layout";
+import { ConfigHistory } from "@/lib/ui/config-history";
 import { Empty, Loading } from "@/components/states";
 import {
   Button,
@@ -396,6 +397,11 @@ function Ladder({ spec }: { spec: LadderSpec }) {
               <RungTable rungs={draftRungs} spec={spec} />
             </Card>
           )}
+
+          {/* Every reminder already sent carries the rung's short name, so a
+              renamed rung does not rewrite the record. This says which LADDER
+              was in force when it was sent. */}
+          <ConfigHistory kind={spec.kind} entryKey={KEY} name={`the ${spec.ladderNoun}`} />
         </>
       )}
     </Section>

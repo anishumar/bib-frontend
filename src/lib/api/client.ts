@@ -343,6 +343,19 @@ export type RuleCoverage = ObligationRule["coverage"];
 export type ConfigEntry =
   paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];
 
+/** The registry's closed set of kinds, taken from the PATH PARAMETER rather
+ *  than retyped — the same treatment `LEAD_STAGES` gets and for the same
+ *  reason: a hardcoded copy drifts the day the API adds one. */
+export type ConfigKind = paths["/api/v1/config/{kind}"]["get"]["parameters"]["path"]["kind"];
+
+/** One version of a configured thing. The LIST carries two of these per entry —
+ *  what is published and the draft beside it — and `GET /config/{kind}/{key}`
+ *  carries every version there has ever been, which is what `ConfigHistory`
+ *  reads. */
+export type ConfigVersion = NonNullable<
+  paths["/api/v1/config/{kind}/{key}"]["get"]["responses"][200]["content"]["application/json"]["versions"][number]
+>;
+
 /** The product's closed permission set, with what each one means. Fetched
  *  rather than retyped: a hardcoded copy would drift from what the API actually
  *  checks, and on this screen that means offering a permission that grants
