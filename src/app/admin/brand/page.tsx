@@ -215,12 +215,21 @@ export default function BrandPage() {
         lede="What each of the firm&rsquo;s companies prints on what it sends."
       />
 
-      {/* The honest banner. It comes out when T3.8 lands. */}
+      {/* THE HONEST BANNER, AND IT IS ABOUT THE TOP HALF OF THE PAGE ONLY.
+          It used to say "nothing renders these yet" over a page that had grown
+          a second, LIVE section under it — the invoice number series, which is
+          on every invoice the firm has ever issued. A caveat that has quietly
+          widened to cover something it is not true of is worse than no caveat:
+          it teaches a partner to disbelieve the working half. The first
+          sentence names what it is about; the last names what it is not.
+          The mark half comes out when T3.8 lands. */}
       <p className="field-hint">
-        <strong>Nothing renders these yet.</strong> They are stored, versioned and audited
-        today, and the renderer that puts them on a letter or an invoice is still to be
-        built. Uploading one now means it is ready and correct when that lands — it does not
-        change any document the firm sends today.
+        <strong>The marks below are not rendered anywhere yet.</strong> They are stored,
+        versioned and audited today, and the renderer that puts them on a letter or an invoice
+        is still to be built. Uploading one now means it is ready and correct when that lands —
+        it does not change any document the firm sends today. <strong>Invoice numbers are
+        different:</strong> that section on each company is live, and what it says is what the
+        next invoice will read as.
       </p>
 
       <ErrorNotice error={error} />
