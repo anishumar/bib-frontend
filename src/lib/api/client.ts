@@ -591,10 +591,21 @@ export function formatMoney(amount: string | null, currency: string): string {
     maximumFractionDigits: 2,
   });
   const exact = asNumericLiteral(amount);
-  // The fallback exists only for a value that is not a decimal at all, which
-  // the API's own schema already refuses. It goes through Number() so something
-  // still renders rather than the page throwing.
-  return exact === null ? formatter.format(Number(amount)) : formatter.format(exact);
+  if (exact !== null) return formatter.format(exact);
+  // NOT `Number(amount)`, which is what this used to be.
+  //
+  // The fallback is only reached by a value that is not a decimal at all, which
+  // the API's own schema refuses — so it is either a bug on the wire or a
+  // string like "1.0e3" or "12,50". Routing that through the one JavaScript
+  // type that cannot hold 1499.50, on the last line of the function whose whole
+  // job is to avoid it, produces a number that LOOKS right and is not, with no
+  // sign to the reader that anything happened. `Number("12,50")` is NaN and
+  // rendered "₹NaN"; `Number("1.0e3")` silently became a thousand.
+  //
+  // So it renders the value it was given, marked with the currency and nothing
+  // else. An amount a person can see is wrong is worth more than one they
+  // cannot.
+  return `${currency} ${amount}`;
 }
 
 /**

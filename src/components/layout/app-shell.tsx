@@ -334,6 +334,29 @@ function isBare(pathname: string): boolean {
 }
 
 /**
+ * What is on screen for the instant between deciding to leave and leaving.
+ *
+ * Deliberately says almost nothing. It stands in for a page the reader may not
+ * see, so anything specific here would be either a promise about where they are
+ * going or a statement about a firm that is not theirs.
+ */
+function Leaving() {
+  return (
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        color: "var(--muted-foreground, #667085)",
+        font: "inherit",
+      }}
+    >
+      <p>One moment…</p>
+    </main>
+  );
+}
+
+/**
  * Is this nav entry the page we are on?
  *
  * A detail page keeps its section lit, so this is a prefix match — but the
@@ -409,6 +432,63 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [bare, pathname]);
 
+  /**
+   * WHICH APP IS THIS PERSON IN — the gate that was only ever a sidebar filter.
+   *
+   * ── WHAT WAS WRONG ────────────────────────────────────────────────────────
+   *
+   * This product is B2B2C: a firm's staff and a firm's CLIENTS both sign in
+   * here, and the API knows the difference — gate 2 refuses a CLIENT_PORTAL
+   * session on every staff route. What the browser did with that refusal was
+   * the problem. Signed in as a client contact, `/` rendered "Staff workspace",
+   * `/clients` rendered the firm's client book with its "Add to the book" form,
+   * and `/admin/people` rendered the roster page with role and surface pickers.
+   * Every list was empty because the API answered 403 — so beside the refusal
+   * the page also said "Nobody in the book yet" and "0 on the roster", which
+   * are not refusals, they are FACTS, and they were false ones about somebody
+   * else's firm.
+   *
+   * No data leaked: the API refused every read and every write. What leaked was
+   * the shape of the firm's internal tooling, to somebody outside the firm, with
+   * untrue statements attached. Only the sidebar was filtered, and a filtered
+   * sidebar is a suggestion — the URL bar is not.
+   *
+   * ── AND WHY IT LIVES HERE ─────────────────────────────────────────────────
+   *
+   * Because every page already re-implements the OTHER half of this: each one
+   * fetches `/auth/me` and pushes to `/login` on a 401, twenty-five times over.
+   * A page that forgets stays open. The shell is the one component every staff
+   * screen renders inside and the one place that already knows who is signed
+   * in, so both halves are decided here: no session goes to the sign-in page,
+   * and the wrong AUDIENCE goes to the app it belongs to.
+   *
+   * A portal contact whose session has not picked a firm yet has a null
+   * audience, so the membership list answers instead — a login with no staff
+   * membership has no business being offered the staff workspace whatever its
+   * current audience says.
+   */
+  const wrongApp =
+    !bare &&
+    checked &&
+    principal !== null &&
+    (principal.audience === "CLIENT_PORTAL" ||
+      (principal.audience === null &&
+        staffMemberships(memberships).length === 0 &&
+        memberships.length > 0));
+
+  /** Signed out, on a route that needs a session. */
+  const signedOut = !bare && checked && principal === null;
+
+  useEffect(() => {
+    if (wrongApp) router.replace("/portal");
+  }, [wrongApp, router]);
+
+  useEffect(() => {
+    // `replace`, not `push`: a sign-in page you can go BACK from into a screen
+    // that will bounce you again is a loop with a history entry per lap.
+    if (signedOut) router.replace("/login");
+  }, [signedOut, router]);
+
   /* Ctrl/Cmd+K puts the cursor in the search box from anywhere in the product.
      The shortcut is in the placeholder rather than only here, because a
      shortcut nobody is told about is one nobody uses. */
@@ -456,6 +536,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   if (bare) return <>{children}</>;
+
+  // The wrong app, or no session at all. The effects above are already
+  // navigating; what matters here is that the page underneath is NOT rendered
+  // in the meantime. Returning `children` would draw the staff screen — forms,
+  // headings, empty states and all — for the fraction of a second before the
+  // route changes, which is the whole of what was wrong and is not made right
+  // by being brief.
+  if (wrongApp || signedOut) return <Leaving />;
 
   // Until `/auth/me` answers, render the page without chrome rather than a
   // skeleton sidebar. A nav that appears and then loses half its links reads

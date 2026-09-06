@@ -537,6 +537,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/tenants/{tenantId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Suspend a firm, or let it back in
+         * @description Platform surface, and deliberately not reachable from any session: a firm cannot suspend itself and no firm may suspend another. A suspended firm's sessions lose their tenant context on their NEXT request — `resolveSession` reads this column on every one — so the people signed in land on the org switcher rather than continuing until their cookies expire. Idempotent: setting the status it already has is a 200 and records nothing.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetTenantStatusRequest"];
+                };
+            };
+            responses: {
+                /** @description Status set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Tenant"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Missing or wrong platform key */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That key does not carry tenant.provision */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such tenant */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/users/{userId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Disable a login across the platform, or let it back in
+         * @description NOT the same as deactivating a membership, which ends somebody's access to ONE firm and is the firm's own decision (`PATCH /api/v1/tenancy/members/{membershipId}`). Identity is above tenant, so this says the person may not sign in anywhere — and it takes effect on their next request, not at session expiry.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetUserStatusRequest"];
+                };
+            };
+            responses: {
+                /** @description Status set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserAccount"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Missing or wrong platform key */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That key does not carry user.provision */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such user */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/memberships": {
         parameters: {
             query?: never;
@@ -5190,7 +5352,7 @@ export interface paths {
         put?: never;
         /**
          * Send the file the firm asked for
-         * @description Multipart, because base64 in a JSON body inflates a scanned PDF by a third. The file is filed against the task the ask was raised from, under the document kind the FIRM chose when it asked — you do not choose where in their store it lands. It is stored exactly as it arrives: there is no virus scanner in this product today.
+         * @description Multipart, because base64 in a JSON body inflates a scanned PDF by a third. The file is filed against the task the ask was raised from, under the document kind the FIRM chose when it asked — you do not choose where in their store it lands. It is stored exactly as it arrives: there is no virus scanner in this product today, so the KINDS of file this route accepts are an allowlist — PDFs, photographs and scans, spreadsheets, Word and OpenDocument files, plain text and CSV. Anything else is refused rather than filed for a colleague to open.
          */
         post: {
             parameters: {
@@ -5216,7 +5378,7 @@ export interface paths {
                         "application/json": components["schemas"]["PortalAsk"];
                     };
                 };
-                /** @description Empty file, or an unusable filename or media type */
+                /** @description Empty file, an unusable filename, or a kind of file this route does not accept */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -14649,6 +14811,14 @@ export interface components {
             email: string;
             displayName?: string;
         };
+        SetTenantStatusRequest: {
+            /** @enum {string} */
+            status: "active" | "suspended";
+        };
+        SetUserStatusRequest: {
+            /** @enum {string} */
+            status: "active" | "disabled";
+        };
         Membership: {
             /** Format: uuid */
             id: string;
@@ -17459,8 +17629,6 @@ export interface components {
             kind: "engagement_letter" | "invoice";
             /** Format: uuid */
             subjectRef: string;
-            /** Format: uuid */
-            partyId?: string | null;
         };
         DocumentLink: {
             /** Format: uuid */

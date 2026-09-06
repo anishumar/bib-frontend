@@ -227,7 +227,12 @@ export function Documents({
     setBusy(true);
     setError(null);
     const result = await api.POST("/api/v1/documents/render", {
-      body: { kind: renderable, subjectRef, partyId: partyId ?? null },
+      // NO `partyId`. The API used to take one and filed the rendered PDF under
+      // whatever the caller named — and a rendered invoice is client-visible by
+      // default, so naming the wrong client put one firm's invoice in another
+      // client's portal library. The record knows whose it is; the API reads it
+      // there now, and the field is gone from the request schema.
+      body: { kind: renderable, subjectRef },
     });
     setBusy(false);
     if (result.error) {
