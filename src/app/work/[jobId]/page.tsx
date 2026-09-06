@@ -7,7 +7,7 @@ import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
 import { Button, cx } from "@/components/ui";
-import { Card, Notice, Page, PageHeader, Pill } from "@/components/tw";
+import { Card, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
 
 /**
@@ -97,6 +97,11 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     rejectedReason: string | null,
   ): Promise<void> {
     setBusy(stepKey);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    setError(null);
     const result = await api.POST("/api/v1/jobs/{jobId}/steps/{stepKey}/decide", {
       params: { path: { jobId, stepKey } },
       body: { outcome, applied, rejectedReason },
@@ -224,11 +229,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
             : job.services.map((sv) => sv.serviceName).join(" · ")}
         </p>
       )}
-      {error !== null && (
-        <Notice tone="danger" role="alert">
-          {error}
-        </Notice>
-      )}
+      <ErrorNotice error={error} />
 
       {steps.length === 0 ? (
         <p className="muted max-w-[var(--measure)]">

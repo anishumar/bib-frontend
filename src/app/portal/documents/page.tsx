@@ -54,6 +54,7 @@ import {
   Field,
   Icon,
   Input,
+  ErrorNotice,
   Notice as UiNotice,
 } from "@/components/ui";
 import { Empty, Page, PageHeader, Pill, Section, Sub, Table, TableWrap, Td, Th } from "@/components/tw";
@@ -361,9 +362,7 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
       {error !== null && (
         <tr>
           <Td colSpan={5}>
-            <UiNotice tone="danger" eyebrow="That did not download">
-              <p>{error}</p>
-            </UiNotice>
+            <ErrorNotice error={error} eyebrow="That did not download" />
           </Td>
         </tr>
       )}

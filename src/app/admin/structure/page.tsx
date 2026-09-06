@@ -529,6 +529,11 @@ function AddAxis({
 
   async function add(form: FormData): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     const result = await api.POST("/api/v1/tenancy/structure/axes", {
       body: {
         axis,

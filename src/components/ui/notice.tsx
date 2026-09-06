@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useAppearFocus } from "./appear-focus";
 import { cx } from "./class-names";
 
 /**
@@ -23,14 +26,19 @@ export function Notice({
   /** A short mono heading above the text — "REFUSED", "NOT IN FORCE". */
   eyebrow,
   className,
+  ...rest
 }: {
   children: ReactNode;
   tone?: NoticeTone;
   eyebrow?: ReactNode;
   className?: string;
-}) {
+  /* Declared the way `Card` declares it, and for the same reason: a notice is
+     something focus is MOVED to. See `ErrorNotice`. */
+  ref?: React.Ref<HTMLDivElement>;
+} & Omit<React.HTMLAttributes<HTMLDivElement>, "className">) {
   return (
     <div
+      {...rest}
       className={cx("notice", className)}
       data-tone={tone}
       role={tone === "danger" ? "alert" : "status"}
@@ -49,8 +57,30 @@ export function Notice({
  * A component rather than `{error !== null && <Notice…>}` written out on every
  * screen — there were 43 of those, and they disagreed about the wrapper, the
  * spacing and whether the message was announced at all.
+ *
+ * ── AND A REFUSAL TAKES FOCUS ───────────────────────────────────────────────
+ *
+ * See `useAppearFocus`: `role="alert"` speaks to a screen reader and says
+ * nothing to anybody else, so the notice is focused when a message appears.
+ * `focusOnAppear={false}` is for a notice that is part of the page's resting
+ * state rather than an answer to a press.
  */
-export function ErrorNotice({ error }: { error: string | null | undefined }) {
-  if (error === null || error === undefined || error === "") return null;
-  return <Notice tone="danger">{error}</Notice>;
+export function ErrorNotice({
+  error,
+  eyebrow,
+  focusOnAppear = true,
+}: {
+  error: string | null | undefined;
+  /** "That did not go through" — a heading for a refusal a client reads. */
+  eyebrow?: ReactNode;
+  focusOnAppear?: boolean;
+}) {
+  const message = error === undefined || error === "" ? null : error;
+  const ref = useAppearFocus(message, focusOnAppear);
+  if (message === null) return null;
+  return (
+    <Notice tone="danger" eyebrow={eyebrow} ref={ref} tabIndex={-1}>
+      {message}
+    </Notice>
+  );
 }

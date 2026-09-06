@@ -372,6 +372,11 @@ function PolicyForm({
 
   async function save(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     const body: Record<string, unknown> = {
       label: label.trim(),
       rule,

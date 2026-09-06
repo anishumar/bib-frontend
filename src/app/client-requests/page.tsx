@@ -76,6 +76,7 @@ import {
   CardHead,
   CardTitle,
   Field,
+  ErrorNotice,
   Notice,
   Pill,
   Select,
@@ -391,11 +392,7 @@ function RequestCard({
           </Stack>
         )}
 
-        {error !== null && (
-          <Notice tone="danger" eyebrow="That did not go through">
-            <p>{error}</p>
-          </Notice>
-        )}
+        <ErrorNotice error={error} eyebrow="That did not go through" />
 
         {mayAct && (
           <>

@@ -42,6 +42,7 @@ export { Pill, type PillTone } from "./pill";
 export { Skeleton, SkeletonText } from "./skeleton";
 export { Spinner } from "./spinner";
 export { useSwapFocus } from "./swap-focus";
+export { useAppearFocus } from "./appear-focus";
 export { Stat, Strip } from "./stat";
 export { Table, TableWrap, Th, Td, Sub, EmptyRow, type CellAlign } from "./table";
 export { Tabs, TabPanel, type TabItem } from "./tabs";

@@ -48,6 +48,7 @@ import {
   Button,
   Field,
   Input,
+  ErrorNotice,
   Notice as UiNotice,
   Select,
   Textarea,
@@ -261,11 +262,7 @@ function NewRequest({
           <Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
 
-        {error !== null && (
-          <UiNotice tone="danger" eyebrow="That did not go through">
-            <p>{error}</p>
-          </UiNotice>
-        )}
+        <ErrorNotice error={error} eyebrow="That did not go through" />
 
         <div className="cluster">
           <Button onClick={() => void send()} disabled={busy || !ready}>
@@ -346,11 +343,7 @@ function RequestCard({
           </div>
         )}
 
-        {error !== null && (
-          <UiNotice tone="danger" eyebrow="That did not go through">
-            <p>{error}</p>
-          </UiNotice>
-        )}
+        <ErrorNotice error={error} eyebrow="That did not go through" />
 
         {live && mayRequest && (
           /* NAMED BY THE SUBJECT — the same reason the firm's half of this page

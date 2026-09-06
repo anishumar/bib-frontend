@@ -168,6 +168,11 @@ function RoleCard({
 
   async function save(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     // Two calls: draft, then publish. The registry keeps them separate because
     // preparing a change and putting it in force are different decisions — but
     // for a role an admin is editing on screen they are one intent, so this does
@@ -252,6 +257,11 @@ function NewRole({
 
   async function submit(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     const defined = await api.POST("/api/v1/config/{kind}", {
       params: { path: { kind: "role" } },
       body: { key, body: { label, permissions: held } },

@@ -65,7 +65,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalActionCentre, PortalAsk, PortalAskResponse } from "@/lib/api/client";
-import { Button, Field, Input, Notice as UiNotice, Textarea } from "@/components/ui";
+import {
+  Button,
+  ErrorNotice,
+  Field,
+  Input,
+  Notice as UiNotice,
+  Textarea,
+} from "@/components/ui";
 import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
 import { longInstant } from "@/lib/day";
@@ -310,11 +317,7 @@ function AskCard({
           </div>
         )}
 
-        {error !== null && (
-          <UiNotice tone="danger" eyebrow="That did not go through">
-            <p>{error}</p>
-          </UiNotice>
-        )}
+        <ErrorNotice error={error} eyebrow="That did not go through" />
 
         {mayRespond && (
           /* A <fieldset> with NO legend: nothing moves on screen, and each

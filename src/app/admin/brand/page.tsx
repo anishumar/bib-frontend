@@ -38,6 +38,7 @@ import { Button, Field, FieldRow, Input } from "@/components/ui";
 import {
   Card,
   CardTitle,
+  ErrorNotice,
   Notice,
   Page,
   PageHeader,
@@ -222,11 +223,7 @@ export default function BrandPage() {
         change any document the firm sends today.
       </p>
 
-      {error !== null && (
-        <Notice tone="danger" role="alert">
-          {error}
-        </Notice>
-      )}
+      <ErrorNotice error={error} />
 
       {entities.length === 0 ? (
         <Card>

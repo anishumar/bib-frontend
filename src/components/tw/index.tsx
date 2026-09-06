@@ -1,6 +1,9 @@
+"use client";
+
 import type { JSX, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { useAppearFocus } from "@/components/ui/appear-focus";
 
 /**
  * The Tailwind-native layout primitives — `src/components/ui` re-expressed in
@@ -385,6 +388,8 @@ export function Notice({
   eyebrow,
   actions,
   role,
+  ref,
+  tabIndex,
 }: {
   children: ReactNode;
   /** `ok` is for a thing that needs doing but is nobody's FAULT — the firm
@@ -397,10 +402,15 @@ export function Notice({
    *  a separate step from the sentence that explains it. */
   actions?: ReactNode;
   role?: "alert" | "status";
+  /* Declared so a notice can be FOCUSED — see `ErrorNotice` below. */
+  ref?: React.Ref<HTMLDivElement>;
+  tabIndex?: number;
 }): JSX.Element {
   return (
     <div
       {...(role === undefined ? {} : { role })}
+      {...(ref === undefined ? {} : { ref })}
+      {...(tabIndex === undefined ? {} : { tabIndex })}
       className={cn(
         "flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border-l-2 py-3 pl-4 pr-4 text-sm",
         tone === "danger"
@@ -420,6 +430,37 @@ export function Notice({
       </div>
       {actions !== undefined && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
+  );
+}
+
+/**
+ * What the API said, shown or not shown — this vocabulary's half of it.
+ *
+ * The `ui` one is `components/ui/notice.tsx` and the two are deliberately not
+ * one component: they draw differently, and a screen is in one vocabulary or
+ * the other. What they SHARE is the behaviour, in `useAppearFocus` — a refusal
+ * takes focus, because `role="alert"` speaks to a screen reader and says
+ * nothing at all to somebody looking at a button 3,000px down the page.
+ *
+ * Importing a hook across the two is fine; importing markup is what CLAUDE.md
+ * forbids, and for a reason that does not apply to a `useEffect`.
+ */
+export function ErrorNotice({
+  error,
+  eyebrow,
+  focusOnAppear = true,
+}: {
+  error: string | null | undefined;
+  eyebrow?: string | undefined;
+  focusOnAppear?: boolean;
+}): JSX.Element | null {
+  const message = error === undefined || error === "" ? null : error;
+  const ref = useAppearFocus(message, focusOnAppear);
+  if (message === null) return null;
+  return (
+    <Notice tone="danger" role="alert" eyebrow={eyebrow} ref={ref} tabIndex={-1}>
+      <p>{message}</p>
+    </Notice>
   );
 }
 

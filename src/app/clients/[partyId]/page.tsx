@@ -99,10 +99,9 @@ export default function PartyPage() {
   const [endBusy, setEndBusy] = useState(false);
   /** The refusal lives IN the panel. This page is 3,000px long and its one
    *  error notice is at the top of it, so a refusal about a date typed at the
-   *  bottom would render where the reader cannot see it happen. */
+   *  bottom would render where the reader cannot see it happen. Taking FOCUS is
+   *  `ErrorNotice`'s own doing — see `useAppearFocus`. */
   const [endError, setEndError] = useState<string | null>(null);
-  const [endErrorAt, setEndErrorAt] = useState(0);
-  const endErrorRef = useRef<HTMLDivElement>(null);
   const endPanelRef = useRef<HTMLDivElement>(null);
   /** The button that opened the panel, so Cancel gives focus back to it rather
    *  than dropping it on `<body>` when the panel unmounts. */
@@ -125,12 +124,6 @@ export default function PartyPage() {
   useEffect(() => {
     if (ending !== null) endPanelRef.current?.focus();
   }, [ending]);
-
-  useEffect(() => {
-    // Bumped even when the sentence repeats: pressing a refused button twice
-    // has to move focus twice, and `endError` alone does not change.
-    if (endErrorAt > 0) endErrorRef.current?.focus();
-  }, [endErrorAt]);
 
   const load = useCallback(async (): Promise<void> => {
     const [one, me, vocab, book, chaser] = await Promise.all([
@@ -343,7 +336,6 @@ export default function PartyPage() {
     setEndBusy(false);
     if (result.error) {
       setEndError(apiError(result.error).message);
-      setEndErrorAt((n) => n + 1);
       return;
     }
     setEnding(null);
@@ -722,9 +714,7 @@ export default function PartyPage() {
               <strong>{ending.counterparty.displayName}</strong>, from{" "}
               {longDay(ending.relationship.validFrom)}.
             </p>
-            <div ref={endErrorRef} tabIndex={-1}>
-              <ErrorNotice error={endError} />
-            </div>
+            <ErrorNotice error={endError} />
             <form action={endRelationship}>
               <FieldStack>
                 {/* A DATE BOX, NOT A BANNER — and `FieldRow` does not do it,

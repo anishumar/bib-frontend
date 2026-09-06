@@ -36,6 +36,7 @@ import { Loading } from "@/components/states";
 import {
   Card,
   CardTitle,
+  ErrorNotice,
   Notice,
   Page,
   PageHeader,
@@ -198,7 +199,7 @@ export default function InvoicePage() {
         }
       />
 
-      {error !== null && <Notice tone="danger" role="alert">{error}</Notice>}
+      <ErrorNotice error={error} />
 
       <Card>
         <Meta>

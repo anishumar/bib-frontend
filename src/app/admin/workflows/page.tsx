@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
 import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select } from "@/components/ui";
-import { Card, CardTitle, Notice, Page, PageHeader } from "@/components/tw";
+import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -244,11 +244,7 @@ export default function WorkflowsPage() {
         Write it once and every job for that service follows it — and every step can be a
         person&apos;s, so this works today with nothing automated at all."
       />
-      {error !== null && (
-        <Notice tone="danger" role="alert">
-          {error}
-        </Notice>
-      )}
+      <ErrorNotice error={error} />
 
       {templates.length === 0 ? (
         <p className="max-w-[64ch] text-sm text-muted">
@@ -557,6 +553,11 @@ function StepEditor({
 
   async function save(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     const body = toBody(label, steps);
     const result =
       templateKey === null

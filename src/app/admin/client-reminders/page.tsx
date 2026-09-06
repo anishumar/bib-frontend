@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -259,25 +259,16 @@ function Ladder({ spec }: { spec: LadderSpec }) {
   const { panel: editPanel, trigger: editTrigger } = useSwapFocus(editing);
 
   /**
-   * A REFUSAL TAKES FOCUS, and on this page that is worth more than on most.
+   * THE REFUSAL LIVES IN THIS SECTION, not at the top of the page.
    *
-   * Two ladders means the second form's Save sits a long way down the page, and
-   * the sentence explaining the refusal — "rungs[1].beforeDays must be SMALLER
-   * than the rung before it (3)" — is the only thing that says how to fix it.
-   * The notice lives inside THIS section, so it renders beside the form that
-   * caused it rather than at the top of the page under the other ladder's name.
+   * Two ladders means the second form's Save sits a long way down, and the
+   * sentence explaining the refusal — "rungs[1].beforeDays must be SMALLER than
+   * the rung before it (3)" — is the only thing that says how to fix it. It
+   * renders beside the form that caused it rather than under the other ladder's
+   * name. Taking FOCUS is `ErrorNotice`'s own doing; see `useAppearFocus`.
    */
-  const errorRef = useRef<HTMLDivElement>(null);
-  const [errorAt, setErrorAt] = useState(0);
-  useEffect(() => {
-    if (errorAt > 0) errorRef.current?.focus();
-  }, [errorAt]);
-
   function refuse(message: string): void {
     setError(message);
-    // Bumped even when the sentence is the same: pressing a refused button
-    // twice must move focus twice, and `error` alone does not change.
-    setErrorAt((n) => n + 1);
   }
 
   const load = useCallback(async (): Promise<void> => {
@@ -326,9 +317,7 @@ function Ladder({ spec }: { spec: LadderSpec }) {
     <Section title={spec.title} level={2}>
       <p className="lede">{spec.lede}</p>
 
-      <div ref={errorRef} tabIndex={-1}>
-        <ErrorNotice error={error} />
-      </div>
+      <ErrorNotice error={error} />
 
       {!loaded ? (
         <Loading label={`Loading the ${spec.ladderNoun}`} />
@@ -490,6 +479,11 @@ function LadderForm({
 
   async function save(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
+    // APPEARS, so a second identical refusal has to be a second absent →
+    // present transition or the press looks like it did nothing. It also
+    // stops a refusal from the LAST action sitting over this one.
+    onError("");
     const body = {
       rungs: rungs.map((r) => ({
         key: r.key.trim(),

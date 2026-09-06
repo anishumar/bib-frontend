@@ -208,6 +208,10 @@ function Rules() {
 
   async function patch(ruleId: string, body: Record<string, unknown>, said: string): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.PATCH("/api/v1/obligation-rules/{ruleId}", {
       params: { path: { ruleId } },
       body: body as never,
@@ -224,6 +228,10 @@ function Rules() {
 
   async function create(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.POST("/api/v1/obligation-rules", {
       body: {
         ...bodyOf(draft),
@@ -251,6 +259,10 @@ function Rules() {
 
   async function addException(ruleId: string, body: Record<string, unknown>): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.POST("/api/v1/obligation-rules/{ruleId}/exceptions", {
       params: { path: { ruleId } },
       body: body as never,
@@ -267,6 +279,10 @@ function Rules() {
 
   async function withdrawException(ruleId: string, periodEndMonth: number): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.DELETE("/api/v1/obligation-rules/{ruleId}/exceptions/{periodEndMonth}", {
       params: { path: { ruleId, periodEndMonth } },
     });
@@ -282,6 +298,10 @@ function Rules() {
 
   async function supersede(ruleId: string, body: Record<string, unknown>): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.POST("/api/v1/obligation-rules/{ruleId}/supersede", {
       params: { path: { ruleId } },
       body: body as never,
@@ -304,6 +324,10 @@ function Rules() {
 
   async function seed(): Promise<void> {
     setBusy(true);
+    // CLEARED BEFORE THE CALL, not after it succeeds. `ErrorNotice` moves
+    // focus when a message APPEARS, so a second identical refusal has to be a
+    // second absent → present transition or the press looks like it did nothing.
+    setError(null);
     const res = await api.POST("/api/v1/obligation-rules/seed-india", {});
     setBusy(false);
     if (res.error) {

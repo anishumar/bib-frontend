@@ -41,6 +41,7 @@ import {
   CardTitle,
   Field,
   FieldRow,
+  ErrorNotice,
   Notice,
   Pill,
   Select,
@@ -165,11 +166,7 @@ export function ClientAsks({
           </Notice>
         )}
 
-        {error !== null && (
-          <Notice tone="danger" eyebrow="That did not go through">
-            <p>{error}</p>
-          </Notice>
-        )}
+        <ErrorNotice error={error} eyebrow="That did not go through" />
 
         {open.length === 0 && settled.length === 0 && (
           <p className="muted">

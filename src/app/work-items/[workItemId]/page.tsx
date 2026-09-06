@@ -32,6 +32,7 @@ import type {
 import {
   Card,
   CardTitle,
+  ErrorNotice,
   Notice,
   Page,
   PageHeader,
@@ -127,25 +128,6 @@ export default function WorkItemPage() {
   }, [load]);
 
   /**
-   * A REFUSAL TAKES FOCUS, because this page is long and its error notice is at
-   * the top of it.
-   *
-   * `role="alert"` already announces the sentence to a screen reader. A sighted
-   * keyboard or mouse user pressing a button 3,000px down the page gets
-   * nothing: focus stays on the button they pressed, which now looks like a
-   * button that did nothing. Focusing the notice scrolls it into view and puts
-   * the next Tab beside it.
-   *
-   * `tabIndex={-1}` on the notice is what makes it focusable without adding a
-   * tab stop — the same half-fix the skip link needed.
-   */
-  const errorRef = useRef<HTMLDivElement>(null);
-  const [errorAt, setErrorAt] = useState(0);
-  useEffect(() => {
-    if (errorAt > 0) errorRef.current?.focus();
-  }, [errorAt]);
-
-  /**
    * Every mutation funnels through here so one place owns the busy flag, the
    * error message and the reload.
    *
@@ -160,11 +142,11 @@ export default function WorkItemPage() {
     setError(null);
     const result = await call();
     if (result.error) {
+      // `setError(null)` above is what makes a REPEAT press re-focus: the
+      // notice moves focus when a message appears, so the second press has to
+      // be another absent → present transition rather than the same string
+      // arriving twice.
       setError(apiError(result.error).message);
-      // BUMPED EVEN WHEN THE SENTENCE IS THE SAME. Pressing a refused button
-      // twice must move focus twice, and `error` alone does not change on the
-      // second press.
-      setErrorAt((n) => n + 1);
       setBusy(null);
       return false;
     }
@@ -224,11 +206,11 @@ export default function WorkItemPage() {
           </>
         }
       />
-      {error !== null && (
-        <div ref={errorRef} tabIndex={-1}>
-          <Notice tone="danger" role="alert">{error}</Notice>
-        </div>
-      )}
+      {/* A REFUSAL TAKES FOCUS, and `ErrorNotice` is where that now lives — the
+          ref, the `tabIndex={-1}` and the "only when it appears" rule were
+          hand-rolled here first, then measured across the app: thirty screens
+          rendered a refusal and three moved focus to it. */}
+      <ErrorNotice error={error} />
 
       <Card>
         <Meta>

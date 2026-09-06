@@ -20,6 +20,7 @@ import { Button, cx, Field, Input, LinkButton, Meta, MetaItem, Select } from "@/
 import {
   Card,
   CardTitle,
+  ErrorNotice,
   Notice,
   Page,
   PageHeader,
@@ -251,11 +252,7 @@ export default function LetterPage() {
         }
       />
 
-      {error !== null && (
-        <Notice tone="danger" role="alert">
-          {error}
-        </Notice>
-      )}
+      <ErrorNotice error={error} />
 
       {/* WHAT DID NOT COME ACROSS, said on the page you land on.
           The quote screen warns before it carries, which is where the decision

@@ -52,6 +52,7 @@ import { TabPanel, Tabs } from "@/components/ui";
 import {
   Card,
   CardTitle,
+  ErrorNotice,
   Notice,
   Page,
   PageHeader,
@@ -158,11 +159,7 @@ export default function DashboardPage() {
         }
       />
 
-      {error !== null && (
-        <Notice tone="danger" role="alert">
-          {error}
-        </Notice>
-      )}
+      <ErrorNotice error={error} />
 
       {/* ── What the firm earns, and what this number could not count ─────── */}
       <Card>
