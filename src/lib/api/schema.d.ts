@@ -4481,11 +4481,13 @@ export interface paths {
         };
         /**
          * What clients have asked YOU for
-         * @description The firm-wide inbox of requests clients raised themselves — everything not finished, newest first. `awaitingFirm` is the flag to work from, and `routing` says whether this firm places them on anybody's desk automatically.
+         * @description The firm-wide inbox of requests clients raised themselves, newest first. `awaitingFirm` is the flag to work from, and `routing` says whether this firm places them on anybody's desk automatically. `state=finished` reads the ARCHIVE instead — what was closed or withdrawn, which the inbox drops and which nothing else could read.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    state?: "live" | "finished";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

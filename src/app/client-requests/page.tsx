@@ -81,17 +81,22 @@ import {
   Pill,
   Select,
   TabPanel,
+  Table,
   Tabs,
+  TableWrap,
+  Td,
   Textarea,
+  Th,
 } from "@/components/ui";
 import { longInstant } from "@/lib/day";
+import { ReplyLine, whereItStands } from "./thread";
 
 interface Me {
   readonly userId: string;
   readonly permissions: readonly string[];
 }
 
-type Tab = "mine" | "unassigned" | "all";
+type Tab = "mine" | "unassigned" | "all" | "finished";
 
 export default function ClientRequestsPage() {
   const router = useRouter();
@@ -101,6 +106,20 @@ export default function ClientRequestsPage() {
   const [roster, setRoster] = useState<readonly Member[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [tab, setTab] = useState<Tab>("all");
+  /**
+   * THE ARCHIVE, and it is a SECOND read rather than a filter on the first.
+   *
+   * The inbox is `listLive` — open and answered — so until `?state=finished`
+   * existed, the record of what a client asked and what the firm answered left
+   * every staff screen the moment somebody pressed Close. The client's own
+   * portal kept showing it, because that list filters on no status at all.
+   *
+   * Loaded when the tab is first opened, not with the page: a firm that never
+   * looks at its archive should not pay for it on every visit, and the inbox is
+   * what somebody came here to work.
+   */
+  const [finished, setFinished] = useState<readonly ClientRequest[] | null>(null);
+  const [finishedError, setFinishedError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -124,6 +143,13 @@ export default function ClientRequestsPage() {
     }
     setRequests(inbox.data.requests);
     setRouting(inbox.data.routing);
+    // THE ARCHIVE IS DROPPED WHENEVER THE INBOX IS RE-READ, and this is the
+    // whole cache-invalidation rule. `load` runs after every write on this
+    // screen, and a Close is exactly the write that moves a row from one list
+    // to the other — so a reader who had already opened Finished once would
+    // otherwise close a request and not find it there until they reloaded the
+    // page. Null means "ask again next time the tab is opened", not "empty".
+    setFinished(null);
     setRoster(people.error ? [] : people.data.members);
     setMe(who.error ? null : { userId: who.data.userId, permissions: who.data.permissions });
     setError(null);
@@ -135,6 +161,22 @@ export default function ClientRequestsPage() {
       await load();
     })();
   }, [load]);
+
+  useEffect(() => {
+    if (tab !== "finished" || finished !== null) return;
+    void (async () => {
+      const result = await api.GET("/api/v1/client-requests", {
+        params: { query: { state: "finished" } },
+      });
+      if (result.error) {
+        setFinishedError(apiError(result.error).message);
+        setFinished([]);
+        return;
+      }
+      setFinishedError(null);
+      setFinished(result.data.requests);
+    })();
+  }, [tab, finished]);
 
   if (!loaded) return <Loading />;
   if (error !== null) return <ErrorState title="Could not load the inbox" message={error} />;
@@ -194,6 +236,11 @@ export default function ClientRequestsPage() {
           // is only chased if somebody can list it.
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
           { value: "all", label: "Everything", count: requests.length },
+          // NO COUNT, and that is not an oversight. A count would have to be
+          // fetched to be shown, which means paying for the archive on every
+          // visit to the inbox — and "how many conversations have we ever
+          // finished" is not a number anybody works from.
+          { value: "finished", label: "Finished" },
         ]}
       />
 
@@ -202,6 +249,10 @@ export default function ClientRequestsPage() {
           of the three tabs pointed `aria-controls` at an id that is not in the
           document. */}
       <TabPanel tabsId={tabsId} value={tab}>
+      {tab === "finished" ? (
+        <FinishedList requests={finished} error={finishedError} />
+      ) : (
+      <>
       {requests.length === 0 && (
         <Empty title="Nothing outstanding" icon="check">
           No client has an open request. Anything raised from a client&rsquo;s portal arrives
@@ -234,8 +285,78 @@ export default function ClientRequestsPage() {
           ))}
         </Stack>
       )}
+      </>
+      )}
       </TabPanel>
     </Page>
+  );
+}
+
+/**
+ * THE ARCHIVE READS DIFFERENTLY FROM THE INBOX, and the difference is the point.
+ *
+ * An inbox row is a card with the whole thread and a reply box, because it is
+ * WORKED. A finished one is LOOKED UP: what was it, whose it was, how it ended,
+ * and then you open the one you want. Twenty finished conversations rendered in
+ * full is a page nobody can find anything in — the same argument the portal made
+ * when its two request lanes were split off a 4,489px home page.
+ */
+function FinishedList({
+  requests,
+  error,
+}: {
+  requests: readonly ClientRequest[] | null;
+  error: string | null;
+}) {
+  if (error !== null) return <ErrorNotice error={error} />;
+  if (requests === null) return <Loading label="Looking up what is finished" />;
+  if (requests.length === 0) {
+    return (
+      <Empty title="Nothing has finished yet" icon="check">
+        A request that is closed or withdrawn moves here, with its whole thread. Until then it
+        is in the inbox.
+      </Empty>
+    );
+  }
+  return (
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>What they asked</Th>
+            <Th>Client</Th>
+            <Th>How it ended</Th>
+            <Th>Ended</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((r) => (
+            <tr key={r.requestId}>
+              <Td>
+                <Link href={`/client-requests/${r.requestId}`}>{r.subject}</Link>
+              </Td>
+              <Td>
+                <Link className="muted" href={`/clients/${r.clientPartyId}`}>
+                  {r.clientName}
+                </Link>
+              </Td>
+              {/* The two endings belong to OPPOSITE SIDES — `closed` is the
+                  firm, `withdrawn` is the client — which is why 0068 called the
+                  columns `settled_*` and why one word for both would be the
+                  wrong story about half these rows. */}
+              <Td>
+                <Pill tone={r.status === "closed" ? "ok" : "quiet"}>
+                  {r.status === "closed" ? "Closed by us" : "Withdrawn"}
+                </Pill>
+              </Td>
+              <Td className="muted">
+                {r.settledAt === null ? "" : longInstant(r.settledAt)}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </TableWrap>
   );
 }
 
@@ -517,43 +638,6 @@ interface DocumentOption {
   readonly isClientVisible: boolean;
 }
 
-function ReplyLine({ reply, clientName }: { reply: ClientRequestReply; clientName: string }) {
-  const fromFirm = reply.authorSide === "firm";
-  return (
-    <div>
-      <p className="muted">
-        {/* BOTH SIDES ARE NAMED HERE, unlike the portal's copy of this thread —
-            the firm needs to know which of its own people answered, and which
-            of the client's two directors asked. */}
-        {reply.authorName ?? (fromFirm ? "Somebody here" : clientName)} ·{" "}
-        {fromFirm ? "us" : clientName} · {longInstant(reply.writtenAt)}
-      </p>
-      <p>{reply.body}</p>
-      {reply.document !== null && <p className="muted">Sent: {reply.document.title}</p>}
-    </div>
-  );
-}
-
-/**
- * THREE STATES, AND THE RAW `status` IS ON NONE OF THEM.
- *
- * The first draft printed the pill AND `request.status` in the meta line, which
- * on a live row said one thing twice — "Waiting on us" beside "open" — and this
- * codebase has now been caught by that shape three times (the portal listing a
- * filing as both a filing and a task; the action centre printing an ask and its
- * blocked reason). Found by looking at the page; both chips were correct.
- *
- * Dropping the duplicate also drops a machine word off a partner's screen. What
- * is left is the three states a reader actually acts on, and the middle one —
- * the client came BACK after the firm replied — is the one neither chip could
- * say on its own: `status` stays `answered` (the firm has come back at least
- * once, which is what that word means and what 0068's CHECK ties to
- * `first_replied_at`), while `awaitingFirm` flips to true off the thread.
- */
-function whereItStands(request: ClientRequest): string {
-  if (!request.awaitingFirm) return "We replied last";
-  return request.replies.length === 0 ? "Waiting on us" : "They came back";
-}
 
 /**
  * "02 Sep 2026" from an ISO INSTANT, in the reader's own zone — `longInstant`
