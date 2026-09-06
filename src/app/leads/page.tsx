@@ -299,10 +299,19 @@ export default function LeadsPage() {
                         <Td>
                           {/* What the opportunity IS, over who it is with. Two live
                               opportunities for one client used to render as the same
-                              company twice, because the party was all a row had. */}
-                          <div>{l.lead.title}</div>
-                          {/* The party links, because the lead IS the party and
-                              everything else known about them is there. */}
+                              company twice, because the party was all a row had.
+
+                              THE TITLE LINKS TO THE OPPORTUNITY'S OWN PAGE, which is
+                              where its notes, where the prospect is, what was quoted
+                              from it and its history live — four columns cannot hold
+                              those, and until that page existed the row was the only
+                              view of a lead there was. */}
+                          <div>
+                            <Link href={`/leads/${l.lead.id}`}>{l.lead.title}</Link>
+                          </div>
+                          {/* The party links too, because the lead IS the party and
+                              everything else known about them is there. Two links,
+                              two destinations, two different names. */}
                           <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
                             {l.party.displayName}
                           </Link>
@@ -487,7 +496,9 @@ export default function LeadsPage() {
                 {closed.map((l) => (
                   <tr key={l.lead.id} data-inactive="true">
                     <Td>
-                      <div>{l.lead.title}</div>
+                      <div>
+                        <Link href={`/leads/${l.lead.id}`}>{l.lead.title}</Link>
+                      </div>
                       <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
                         {l.party.displayName}
                       </Link>
