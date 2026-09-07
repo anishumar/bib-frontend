@@ -42,13 +42,24 @@ const API_ORIGIN = process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "http://localhost:
  * properties on elements, and `img-src data:` because icons and the theme
  * script use data URIs.
  */
+/**
+ * React's DEVELOPMENT build needs `eval()` — it reconstructs owner stacks for
+ * the dev overlay with it, and logs a console error on every page when the
+ * policy refuses. Production React never calls eval, so the allowance is made
+ * for development only: the header a deployed workspace sends is unchanged.
+ */
+const SCRIPT_SRC =
+  process.env.NODE_ENV === "production"
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline'",
+  SCRIPT_SRC,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
