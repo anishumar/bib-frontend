@@ -3716,6 +3716,322 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/client-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every upload at this firm, newest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The imports */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientImportList"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Upload a firm's book of clients and have it checked
+         * @description Multipart: a `clients` sheet (required), a `people` sheet and an `engagements` sheet, each .csv or .xlsx. Every row is checked against what the firm already has and the result is STAGED with its report — nothing else is written. A row already on file is skipped, never updated. Confirm the staged import to load it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": components["schemas"]["ClientImportUploadForm"];
+                };
+            };
+            responses: {
+                /** @description Staged, with its report */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientImport"];
+                    };
+                };
+                /** @description No client sheet, an unreadable file, or a sheet with no header row */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A sheet is larger than BIB_MAX_UPLOAD_BYTES */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-imports/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The columns each sheet takes
+         * @description The contract a sheet is read against: three sheets, their header marker, every column with whether it is required. Headers are matched by name, case- and space-insensitively, wherever the header row is.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The template */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientImportTemplate"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One upload — its report, and its outcome once confirmed */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    importId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The import */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientImport"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such import at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-imports/{importId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load a staged import
+         * @description Re-checks the sheet against the firm's records as they stand now, then creates every row through the same services the screens use: the company, its registration and identifiers, its people, its Key Manager and SPOCs, and one signed engagement letter per client and currency carrying its engagements. Each row commits on its own and the outcome says what each became; a row that failed can be uploaded again and only what is missing is attempted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    importId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loaded, with the outcome */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientImport"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such import at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already confirmed, or blocking findings remain */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal-access/memberships/{membershipId}": {
         parameters: {
             query?: never;
@@ -15400,6 +15716,192 @@ export interface components {
         };
         MyClientsResponse: {
             clients: components["schemas"]["OwnedClient"][];
+        };
+        ClientImportFinding: {
+            /** @enum {string} */
+            sheet: "clients" | "people" | "engagements" | "file";
+            /** @description The row as Excel numbers it. Null for a finding about the file as a whole. */
+            lineNo: number | null;
+            name: string;
+            /** @enum {string} */
+            severity: "blocking" | "warning";
+            message: string;
+        };
+        ClientImportRowVerdict: {
+            /** @enum {string} */
+            sheet: "clients" | "people" | "engagements";
+            lineNo: number;
+            name: string;
+            /** @enum {string} */
+            action: "create" | "skip" | "blocked";
+            detail: string | null;
+        };
+        ClientImportLetterLine: {
+            engagementLineNo: number;
+            entityLineNo: number | null;
+            /** Format: uuid */
+            entityPartyId: string | null;
+            entityName: string;
+            serviceCode: string;
+            serviceName: string;
+            /** Format: uuid */
+            serviceVersionId: string;
+            startedOn: string;
+            billingFrequency: string;
+            unitAmount: string | null;
+            jurisdiction: string | null;
+            basis: string | null;
+        };
+        ClientImportLetterPlan: {
+            clientName: string;
+            clientLineNo: number | null;
+            /** Format: uuid */
+            clientPartyId: string | null;
+            jurisdiction: string;
+            currency: string;
+            effectiveFrom: string;
+            signatory: string;
+            lines: components["schemas"]["ClientImportLetterLine"][];
+        };
+        ClientImportCounts: {
+            clientsToCreate: number;
+            clientsOnFile: number;
+            clientsBlocked: number;
+            entitiesToRegister: number;
+            peopleToCreate: number;
+            peopleOnFile: number;
+            peopleBlocked: number;
+            engagementsToCreate: number;
+            engagementsOnFile: number;
+            engagementsBlocked: number;
+            lettersToDraft: number;
+            assignmentsToRecord: number;
+        };
+        ClientImportReport: {
+            findings: components["schemas"]["ClientImportFinding"][];
+            blocking: number;
+            warnings: number;
+            rows: components["schemas"]["ClientImportRowVerdict"][];
+            letters: components["schemas"]["ClientImportLetterPlan"][];
+            counts: components["schemas"]["ClientImportCounts"];
+            compliance: {
+                /** @description The firm's compliance go-live floor, or null for no floor. */
+                floor: string | null;
+                reachBackFrom: string;
+                engagementsBeforeReachBack: number;
+            };
+        };
+        ClientImportOutcomeRow: {
+            /** @enum {string} */
+            sheet: "clients" | "people" | "engagements";
+            lineNo: number;
+            name: string;
+            /** @enum {string} */
+            action: "created" | "skipped" | "failed";
+            detail: string | null;
+            /** Format: uuid */
+            partyId: string | null;
+        };
+        ClientImportLetterOutcome: {
+            clientName: string;
+            currency: string;
+            /** @enum {string} */
+            action: "created" | "skipped" | "failed";
+            detail: string | null;
+            /** Format: uuid */
+            letterId: string | null;
+            lineNos: number[];
+            engagementIds: string[];
+        };
+        ClientImportOutcome: {
+            rows: components["schemas"]["ClientImportOutcomeRow"][];
+            letters: components["schemas"]["ClientImportLetterOutcome"][];
+            created: {
+                clients: number;
+                entities: number;
+                people: number;
+                assignments: number;
+                letters: number;
+                engagements: number;
+            };
+            skipped: number;
+            failed: number;
+        } | null;
+        ClientImportPerson: {
+            /** Format: uuid */
+            userId: string;
+            name: string | null;
+            email: string;
+        };
+        ClientImport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "staged" | "confirmed";
+            fileNames: {
+                clients: string;
+                people: string | null;
+                engagements: string | null;
+            };
+            report: components["schemas"]["ClientImportReport"];
+            outcome: components["schemas"]["ClientImportOutcome"];
+            stagedBy: components["schemas"]["ClientImportPerson"];
+            stagedAt: string;
+            confirmedBy: components["schemas"]["ClientImportPerson"] & unknown;
+            confirmedAt: string | null;
+        };
+        ClientImportUploadForm: {
+            /**
+             * Format: binary
+             * @description The client sheet. Required.
+             */
+            clients?: string;
+            /**
+             * Format: binary
+             * @description Directors, signatories and contacts.
+             */
+            people?: string;
+            /**
+             * Format: binary
+             * @description The work the firm already delivers.
+             */
+            engagements?: string;
+        };
+        ClientImportSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "staged" | "confirmed";
+            fileNames: {
+                clients: string;
+                people: string | null;
+                engagements: string | null;
+            };
+            blocking: number;
+            warnings: number;
+            counts: components["schemas"]["ClientImportCounts"];
+            stagedBy: components["schemas"]["ClientImportPerson"];
+            stagedAt: string;
+            confirmedAt: string | null;
+        };
+        ClientImportList: {
+            imports: components["schemas"]["ClientImportSummary"][];
+        };
+        ClientImportTemplate: {
+            sheets: {
+                /** @enum {string} */
+                key: "clients" | "people" | "engagements";
+                /** @description The column the header row must contain to be recognised. */
+                marker: string;
+                columns: {
+                    header: string;
+                    required: boolean;
+                    about: string;
+                }[];
+            }[];
+            relationships: string[];
+            billingFrequencies: string[];
+            identifierColumns: string[];
         };
         PortalAccess: {
             /** Format: uuid */

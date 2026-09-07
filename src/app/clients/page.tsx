@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { Page, PageHeader, useSession } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import {
   Button,
+  Icon,
+  LinkButton,
   Card,
   CardHead,
   ErrorNotice,
@@ -35,6 +37,7 @@ import {
  */
 export default function ClientsPage() {
   const router = useRouter();
+  const session = useSession();
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -118,7 +121,19 @@ export default function ClientsPage() {
         eyebrow="Commercial"
         title="Clients"
         lede="Everyone the firm holds a record for, and the ones you were put in charge of."
-        aside={<Pill tone="quiet">{parties.length}</Pill>}
+        aside={
+          <span className="cluster">
+            <Pill tone="quiet">{parties.length}</Pill>
+            {/* Loading the firm's existing book from a spreadsheet is an
+                administrator's act — the API gates it on tenant:admin — so the
+                door is offered only to somebody it will open for. */}
+            {session?.permissions.includes("tenant:admin") === true && (
+              <LinkButton href="/clients/import" size="sm" icon={<Icon name="upload" size={14} />}>
+                Bring in the book
+              </LinkButton>
+            )}
+          </span>
+        }
       />
 
       <ErrorNotice error={error} />

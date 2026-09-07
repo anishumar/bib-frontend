@@ -262,6 +262,7 @@ porting a screen; it is invisible in the source.
 | `/admin/client-reminders` | when a CLIENT hears from the firm — the chase ladder (forward from the day we asked, stopped by a freeze) and the heads-up ladder (back from a statutory date, not stopped by one). Two config kinds, one screen. |
 | `/clients` | the firm's book — every counterparty, and the caller's OWN clients |
 | `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
+| `/clients/import` | **bring in the book** — the firm's existing clients, people and engagements from spreadsheets: templates, upload, the report (blocking / warnings), confirm, and what each row became. `tenant:admin`; offered from `/clients` |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
@@ -972,6 +973,34 @@ instead of the buttons — the API answers 403 there, and a greyed-out button sa
 why. Decided checks stay on the page with their notes: a step sent back twice and then approved
 reads as one that sailed through if only the open check is drawn, and "this took two goes" is
 the only signal anywhere that explains where a week went.
+
+## `/clients/import` — the book, from a spreadsheet (T6.12)
+
+One screen, five parts in reading order: the three templates (header-only CSVs, with the firm's
+own Depts expanded into one `SPOC: <code>` column each — no example row, because a row of
+plausible values uploaded unchanged becomes a client), the upload, the report, the row-by-row
+verdict, and the letters. Confirm sits on the report and is DISABLED while a blocking finding
+remains; the sentence beside it says which of the two states the screen is in.
+
+**The report and the outcome are one component.** Before confirm a row shows what it WILL
+become; after, what it DID — the same table, the outcome's action and detail taking over the
+verdict's, so a reader compares like with like. A created client links to its own page and a
+signed letter to its own; a skipped row says what it was already on file as.
+
+**The compliance notice is the most important thing on the page, and it is a warning, not a
+block.** The API counts the engagements older than the calendar's reach-back and the screen
+says, before confirm, that without a go-live floor every filing already made in the firm's old
+records will show as missed — and links to where the floor is set.
+
+`Templates` and the report both render ONE `<TabPanel>` for the selected sheet, because
+`TabPanel` takes no `hidden` prop and rendering three stacks them.
+
+**What walking it found:** the "Upload" heading matched "Previous uploads" in a locator, and the
+client page is headed by the DISPLAY name (the trading name where the sheet gave one), not the
+legal name the row linked by. Both are in `demo-assets/tools/s08-client-import.mjs`. And
+**Turbopack panics (`0xc0000142` spawning its postcss worker) when `next dev` is started from the
+Bash tool's shell; `--webpack` then breaks the app's CSP (`unsafe-eval`). Start it from a plain
+`cmd` shell** — `Start-Process cmd /c "npm run dev"` — and it is fine.
 
 ## The account team, and the date box that is the whole feature (G3.2)
 
