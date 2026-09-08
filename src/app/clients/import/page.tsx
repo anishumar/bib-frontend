@@ -480,7 +480,15 @@ function ImportReport({
           <Stat label="Blocking" value={r.blocking} tone={r.blocking > 0 ? "danger" : "ok"} />
           <Stat label="Warnings" value={r.warnings} {...(r.warnings > 0 ? { tone: "warn" as const } : {})} />
           <Stat label="Clients" value={r.counts.clientsToCreate} note={`${r.counts.clientsOnFile} on file · ${r.counts.clientsBlocked} blocked`} />
-          <Stat label="People" value={r.counts.peopleToCreate} note={`${r.counts.peopleOnFile} on file · ${r.counts.peopleBlocked} blocked`} />
+          {/* A people ROW is a ROLE, so these are two numbers and not one: a
+              director of three companies in a group is three rows and one
+              person. Showing only the row count under the word "People" would
+              report three directors where the firm has one. */}
+          <Stat
+            label="People"
+            value={r.counts.peopleToCreate}
+            note={`${r.counts.rolesToRecord} role${r.counts.rolesToRecord === 1 ? "" : "s"} · ${r.counts.peopleOnFile} on file · ${r.counts.peopleBlocked} blocked`}
+          />
           <Stat label="Engagements" value={r.counts.engagementsToCreate} note={`${r.counts.engagementsOnFile} in force · ${r.counts.engagementsBlocked} blocked`} />
           <Stat label="Letters" value={r.counts.lettersToDraft} note={`${r.counts.assignmentsToRecord} assignments`} />
         </Strip>

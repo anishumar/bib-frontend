@@ -15777,7 +15777,10 @@ export interface components {
             clientsOnFile: number;
             clientsBlocked: number;
             entitiesToRegister: number;
+            /** @description PARTIES this sheet would create, not people ROWS. A people row is a ROLE, so one director of three companies in a group is three rows and one person. */
             peopleToCreate: number;
+            /** @description Directorships, signatory roles and the like — one per people row that would load, whether or not it also creates the person. */
+            rolesToRecord: number;
             peopleOnFile: number;
             peopleBlocked: number;
             engagementsToCreate: number;
@@ -15838,7 +15841,10 @@ export interface components {
             created: {
                 clients: number;
                 entities: number;
+                /** @description PARTIES created, not people ROWS. A people row is a ROLE, so one director of three companies in a group is three rows and one person — these two numbers differ on purpose. */
                 people: number;
+                /** @description Directorships, signatory roles and the like — one per people row that loaded, whether or not it also created the person. */
+                roles: number;
                 assignments: number;
                 letters: number;
                 engagements: number;
