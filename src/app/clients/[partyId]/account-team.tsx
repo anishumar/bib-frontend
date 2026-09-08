@@ -11,6 +11,7 @@ import {
   FieldRow,
   FieldStack,
   Input,
+  Notice,
   Pill,
   Select,
   Table,
@@ -171,6 +172,21 @@ export function AccountTeamPanel({
   // says who held the client before.
   const inForceIds = new Set(team.inForce.map((a) => a.id));
   const past = team.all.filter((a) => !inForceIds.has(a.id));
+  /**
+   * Rows still in force whose holder has left the firm.
+   *
+   * Nothing closes an assignment when somebody is deactivated — closing it
+   * would destroy the record of who owned the client, which is what this panel
+   * exists to answer — so the client keeps a Key Manager or a SPOC on paper
+   * while the person named has gone. Escalation then goes to a desk nobody
+   * sits at.
+   *
+   * ONLY WHEN SHOWING TODAY, and that is not tidiness. `holderIsActiveStaff` is
+   * a fact about now, not about `asOf`: somebody who held this client in March
+   * and has since left is the ordinary end of a working life, and flagging
+   * March's team as broken would be answering a question nobody asked.
+   */
+  const stale = showingToday ? team.inForce.filter((a) => !a.holderIsActiveStaff) : [];
 
   return (
     <Card>
@@ -210,6 +226,18 @@ export function AccountTeamPanel({
 
       <ErrorNotice error={error} />
 
+      {stale.length > 0 && (
+        <Notice tone="warn" eyebrow="NOBODY IS ACTUALLY COVERING THIS">
+          {stale.length === 1
+            ? `${stale[0]?.holderName ?? stale[0]?.holderEmail} is still the ${roleLabel(
+                stale[0]?.role ?? "spoc",
+              ).toLowerCase()} on this client and no longer works at the firm.`
+            : `${stale.length} people on this account team no longer work at the firm.`}{" "}
+          The row is left standing on purpose — it is the record of who held the client — so
+          hand it over to somebody here, then end it.
+        </Notice>
+      )}
+
       {team.inForce.length === 0 ? (
         <p className="muted">
           Nobody held this client on {longDay(asOf)}. A Key Manager owns the relationship;
@@ -234,7 +262,18 @@ export function AccountTeamPanel({
                   <Td>
                     <Pill>{roleLabel(a.role)}</Pill>
                   </Td>
-                  <Td>{a.holderName ?? a.holderEmail}</Td>
+                  <Td>
+                    {a.holderName ?? a.holderEmail}
+                    {/* On the row as well as in the banner: with four people on
+                        an account team, a count at the top does not say WHICH,
+                        and the row is where the handover is started from. */}
+                    {showingToday && !a.holderIsActiveStaff && (
+                      <>
+                        {" "}
+                        <Pill tone="warn">no longer at the firm</Pill>
+                      </>
+                    )}
+                  </Td>
                   <Td className="muted">
                     {a.axis === null ? "— whole relationship" : a.axis.name}
                   </Td>

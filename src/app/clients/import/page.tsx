@@ -57,6 +57,15 @@ type Sheet = ImportTemplate["sheets"][number]["key"];
 type ServiceAxis =
   paths["/api/v1/tenancy/structure"]["get"]["responses"][200]["content"]["application/json"]["axes"][number];
 
+/**
+ * The one header in the template that is a PLACEHOLDER rather than a name to
+ * type: `<Dept>` stands for one of the firm's own Dept codes, so a firm with
+ * three Depts has three of these columns and none of them is spelled this way.
+ * Kept in step with `SPOC_COLUMN_TEMPLATE` in the backend's clientimport model,
+ * which is what the template response actually carries.
+ */
+const SPOC_COLUMN_TEMPLATE = "SPOC: <Dept>";
+
 const SHEET_LABEL: Record<Sheet, string> = {
   clients: "Clients",
   people: "People",
@@ -290,12 +299,19 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
    * A header-only CSV, with the firm's own Depts expanded into one SPOC column
    * each — the one column the template cannot name in the abstract. No example
    * row: a row of plausible values uploaded unchanged would become a client.
+   *
+   * A firm with no Depts published gets NO SPOC column at all, rather than one
+   * literally headed `SPOC: <Dept>`. That header is a placeholder, and shipping
+   * it in a file teaches the operator it is a name to type — which is refused
+   * on upload, after the sheet has been filled in. A column that cannot be
+   * filled correctly is worse than an absent one, and the table below says
+   * where Depts come from.
    */
   function download(key: Sheet): void {
     const s = template.sheets.find((x) => x.key === key);
     if (s === undefined) return;
     const headers = s.columns.flatMap((c) =>
-      c.header === "SPOC: <Dept>" ? depts.map((d) => `SPOC: ${d.code}`) : [c.header],
+      c.header === SPOC_COLUMN_TEMPLATE ? depts.map((d) => `SPOC: ${d.code}`) : [c.header],
     );
     const csv = `${headers.map((h) => (h.includes(",") ? `"${h}"` : h)).join(",")}\r\n`;
     const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -348,18 +364,40 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                     {s.columns.map((c) => (
                       <tr key={c.header}>
                         <Td>
-                          <span className="mono">{c.header}</span>
-                          {c.header === "SPOC: <Dept>" && depts.length > 0 && (
+                          {/* The SPOC column is the one header nobody types as
+                              written: `<Dept>` stands for one of THIS firm's
+                              Dept codes. Where the firm has Depts, its own
+                              column names lead and the placeholder is the
+                              aside; where it has none, the placeholder is all
+                              there is and the row says where Depts come from
+                              rather than leaving an unfillable header. */}
+                          {c.header === SPOC_COLUMN_TEMPLATE && depts.length > 0 ? (
                             <>
-                              {" "}
-                              <span className="muted">
-                                — here: {depts.map((d) => `SPOC: ${d.code}`).join(", ")}
-                              </span>
+                              <span className="mono">
+                                {depts.map((d) => `SPOC: ${d.code}`).join(", ")}
+                              </span>{" "}
+                              <span className="muted">— one per Dept, your own codes</span>
                             </>
+                          ) : (
+                            <span className="mono">{c.header}</span>
                           )}
                         </Td>
                         <Td>{c.required ? <Pill tone="warn">required</Pill> : <span className="empty">—</span>}</Td>
-                        <Td>{c.about === "" ? <span className="empty">—</span> : c.about}</Td>
+                        <Td>
+                          {c.header === SPOC_COLUMN_TEMPLATE && depts.length === 0 ? (
+                            <>
+                              One column per Dept, its code after the colon, holding that Dept’s
+                              SPOC’s email. You have published no Depts yet, so the template above
+                              carries no SPOC column — publish them under{" "}
+                              <Link href="/admin/structure">Structure</Link> and they appear here by
+                              name.
+                            </>
+                          ) : c.about === "" ? (
+                            <span className="empty">—</span>
+                          ) : (
+                            c.about
+                          )}
+                        </Td>
                       </tr>
                     ))}
                   </tbody>

@@ -3966,7 +3966,7 @@ export interface paths {
         put?: never;
         /**
          * Load a staged import
-         * @description Re-checks the sheet against the firm's records as they stand now, then creates every row through the same services the screens use: the company, its registration and identifiers, its people, its Key Manager and SPOCs, and one signed engagement letter per client and currency carrying its engagements. Each row commits on its own and the outcome says what each became; a row that failed can be uploaded again and only what is missing is attempted.
+         * @description Re-checks the sheet against the firm's records as they stand now, then creates every row through the same services the screens use: the company, its registration and identifiers, its people, its Key Manager and SPOCs, one signed engagement letter per client and currency carrying its engagements, and a portal invite for every client whose Portal Invite column is TRUE. An address that already holds a login here is GRANTED this company rather than mailed a second invite. Each row commits on its own and the outcome says what each became; a row that failed can be uploaded again and only what is missing is attempted.
          */
         post: {
             parameters: {
@@ -15674,6 +15674,8 @@ export interface components {
             userId: string;
             holderEmail: string;
             holderName: string | null;
+            /** @description Whether the holder is STILL active staff at this firm. False on a row that is still IN FORCE means the client has a Key Manager or a SPOC who has left — escalation goes to a desk nobody sits at, and the client rings somebody who cannot answer. An assignment is never closed on the firm's behalf when somebody is deactivated, because that would destroy the record of who owned the client, so this is how a stale one becomes visible. On a row already closed it means only that the person has since left, which is the ordinary end of a working life. */
+            holderIsActiveStaff: boolean;
             axis: components["schemas"]["AssignmentAxis"];
             validFrom: string;
             /** @description The FIRST DAY NOT IN FORCE, or null while it still is. Half-open, like every effective-dated period in this product: an assignment ending 2026-04-01 was in force up to and including 2026-03-31. A handover therefore closes one row and opens the next on the SAME date, with no gap and no overlap. */
@@ -15763,6 +15765,13 @@ export interface components {
             signatory: string;
             lines: components["schemas"]["ClientImportLetterLine"][];
         };
+        ClientImportPortalInvitePlan: {
+            clientLineNo: number;
+            clientName: string;
+            /** Format: uuid */
+            clientPartyId: string | null;
+            email: string;
+        };
         ClientImportCounts: {
             clientsToCreate: number;
             clientsOnFile: number;
@@ -15776,6 +15785,7 @@ export interface components {
             engagementsBlocked: number;
             lettersToDraft: number;
             assignmentsToRecord: number;
+            portalInvitesToSend: number;
         };
         ClientImportReport: {
             findings: components["schemas"]["ClientImportFinding"][];
@@ -15783,6 +15793,7 @@ export interface components {
             warnings: number;
             rows: components["schemas"]["ClientImportRowVerdict"][];
             letters: components["schemas"]["ClientImportLetterPlan"][];
+            portalInvites: components["schemas"]["ClientImportPortalInvitePlan"][];
             counts: components["schemas"]["ClientImportCounts"];
             compliance: {
                 /** @description The firm's compliance go-live floor, or null for no floor. */
@@ -15813,9 +15824,17 @@ export interface components {
             lineNos: number[];
             engagementIds: string[];
         };
+        ClientImportPortalInviteOutcome: {
+            clientName: string;
+            email: string;
+            /** @enum {string} */
+            action: "invited" | "granted" | "already granted" | "failed";
+            detail: string | null;
+        };
         ClientImportOutcome: {
             rows: components["schemas"]["ClientImportOutcomeRow"][];
             letters: components["schemas"]["ClientImportLetterOutcome"][];
+            portalInvites: components["schemas"]["ClientImportPortalInviteOutcome"][];
             created: {
                 clients: number;
                 entities: number;
@@ -15823,6 +15842,7 @@ export interface components {
                 assignments: number;
                 letters: number;
                 engagements: number;
+                portalInvites: number;
             };
             skipped: number;
             failed: number;
