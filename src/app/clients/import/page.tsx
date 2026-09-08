@@ -58,13 +58,34 @@ type ServiceAxis =
   paths["/api/v1/tenancy/structure"]["get"]["responses"][200]["content"]["application/json"]["axes"][number];
 
 /**
- * The one header in the template that is a PLACEHOLDER rather than a name to
- * type: `<Dept>` stands for one of the firm's own Dept codes, so a firm with
- * three Depts has three of these columns and none of them is spelled this way.
+ * The one entry in the template that stands for a BLOCK of columns rather than
+ * a column, and the only header nobody types as written.
+ *
+ * A SPOC is a pair — `SPOC 1 Dept`, `SPOC 1 Email` — and a firm with three
+ * Depts downloads three of those pairs. The headers are numbered rather than
+ * named after the firm's Depts on purpose: the Dept goes in the CELL, so the
+ * sheet is the same at every firm and can be filled in by somebody who has
+ * never seen this firm's structure screen.
+ *
  * Kept in step with `SPOC_COLUMN_TEMPLATE` in the backend's clientimport model,
  * which is what the template response actually carries.
  */
-const SPOC_COLUMN_TEMPLATE = "SPOC: <Dept>";
+const SPOC_COLUMN_TEMPLATE = "SPOC <n> Dept + SPOC <n> Email";
+
+/** The real headers of one slot, in the order they belong on the sheet. */
+function spocPair(slot: number): [string, string] {
+  return [`SPOC ${String(slot)} Dept`, `SPOC ${String(slot)} Email`];
+}
+
+/**
+ * How many SPOC pairs the template ships with: one per Dept, which is the
+ * ordinary number and not a maximum. The reader scans whatever headers it is
+ * given, so a firm wanting a fourth adds `SPOC 4 Dept` and `SPOC 4 Email` to
+ * the sheet by hand and it works.
+ */
+function spocSlots(depts: ServiceAxis[]): number[] {
+  return depts.map((_, i) => i + 1);
+}
 
 const SHEET_LABEL: Record<Sheet, string> = {
   clients: "Clients",
@@ -296,22 +317,20 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
   const [sheet, setSheet] = useState<Sheet>("clients");
 
   /**
-   * A header-only CSV, with the firm's own Depts expanded into one SPOC column
-   * each — the one column the template cannot name in the abstract. No example
-   * row: a row of plausible values uploaded unchanged would become a client.
+   * A header-only CSV, with the SPOC entry expanded into one `Dept` + `Email`
+   * pair per Dept — the one entry that stands for a block of columns rather
+   * than a column. No example row: a row of plausible values uploaded unchanged
+   * would become a client.
    *
-   * A firm with no Depts published gets NO SPOC column at all, rather than one
-   * literally headed `SPOC: <Dept>`. That header is a placeholder, and shipping
-   * it in a file teaches the operator it is a name to type — which is refused
-   * on upload, after the sheet has been filled in. A column that cannot be
-   * filled correctly is worse than an absent one, and the table below says
-   * where Depts come from.
+   * A firm with no Depts published gets NO SPOC columns at all. The cell has to
+   * name a real Dept, so a pair that cannot be filled correctly is worse than
+   * an absent one, and the table below says where Depts come from.
    */
   function download(key: Sheet): void {
     const s = template.sheets.find((x) => x.key === key);
     if (s === undefined) return;
     const headers = s.columns.flatMap((c) =>
-      c.header === SPOC_COLUMN_TEMPLATE ? depts.map((d) => `SPOC: ${d.code}`) : [c.header],
+      c.header === SPOC_COLUMN_TEMPLATE ? spocSlots(depts).flatMap(spocPair) : [c.header],
     );
     const csv = `${headers.map((h) => (h.includes(",") ? `"${h}"` : h)).join(",")}\r\n`;
     const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));
@@ -364,19 +383,18 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                     {s.columns.map((c) => (
                       <tr key={c.header}>
                         <Td>
-                          {/* The SPOC column is the one header nobody types as
-                              written: `<Dept>` stands for one of THIS firm's
-                              Dept codes. Where the firm has Depts, its own
-                              column names lead and the placeholder is the
-                              aside; where it has none, the placeholder is all
-                              there is and the row says where Depts come from
-                              rather than leaving an unfillable header. */}
+                          {/* The SPOC entry stands for a BLOCK of columns, so
+                              the real pairs are listed rather than the entry.
+                              Where the firm has no Depts there are none to
+                              list, and the row explains itself instead. */}
                           {c.header === SPOC_COLUMN_TEMPLATE && depts.length > 0 ? (
                             <>
                               <span className="mono">
-                                {depts.map((d) => `SPOC: ${d.code}`).join(", ")}
+                                {spocSlots(depts)
+                                  .flatMap(spocPair)
+                                  .join(", ")}
                               </span>{" "}
-                              <span className="muted">— one per Dept, your own codes</span>
+                              <span className="muted">— a pair per SPOC</span>
                             </>
                           ) : (
                             <span className="mono">{c.header}</span>
@@ -386,11 +404,11 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                         <Td>
                           {c.header === SPOC_COLUMN_TEMPLATE && depts.length === 0 ? (
                             <>
-                              One column per Dept, its code after the colon, holding that Dept’s
-                              SPOC’s email. You have published no Depts yet, so the template above
-                              carries no SPOC column — publish them under{" "}
-                              <Link href="/admin/structure">Structure</Link> and they appear here by
-                              name.
+                              A pair of columns per SPOC — the Dept, and that SPOC’s email. You have
+                              published no Depts yet, so the template above carries no SPOC columns:
+                              the Dept cell has to name a real one. Publish them under{" "}
+                              <Link href="/admin/structure">Structure</Link> and the pairs appear
+                              here.
                             </>
                           ) : c.about === "" ? (
                             <span className="empty">—</span>
