@@ -52,6 +52,71 @@ interface StepDraft {
    *  a step nobody checks — which is every step of every process written before
    *  this field existed, and the right default. */
   verificationPolicyKey: string;
+  /** The grade band that may do this step, as grade CODES; "" is an open end.
+   *  Both "" means anybody, which is null on the wire. */
+  performerMin: string;
+  performerMax: string;
+}
+
+/** The firm's ladder, fetched once for every step editor on the page. */
+let gradesPromise: Promise<{ code: string; name: string; rank: number; isActive: boolean }[]> | null = null;
+function useGrades() {
+  const [grades, setGrades] = useState<{ code: string; name: string; rank: number; isActive: boolean }[]>([]);
+  useEffect(() => {
+    gradesPromise ??= api
+      .GET("/api/v1/tenancy/grades", {})
+      .then((r) => (r.data?.grades ?? []).map((g) => ({ code: g.code, name: g.name, rank: g.rank, isActive: g.isActive })));
+    let live = true;
+    void gradesPromise.then((g) => {
+      if (live) setGrades(g);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return grades;
+}
+
+/** "Who does it", as a band of the ladder — "Analyst to Senior Associate",
+ *  "Manager or above". Null means anybody, which is every process written
+ *  before this existed. */
+function BandFields({ step, onChange }: { step: StepDraft; onChange: (patch: Partial<StepDraft>) => void }) {
+  const grades = useGrades();
+  const active = grades.filter((g) => g.isActive).sort((a, b) => a.rank - b.rank);
+  return (
+    <>
+      <Field label="From grade" optional hint="Lowest grade that does this step. Blank: no floor.">
+        <Select
+          value={step.performerMin}
+          onChange={(e) => {
+            onChange({ performerMin: e.target.value });
+          }}
+        >
+          <option value="">anybody</option>
+          {active.map((g) => (
+            <option key={g.code} value={g.code}>
+              {g.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="To grade" optional hint="Highest grade that does this step. Blank: no ceiling.">
+        <Select
+          value={step.performerMax}
+          onChange={(e) => {
+            onChange({ performerMax: e.target.value });
+          }}
+        >
+          <option value="">anybody</option>
+          {active.map((g) => (
+            <option key={g.code} value={g.code}>
+              {g.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </>
+  );
 }
 
 const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
@@ -138,7 +203,11 @@ function toCondition(s: StepDraft): Record<string, unknown> | null {
 }
 
 /** A step as the API wants it. */
-function toBody(label: string, steps: readonly StepDraft[]): Record<string, unknown> {
+function toBody(
+  label: string,
+  steps: readonly StepDraft[],
+  grades: readonly { code: string; rank: number }[],
+): Record<string, unknown> {
   return {
     label: label.trim(),
     steps: steps.map((s) => ({
@@ -150,7 +219,23 @@ function toBody(label: string, steps: readonly StepDraft[]): Record<string, unkn
       // "" means nobody checks it, and that is null on the wire — not an empty
       // string, which the API would refuse as not being a config key.
       verificationPolicyKey: s.verificationPolicyKey === "" ? null : s.verificationPolicyKey,
+      performer: toPerformer(s, grades),
     })),
+  };
+}
+
+/** Rank AND code, the shape the API stores — the rank is compared, the code is read. */
+function toPerformer(
+  s: StepDraft,
+  grades: readonly { code: string; rank: number }[],
+): Record<string, unknown> | null {
+  if (s.performerMin === "" && s.performerMax === "") return null;
+  const rankOf = (code: string): number | null => grades.find((g) => g.code === code)?.rank ?? null;
+  return {
+    minGradeRank: s.performerMin === "" ? null : rankOf(s.performerMin),
+    minGradeCode: s.performerMin === "" ? null : s.performerMin,
+    maxGradeRank: s.performerMax === "" ? null : rankOf(s.performerMax),
+    maxGradeCode: s.performerMax === "" ? null : s.performerMax,
   };
 }
 
@@ -183,9 +268,17 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
               : "",
         verificationPolicyKey:
           typeof s["verificationPolicyKey"] === "string" ? s["verificationPolicyKey"] : "",
+        performerMin: readCode(s["performer"], "minGradeCode"),
+        performerMax: readCode(s["performer"], "maxGradeCode"),
       };
     }),
   };
+}
+
+function readCode(performer: unknown, key: "minGradeCode" | "maxGradeCode"): string {
+  if (performer === null || typeof performer !== "object") return "";
+  const v = (performer as Record<string, unknown>)[key];
+  return typeof v === "string" ? v : "";
 }
 
 export default function WorkflowsPage() {
@@ -447,7 +540,8 @@ function NewTemplate({
             conditionOp: "equals",
             conditionValue: "",
             verificationPolicyKey: "",
-          },
+            performerMin: "",
+            performerMax: "",          },
         ]}
         note="Saved as a draft. Nothing follows it until you put it in force."
         onDone={() => {
@@ -535,7 +629,8 @@ function StepEditor({
         conditionOp: "equals",
         conditionValue: "",
         verificationPolicyKey: "",
-      },
+        performerMin: "",
+        performerMax: "",      },
     ]);
   }
 
@@ -558,7 +653,7 @@ function StepEditor({
     // present transition or the press looks like it did nothing. It also
     // stops a refusal from the LAST action sitting over this one.
     onError("");
-    const body = toBody(label, steps);
+    const body = toBody(label, steps, await (gradesPromise ?? Promise.resolve([])));
     const result =
       templateKey === null
         ? await api.POST("/api/v1/config/{kind}", {
@@ -763,6 +858,7 @@ function StepFields({
             ))}
           </Select>
         </Field>
+        <BandFields step={step} onChange={onChange} />
       </FieldRow>
 
       {others.length > 0 && (

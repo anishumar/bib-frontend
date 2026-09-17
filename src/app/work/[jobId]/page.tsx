@@ -43,6 +43,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const [steps, setSteps] = useState<JobStep[]>([]);
   const [checks, setChecks] = useState<StepCheck[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [me, setMe] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -73,9 +74,28 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setChecks(checkList.data?.checks ?? []);
     setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
+    setMe(me.data?.userId ?? null);
     setError(null);
     setLoaded(true);
   }, [jobId, router]);
+
+  /** Put a step on a desk — mine (take), somebody's (hand over), nobody's (release). */
+  const assign = useCallback(
+    async (stepKey: string, userId: string | null): Promise<void> => {
+      setBusy(stepKey);
+      const result = await api.PUT("/api/v1/jobs/{jobId}/steps/{stepKey}/assignee", {
+        params: { path: { jobId, stepKey } },
+        body: { userId },
+      });
+      setBusy(null);
+      if (result.error) {
+        setError(apiError(result.error).message);
+        return;
+      }
+      await load();
+    },
+    [jobId, load],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -268,6 +288,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   </span>
                   <br />
                   <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
+                  <Desk step={s} />
                   {s.outcomeNote !== null && (
                     <p className="muted mt-1 text-sm">{s.outcomeNote}</p>
                   )}
@@ -342,16 +363,39 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         </Button>
                       </>
                     ) : (
-                      <Button
-                        disabled={busy === s.stepKey}
-                        aria-label={`Done — ${s.stepKey}`}
-                        onClick={() => {
-                          void complete(s.stepKey);
-                        }}
-                      >
-                        Done
-                      </Button>
+                      s.viewer.mayComplete ? (
+                        <Button
+                          disabled={busy === s.stepKey}
+                          aria-label={`Done — ${s.stepKey}`}
+                          onClick={() => {
+                            void complete(s.stepKey);
+                          }}
+                        >
+                          Done
+                        </Button>
+                      ) : s.viewer.reason === "ON_ANOTHER_DESK" ? (
+                        /* Somebody else's step. Taking it is one click and one
+                           ledger row; ticking it from underneath them is what the
+                           API refuses, so it is not offered. */
+                        <Button
+                          variant="secondary"
+                          disabled={busy === s.stepKey}
+                          aria-label={`Take — ${s.stepKey}`}
+                          onClick={() => {
+                            void assign(s.stepKey, me);
+                          }}
+                        >
+                          Take it
+                        </Button>
+                      ) : (
+                        <span className="muted text-sm">
+                          {s.performer === null ? "not yours to do" : `for ${bandLabel(s.performer)}`}
+                        </span>
+                      )
                     ))}
+                  {s.status === "blocked" && openCheckFor(checks, s.stepKey) === null && canComplete && (
+                    <HandOver jobId={jobId} step={s} busy={busy === s.stepKey} onHand={(userId) => void assign(s.stepKey, userId)} />
+                  )}
                 </div>
               </li>
             ))}
@@ -590,3 +634,89 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
     </div>
   );
 }
+
+
+/** The band in words — "Analyst to Senior Associate", "Manager or above". */
+function bandLabel(p: NonNullable<JobStep["performer"]>): string {
+  const lo = p.minGradeCode ?? (p.minGradeRank === null ? null : `rank ${String(p.minGradeRank)}`);
+  const hi = p.maxGradeCode ?? (p.maxGradeRank === null ? null : `rank ${String(p.maxGradeRank)}`);
+  if (lo !== null && hi !== null) return lo === hi ? lo : `${lo} to ${hi}`;
+  if (lo !== null) return `${lo} or above`;
+  if (hi !== null) return `${hi} or below`;
+  return "anybody";
+}
+
+/** Whose desk a step sits on, and who the process says may do it (0301). */
+function Desk({ step }: { step: JobStep }) {
+  if (step.status === "done" || step.status === "skipped" || step.status === "failed") return null;
+  return (
+    <p className="muted mt-1 text-sm">
+      {step.assignee === null ? "on nobody's desk" : `on ${step.assignee.displayName}'s desk`}
+      {step.performer !== null && <> · for {bandLabel(step.performer)}</>}
+    </p>
+  );
+}
+
+/** Hand a waiting step to somebody the process allows. The list is the API's,
+ *  so a name outside the band is never offered. */
+function HandOver({
+  jobId,
+  step,
+  busy,
+  onHand,
+}: {
+  jobId: string;
+  step: JobStep;
+  busy: boolean;
+  onHand: (userId: string | null) => void;
+}) {
+  const [people, setPeople] = useState<{ userId: string; displayName: string; gradeName: string | null }[] | null>(null);
+  const [choice, setChoice] = useState("");
+  useEffect(() => {
+    let live = true;
+    void api
+      .GET("/api/v1/jobs/{jobId}/steps/{stepKey}/performers", { params: { path: { jobId, stepKey: step.stepKey } } })
+      .then((r) => {
+        if (live) setPeople(r.data?.performers ?? []);
+      });
+    return () => {
+      live = false;
+    };
+  }, [jobId, step.stepKey]);
+  if (people === null) return null;
+  return (
+    <div className="cluster mt-1">
+      <select
+        className="select"
+        aria-label={`Hand ${step.stepKey} to`}
+        value={choice}
+        onChange={(e) => {
+          setChoice(e.target.value);
+        }}
+      >
+        <option value="">Hand to…</option>
+        {people
+          .filter((p) => p.userId !== step.assignee?.userId)
+          .map((p) => (
+            <option key={p.userId} value={p.userId}>
+              {p.displayName}
+              {p.gradeName === null ? "" : ` (${p.gradeName})`}
+            </option>
+          ))}
+      </select>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={busy || choice === ""}
+        aria-label={`Hand over ${step.stepKey}`}
+        onClick={() => {
+          onHand(choice);
+          setChoice("");
+        }}
+      >
+        Hand over
+      </Button>
+    </div>
+  );
+}
+

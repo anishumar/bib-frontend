@@ -8118,6 +8118,208 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/assignee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put a step on somebody's desk — take it, hand it over, or release it
+         * @description The process names a grade band per step; only somebody inside it may hold the step. Every move is a ledger row saying which of the three it was.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AssignStepRequest"];
+                };
+            };
+            responses: {
+                /** @description The step, on its new desk */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStep"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job or step at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The step is finished, the person is not staff here, or is outside the step's band */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/performers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who may do this step — active staff inside its grade band */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The people */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StepPerformersResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my-steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every open process step on the session user's desk, across jobs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The steps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MyStepsResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps/{stepKey}/decide": {
         parameters: {
             query?: never;
@@ -16690,6 +16892,13 @@ export interface components {
             model: string;
             promptVersion: string;
         } | null;
+        /** @description The grade band the process names for this step, or null for anybody (0301). Ranks are compared; codes are what a person reads. */
+        StepPerformer: {
+            minGradeRank: number | null;
+            minGradeCode: string | null;
+            maxGradeRank: number | null;
+            maxGradeCode: string | null;
+        } | null;
         JobStep: {
             /** Format: uuid */
             id: string;
@@ -16718,9 +16927,50 @@ export interface components {
              */
             performedBy: string | null;
             proposal: components["schemas"]["AgentProposal"];
+            performer: components["schemas"]["StepPerformer"];
+            /** @description Whose desk it sits on — expected to do it, as distinct from performedBy, who did. Null: nobody in particular; anybody inside the band may take it. */
+            assignee: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string;
+            } | null;
+            /** @description Whether the SESSION's user may tick this step, computed where the refusal is, so the button and the 409 cannot disagree. */
+            viewer: {
+                mayComplete: boolean;
+                /** @enum {string|null} */
+                reason: "ON_ANOTHER_DESK" | "OUTSIDE_BAND" | null;
+            };
         };
         JobStepsResponse: {
             steps: components["schemas"]["JobStep"][];
+        };
+        AssignStepRequest: {
+            /**
+             * Format: uuid
+             * @description Whose desk to put it on. Your own id takes it; null releases it.
+             */
+            userId: string | null;
+        };
+        StepPerformersResponse: {
+            performers: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string;
+                gradeName: string | null;
+            }[];
+        };
+        MyStep: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            jobId: string;
+            stepKey: string;
+            label: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
+        };
+        MyStepsResponse: {
+            steps: components["schemas"]["MyStep"][];
         };
         DecideProposalRequest: {
             /**

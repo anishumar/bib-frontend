@@ -10,6 +10,7 @@ import { longInstant } from "@/lib/day";
 import { Empty, Loading } from "@/components/states";
 import {
   Card,
+  CardTitle,
   ErrorNotice,
   LinkButton,
   Pill,
@@ -82,6 +83,17 @@ import {
 export default function WorkPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
+  /** Process steps on the session user's own desk, across jobs (0301). */
+  const [mySteps, setMySteps] = useState<{ id: string; jobId: string; stepKey: string; label: string; status: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    void api.GET("/api/v1/my-steps", {}).then((r) => {
+      if (live) setMySteps(r.data?.steps ?? []);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
   const [checks, setChecks] = useState<StepCheck[]>([]);
   const [tab, setTab] = useState<"work" | "checks">("work");
   // Shared with every `<TabPanel>` below — it is what ties a tab to the panel
@@ -145,6 +157,27 @@ export default function WorkPage() {
         ]}
       />
 
+      {tab === "work" && mySteps.length > 0 && (
+        <Card>
+          <CardTitle level={2}>Steps on your desk</CardTitle>
+          <ul className="mt-2 grid gap-1">
+            {mySteps.map((st) => {
+              const job = jobs.find((j) => j.id === st.jobId);
+              return (
+                <li key={st.id} className="text-sm">
+                  <Link href={`/work/${st.jobId}`}>{st.label}</Link>
+                  <span className="muted">
+                    {" "}
+                    · {job?.entityName ?? "a job"}
+                    {job?.periodLabel ? ` · ${job.periodLabel}` : ""}
+                    {st.status === "blocked" ? " · waiting for you" : " · waiting on an earlier step"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
       <TabPanel tabsId={tabsId} value={tab}>
       {tab === "checks" ? (
         <CheckQueue checks={checks} />
