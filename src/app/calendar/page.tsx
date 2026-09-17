@@ -491,6 +491,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
  *  the ordinary state of advisory work and is the longest list at every firm. */
 const REASON_ORDER: CoverageReason[] = [
   "entity_not_registered",
+  "rules_unconfirmed",
   "rules_need_a_formula",
   "rules_retired",
   "no_rule_for_jurisdiction",
@@ -525,6 +526,16 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
       "\"within a statutory period after the AGM\", \"State-specific\", \"7 working days\". " +
       "Each rule says exactly what it is waiting for.",
     fix: "This is the list worth clearing: one fact each, and the filings start appearing.",
+    where: { href: "/admin/obligation-rules", label: "Open the rules" },
+  },
+  rules_unconfirmed: {
+    title: "A rule could date this, and nobody has confirmed it",
+    what:
+      "A shipped rule reaches this engagement and can compute its dates, but nobody at the firm " +
+      "has checked it against the statute. Until somebody does, it puts nothing on the calendar " +
+      "— a shipped rule names no service, so confirmed it would reach every client in its " +
+      "country, and that is a claim only the firm can make.",
+    fix: "Confirm the rule, and say which service owes the filing so it reaches only the clients who bought it.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_retired: {

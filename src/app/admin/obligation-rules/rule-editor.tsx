@@ -418,7 +418,11 @@ export function RuleEditor({
               onChange={(e) => { set("entityType", e.target.value); }}
             />
           </Field>
-          <Field label="Owed by clients who bought" optional>
+          <Field
+            label="Owed by clients who bought"
+            optional
+            hint="Any service means every client with a live engagement in this country owes it. If only the clients who bought one service do, name it here — a bookkeeping client whose service excludes the filing should never see it on their portal."
+          >
             <Select
               value={draft.serviceEntryId}
               onChange={(e) => { set("serviceEntryId", e.target.value); }}

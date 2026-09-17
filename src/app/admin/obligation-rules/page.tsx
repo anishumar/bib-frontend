@@ -403,6 +403,18 @@ function Rules() {
             <Notice>
               <p>
                 <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
+                {/* A shipped rule generates NOTHING until the firm confirms it:
+                    a pack row names no service, so confirmed it reaches every
+                    client in its country — which is a claim only the firm can
+                    make. So the count of unconfirmed formulas is a control too. */}
+                <Button
+                  variant="link"
+                  onClick={() => { setFilter(filter === "unconfirmed" ? "" : "unconfirmed"); }}
+                >
+                  {counts.get("unconfirmed") ?? 0} can compute a date but are not yet confirmed
+                </Button>{" "}
+                &mdash; nothing goes on the calendar from those until somebody here checks
+                them against the statute, and says which service owes them.{" "}
                 {/* THE COUNT IS THE CONTROL. It was a number for three tasks
                     and the list it described was four clicks away — so the one
                     thing this screen exists to get answered was the hardest
@@ -442,6 +454,7 @@ function Rules() {
                 >
                   <option value="">Every rule</option>
                   <option value="generating">Producing dates</option>
+                  <option value="unconfirmed">Not yet confirmed</option>
                   <option value="needs_formula">Waiting on a fact</option>
                   <option value="event_driven">Event-driven</option>
                   <option value="retired">Retired</option>
@@ -776,6 +789,7 @@ const LABEL: Record<RuleCoverage, string> = {
   generating: "producing dates",
   needs_formula: "waiting on a fact",
   event_driven: "event-driven",
+  unconfirmed: "not yet confirmed",
   retired: "retired",
 };
 
@@ -786,6 +800,9 @@ const TONE: Record<RuleCoverage, PillTone> = {
   generating: "neutral",
   needs_formula: "ok",
   event_driven: "neutral",
+  // The other list worth clearing: a formula this system can run and nobody
+  // has checked. It puts nothing on the calendar until somebody does.
+  unconfirmed: "ok",
   retired: "danger",
 };
 

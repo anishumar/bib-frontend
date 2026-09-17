@@ -15399,7 +15399,7 @@ export interface components {
              * @description What this rule is actually doing, derived rather than stored. 'needs_formula' is NOT an error and is the ordinary state of most of the shipped pack — it means the obligation is real and its timing depends on a fact this system does not hold (an AGM date, a State, a turnover). The reason is on the rule.
              * @enum {string}
              */
-            coverage: "generating" | "needs_formula" | "event_driven" | "retired";
+            coverage: "generating" | "needs_formula" | "event_driven" | "unconfirmed" | "retired";
             exceptions: components["schemas"]["ObligationException"][];
             /** @description How many calendar rows this rule has produced, ever. */
             instanceCount: number;
@@ -15533,7 +15533,7 @@ export interface components {
              * @description Why the calendar produced nothing for this engagement. NONE of these is an error: 'no_rule_names_this_service' is the ordinary state of advisory work. Each names something a partner can do next, which is the point — an empty calendar with no explanation is indistinguishable from broken software.
              * @enum {string}
              */
-            reason: "entity_not_registered" | "no_rule_names_this_service" | "no_rule_for_jurisdiction" | "rules_need_a_formula" | "rules_retired" | "nothing_due_yet";
+            reason: "entity_not_registered" | "no_rule_names_this_service" | "no_rule_for_jurisdiction" | "rules_need_a_formula" | "rules_retired" | "rules_unconfirmed" | "nothing_due_yet";
             /** @description Rules that name this service but could not be used, so the screen can link straight to them. */
             blockedRuleIds: string[];
         };
