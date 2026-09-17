@@ -223,6 +223,9 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
             <> · billed to {job.clientName}</>
           )}
           {job.splitCode !== null && <> · {job.splitCode}</>}
+          {/* The period, on a per-period job (T6.13): this is September's
+              checklist, not the engagement's. */}
+          {job.periodLabel !== null && <> · {job.periodLabel}</>}
           <br />
           {job.services.length === 0
             ? "No services listed against this job."

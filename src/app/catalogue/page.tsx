@@ -518,7 +518,7 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
           body.recurrence.replace("_", " ")
         )}
       </MetaItem>
-      <MetaItem label="Turnaround (SLA)">{slaSentence(body.slaDays)}</MetaItem>
+      <MetaItem label="Turnaround">{slaSentence(body.slaDays, body.recurrence)}</MetaItem>
       <MetaItem label="List price">
         {/* Null is "we quote it", never zero and never free. */}
         {body.listPrice === null ? (
@@ -838,8 +838,8 @@ function ServiceFields({
         </Field>
         <Field
           id={`${id}-slaDays`}
-          label="SLA, days from signing"
-          hint="Blank is NO SLA. It is not 0 — 0 commits the firm to the day of signing."
+          label="Turnaround, days"
+          hint="From signing for a one-time service; from the END of each period for a monthly, quarterly or annual one — 10 means by the 10th of the following month. Blank is NO turnaround. It is not 0 — 0 commits the firm to the day itself."
         >
           <Input
             name="slaDays"
@@ -1262,10 +1262,14 @@ function readOneOf(v: unknown, allowed: readonly string[]): string | null {
 /** Whole days from signing of the engagement letter, or the fact that nobody
  *  committed to any. Null is NOT zero: zero is a commitment to the day of
  *  signing, and "0 days" where nobody committed would be a lie on a screen. */
-function slaSentence(days: number | null): ReactNode {
-  if (days === null) return <NotStated>no SLA stated — not the same as none</NotStated>;
-  if (days === 0) return "Due on the day the letter is signed";
-  return `${days} ${days === 1 ? "day" : "days"} from signing`;
+function slaSentence(days: number | null, recurrence: string | null): ReactNode {
+  if (days === null) return <NotStated>no turnaround stated — not the same as none</NotStated>;
+  // A recurring service counts from the end of each period (T6.13): "by the
+  // 10th of the following month" is exactly ten days after a month ends.
+  const recurring = recurrence === "monthly" || recurrence === "quarterly" || recurrence === "annually";
+  if (days === 0) return recurring ? "Due the day each period ends" : "Due on the day the letter is signed";
+  const unit = days === 1 ? "day" : "days";
+  return recurring ? `${days} ${unit} after each period ends` : `${days} ${unit} from signing`;
 }
 
 // ── Failures ─────────────────────────────────────────────────────────────────

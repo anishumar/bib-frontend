@@ -8578,8 +8578,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The firm's jobs that are ready to run
-         * @description What the engine currently has in hand: jobs whose window has opened and that have not reached a terminal state. A job waiting on a future date is deliberately absent — the calendar is materialised ahead of time, and showing a year of it as 'ready' would bury the work that actually is.
+         * The firm's open jobs — in hand, and upcoming
+         * @description Every job that has not reached a terminal state, soonest window first. A job whose `runnableAt` is still ahead is UPCOMING: a per-period job exists from the day its period begins and opens the day after it ends, and the board shows it for the whole month so the firm can plan from it. Nothing is materialised for a period that has not begun, which is what keeps this from being a year of empty checklists.
          */
         get: {
             parameters: {
@@ -16800,10 +16800,10 @@ export interface components {
             /** Format: uuid */
             id: string;
             /**
-             * @description What caused this job to exist. `engagement_group` is several of a letter's engagements merged into one checklist, because the firm splits its work by Dept or by delivery team.
+             * @description What caused this job to exist. `engagement_group` is several of a letter's engagements merged into one checklist, because the firm splits its work by Dept or by delivery team. `engagement_period` is ONE PERIOD of a recurring engagement's work — September's bookkeeping — and carries `periodStart`, `periodEnd` and `periodLabel`; there is one per period for as long as the engagement is active.
              * @enum {string}
              */
-            sourceKind: "engagement" | "obligation" | "engagement_group";
+            sourceKind: "engagement" | "obligation" | "engagement_group" | "engagement_period";
             /**
              * Format: uuid
              * @description The id of that cause — an engagement, later an obligation instance. For a merged job it names NO row: it is the group key, derived, and it exists so a redelivered trigger conflicts instead of building a second checklist. At most one OPEN job per cause per firm. To list what a merged job actually delivers, read `engagementIds`.
@@ -16826,6 +16826,12 @@ export interface components {
             splitAxis: "none" | "dept" | "team";
             /** @description The Dept or delivery team this job's work is filed under. Null on `none`, and null on a splitting firm whose service is filed under nothing — both real answers. */
             splitCode: string | null;
+            /** @description The first day of the period an `engagement_period` job is for, `YYYY-MM-DD`. Null on every other kind. */
+            periodStart: string | null;
+            /** @description The last day of that period, `YYYY-MM-DD`. Null on every other kind. */
+            periodEnd: string | null;
+            /** @description What a person calls the period — `Sep 2026`, `Q2 FY2026-27`. The board renders it beside the services, because twelve identical bookkeeping cards are twelve cards nobody can tell apart. Null on every other kind. */
+            periodLabel: string | null;
             /**
              * @description The ENGINE's own mechanics, not the firm's vocabulary — identical at every firm, unlike a work item's states, which a firm names for itself.
              * @enum {string}

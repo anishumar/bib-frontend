@@ -30,12 +30,15 @@ import {
  * to return uuids; `GET /api/v1/jobs` has been a write with no read since T2.6,
  * which is exactly the shape CLAUDE.md warns about. It has a screen now.
  *
- * ── WHAT IT DOES NOT SHOW, AND WHY ──────────────────────────────────────────
+ * ── WHAT IS UPCOMING, AND WHY IT IS HERE (T6.13) ────────────────────────────
  *
- * A job whose window has not opened yet is absent. The calendar is materialised
- * a year ahead, and showing all of it as "ready" would bury the work that
- * actually is — the API makes that choice and this screen does not second-guess
- * it.
+ * A recurring service — monthly bookkeeping — gets a job PER PERIOD. That job
+ * exists from the day its month begins and OPENS the day after the month ends,
+ * so for the whole month it is on this board as upcoming, with the day it
+ * opens where a ready job shows the moment it became ready. That is the row a
+ * partner plans capacity from, and it is why the list is no longer only what
+ * is runnable. Nothing is materialised for a month that has not begun, which
+ * is what keeps this from being a year of empty checklists.
  *
  * ── WHAT A ROW IS, AFTER THE MERGE (T2.7) ───────────────────────────────────
  *
@@ -126,7 +129,7 @@ export default function WorkPage() {
       <PageHeader
         eyebrow="Delivery"
         title="The engine"
-        lede="Everything the engine has in hand: work a signed engagement created, and how far each piece has got. Work whose window has not opened yet is not listed."
+        lede="Everything the engine has open: work a signed engagement created, and how far each piece has got. A recurring service gets a job for each month or quarter as it begins, shown as upcoming with the day it opens."
       />
 
       <ErrorNotice error={error} />
@@ -160,7 +163,7 @@ export default function WorkPage() {
                 <Th>Work</Th>
                 <Th>For</Th>
                 <Th>State</Th>
-                <Th>Ready since</Th>
+                <Th>Ready since / opens</Th>
                 <Th>
                   <span className="sr-only">Actions</span>
                 </Th>
@@ -184,9 +187,14 @@ export default function WorkPage() {
                         ))}
                       </>
                     )}
-                    {j.splitCode !== null && (
+                    {/* WHICH month or quarter, on a per-period job. Twelve
+                        identical bookkeeping cards are twelve cards nobody can
+                        tell apart, and this is the one word that does. */}
+                    {(j.periodLabel !== null || j.splitCode !== null) && (
                       <Sub>
-                        <Pill tone="code">{j.splitCode}</Pill>
+                        {j.periodLabel !== null && <Pill tone="neutral">{j.periodLabel}</Pill>}
+                        {j.periodLabel !== null && j.splitCode !== null && " "}
+                        {j.splitCode !== null && <Pill tone="code">{j.splitCode}</Pill>}
                       </Sub>
                     )}
                   </Td>
@@ -204,7 +212,17 @@ export default function WorkPage() {
                     <JobState job={j} />
                   </Td>
                   <Td>
-                    <span className="mono">{longInstant(j.runnableAt)}</span>
+                    {/* An instant, parsed and shown where the reader is (T6.9)
+                        — and for a job whose window is still ahead, the day it
+                        opens, said as such. */}
+                    {isUpcoming(j) ? (
+                      <>
+                        <Pill tone="quiet">upcoming</Pill>
+                        <Sub>opens {longInstant(j.runnableAt)}</Sub>
+                      </>
+                    ) : (
+                      <span className="mono">{longInstant(j.runnableAt)}</span>
+                    )}
                   </Td>
                   <Td align="right">
                     {/* Six links reading "Open", which is a list of six
@@ -310,6 +328,13 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
       </Table>
     </TableWrap>
   );
+}
+
+/** Whether a job's window has not opened yet — a per-period job during its
+ *  own month. Compared as instants, which is what `runnableAt` is. */
+function isUpcoming(job: Job): boolean {
+  const opens = Date.parse(job.runnableAt);
+  return !Number.isNaN(opens) && opens > Date.now();
 }
 
 /**
