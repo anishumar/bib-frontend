@@ -346,6 +346,19 @@ function isUpcoming(job: Job): boolean {
  * there for a week deserves to be told which of those it is.
  */
 function JobState({ job }: { job: Job }) {
+  // A per-period job pins the firm's process on the day it OPENS, not the day
+  // it is spawned (T6.13) - so for the whole month before that it carries no
+  // template, and that is not the firm having written nothing. Saying
+  // "waiting for a process" about September's close on the 17th of September
+  // sent a partner to the process editor to find v1 already in force.
+  if (job.status === "pending" && isUpcoming(job)) {
+    return (
+      <>
+        <Pill tone="quiet">not open yet</Pill>
+        <Sub>the process is pinned on the day it opens</Sub>
+      </>
+    );
+  }
   if (job.status === "pending" && job.templateVersionId === null) {
     return (
       <>
