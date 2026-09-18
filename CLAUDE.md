@@ -252,6 +252,7 @@ porting a screen; it is invisible in the source.
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
+| `/admin/firm` | **the firm itself** — which company issues its letters and where it is registered, who signs for it and as what, and from which day its deadlines count + when its financial year starts. Four facts every firm sets once; all four were API-only until 2026-09-18 |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
@@ -593,7 +594,7 @@ So they are three top-level sections, each a subject a partner would recognise:
 
 | Section | Is | Screens |
 |---|---|---|
-| **The firm** | who works here and how it is shaped | People · Roles · Grades · Structure · Territories |
+| **The firm** | who works here and how it is shaped | The firm itself · People · Roles · Grades · Structure · Territories |
 | **How work runs** | what puts work on the board, what it is called there, and who signs it off | Compliance rules · Calendar words · Processes · Work states · Who checks work · Escalation ladder |
 | **Documents** | what a client actually receives | Standard prose · Brand |
 
@@ -692,6 +693,32 @@ Fixed in the API rather than joined here, per the rule above:
 
 The uuid is still the FALLBACK wherever a name comes back null. A bar that silently drops the
 firm is worse than one showing a uuid.
+
+## `/admin/firm` — the firm on paper, and why a new firm could not set itself up (2026-09-18)
+
+Loading the first real firm was scripted, and the script's own comment listed **four steps that
+had no screen**: the firm's own legal entity, its signatory, a clause for its own country, and the
+compliance floor. Each one blocks something a firm cannot see coming — an unregistered issuing
+company means every engagement letter is refused (G1.8); no signatory means no letter can be sent;
+no clause for the country means every imported engagement reads BLOCKING; no floor means the first
+morning after an import is hundreds of MISSED filings. A product sold to a second firm cannot
+onboard that firm by having an engineer run a script.
+
+**`/admin/firm` holds three of the four, and `/catalogue` gained the fourth.** The issuing company
+is read off `/firm-entities/preferences` — the `*` fallback row every firm gets at provisioning —
+and registered through the same route the client page uses; the signatory is a roster picker over
+active STAFF plus a title; the floor and the financial-year start are `compliance_policy`'s
+`default` entry, defined on a firm that has none or drafted as the next version on one that has,
+and PUT IN FORCE in the same act. A draft floor governs nothing, and a screen that left one lying
+around would look set while every sweep ignored it. **Every consequence is said before the form,
+not after the refusal** — the paragraph under each card says what happens while the fact is
+missing.
+
+**The clause writer sits with the clause list, and writes-and-publishes in one press.** There is
+no clause editor to come back to, so a draft would be a clause the list marks "never in force"
+that no letter can pin. A half-written term — a country with no words — is SENT as typed, so the
+registry's own refusal reaches the screen (*"never half a statement"*, verbatim) instead of being
+tidied here into a clause that silently names no law. Proven by trying it.
 
 ## `/admin/structure` — and the one control that says it is not live yet
 

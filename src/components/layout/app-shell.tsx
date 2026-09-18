@@ -209,6 +209,10 @@ const GROUPS: NavGroup[] = [
     label: "The firm",
     icon: "people",
     items: [
+      /* The firm on paper: which company it is, who signs for it, and from
+         which day its deadlines count. Four facts every firm sets once, and
+         until this screen existed all four were reachable only by API. */
+      { href: "/admin/firm", label: "The firm itself", icon: "structure", needs: "tenant:admin" },
       { href: "/admin/people", label: "People", icon: "people", needs: "tenant:admin" },
       { href: "/admin/roles", label: "Roles", icon: "roles", needs: "tenant:admin" },
       { href: "/admin/grades", label: "Grades", icon: "grades", needs: "tenant:admin" },

@@ -154,6 +154,24 @@ export default function CataloguePage() {
     );
   }
 
+  /** A clause is written and put in force in one act. There is no clause
+   *  editor to come back to, so a draft left here would be a clause the list
+   *  above marks "never in force" that no letter can pin — a thing that looks
+   *  written and is not. */
+  function defineClause(form: FormData): void {
+    const key = String(form.get("key") ?? "").trim();
+    void act("clause", async () => {
+      const defined = await api.POST("/api/v1/config/{kind}", {
+        params: { path: { kind: "clause" } },
+        body: { key, body: clauseBody(form) },
+      });
+      if (defined.error) return defined;
+      return api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
+        params: { path: { kind: "clause", key, version: 1 } },
+      });
+    });
+  }
+
   if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
 
   const canWrite = permissions.includes("tenant:admin");
@@ -280,6 +298,69 @@ export default function CataloguePage() {
           <p className="text-sm text-muted">No clauses defined yet.</p>
         ) : (
           clauses.map((entry) => <ClauseCard key={entry.entry.id} entry={entry} />)
+        )}
+        {/* THE WRITER. The library was listed here from the start and could
+            only be filled by API: a firm with no clause for its own country
+            cannot issue a letter at all — every engagement row on an import
+            reads BLOCKING — and until this form existed nothing on any screen
+            said how to fix that. */}
+        {canWrite && (
+          <form
+            action={(form) => {
+              defineClause(form);
+            }}
+            className="stack"
+            style={{ borderTop: "1px solid var(--line)", paddingTop: "var(--s-4)", marginTop: "var(--s-4)" }}
+          >
+            <CardTitle>Write a clause</CardTitle>
+            <p className="text-sm text-muted">
+              Put in force the moment it is saved. A letter pins the version it was drafted from,
+              so editing the wording later is a new clause or a new version — never a change to a
+              letter already out.
+            </p>
+            <FieldRow>
+              <Field label="Handle" hint="Lower case, permanent. A letter pins it by this.">
+                <Input name="key" placeholder="governing-law-in" required />
+              </Field>
+              <Field label="Title">
+                <Input name="title" placeholder="Governing law and jurisdiction" required />
+              </Field>
+            </FieldRow>
+            <Field label="The clause, as it prints">
+              <Textarea name="text" rows={4} required />
+            </Field>
+            <FieldRow>
+              <Field
+                label="Usable in"
+                optional
+                hint="Country codes, comma-separated. Blank means everywhere."
+              >
+                <Input name="jurisdictions" placeholder="IN, AE" />
+              </Field>
+            </FieldRow>
+            <FieldRow>
+              <Field label="Governing law — country" optional hint="Only on the clause that names whose law governs.">
+                <Input name="lawJurisdiction" maxLength={2} placeholder="IN" style={{ textTransform: "uppercase" }} />
+              </Field>
+              <Field label="Governing law — the words" optional>
+                <Input name="lawText" placeholder="the laws of the Republic of India" />
+              </Field>
+            </FieldRow>
+            <FieldRow>
+              <Field label="Courts — country" optional>
+                <Input name="courtsJurisdiction" maxLength={2} placeholder="IN" style={{ textTransform: "uppercase" }} />
+              </Field>
+              <Field label="Courts — the words" optional>
+                <Input name="courtsText" placeholder="the courts at New Delhi" />
+              </Field>
+            </FieldRow>
+            {noteFor("clause")}
+            <div className="cluster">
+              <Button type="submit" disabled={busy !== null}>
+                Write it and put it in force
+              </Button>
+            </div>
+          </form>
         )}
       </Card>
 
@@ -970,6 +1051,31 @@ type ScopeBlockField = "scope" | "clientObligations" | "volumeLimits" | "exclusi
  * upper-casing here would make this app the only place that rule is enforced,
  * and the person who typed "frc" would never learn it.
  */
+/** A clause body off the form. A half-filled term — a country with no words,
+ *  or words with no country — is SENT as it is, so the registry's own refusal
+ *  ("never half a statement") reaches the screen rather than being tidied
+ *  away here into a clause that silently names no law. */
+function clauseBody(form: FormData): Record<string, unknown> {
+  const codes = String(form.get("jurisdictions") ?? "")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s !== "");
+  const term = (prefix: string): { jurisdiction: string; text: string } | null => {
+    const jurisdiction = String(form.get(`${prefix}Jurisdiction`) ?? "").trim().toUpperCase();
+    const text = String(form.get(`${prefix}Text`) ?? "").trim();
+    return jurisdiction === "" && text === "" ? null : { jurisdiction, text };
+  };
+  const governingLaw = term("law");
+  const courts = term("courts");
+  return {
+    title: String(form.get("title") ?? "").trim(),
+    text: String(form.get("text") ?? "").trim(),
+    jurisdictions: codes,
+    ...(governingLaw === null ? {} : { governingLaw }),
+    ...(courts === null ? {} : { courts }),
+  };
+}
+
 function serviceBody(form: FormData): Record<string, unknown> {
   const body: Record<string, unknown> = {
     name: String(form.get("name") ?? "").trim(),
