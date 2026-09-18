@@ -462,7 +462,19 @@ function TemplateCard({
 
 /** The process as a person reads it: each step, who does it, and what it waits
  *  for. Read-only — editing is a deliberate act behind a button. */
+/** The band in the ladder's own words — "Analyst to Senior Associate",
+ *  "Manager or above" — or null when the step is anybody's. Names, not codes:
+ *  this is the sentence a partner reads to answer "who does this step". */
+function bandWords(min: string, max: string, grades: readonly { code: string; name: string }[]): string | null {
+  if (min === "" && max === "") return null;
+  const name = (code: string): string => grades.find((g) => g.code === code)?.name ?? code;
+  if (min !== "" && max !== "") return min === max ? name(min) : `${name(min)} to ${name(max)}`;
+  if (min !== "") return `${name(min)} or above`;
+  return `${name(max)} or below`;
+}
+
 function StepList({ steps }: { steps: readonly StepDraft[] }) {
+  const grades = useGrades();
   if (steps.length === 0) return <p className="text-sm text-muted">No steps.</p>;
   return (
     /* NUMBERED. `[data-tw] ol` sets `list-style: none`, so the 1.2rem of left
@@ -475,6 +487,13 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
           <strong>{s.label || s.key}</strong>{" "}
           <span className="text-sm text-muted">
             · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
+            {/* WHO, in the summary (0301). The band was stored and read back
+                and the published list still said "A person" on every step —
+                the one fact a process is now written to carry, visible only
+                behind "Change it". */}
+            {bandWords(s.performerMin, s.performerMax, grades) !== null && (
+              <> · for {bandWords(s.performerMin, s.performerMax, grades)}</>
+            )}
             {s.dependsOn.length > 0 && <> · after {s.dependsOn.join(", ")}</>}
             {s.conditionFact !== "" && (
               <>
