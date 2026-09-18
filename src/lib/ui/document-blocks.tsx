@@ -119,12 +119,11 @@ export function DocumentBlocks({
     <Card>
       <CardTitle level={2}>Exclusions, notes and team</CardTitle>
       <p className="muted text-md">
-        Not the terms — those are the clauses, drawn from the firm&rsquo;s versioned library.
-        These are this document&rsquo;s own exclusions, commercial notes and team block, copied
-        from the firm&rsquo;s standard set when it was drafted and this document&rsquo;s from
-        then on. Editing the standard set on{" "}
-        <span className="mono">/admin/document-blocks</span> changes the next document and never
-        this one.
+        These are this document&rsquo;s own exclusions, commercial notes and team block. They
+        were copied from your firm&rsquo;s standard text when the document was drafted, and
+        belong to this document from then on. Changing the standard text on Standard prose
+        affects the next document, never this one. The terms themselves are the clauses, which
+        come from the clause library.
       </p>
       {!editable && <p className="muted text-md">{frozenNote}</p>}
 

@@ -153,7 +153,7 @@ export default function PeoplePage() {
       <PageHeader
         eyebrow="The firm"
         title="People"
-        lede="Who works at the firm, what their role reaches, how senior they are, and who they report to. Four independent axes — changing one never changes another."
+        lede="Everyone who works at the firm: their role (what they can open), their grade (how senior they are), who they report to, and whether they can see fees. Each of these is set separately."
         aside={<Pill tone="quiet">{members.length} on the roster</Pill>}
       />
 
@@ -221,7 +221,7 @@ export default function PeoplePage() {
                       {/* Ungraded is offered as a choice, not shown as an empty
                           cell: taking somebody off the ladder is a decision, and a
                           portal contact belongs on no rung at all. */}
-                      <option value="">— not graded —</option>
+                      <option value="">not graded</option>
                       {/* A retired rung is offered only to the person already on
                           it. The API refuses it for anybody else, and offering
                           what will fail is just a slower error. */}
@@ -248,7 +248,7 @@ export default function PeoplePage() {
                       {/* Nobody is a real answer, not a blank to be filled in
                           later: a partner reports to nobody, and so does everybody
                           at a firm that has not recorded this. */}
-                      <option value="">— nobody —</option>
+                      <option value="">nobody</option>
                       {/* Active STAFF only, and never themselves. The API refuses
                           both — a client contact in the firm's reporting line
                           would make a client eligible to check the firm's work,
@@ -303,8 +303,9 @@ export default function PeoplePage() {
           </Table>
         </TableWrap>
         <p className="field-hint">
-          Revoking takes effect on their next request, not at their next sign-in. A grade is
-          seniority only — it grants nothing, and it is what review rules compare.
+          Revoking access takes effect straight away, not at their next sign-in. A grade only
+          says how senior somebody is. It does not change what they can open, and it is what
+          review rules compare.
         </p>
       </Stack>
 
@@ -429,7 +430,7 @@ function AddMember({
                 ))}
               </Select>
             </Field>
-            <Field label="Surface">
+            <Field label="Signs in to">
               <Select value={audience} onChange={(e) => { setAudience(e.target.value); }}>
                 <option value="STAFF">Staff workspace</option>
                 <option value="CLIENT_PORTAL">Client portal</option>
@@ -442,10 +443,10 @@ function AddMember({
               <p>
                 <strong>
                   This role carries {strandedPermissions.length} permission
-                  {strandedPermissions.length === 1 ? "" : "s"} a client-portal login cannot
-                  use.
+                  {strandedPermissions.length === 1 ? "" : "s"} that a client-portal login
+                  cannot use.
                 </strong>{" "}
-                A portal session reaches only its own sign-in and org-switch routes, so{" "}
+                A client-portal login can only sign in and choose a firm, so{" "}
                 {strandedPermissions.join(", ")} will not apply. They will still be listed as
                 “
                 {readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body)
@@ -457,7 +458,7 @@ function AddMember({
 
           <Checkbox
             label="Can see fees"
-            note="separate from their role, on purpose."
+            note="set separately from their role."
             checked={seesFees}
             onChange={(e) => { setSeesFees(e.target.checked); }}
           />
@@ -465,7 +466,7 @@ function AddMember({
           {outcome !== null && (
             <Notice
               tone={outcome.sent ? "ok" : "warn"}
-              eyebrow={outcome.sent ? "Added" : "Added, not written to"}
+              eyebrow={outcome.sent ? "Added" : "Added, but no email sent"}
             >
               <p>
                 {outcome.sent ? (
@@ -476,16 +477,16 @@ function AddMember({
                   </>
                 ) : outcome.audience === "CLIENT_PORTAL" ? (
                   <>
-                    <strong>No email was sent, and that is deliberate.</strong> A portal login
-                    made here can read nothing until it is granted a client, so there would be
-                    nothing to invite them to. Invite a client&rsquo;s own people from that
-                    client&rsquo;s page instead.
+                    <strong>No email was sent.</strong> A client-portal login made here cannot
+                    see anything until it is given a client, so there is nothing to invite them
+                    to yet. Invite a client&rsquo;s own people from that client&rsquo;s page
+                    instead.
                   </>
                 ) : (
                   <>
-                    <strong>{outcome.email} was added, but the letter did not go out.</strong>{" "}
-                    They still have access — tell them to sign in at the login page with this
-                    address and ask for a link. The mail failure is in the server log.
+                    <strong>{outcome.email} was added, but the email did not go out.</strong>{" "}
+                    They still have access. Ask them to go to the sign-in page, enter this
+                    address and request a link. The email failure is recorded in the server log.
                   </>
                 )}
               </p>
@@ -498,8 +499,8 @@ function AddMember({
             </Button>
             <p className="field-hint">
               Staff are emailed a sign-in link that lasts 72 hours. A client-portal login is
-              not — invite a client&rsquo;s people from that client&rsquo;s page, where the
-              invite grants access at the same time.
+              not emailed from here. Invite a client&rsquo;s people from that client&rsquo;s
+              page, where the invite also gives them access.
             </p>
           </div>
         </div>

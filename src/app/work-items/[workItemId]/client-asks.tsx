@@ -56,9 +56,9 @@ type AskKind = ClientAsk["askKind"];
 type AskDocumentKind = NonNullable<ClientAsk["documentKind"]>;
 
 const KINDS: readonly { value: AskKind; label: string }[] = [
-  { value: "document", label: "A document — they upload a file" },
-  { value: "question", label: "A question — they answer in words" },
-  { value: "approval", label: "An approval — they say yes or no" },
+  { value: "document", label: "A document (they upload a file)" },
+  { value: "question", label: "A question (they answer in words)" },
+  { value: "approval", label: "An approval (they say yes or no)" },
 ];
 
 /** What an uploaded answer gets FILED as. The firm chooses when it asks; the
@@ -159,9 +159,8 @@ export function ClientAsks({
         {!isClientVisible && (
           <Notice tone="warn" eyebrow="This task is hidden from the client portal">
             <p>
-              Anything asked here will not reach them while &ldquo;Show this on the client
-              portal&rdquo; is off — the portal hides an ask along with the task it belongs to.
-              Turn it on above, or raise the ask on a task they can see.
+              Anything asked here will not reach the client while &ldquo;Show this on the client
+              portal&rdquo; is off. Turn it on above, or ask on a task they can see.
             </p>
           </Notice>
         )}
@@ -170,8 +169,8 @@ export function ClientAsks({
 
         {open.length === 0 && settled.length === 0 && (
           <p className="muted">
-            Nothing has been asked of this client on this task. An ask goes to their portal with
-            somewhere to answer it — which is what the blocked reason above cannot do.
+            Nothing has been asked of the client on this task yet. A request goes to their
+            portal, where they can answer it.
           </p>
         )}
 
@@ -241,7 +240,7 @@ export function ClientAsks({
             </FieldRow>
             <Field
               label="Ask them, in your own words"
-              hint="Shown to the client verbatim, labelled as yours. There is deliberately no due date — the firm has never published its turnaround times, so a date here would be a promise nobody made."
+              hint="Shown to the client word for word, with your name on it. A request carries no due date."
             >
               <Textarea
                 rows={2}
@@ -333,11 +332,11 @@ function AskLine({
         {ask.chases.length > 0 && (
           <p className="muted">
             Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
-            {" — "}
+            {": "}
             {ask.chases
               .map((c) => `${c.rungKey} on ${longInstant(c.chasedAt)}`)
               .join(", ")}
-            . Sent automatically; nobody here pressed anything.
+            . These reminders were sent automatically.
           </p>
         )}
 
@@ -352,7 +351,7 @@ function AskLine({
                     the client sent it. The download route serves it as an
                     attachment and never inline, which is the one protection that
                     does exist. */}
-                <span className="muted"> · not scanned</span>
+                <span className="muted"> · not scanned for viruses</span>
               </>
             ) : r.decision !== null ? (
               r.decision === "approved" ? (
@@ -400,7 +399,7 @@ function AskLine({
  *  colleague needs to see to know somebody still has to look at it. */
 const STATUS_LABEL: Record<string, string> = {
   open: "Waiting on them",
-  answered: "Answered — needs a look",
+  answered: "Answered, needs a look",
   closed: "Closed",
   withdrawn: "Withdrawn",
 };

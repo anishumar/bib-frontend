@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { api, apiError } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -19,6 +20,13 @@ import {
 } from "@/components/ui";
 import type { EventRecord } from "@/lib/api/client";
 import { longMoment } from "@/lib/day";
+import {
+  describeActor,
+  describeVerb,
+  detailRows,
+  objectHref,
+  objectNoun,
+} from "@/lib/ui/audit-words";
 
 /**
  * The audit trail — every state transition the firm has made, newest first.
@@ -36,6 +44,15 @@ import { longMoment } from "@/lib/day";
  * erasure cannot mutate an append-only log. The actor's NAME is a read-time
  * join, not a stored field: erase the account and the name stops resolving
  * while the event survives.
+ *
+ * WHAT THE READER SEES IS IN WORDS, AND THE RECORD IS UNDERNEATH (2026-09-18).
+ * The first version printed the verb (`session.started`), the table name
+ * (`user_account`) and the payload as JSON, on the argument that an audit
+ * trail is read when something has gone wrong and prettifying stands between
+ * the reader and the record. Shrestha, looking at it: a partner cannot read
+ * that. Both are true, so the row says "Signed in" and the exact record sits
+ * under "Exact record" on the same row, folded away, in the same characters
+ * the database holds. `@/lib/ui/audit-words` is the dictionary.
  */
 export default function AuditPage() {
   return (
@@ -85,9 +102,11 @@ function AuditFeed() {
     })();
   }, [load]);
 
-  if (!loaded) return <Loading label="Loading the trail" />;
+  if (!loaded) return <Loading label="Loading the record" />;
 
   const scoped = objectType !== null && objectId !== null;
+  // "this task", "this invoice"; but "the firm", never "this the firm".
+  const subject = scoped ? thisNoun(objectNoun(objectType)) : null;
 
   return (
     <Page>
@@ -96,13 +115,13 @@ function AuditFeed() {
         title={scoped ? "History" : "Audit trail"}
         lede={
           scoped
-            ? `Everything that ever happened to this ${objectType}.`
-            : "Every state transition, newest first. Append-only — nothing here can be edited."
+            ? `Everything that has happened to ${subject ?? "this record"}, newest first.`
+            : "Everything that has happened in your firm's account, newest first. Entries are written automatically as people work, and nothing here can be changed or deleted."
         }
         aside={
           scoped ? (
             <LinkButton size="sm" href="/audit">
-              The whole trail
+              Back to the whole trail
             </LinkButton>
           ) : undefined
         }
@@ -113,7 +132,7 @@ function AuditFeed() {
       {events.length === 0 && error === null ? (
         <Card>
           <Empty title="Nothing recorded yet" icon="audit">
-            The trail fills itself as the firm works. Nothing writes to it by hand.
+            Entries appear here on their own as your firm works. Nothing is typed in by hand.
           </Empty>
         </Card>
       ) : (
@@ -122,70 +141,84 @@ function AuditFeed() {
             <thead>
               <tr>
                 <Th>When</Th>
-                <Th>What</Th>
-                <Th>Who</Th>
-                <Th>About</Th>
+                <Th>What happened</Th>
+                <Th>By whom</Th>
+                {!scoped && <Th>Record</Th>}
               </tr>
             </thead>
             <tbody>
-              {events.map((r) => (
-                <tr key={r.event.id}>
-                  <Td className="nowrap">
-                    <span className="mono">
-                      {longMoment(r.event.occurredAt)}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className="mono">{r.event.verb}</span>
-                  </Td>
-                  <Td>
-                    {/* Null is a real answer, not a gap: the system and agent
-                        actors have no account, and neither does a human whose
-                        account has since been erased. */}
-                    {r.actor === null ? (
-                      <span className="muted">{r.event.actorType}</span>
-                    ) : (
-                      (r.actor.displayName ?? r.actor.email)
+              {events.map((r) => {
+                const details = detailRows(r.event.payload);
+                const href = objectHref(r.event.objectType, r.event.objectId);
+                const noun = objectNoun(r.event.objectType);
+                return (
+                  <tr key={r.event.id}>
+                    <Td className="nowrap">
+                      <span className="mono">{longMoment(r.event.occurredAt)}</span>
+                    </Td>
+                    <Td>
+                      {/* A block with a max-width, because `.table` is
+                          `min-width: max-content` and a long sentence in a cell
+                          would otherwise widen the table until it scrolled. */}
+                      <div className="audit-what">
+                        {describeVerb(r.event.verb)}
+                        {details.length > 0 && (
+                          <Sub>{details.map((d) => `${d.label}: ${d.value}`).join(" · ")}</Sub>
+                        )}
+                        <details className="audit-record">
+                          <summary>Exact record</summary>
+                          <span className="mono">
+                            {r.event.verb} · {r.event.objectType} {r.event.objectId}
+                            {Object.keys(r.event.payload).length > 0 && (
+                              <>
+                                <br />
+                                {JSON.stringify(r.event.payload)}
+                              </>
+                            )}
+                          </span>
+                        </details>
+                      </div>
+                    </Td>
+                    <Td>
+                      {/* Null is a real answer, not a gap: the system and agent
+                          actors have no account, and neither does a human whose
+                          account has since been erased. */}
+                      {r.actor === null ? (
+                        <span className="muted">{describeActor(r.event.actorType)}</span>
+                      ) : (
+                        (r.actor.displayName ?? r.actor.email)
+                      )}
+                    </Td>
+                    {!scoped && (
+                      <Td>
+                        {/* The record's own screen when it has one, and its
+                            full history either way. Named by KIND, not by id:
+                            a partner opening the trail wants "Invoice", and
+                            the id is one click down under "Exact record". */}
+                        {href === null ? noun : <Link href={href as Route}>{noun}</Link>}
+                        <Sub>
+                          <Link
+                            href={`/audit?type=${r.event.objectType}&id=${r.event.objectId}`}
+                            aria-label={`Full history of ${thisNoun(noun)}`}
+                          >
+                            Full history
+                          </Link>
+                        </Sub>
+                      </Td>
                     )}
-                  </Td>
-                  <Td>
-                    {scoped ? (
-                      <span className="muted">{r.event.objectType}</span>
-                    ) : (
-                      /* NAMED BY THE RECORD, not by its TYPE. This column
-                         filters the trail to one object, and a hundred rows
-                         drew a hundred links called `work_item` (nine of them),
-                         `user_account` (five), `work_item_approval` (eight) —
-                         each going somewhere different. A link list is how
-                         somebody who cannot see the table navigates it. The id
-                         is the only thing that separates them, and this screen
-                         already shows raw ids on purpose: an audit trail is
-                         read when something has gone wrong, and prettifying is
-                         one more thing between the reader and the record. */
-                      <Link
-                        href={`/audit?type=${r.event.objectType}&id=${r.event.objectId}`}
-                        className="mono"
-                        aria-label={`Every event on ${r.event.objectType} ${r.event.objectId}`}
-                      >
-                        {r.event.objectType}
-                      </Link>
-                    )}
-                    {Object.keys(r.event.payload).length > 0 && (
-                      // Ids and machine facts. Shown raw and not prettified: an
-                      // audit trail is read when something has gone wrong, and
-                      // a friendlier rendering is one more thing between the
-                      // reader and what was actually recorded.
-                      <Sub>
-                        <span className="mono">{JSON.stringify(r.event.payload)}</span>
-                      </Sub>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         </TableWrap>
       )}
     </Page>
   );
+}
+
+/** "this task", "this invoice"; "the firm" stays as it is. */
+function thisNoun(noun: string): string {
+  const lower = noun.toLowerCase();
+  return lower.startsWith("the ") ? lower : `this ${lower}`;
 }

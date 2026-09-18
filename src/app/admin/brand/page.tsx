@@ -198,7 +198,7 @@ export default function BrandPage() {
       // and pretending the upload failed would send somebody re-uploading a
       // file the store already holds.
       setError(
-        `${apiError(inForce.error).message} — the file was stored, but it is not in force. Try again.`,
+        `The file was saved but is not in use yet, so try again. ${apiError(inForce.error).message}`,
       );
       return;
     }
@@ -212,7 +212,7 @@ export default function BrandPage() {
       <PageHeader
         eyebrow="Documents"
         title="Brand"
-        lede="What each of the firm&rsquo;s companies prints on what it sends."
+        lede="The logo, signature and letterhead each of your companies prints on its letters and invoices, and how its invoices are numbered."
       />
 
       {/* THE HONEST BANNER, AND IT IS ABOUT THE TOP HALF OF THE PAGE ONLY.
@@ -224,12 +224,11 @@ export default function BrandPage() {
           sentence names what it is about; the last names what it is not.
           The mark half comes out when T3.8 lands. */}
       <p className="field-hint">
-        <strong>The marks below are not rendered anywhere yet.</strong> They are stored,
-        versioned and audited today, and the renderer that puts them on a letter or an invoice
-        is still to be built. Uploading one now means it is ready and correct when that lands —
-        it does not change any document the firm sends today. <strong>Invoice numbers are
-        different:</strong> that section on each company is live, and what it says is what the
-        next invoice will read as.
+        <strong>Logos, signatures and letterheads are not printed on documents yet.</strong> They
+        are stored safely today, and printing them on letters and invoices is still to come.
+        Uploading one now means it is ready when that arrives. It does not change any document
+        the firm sends today. <strong>Invoice numbers are different:</strong> that section on
+        each company is live, and what it shows is how the next invoice will be numbered.
       </p>
 
       <ErrorNotice error={error} />
@@ -237,10 +236,10 @@ export default function BrandPage() {
       {entities.length === 0 ? (
         <Card>
           <p className="muted">
-            This firm has no companies on its issuing list yet, so there is nothing to give a
-            logo to. A company appears here once it is named on{" "}
-            <Link href="/invoices">the issuing table</Link> as serving clients somewhere —
-            which is the same list that decides who issues an engagement letter.
+            Your firm has no issuing companies yet, so there is nothing to give a logo to. A
+            company appears here once it is named on{" "}
+            <Link href="/invoices">the issuing table</Link> as the company that serves clients
+            in a country. The same list decides which company issues an engagement letter.
           </p>
         </Card>
       ) : (
@@ -430,8 +429,8 @@ function Slot({
       </form>
       {asset !== undefined && (
         <p className="field-hint">
-          Replacing supersedes — the current one stays stored, so a document issued under it
-          still resolves what it carried.
+          Replacing keeps the current file on record, so a document issued under it still shows
+          what it carried at the time.
         </p>
       )}
     </div>
@@ -497,10 +496,9 @@ function InvoiceNumbers({
 
       {series.length === 0 ? (
         <p className="muted text-md">
-          {entity.displayName} has not issued an invoice yet. A series begins with the first
-          one — <span className="mono">INV/&lt;year&gt;/0001</span> — and the prefix can be
-          named from then on. Setting it now would change nothing: there is no row to change,
-          and the API would accept it and do exactly that.
+          {entity.displayName} has not issued an invoice yet. Numbering starts with the first
+          invoice, as <span className="mono">INV/&lt;year&gt;/0001</span>, and the prefix can be
+          changed from then on.
         </p>
       ) : (
         <>
@@ -547,17 +545,17 @@ function InvoiceNumbers({
                   the explanation, not the refusal. */}
               <Notice tone="warn" eyebrow="This is not a rename">
                 <p>
-                  An invoice series is <strong>consecutive</strong>, and a tax authority may
-                  ask about it. Changing the prefix changes the numbers{" "}
-                  <strong>from now on</strong> — every invoice already issued keeps the number
-                  it was issued with, because the database refuses to move one.
+                  Invoice numbers run in an unbroken <strong>sequence</strong>, and a tax
+                  authority may ask about it. Changing the prefix changes the numbers{" "}
+                  <strong>from now on</strong>. Every invoice already issued keeps the number it
+                  was issued with.
                 </p>
                 <p>
-                  It also applies to <strong>every financial year</strong> of{" "}
-                  {entity.displayName}&rsquo;s invoices, not just the current one. So an
-                  invoice back-dated into a closed year would be numbered with the new prefix
-                  and sit in the same consecutive series as the old-prefix numbers already
-                  issued for it. Credit notes are untouched and keep their own series.
+                  The change applies to <strong>every financial year</strong> of{" "}
+                  {entity.displayName}&rsquo;s invoices, not just the current one. So an invoice
+                  back-dated into a closed year would get the new prefix and sit in the same
+                  sequence as the old-prefix numbers already issued for that year. Credit notes
+                  are not affected and keep their own numbering.
                 </p>
               </Notice>
 
@@ -583,7 +581,7 @@ function InvoiceNumbers({
                   <FieldRow>
                     <Field
                       label="The prefix"
-                      hint="Up to twelve characters — upper-case letters, digits, “-” and “/”, starting with a letter or digit. It prints on a legal document, so it is refused rather than tidied up."
+                      hint="Up to twelve characters: capital letters, digits, “-” and “/”, starting with a letter or digit. It prints on a legal document, so anything else is not accepted."
                     >
                       {/* THE CURRENT VALUE, not a placeholder. Somebody renaming
                           a series should be editing what is there rather than

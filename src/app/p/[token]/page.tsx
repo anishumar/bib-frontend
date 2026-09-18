@@ -63,7 +63,7 @@ export default function SharedProposalPage() {
     return (
       <Page width="narrow">
         <ErrorState
-          title="This link does not open anything"
+          title="This link does not work"
           message={error ?? "This link is not one we recognise."}
         />
       </Page>
@@ -114,7 +114,7 @@ export default function SharedProposalPage() {
                 <Td align="right">
                   <span className="mono">
                     {Number(l.discountPercent) === 0
-                      ? "—"
+                      ? "none"
                       : `${formatCount(l.discountPercent)}%`}
                   </span>
                 </Td>

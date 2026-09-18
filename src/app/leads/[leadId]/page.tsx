@@ -89,17 +89,17 @@ function sentenceFor(event: EventRecord["event"]): string {
   switch (event.verb) {
     case "lead.captured":
       return typeof p["source"] === "string"
-        ? `Captured — ${p["source"]}`
+        ? `Captured (${p["source"]})`
         : "Captured";
     case "lead.merged":
-      return "A second capture landed on this one rather than starting a rival";
+      return "A second capture was merged into this opportunity";
     case "lead.stage_changed":
-      return from !== null && to !== null ? `Moved ${from} → ${to}` : "Moved";
+      return from !== null && to !== null ? `Moved from ${from} to ${to}` : "Moved";
     case "lead.owner_assigned":
       // WHO is not in the sentence on purpose: the payload carries a user id,
       // and resolving it to a name here would mean a second read per row for a
       // fact the actor column already answers most of the time.
-      return p["ownerUserId"] === null ? "Taken off somebody's desk" : "Put on somebody's desk";
+      return p["ownerUserId"] === null ? "Owner removed" : "Owner assigned";
     default:
       return event.verb;
   }
@@ -212,8 +212,8 @@ export default function LeadPage() {
         title={lead.title}
         lede={
           <>
-            For <Link href={`/clients/${party.id}`}>{party.displayName}</Link>. An opportunity is
-            named separately from the client because one client can have two of them at once.
+            An opportunity with <Link href={`/clients/${party.id}`}>{party.displayName}</Link>.
+            Move it along the stages below, and draft a proposal from it when you are ready.
           </>
         }
         aside={<LinkButton variant="ghost" href="/leads">The pipeline</LinkButton>}
@@ -276,8 +276,8 @@ export default function LeadPage() {
         <CardTitle style={{ marginTop: "var(--s-5)" }}>Notes</CardTitle>
         {lead.notes === null || lead.notes.trim() === "" ? (
           <p className="muted">
-            None. Notes arrive with a capture — a second capture for the same prospect appends
-            to this opportunity rather than starting a rival one.
+            None. Notes come in with a capture. A second capture for the same prospect is added
+            to this opportunity rather than creating a new one.
           </p>
         ) : (
           <p style={{ whiteSpace: "pre-wrap", maxWidth: "62ch" }}>{lead.notes}</p>
@@ -288,10 +288,9 @@ export default function LeadPage() {
         <Card>
           <CardTitle level={2}>This opportunity is closed</CardTitle>
           <p className="muted">
-            A converted, lost or abandoned opportunity is finished — the API refuses a move out
-            of a terminal stage, so there is nothing to offer here. If it is alive again, it is
-            a new opportunity: capture it on <Link href="/leads">the pipeline</Link>, where a
-            capture for a client that already exists resolves to the same party.
+            A converted, lost or abandoned opportunity cannot be reopened. If the conversation
+            starts again, capture it as a new opportunity on{" "}
+            <Link href="/leads">the pipeline</Link>. It will be linked to the same client record.
           </p>
         </Card>
       ) : (
@@ -326,8 +325,8 @@ export default function LeadPage() {
               label="Owner"
               hint={
                 staff.length === 0
-                  ? "The roster needs permission to read, so there is nobody to choose from here."
-                  : "Unassigned is a real state — it is the queue somebody works from."
+                  ? "You do not have permission to see the staff list, so there is nobody to choose from here."
+                  : "Leave it unassigned to put it in the queue for somebody to pick up."
               }
             >
               <Select
@@ -377,7 +376,7 @@ export default function LeadPage() {
               >
                 <Field
                   label={`Why is it ${closing}?`}
-                  hint="In your own words. A dropdown of five reasons produces five reasons, and the useful one is always the sixth. The API requires this on lost and abandoned, and refuses it anywhere else."
+                  hint="In your own words. A reason is required when an opportunity is lost or abandoned."
                 >
                   <Textarea name="lostReason" rows={3} required />
                 </Field>
@@ -402,11 +401,11 @@ export default function LeadPage() {
       )}
 
       <Card>
-        <CardTitle level={2}>What came of it</CardTitle>
+        <CardTitle level={2}>Proposals from this opportunity</CardTitle>
         {proposals.length === 0 ? (
           <Empty title="No proposal has been drafted from this opportunity" icon="proposals">
-            A proposal drafted from a lead carries it, so what was quoted stays attached to the
-            conversation that led to it. Draft one on <Link href="/proposals">Proposals</Link>.
+            Draft a proposal from this opportunity on <Link href="/proposals">Proposals</Link>
+            and it will appear here.
           </Empty>
         ) : (
           <TableWrap>
@@ -438,7 +437,7 @@ export default function LeadPage() {
                         the row is still worth seeing. */}
                     <Td align="right">
                       {p.totals.net === null ? (
-                        <NotStated>—</NotStated>
+                        <NotStated />
                       ) : (
                         <span className="mono">{formatMoney(p.totals.net, p.totals.currency)}</span>
                       )}
@@ -453,20 +452,20 @@ export default function LeadPage() {
 
       <Card>
         <div className="row">
-          <CardTitle level={2}>Its history</CardTitle>
+          <CardTitle level={2}>History</CardTitle>
           <LinkButton
             variant="ghost"
             size="sm"
             href={`/audit?type=lead&id=${leadId}`}
-            aria-label="The full audit trail for this opportunity, with payloads"
+            aria-label="The full audit trail for this opportunity"
           >
             In the audit trail
           </LinkButton>
         </div>
         {events.length === 0 ? (
           <p className="muted">
-            Nothing recorded — which on a lead means the trail is not readable from this account
-            rather than that nothing happened. Capture writes an event.
+            Nothing to show. Your account may not have permission to read the audit trail, where
+            every capture is recorded.
           </p>
         ) : (
           <TableWrap>

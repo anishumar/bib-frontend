@@ -195,8 +195,8 @@ function Rules() {
     }
     if (effect.locked > 0) {
       parts.push(
-        `${String(effect.locked)} left as ${effect.locked === 1 ? "it is" : "they are"} — ` +
-          `somebody has already started ${effect.locked === 1 ? "it" : "them"}`,
+        `${String(effect.locked)} left as ${effect.locked === 1 ? "it is" : "they are"}, ` +
+          `because somebody has already started ${effect.locked === 1 ? "it" : "them"}`,
       );
     }
     setNotice(
@@ -251,8 +251,8 @@ function Rules() {
     // A new rule generates nothing on the way in — see the service. Say so,
     // rather than leaving somebody watching an empty calendar.
     setNotice(
-      "Written. It produces no filings yet: add any exceptions first, then the nightly pass " +
-        "puts it on the calendar — or save the formula again to fill it now.",
+      "Saved. It has not produced any filings yet. Add any carve-outs first; the nightly run " +
+        "will then put it on the calendar. To fill the calendar now, save the formula again.",
     );
     await load();
   }
@@ -336,7 +336,7 @@ function Rules() {
     }
     setNotice(
       res.data.created === 0
-        ? "Nothing to add — this firm already holds the pack, and nothing it has confirmed was touched."
+        ? "Nothing to add. This firm already has the standard rules, and nothing you have confirmed was changed."
         : `Added ${String(res.data.created)} rules. Ten produce dates; the rest say what they are waiting for.`,
     );
     await load();
@@ -360,7 +360,7 @@ function Rules() {
       <PageHeader
         eyebrow="How work runs"
         title="Compliance rules"
-        lede="What the law asks of a client, and when. The calendar is generated from these — nobody types a filing in, which is what stops it drifting from the statute."
+        lede="What the law requires of each client, and by when. The compliance calendar is built from these rules, so nobody has to type a filing in by hand."
       />
 
       <Stack>
@@ -387,7 +387,7 @@ function Rules() {
             <p>
               <strong>This firm has no compliance rules, so its calendar is empty.</strong>
             </p>
-            <p>New firms are given the India pack automatically. This one predates it.</p>
+            <p>New firms get the India rule pack automatically. This firm was set up before that.</p>
             {mayWrite && (
               <p>
                 <Button onClick={() => void seed()} loading={busy}>
@@ -412,9 +412,9 @@ function Rules() {
                   onClick={() => { setFilter(filter === "unconfirmed" ? "" : "unconfirmed"); }}
                 >
                   {counts.get("unconfirmed") ?? 0} can compute a date but are not yet confirmed
-                </Button>{" "}
-                &mdash; nothing goes on the calendar from those until somebody here checks
-                them against the statute, and says which service owes them.{" "}
+                </Button>
+                : nothing goes on the calendar from those until somebody here checks them
+                against the law and says which service owes them.{" "}
                 {/* THE COUNT IS THE CONTROL. It was a number for three tasks
                     and the list it described was four clicks away — so the one
                     thing this screen exists to get answered was the hardest
@@ -424,16 +424,15 @@ function Rules() {
                   onClick={() => { setFilter(filter === "needs_formula" ? "" : "needs_formula"); }}
                 >
                   {counts.get("needs_formula") ?? 0} waiting on a fact
-                </Button>{" "}
-                &mdash; each names the one thing it still needs, and you can answer it here. And{" "}
+                </Button>
+                : each one says what it still needs, and you can answer it here. And{" "}
                 <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
-                {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by something
-                happening rather than by a period.
+                {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by an event
+                rather than by a period.
               </p>
               <p className="field-hint">
-                That second number is not a fault list &mdash; it is the honest state of the
-                firm&rsquo;s own specification, and a firm whose clients never owe those filings is
-                right to leave them unanswered.
+                That second number is not a list of faults. Some filings never apply to your
+                clients, and it is fine to leave those rules unanswered.
               </p>
             </Notice>
 
@@ -489,7 +488,7 @@ function Rules() {
               checked={showRetired}
               onChange={(e) => { setShowRetired(e.target.checked); }}
               label="Show retired rules"
-              note="a retired rule still explains an old filing's date, so it is never deleted"
+              note="a retired rule still explains an old filing's date, so it is kept rather than deleted"
             />
 
             {creating && (
@@ -561,9 +560,9 @@ function Rules() {
                     because a partner correcting their own mistake is allowed. */}
                 {open.status === "confirmed" && (
                   <Notice tone="warn" eyebrow="THIS RULE IS CONFIRMED">
-                    Somebody has checked this date against the statute. If the law changed for one
-                    PERIOD, add an exception rather than editing the formula: an exception says
-                    which period is different and leaves the other eleven explaining themselves.
+                    Somebody has checked this date against the law. If the law changed for one
+                    period only, add an exception rather than editing the formula. An exception
+                    says which period is different and leaves the others as they are.
                   </Notice>
                 )}
                 <RuleEditor
@@ -593,8 +592,8 @@ function Rules() {
                   (open.effectiveTo !== null ? (
                     <Notice eyebrow="THIS RULE HANDS OVER">
                       It governs periods up to {longDay(open.effectiveTo)}, and a later rule governs from
-                      then on. Amend that one — this row stays exactly as it is, because it is
-                      still why the filings it produced were due when they were.
+                      then on. Amend that later rule instead. This row stays as it is, because it
+                      explains why the filings it produced were due when they were.
                     </Notice>
                   ) : amending ? (
                     <Supersede
@@ -606,8 +605,8 @@ function Rules() {
                   ) : (
                     <Row>
                       <span className="faint">
-                        Has the law itself changed from a date? That is not an edit &mdash; it
-                        keeps this rule and starts a new one.
+                        Has the law itself changed from a date? That is not an edit. It keeps
+                        this rule and starts a new one.
                       </span>
                       <Button variant="ghost" onClick={() => { setAmending(true); }}>
                         The law changed
@@ -658,7 +657,7 @@ function RuleRow({
         )}
       </Td>
       <Td>
-        {rule.authority ?? <span className="muted">&mdash;</span>}
+        {rule.authority ?? <span className="muted">not stated</span>}
         <Sub>{rule.jurisdiction}</Sub>
       </Td>
       <Td>

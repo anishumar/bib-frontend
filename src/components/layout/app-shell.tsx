@@ -156,7 +156,7 @@ const GROUPS: NavGroup[] = [
     icon: "board",
     items: [
       { href: "/work-items", label: "Work board", icon: "board", needs: "party:read" },
-      { href: "/work", label: "The engine", icon: "engine", needs: "party:read" },
+      { href: "/work", label: "Jobs", icon: "engine", needs: "party:read" },
       {
         href: "/calendar",
         label: "Compliance calendar",

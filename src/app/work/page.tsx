@@ -141,21 +141,21 @@ export default function WorkPage() {
     })();
   }, [load]);
 
-  if (!loaded) return <Loading label="Loading the engine" />;
+  if (!loaded) return <Loading label="Loading jobs" />;
 
   return (
     <Page>
       <PageHeader
         eyebrow="Delivery"
-        title="The engine"
-        lede="Everything the engine has open: work a signed engagement created, and how far each piece has got. A recurring service gets a job for each month or quarter as it begins, shown as upcoming with the day it opens."
+        title="Jobs"
+        lede="Every job your firm is delivering, and how far each one has got. A monthly or quarterly service gets a new job each period, shown as upcoming with the date it opens."
       />
 
       <ErrorNotice error={error} />
 
       <Tabs
         id={tabsId}
-        label="Engine views"
+        label="Job views"
         value={tab}
         onChange={setTab}
         tabs={[
@@ -190,9 +190,9 @@ export default function WorkPage() {
         <CheckQueue checks={checks} />
       ) : jobs.length === 0 ? (
         <Card>
-          <Empty title="Nothing is ready to run" icon="engine">
-            Work appears here once an engagement letter is signed and its advance is recorded —
-            that is what starts the engine.
+          <Empty title="No jobs yet" icon="engine">
+            A job appears here once an engagement letter is signed and its advance payment is
+            recorded.
           </Empty>
         </Card>
       ) : (
@@ -243,7 +243,7 @@ export default function WorkPage() {
                         filing belongs to — not the client who is billed. A group
                         of four companies has four of these, and putting the
                         billed client here would make them look identical. */}
-                    {j.entityName ?? <span className="empty">—</span>}
+                    {j.entityName ?? <span className="empty">no company named</span>}
                     {j.clientName !== null && j.clientName !== j.entityName && (
                       <Sub>billed to {j.clientName}</Sub>
                     )}
@@ -306,8 +306,8 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
     return (
       <Card>
         <Empty title="Nothing is waiting to be checked" icon="verification">
-          Work lands here when somebody finishes a step whose process says it is reviewed — set
-          on Processes, with the rule about who may review it on Who checks work.
+          A step lands here when somebody finishes it and the process says it must be reviewed.
+          Set that on Processes, and set who may review it on Who checks work.
         </Empty>
       </Card>
     );
@@ -334,7 +334,7 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
                 {/* Null means a machine committed it unattended — no person made
                     it, so there is no maker to be, and anybody eligible may
                     check it. "—" is the honest cell. */}
-                {c.submittedByName ?? <span className="unstated">a machine</span>}
+                {c.submittedByName ?? <span className="unstated">done automatically</span>}
               </Td>
               <Td>
                 <span className="mono">{longInstant(c.submittedAt)}</span>
@@ -395,7 +395,7 @@ function JobState({ job }: { job: Job }) {
     return (
       <>
         <Pill tone="quiet">not open yet</Pill>
-        <Sub>the process is pinned on the day it opens</Sub>
+        <Sub>its process is chosen on the day it opens</Sub>
       </>
     );
   }
@@ -403,7 +403,7 @@ function JobState({ job }: { job: Job }) {
     return (
       <>
         <Pill tone="danger">waiting for a process</Pill>
-        <Sub>nobody has written how this service is delivered</Sub>
+        <Sub>no process has been published for this service yet</Sub>
       </>
     );
   }

@@ -63,7 +63,7 @@ export default function PortalRequestsPage() {
       <PageHeader
         eyebrow={firm}
         title="Requests"
-        lede={`Anything outstanding between you and ${firm} — what they need from you, and what you have asked them for.`}
+        lede={`Anything outstanding between you and ${firm}: what they need from you, and what you have asked them for.`}
       />
 
       {/* GOOD NEWS HAS TO READ AS GOOD NEWS. `ActionCentre` renders nothing at
@@ -76,8 +76,8 @@ export default function PortalRequestsPage() {
           that failed, and neither is a state in which to claim nothing is owed. */}
       {counts.loaded && counts.awaitingYou === 0 && counts.withTheFirm === 0 && (
         <Empty title={`${firm} is not waiting on anything from you`} icon="check">
-          When they need a document, an approval or an answer, it will appear here — and the
-          rail on the left will say how many.
+          When they need a document, an approval or an answer, it will appear here, and the
+          menu on the left will show how many.
         </Empty>
       )}
 
@@ -98,7 +98,7 @@ export default function PortalRequestsPage() {
       {companies.length === 0 && (
         <Section title="Nothing shared with you yet" level={2}>
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Your login works, but {firm} has not yet given it access to a company — so there
+            Your login works, but {firm} has not yet given it access to a company, so there
             is nothing here to ask about yet. Ask your contact at {firm} to share your
             company with this email address.
           </p>

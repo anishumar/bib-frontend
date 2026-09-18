@@ -113,14 +113,15 @@ export default function ClientsPage() {
     router.push(`/clients/${result.data.partyId}`);
   }
 
-  if (!loaded) return <Loading label="Loading the book" />;
+  if (!loaded) return <Loading label="Loading clients" />;
 
   return (
     <Page>
       <PageHeader
         eyebrow="Commercial"
         title="Clients"
-        lede="Everyone the firm holds a record for, and the ones you were put in charge of."
+        lede="Every company and person your firm keeps a record for. Switch to My clients to see the
+        ones you look after."
         aside={
           <span className="cluster">
             <Pill tone="quiet">{parties.length}</Pill>
@@ -158,7 +159,8 @@ export default function ClientsPage() {
           mine.length === 0 ? (
             <Card>
               <Empty title="No clients on your book" icon="clients">
-                Somebody is made a Key Manager or a SPOC on the client’s own page.
+                You are not the Key Manager or SPOC for any client yet. Both are set on the
+                client’s own page, under Account team.
               </Empty>
             </Card>
           ) : (
@@ -167,7 +169,7 @@ export default function ClientsPage() {
                 <thead>
                   <tr>
                     <Th>Name</Th>
-                    <Th>Why it is yours</Th>
+                    <Th>Your role</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -201,8 +203,8 @@ export default function ClientsPage() {
         ) : parties.length === 0 ? (
           <Card>
             <Empty title="Nobody in the book yet" icon="clients">
-              A client is an organization or a person the firm holds a record for. Add the first
-              one below.
+              A client is a company or a person your firm keeps a record for. Add the first one
+              using the form below.
             </Empty>
           </Card>
         ) : (

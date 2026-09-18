@@ -252,8 +252,9 @@ export default function FirmPage() {
       <PageHeader
         eyebrow="The firm"
         title="The firm itself"
-        lede="Which company you are, who signs for it, and from which day your deadlines count. Set
-        once; every engagement letter and every calendar row reads these."
+        lede="Set up the basics of your firm: which company issues your letters, who signs them,
+        the date your deadlines are tracked from, and when your financial year starts. Every
+        engagement letter and every calendar entry uses these."
       />
       <ErrorNotice error={error} />
 
@@ -295,8 +296,8 @@ function IssuingEntity({
       <CardTitle level={2}>Which company issues your letters?</CardTitle>
       {entity === null ? (
         <p className="muted">
-          No issuing company is on file. Every firm gets one when it is provisioned, so this is
-          worth telling whoever set the firm up.
+          No issuing company is on file. Every firm gets one when its account is created, so
+          please tell whoever set the firm up.
         </p>
       ) : (
         <>
@@ -317,10 +318,11 @@ function IssuingEntity({
               on every row. */}
           {registrations.length === 0 ? (
             <p className="muted" style={{ maxWidth: "62ch" }}>
-              <strong>Not registered anywhere yet.</strong> An engagement letter can only name
-              whose law governs it once the company issuing it is registered in a country, so
-              until this is filled in no letter can go out and every imported engagement is
-              refused. One line is enough: the country, and what kind of company it is.
+              <strong>Not registered anywhere yet.</strong> An engagement letter can only say
+              which country&rsquo;s law governs it once the issuing company is registered in a
+              country. Until this is filled in, no letter can go out and every imported
+              engagement is rejected. One line is enough: the country, and what kind of company
+              it is.
             </p>
           ) : (
             <TableWrap>
@@ -341,8 +343,8 @@ function IssuingEntity({
                         <Pill tone="code">{r.jurisdiction}</Pill>
                       </Td>
                       <Td className="mono">{r.entityType}</Td>
-                      <Td className="muted">{r.incorporatedOn === null ? "—" : longDay(r.incorporatedOn)}</Td>
-                      <Td className="muted">{r.financialYearEnd ?? "—"}</Td>
+                      <Td className="muted">{r.incorporatedOn === null ? "not stated" : longDay(r.incorporatedOn)}</Td>
+                      <Td className="muted">{r.financialYearEnd ?? "not stated"}</Td>
                       <Td className="muted">{r.status}</Td>
                     </tr>
                   ))}
@@ -379,11 +381,11 @@ function IssuingEntity({
               </Field>
             </FieldRow>
             <p className="field-hint" id={hintId}>
-              The country is a two-letter code — <span className="mono">IN</span>,{" "}
-              <span className="mono">AE</span>, <span className="mono">US</span>. The kind of
+              The country is a two-letter code, such as <span className="mono">IN</span>,{" "}
+              <span className="mono">AE</span> or <span className="mono">US</span>. The kind of
               company is in your own words: <span className="mono">llp</span>,{" "}
               <span className="mono">private_limited</span>, <span className="mono">partnership</span>.
-              A firm with companies in two countries registers each one; which company issues
+              A firm with companies in two countries registers each one. Which company issues
               which client&rsquo;s letters is set under{" "}
               <Link href="/admin/brand">Brand</Link>.
             </p>
@@ -418,13 +420,13 @@ function SignatoryCard({
       <CardTitle level={2}>Who signs for the firm?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         One signature on every engagement letter the firm issues, whichever of its companies
-        issues it. Naming a successor replaces the name on letters drafted from then on; a
+        issues it. Naming someone new changes the name on letters drafted from then on. A
         letter already signed keeps the name it was signed with.
       </p>
       <Meta>
         <MetaItem label="Signs today">
           {signatory === null ? (
-            <NotStated>nobody named — no letter can be sent</NotStated>
+            <NotStated>nobody named yet, so no letter can be sent</NotStated>
           ) : (
             <span>
               {signatory.displayName ?? current?.email ?? signatory.userId}
@@ -486,20 +488,20 @@ function PolicyCard({
     <Card>
       <CardTitle level={2}>From which day do your deadlines count?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
-        Two facts the compliance calendar cannot guess. Both are published as a version, so
-        &ldquo;what was the floor last March&rdquo; always has an answer.
+        Two facts the compliance calendar needs from you. Each change is saved as a new version,
+        so you can always see what was set at any point in the past.
       </p>
       <Meta>
         <MetaItem label="Deadlines count from">
           {policy === null || policy.missedFromOn === null ? (
-            <NotStated>{known ? "no floor — every past date is asked about" : "not read"}</NotStated>
+            <NotStated>{known ? "not set, so every past deadline is asked about" : "not read"}</NotStated>
           ) : (
             longDay(policy.missedFromOn)
           )}
         </MetaItem>
         <MetaItem label="Financial year starts in">
           {policy === null || policy.fiscalYearStartMonth === null ? (
-            <NotStated>not said — quarterly and annual work spawns nothing</NotStated>
+            <NotStated>not set, so quarterly and annual work is not created</NotStated>
           ) : (
             MONTHS[policy.fiscalYearStartMonth - 1]
           )}
@@ -530,7 +532,7 @@ function PolicyCard({
               defaultValue={String(policy?.fiscalYearStartMonth ?? 0)}
               aria-describedby={monthHint}
             >
-              <option value="0">not said</option>
+              <option value="0">not set</option>
               {MONTHS.map((m, i) => (
                 <option key={m} value={String(i + 1)}>
                   {m}
@@ -540,15 +542,14 @@ function PolicyCard({
           </Field>
         </FieldRow>
         <p className="field-hint" id={floorHint}>
-          The day you went live on this system. A filing whose statutory date falls before it is
-          neither generated nor flagged as missed — it was made the old way and is not this
-          system&rsquo;s to ask about. Blank means no floor: bring four hundred clients in and the
-          first morning is four hundred filings to decide on.
+          The day you went live on this system. A filing whose legal due date falls before this
+          day is not created and is not flagged as missed, because it was handled the old way.
+          If you leave it blank, every past deadline is treated as open: bring in four hundred
+          clients and the first morning is four hundred filings to decide on.
         </p>
         <p className="field-hint" id={monthHint}>
-          April for an Indian firm. This is what turns &ldquo;quarterly&rdquo; into Apr–Jun rather
-          than Jan–Mar, and a quarterly or annual service produces no work at all until it is
-          said.
+          April for an Indian firm. This is what makes a quarter run April to June rather than
+          January to March. Quarterly and annual services create no work until this is set.
         </p>
         <div className="cluster">
           <Button type="submit" loading={busy}>

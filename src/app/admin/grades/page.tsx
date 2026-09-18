@@ -121,8 +121,8 @@ export default function GradesPage() {
       <PageHeader
         eyebrow="The firm"
         title="Grades"
-        lede="The firm's seniority ladder. A grade grants nothing — it exists for one comparison, the review rule that reads “Manager or above”."
-        aside={<Pill tone="quiet">{grades.length} rungs</Pill>}
+        lede="Your firm's seniority levels, from most junior to most senior. They decide who is senior enough to check someone else's work, for example a rule that says “Manager or above”."
+        aside={<Pill tone="quiet">{grades.length} grades</Pill>}
       />
 
       <ErrorNotice error={error} />
@@ -132,7 +132,7 @@ export default function GradesPage() {
           <Table>
           <thead>
             <tr>
-              <Th>Rung</Th>
+              <Th>Grade</Th>
               <Th>Code</Th>
               <Th>Rank</Th>
               <Th>Status</Th>
@@ -197,9 +197,9 @@ export default function GradesPage() {
           </Table>
         </TableWrap>
         <p className="field-hint">
-          Rank 1 is the most junior, and a review rule like “Manager or above” compares it.
-          Ranks need not be consecutive, and two rungs may share one. Retiring keeps a rung
-          readable on everybody who holds it — it only stops being offered to anybody new.
+          Rank 1 is the most junior. A review rule like “Manager or above” compares these ranks.
+          Ranks need not be consecutive, and two grades may share one. Retiring a grade keeps it
+          on everybody who already holds it. It only stops being offered to anybody new.
         </p>
       </Stack>
 
@@ -348,7 +348,7 @@ function AddGrade({
 
   return (
     <Card>
-      <CardHead title="Add a rung" level={2} />
+      <CardHead title="Add a grade" level={2} />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -389,9 +389,9 @@ function AddGrade({
               Add
             </Button>
             <p className="field-hint">
-              The code is permanent and is how the rung is referred to everywhere else. To slot
-              a rung in below an existing one, give it the rank you want and edit the ranks
-              above it.
+              The code is permanent and is how this grade is referred to everywhere else. To
+              slot a grade in below an existing one, give it the rank you want and edit the
+              ranks above it.
             </p>
           </div>
         </div>

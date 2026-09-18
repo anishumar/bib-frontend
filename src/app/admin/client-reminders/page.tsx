@@ -124,9 +124,9 @@ const CHASER: LadderSpec = {
   title: "When we have asked and not had it back",
   lede: (
     <>
-      Counted forward from the day the firm asked. A client who has been{" "}
-      <Link href="/clients">frozen</Link> is not chased at all — a freeze is set on the
-      client&rsquo;s own record, and the panel there names these rungs.
+      Counted forward from the day the firm asked the client for something. A client whose
+      reminders are <Link href="/clients">paused</Link> is not chased at all. You pause reminders
+      on the client&rsquo;s own record, and the panel there shows these steps.
     </>
   ),
   rungNoun: "reminder",
@@ -134,13 +134,12 @@ const CHASER: LadderSpec = {
   ladderNoun: "reminder ladder",
   emptyTitle: "No reminder ladder is published",
   emptyBody:
-    "Nobody is chased. An ask a client never answers stays unanswered in silence, and somebody " +
-    "has to notice it by reading the board.",
+    "No client is reminded. If a client never answers a request, nobody is told, and somebody " +
+    "has to spot it on the work board.",
   daysLabel: "How many days after we asked",
   daysHint:
-    "The rungs are one sequence and they climb: 3, then 7, then 15. A ladder written out of " +
-    "order is refused rather than quietly sorted, because the mistake is the firm’s to see. " +
-    "0 means the same day the firm asked, which somebody may genuinely want on a same-day filing.",
+    "The steps must go up in order, for example 3, then 7, then 15. A ladder written out of " +
+    "order is not saved, so you can correct it. 0 means the same day you asked.",
   labelPlaceholder: "A gentle reminder",
   keyPlaceholder: "first",
   whenWords: (days) =>
@@ -156,9 +155,10 @@ const NUDGE: LadderSpec = {
   title: "When a filing of theirs is coming up",
   lede: (
     <>
-      Counted back from the statutory date on the{" "}
-      <Link href="/calendar">compliance calendar</Link>. It asks for nothing back, and a freeze
-      does not stop it: a filing is due whatever the firm and the client are arguing about.
+      Counted back from the legal due date on the{" "}
+      <Link href="/calendar">compliance calendar</Link>. It is a heads-up only and asks the client
+      for nothing. Pausing a client&rsquo;s reminders does not stop it, because the filing is
+      still due.
     </>
   ),
   rungNoun: "heads-up",
@@ -166,13 +166,12 @@ const NUDGE: LadderSpec = {
   ladderNoun: "heads-up ladder",
   emptyTitle: "No heads-up ladder is published",
   emptyBody:
-    "No client is told a filing of theirs is coming up. The date is on their portal either way; " +
-    "nothing points at it.",
+    "No client is told that a filing is coming up. The date still shows on their portal, but " +
+    "nothing draws their attention to it.",
   daysLabel: "How many days before it is due",
   daysHint:
-    "The rungs count DOWN to the deadline: 7, then 3, then 1. A ladder written the other way up " +
-    "is refused rather than quietly sorted, because the mistake is the firm’s to see. " +
-    "0 means the morning it is due, which on a same-day deadline is the most useful rung there is.",
+    "The steps must count down to the deadline, for example 7, then 3, then 1. A ladder written " +
+    "the other way round is not saved, so you can correct it. 0 means the day it is due.",
   labelPlaceholder: "A week to go",
   keyPlaceholder: "week",
   whenWords: (days) =>
@@ -225,20 +224,17 @@ export default function ClientRemindersPage() {
       <PageHeader
         eyebrow="How work runs"
         title="Client reminders"
-        lede="What a client hears from the firm, and when. Two ladders: one for something we asked for and have not had back, one for a filing of theirs that is coming up."
+        lede="Set when your clients hear from the firm. There are two reminder ladders: one for something you asked for and have not received, and one for a filing of theirs that is coming up."
       />
 
       <Notice tone="neutral">
         <p>
-          <strong>Nothing here fires until you publish it, and nothing is set by default.</strong>{" "}
-          A firm with no ladder reminds nobody — deliberately, because a cadence this product
-          invented would be one nobody agreed to, and it lands on the client as the firm&rsquo;s
-          opinion of them.
+          <strong>Nothing is sent until you publish a ladder, and nothing is set by default.</strong>{" "}
+          Until then, no client is reminded of anything.
         </p>
         <p>
-          <strong>Nothing is emailed yet.</strong> A rung that fires raises the reminder and the
-          client sees it on their own portal. There is no channel to send it down, which is why
-          there is nothing here to choose one.
+          <strong>Reminders are not emailed yet.</strong> When a step comes due, the reminder is
+          raised and the client sees it on their own portal.
         </p>
       </Notice>
 
@@ -380,7 +376,7 @@ function Ladder({ spec }: { spec: LadderSpec }) {
                   {/* A draft nobody published is a real state, and a firm needs
                       to see it rather than wonder why its edit did nothing. */}
                   <Sub>
-                    Written and not published — no client is being reminded on these numbers.
+                    Saved but not published. No client is being reminded on these numbers.
                   </Sub>
                 </div>
                 <Button
@@ -526,9 +522,9 @@ function LadderForm({
         {spec.daysHint}
       </p>
       <p className="field-hint" id={`${uid}-naming`}>
-        The rung&rsquo;s NAME is what a colleague reads on the history of an ask. Its short name is
-        kept on every reminder this rung has ever raised, so renaming the one does not rewrite the
-        other — and changing a short name starts the rung again from nothing.
+        The name is what your colleagues see on a request&rsquo;s history. The short name is stored
+        on every reminder this step has sent, so renaming the step later does not change old
+        reminders. Changing the short name makes it a new step with no history.
       </p>
 
       {rungs.map((rung, index) => (
@@ -550,7 +546,7 @@ function LadderForm({
         <fieldset
           key={index}
           className="card"
-          aria-label={`${spec.rungNounCapitalised} rung ${String(index + 1)}`}
+          aria-label={`${spec.rungNounCapitalised} step ${String(index + 1)}`}
           style={{ marginTop: "var(--s-4)" }}
         >
           <FieldRow>
@@ -565,7 +561,7 @@ function LadderForm({
                 }}
               />
             </Field>
-            <Field label="What to call this rung">
+            <Field label="What to call this step">
               <Input
                 aria-describedby={`${uid}-naming`}
                 value={rung.label}
@@ -596,12 +592,12 @@ function LadderForm({
               /* Named itself. A group's name is announced on ENTERING the group
                  and is not prepended to a button, so six identical "Remove this
                  rung" across two open forms name nothing. */
-              aria-label={`Remove ${spec.rungNoun} rung ${String(index + 1)}`}
+              aria-label={`Remove ${spec.rungNoun} step ${String(index + 1)}`}
               onClick={() => {
                 setRungs((rs) => rs.filter((_, i) => i !== index));
               }}
             >
-              Remove this rung
+              Remove this step
             </Button>
           </div>
         </fieldset>
@@ -609,8 +605,8 @@ function LadderForm({
 
       <div className="row" style={{ marginTop: "var(--s-4)" }}>
         <span className="cluster tight">
-          <Button variant="ghost" aria-label={`Add a ${spec.rungNoun} rung`} onClick={add}>
-            Add a rung
+          <Button variant="ghost" aria-label={`Add a ${spec.rungNoun} step`} onClick={add}>
+            Add a step
           </Button>
         </span>
         <span className="cluster tight">
@@ -633,8 +629,8 @@ function LadderForm({
         </span>
       </div>
       <p className="field-hint">
-        Saving writes a draft. Nothing is sent on it until it is published — the ladder in force is
-        whatever was published last.
+        Saving creates a draft. Nothing is sent from a draft until you publish it. The ladder in
+        force is the one published last.
       </p>
     </div>
   );

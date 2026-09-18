@@ -159,7 +159,7 @@ export default function PortalLibraryPage() {
       {documents.length === 0 ? (
         <Empty title="Nothing shared with you yet" icon="files">
           {firm} has not yet put any of your documents here. Filed returns, challans and
-          signed letters appear as they are made — if you are looking for something in
+          signed letters appear here as they are made. If you are looking for something in
           particular, ask them for it and it can be added.
         </Empty>
       ) : (
@@ -209,8 +209,8 @@ export default function PortalLibraryPage() {
                   </Button>
                 }
               >
-                Nothing here matches what you typed. Try a shorter word — part of a file
-                name, or the month it was for.
+                Nothing here matches what you typed. Try a shorter word, such as part of a
+                file name or the month it was for.
               </NoResults>
             ) : (
               <TableWrap>
@@ -243,9 +243,9 @@ export default function PortalLibraryPage() {
           look harder or to ask, and a page that stayed silent would leave them
           concluding the firm never filed it. */}
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        {firm} decides which of your documents appear here — their own working papers and
-        internal notes about your affairs do not. If something you expect is missing, ask
-        them and they can share it.
+        {firm} decides which of your documents appear here. Their own working papers and
+        internal notes do not. If something you expect is missing, ask them and they can
+        share it.
       </p>
     </Page>
   );
@@ -395,9 +395,9 @@ function heading(total: number, shown: number): string {
  */
 function without(title: string, company: string): string {
   return title
-    .replace(new RegExp(`\\s*[—–-]\\s*${escapeRe(company)}`), "")
+    .replace(new RegExp(`\\s*[—–·-]\\s*${escapeRe(company)}`), "")
     .replace(company, "")
-    .replace(/\s*[—–-]\s*$/, "")
+    .replace(/\s*[—–·-]\s*$/, "")
     .trim();
 }
 

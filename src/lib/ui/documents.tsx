@@ -335,7 +335,7 @@ export function Documents({
                 a title anybody can find a document by later. */}
             <Field
               label="File"
-              hint="The title is what somebody scanning this list reads — the filename often is not."
+              hint="Give it a clear title. The file name alone is often not enough to find it later."
             >
               <Input name="file" type="file" required />
             </Field>

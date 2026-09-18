@@ -128,7 +128,7 @@ export default function InvoicesPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Invoices"
-        lede="What the firm has billed. The number is allocated by the write itself and cannot be chosen."
+        lede="Every invoice the firm has raised, when it is due and what is still outstanding. Raise a new one at the bottom of the page."
         aside={
           <LinkButton
             size="sm"
@@ -145,7 +145,8 @@ export default function InvoicesPage() {
       {invoices.length === 0 ? (
         <Card>
           <Empty title="Nothing billed yet" icon="invoices">
-            Raise the first invoice below. It is numbered from the issuing entity’s own series.
+            Raise the first invoice below. Its number is given automatically from the issuing
+            company’s series.
           </Empty>
         </Card>
       ) : (
@@ -179,7 +180,7 @@ export default function InvoicesPage() {
                   </Td>
                   <Td>
                     {i.invoice.dueOn === null ? (
-                      <span className="empty">—</span>
+                      <span className="empty">no date</span>
                     ) : (
                       <span className="mono">{longDay(i.invoice.dueOn)}</span>
                     )}
@@ -211,7 +212,7 @@ export default function InvoicesPage() {
                       /* A DRAFT OWES NOTHING because nobody has been asked, and
                          that is not the same as nothing being outstanding — a
                          zero here would read as settled. */
-                      <span className="empty">—</span>
+                      <span className="empty">not issued</span>
                     ) : isZero(i.balance.outstanding) ? (
                       <Pill tone="ok">Settled</Pill>
                     ) : (
@@ -242,9 +243,9 @@ export default function InvoicesPage() {
       <Card>
         <CardHead title="New invoice" level={2}>
           <p className="lede">
-            The number is allocated by the write itself, from the issuing entity&apos;s series.
-            It cannot be chosen, and once allocated it cannot be changed — a wrong invoice is
-            cancelled and a new one issued, and both stay readable.
+            The invoice number is given automatically from the issuing company&apos;s series. It
+            cannot be chosen or changed. If an invoice is wrong, cancel it and raise a new one;
+            both stay on record.
           </p>
         </CardHead>
         <form
@@ -271,7 +272,7 @@ export default function InvoicesPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Charged by" hint="Each of the firm’s entities owns its own series.">
+              <Field label="Charged by" hint="Each of the firm’s companies has its own invoice number series.">
                 <Select name="entityPartyId" required>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
@@ -283,19 +284,19 @@ export default function InvoicesPage() {
             </FieldRow>
 
             <FieldRow>
-              <Field label="Billed in">
+              <Field label="Currency">
                 <Input name="currency" defaultValue="INR" maxLength={3} required />
               </Field>
-              <Field label="Rate to the firm&apos;s currency">
+              <Field label="Exchange rate to the firm&apos;s currency">
                 <Input name="fxRate" defaultValue="1" required />
               </Field>
-              <Field label="Rate dated">
+              <Field label="Rate as of">
                 <Input name="fxRateDate" type="date" defaultValue={today} required />
               </Field>
-              <Field label="Due" optional hint="No due date is never chased.">
+              <Field label="Due" optional hint="Without a due date, no payment reminders are sent.">
                 <Input name="dueOn" type="date" />
               </Field>
-              <Field label="Series date" hint="Which financial year’s series.">
+              <Field label="Series date" hint="Decides which financial year’s number series is used.">
                 <Input name="seriesDate" type="date" defaultValue={today} />
               </Field>
             </FieldRow>

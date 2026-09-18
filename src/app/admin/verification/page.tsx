@@ -142,9 +142,9 @@ export default function VerificationPage() {
       <PageHeader
         eyebrow="How work runs"
         title="Who checks the work"
-        lede={<>A rule here says who is allowed to approve a finished step. Steps name the rule that
-        applies to them on <strong>How the firm works</strong>, so a process can have an
-        ordinary manager review and an independent partner sign-off with different rules.</>}
+        lede={<>Decide who is allowed to approve a finished step. Each step in a process names the
+        rule that applies to it on <strong>How the firm works</strong>, so one process can have
+        a manager review and a separate partner sign-off.</>}
       />
 
       {/* NOT a setting, and the screen has to say so where somebody would look
@@ -158,9 +158,8 @@ export default function VerificationPage() {
       <Notice className="measure">
         <p>
           <strong>Nobody can ever approve their own work.</strong> That is not a setting on this
-          page and there is no way to switch it off — the database refuses it, so an import, a
-          script or an automated agent cannot get past it either. What you choose below is who
-          <em> else</em> may check it.
+          page and cannot be switched off. It applies to imports and automated actions too. What
+          you choose below is who <em>else</em> may check it.
         </p>
       </Notice>
 
@@ -168,9 +167,8 @@ export default function VerificationPage() {
 
       {policies.length === 0 ? (
         <p className="muted" style={{ maxWidth: "64ch" }}>
-          No rule written yet. Until one is, a step that names no rule is simply finished by
-          whoever did it — nothing is held for checking, which is how the product behaved
-          before this page existed.
+          No rule written yet. Until there is one, a step that names no rule is simply finished
+          by whoever did it, and nothing is held for checking.
         </p>
       ) : (
         policies.map((p) => (
@@ -249,7 +247,7 @@ function PolicyCard({
             {inForce?.label ?? readBody(draft?.body)?.label ?? entry.entry.key}
           </CardTitle>
           <p className="muted text-sm">
-            <code>{entry.entry.key}</code> — this is what a step names to say it is checked
+            <code>{entry.entry.key}</code> is the name a process step uses to say it is checked
             under this rule.
           </p>
         </div>
@@ -283,8 +281,8 @@ function PolicyCard({
       {draft && (
         <Notice className="mt-4">
           <p>
-            <strong>A change is written and not yet in force.</strong> Checks opened from now on
-            use it only once it is published; ones already open keep the rule they opened under.
+            <strong>A change is saved but not yet in force.</strong> It applies to new checks only
+            once it is published. Checks already open keep the rule they started under.
           </p>
           <div className="cluster mt-2">
             <Button
@@ -425,7 +423,7 @@ function PolicyForm({
         {policyKey === null && (
           <Field
             label="Short name"
-            hint="What a step names to say it is checked under this rule. It cannot be changed later — every step pointing at it would stop pointing anywhere."
+            hint="The name a process step uses to say it is checked under this rule. It cannot be changed later, because every step pointing at it would lose its rule."
           >
             <Input
               value={key}
@@ -473,7 +471,7 @@ function PolicyForm({
             <>
               <p className="label">From which grade up</p>
               <p className="muted">
-                This firm has no active grades, so there is nothing to compare. Add rungs on{" "}
+                Your firm has no active grades, so there is nothing to compare. Add grades on{" "}
                 <strong>Grades</strong> first, or choose the reporting-line rule.
               </p>
             </>
@@ -530,8 +528,8 @@ function PolicyForm({
         </Button>
       </div>
       <p id={draftNoteId} className="muted text-xs">
-        Saved as a draft. It governs nothing until you put it in force, and checks already open
-        keep the rule they were opened under.
+        Saved as a draft. It applies to nothing until you put it in force. Checks already open
+        keep the rule they started under.
       </p>
     </fieldset>
   );

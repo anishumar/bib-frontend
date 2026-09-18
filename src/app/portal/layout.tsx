@@ -13,7 +13,7 @@ import { PortalFrame } from "./portal-frame";
  * are not in.
  */
 export const metadata: Metadata = {
-  title: "Your portal — BiB",
+  title: "Your portal · BiB",
   description: "What your accountants are doing for you.",
 };
 

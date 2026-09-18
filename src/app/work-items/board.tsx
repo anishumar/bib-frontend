@@ -85,8 +85,9 @@ export function WorkBoard({
   if (columns.length === 0) {
     return (
       <Card>
-        <Empty title="This firm has named no states" icon="board">
-          The board&rsquo;s columns are the firm&rsquo;s own states. Add them on Work vocabulary.
+        <Empty title="No task states set up yet" icon="board">
+          Each column on this board is one of your firm&rsquo;s task states. Add them on Work
+          states.
         </Empty>
       </Card>
     );
@@ -127,7 +128,7 @@ export function WorkBoard({
             <div className="board-col-body">
               {!state.isActive && (
                 <p className="wcard-note">
-                  Retired — nothing new can be moved here, and what is here stays.
+                  Retired. Nothing new can be moved here, and what is here stays.
                 </p>
               )}
               {inColumn.length === 0 ? (
@@ -268,7 +269,7 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
 
       <div className="wcard-foot" data-nobody={who === null ? "true" : undefined}>
         <span className="avatar" data-size="sm" aria-hidden="true">
-          {who === null ? "—" : initials(who)}
+          {who === null ? "·" : initials(who)}
         </span>
         <span className="who">{who ?? "Unassigned"}</span>
       </div>

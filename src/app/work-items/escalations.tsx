@@ -47,14 +47,13 @@ export function EscalationQueue({
       <Card>
         {ladderPublished ? (
           <Empty title="Nothing has been escalated" icon="check">
-            Every open task is inside the firm&rsquo;s own thresholds, and no filing has passed its
-            internal target.
+            Every open task is within your firm&rsquo;s time limits, and no filing has passed its
+            internal target date.
           </Empty>
         ) : (
-          <Empty title="This firm has published no escalation ladder" icon="alert">
-            Nothing is escalated because nothing is watching. The rungs — how many days, and who
-            hears about it — are the firm&rsquo;s own, and nothing is set by default on purpose.
-            Write them on <Link href="/admin/escalation-ladder">Escalation ladder</Link>.
+          <Empty title="No escalation ladder published yet" icon="alert">
+            Nothing can be escalated until your firm sets its ladder: after how many days, and
+            who is told. Set it up on <Link href="/admin/escalation-ladder">Escalation ladder</Link>.
           </Empty>
         )}
       </Card>
@@ -71,8 +70,8 @@ export function EscalationQueue({
     <>
       {unreached > 0 && (
         <Sub>
-          <strong>{unreached}</strong> {unreached === 1 ? "notice" : "notices"} reached nobody —
-          those rows say why, and they are the ones to look at first.
+          <strong>{unreached}</strong> {unreached === 1 ? "notice" : "notices"} reached nobody.
+          Those rows say why, and they are the ones to look at first.
         </Sub>
       )}
       <TableWrap>
@@ -81,9 +80,9 @@ export function EscalationQueue({
             <tr>
               <Th>What</Th>
               <Th>For</Th>
-              <Th>Rung</Th>
+              <Th>Step</Th>
               <Th>Told</Th>
-              <Th>Holding it</Th>
+              <Th>Handled by</Th>
               <Th align="right">Days past</Th>
             </tr>
           </thead>
@@ -116,7 +115,7 @@ function EscalationRow({ row }: { row: Escalation }) {
         <Sub>{watchLabel(row.watch)}</Sub>
       </Td>
       <Td>
-        {row.clientName ?? <span className="faint">—</span>}
+        {row.clientName ?? <span className="faint">no client</span>}
         {/* The COMPANY, beneath whoever is billed. A group of four files four
             sets of returns (G0.1), and without this the queue read as wrong:
             a row titled "TDS deposit — Lakeview Logistics" over a cell saying
@@ -131,7 +130,7 @@ function EscalationRow({ row }: { row: Escalation }) {
             now. Never a code: the ladder is config the firm renames. */}
         <Pill tone="quiet">{row.rungLabel}</Pill>{" "}
         <Tooltip
-          text={`The rung fired at ${String(row.afterDays)} day${row.afterDays === 1 ? "" : "s"} past, and that threshold is copied onto the row — editing the ladder later cannot make this notice look early.`}
+          text={`This step fired ${String(row.afterDays)} day${row.afterDays === 1 ? "" : "s"} past the date. That number is kept on this row, so editing the ladder later does not change it.`}
         >
           <span className="faint mono">+{row.afterDays}d</span>
         </Tooltip>
@@ -146,8 +145,8 @@ function EscalationRow({ row }: { row: Escalation }) {
         ) : row.minGradeRank !== null ? (
           // A RANK and not a person, deliberately: an escalation routed to one
           // partner dies while that partner is on leave.
-          <Tooltip text="Addressed to a grade rather than one desk, so everybody senior enough sees it.">
-            <Pill tone="ok">rank {row.minGradeRank}+</Pill>
+          <Tooltip text="Sent to a seniority level rather than one person, so everybody senior enough sees it.">
+            <Pill tone="ok">rank {row.minGradeRank} or above</Pill>
           </Tooltip>
         ) : (
           <Tooltip text={row.note ?? "Nobody could be named."}>
@@ -178,6 +177,6 @@ function watchLabel(watch: Escalation["watch"]): string {
     case "work_item_unassigned":
       return "Nobody has picked this up";
     case "obligation_target":
-      return "Past our own target — the statutory date is still ahead";
+      return "Past our own target date, the legal deadline is still ahead";
   }
 }

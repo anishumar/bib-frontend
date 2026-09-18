@@ -220,28 +220,28 @@ export function AccountTeamPanel({
 
       {!showingToday && (
         <p className="muted" style={{ marginTop: "var(--s-2)" }}>
-          Showing who held {clientName} on {longDay(asOf)} — not today.
+          Showing who looked after {clientName} on {longDay(asOf)}, not today.
         </p>
       )}
 
       <ErrorNotice error={error} />
 
       {stale.length > 0 && (
-        <Notice tone="warn" eyebrow="NOBODY IS ACTUALLY COVERING THIS">
+        <Notice tone="warn" eyebrow="Nobody is covering this client">
           {stale.length === 1
             ? `${stale[0]?.holderName ?? stale[0]?.holderEmail} is still the ${roleLabel(
                 stale[0]?.role ?? "spoc",
               ).toLowerCase()} on this client and no longer works at the firm.`
             : `${stale.length} people on this account team no longer work at the firm.`}{" "}
-          The row is left standing on purpose — it is the record of who held the client — so
-          hand it over to somebody here, then end it.
+          The row stays as the record of who looked after the client. Assign somebody else
+          below, then end this one.
         </Notice>
       )}
 
       {team.inForce.length === 0 ? (
         <p className="muted">
-          Nobody held this client on {longDay(asOf)}. A Key Manager owns the relationship;
-          a SPOC is the contact for one Dept.
+          Nobody was assigned to this client on {longDay(asOf)}. A Key Manager owns the whole
+          relationship; a SPOC is the contact for one Dept or team.
         </p>
       ) : (
         <TableWrap>
@@ -275,7 +275,7 @@ export function AccountTeamPanel({
                     )}
                   </Td>
                   <Td className="muted">
-                    {a.axis === null ? "— whole relationship" : a.axis.name}
+                    {a.axis === null ? "whole relationship" : a.axis.name}
                   </Td>
                   <Td className="muted">{longDay(a.validFrom)}</Td>
                   {/* Half-open: the first day NOT in force, which is why this
@@ -294,7 +294,7 @@ export function AccountTeamPanel({
                         variant="secondary"
                         size="sm"
                         disabled={busy}
-                        aria-label={`End today — ${roleLabel(a.role)}, ${
+                        aria-label={`End today: ${roleLabel(a.role)}, ${
                           a.holderName ?? a.holderEmail
                         }, ${a.axis === null ? "whole relationship" : a.axis.name}`}
                         onClick={() => {
@@ -333,7 +333,7 @@ export function AccountTeamPanel({
                   <tr key={a.id}>
                     <Td className="muted">{roleLabel(a.role)}</Td>
                     <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
-                    <Td className="muted">{a.axis?.name ?? "—"}</Td>
+                    <Td className="muted">{a.axis?.name ?? "whole relationship"}</Td>
                     <Td className="muted">{longDay(a.validFrom)}</Td>
                     <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
                   </tr>
@@ -362,8 +362,8 @@ export function AccountTeamPanel({
                 label="Role"
                 hint={
                   role === "key_manager"
-                    ? "A new Key Manager is a handover: the current one is closed on this date, and both stay on file."
-                    : "A Dept can have more than one SPOC — this adds one. Ending the outgoing SPOC is a separate step."
+                    ? "Assigning a new Key Manager is a handover. The current one is ended on this date, and both stay on record."
+                    : "A Dept can have more than one SPOC, so this adds one. End the outgoing SPOC separately with End today."
                 }
               >
                 <Select

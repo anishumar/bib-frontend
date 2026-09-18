@@ -136,7 +136,7 @@ export default function ClientImportPage() {
   async function upload(form: FormData): Promise<void> {
     const clients = form.get("clients");
     if (!(clients instanceof File) || clients.size === 0) {
-      setError("Choose the clients sheet first — it is the one the other two refer to.");
+      setError("Choose the clients sheet first. The other two sheets refer to it.");
       return;
     }
     setBusy("upload");
@@ -197,8 +197,8 @@ export default function ClientImportPage() {
     return (
       <Page>
         <Denied permission="tenant:admin">
-          Loading a firm’s book creates clients, letters and assignments in one act — an
-          administrator’s.
+          Loading the book creates clients, letters and assignments in one go, so only a firm
+          administrator can do it.
         </Denied>
       </Page>
     );
@@ -210,7 +210,7 @@ export default function ClientImportPage() {
       <PageHeader
         eyebrow="Clients"
         title="Bring in the book"
-        lede="Your existing clients, their people and the work you already deliver, from a spreadsheet. Every row is checked against what is already here before anything is written; a client already on file is skipped, never overwritten."
+        lede="Load your existing clients, their people and the work you already do for them from spreadsheets. Every row is checked first, and nothing is saved until you confirm. A client already on file is skipped, never overwritten."
         aside={<Pill tone="quiet">{imports.length} uploaded</Pill>}
       />
 
@@ -222,7 +222,7 @@ export default function ClientImportPage() {
         <CardHead title="Upload" level={2}>
           <p className="lede">
             .csv or .xlsx, one file per sheet. The clients sheet is required; the other two
-            refer to it by the client’s registered name. Nothing is written until you confirm.
+            refer to it by the client’s registered name. Nothing is saved until you confirm.
           </p>
         </CardHead>
         <form
@@ -258,7 +258,7 @@ export default function ClientImportPage() {
         <CardHead title="Previous uploads" level={2} />
         {imports.length === 0 ? (
           <Empty title="Nothing uploaded yet" icon="upload">
-            The first upload appears here with its verdict, whether or not it was confirmed.
+            Every upload appears here with its result, whether or not it was confirmed.
           </Empty>
         ) : (
           <TableWrap>
@@ -267,7 +267,7 @@ export default function ClientImportPage() {
                 <tr>
                   <Th>When</Th>
                   <Th>Files</Th>
-                  <Th>Verdict</Th>
+                  <Th>Result</Th>
                   <Th>By</Th>
                   <Th align="right">Open</Th>
                 </tr>
@@ -358,8 +358,8 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
     <Card>
       <CardHead title="The sheets" level={2}>
         <p className="lede">
-          Headers are matched by name, wherever the header row is — a title row above them is
-          fine. Dates as 2026-08-23 or 23-Aug-2026, never 23/08/2026, which reads two ways.
+          Column headers are matched by name, so a title row above them is fine. Write dates as
+          2026-08-23 or 23-Aug-2026, never 23/08/2026, which can be read two ways.
         </p>
       </CardHead>
       <Tabs
@@ -380,7 +380,7 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                   Download {SHEET_LABEL[s.key].toLowerCase()} template
                 </Button>
                 <span className="muted">
-                  Header row must carry <span className="mono">{s.marker}</span>.
+                  The header row must include <span className="mono">{s.marker}</span>.
                 </span>
               </Cluster>
               <TableWrap>
@@ -407,24 +407,23 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                                   .flatMap(spocPair)
                                   .join(", ")}
                               </span>{" "}
-                              <span className="muted">— a pair per SPOC</span>
+                              <span className="muted">(one pair per SPOC)</span>
                             </>
                           ) : (
                             <span className="mono">{c.header}</span>
                           )}
                         </Td>
-                        <Td>{c.required ? <Pill tone="warn">required</Pill> : <span className="empty">—</span>}</Td>
+                        <Td>{c.required ? <Pill tone="warn">required</Pill> : <span className="empty">optional</span>}</Td>
                         <Td>
                           {c.header === SPOC_COLUMN_TEMPLATE && depts.length === 0 ? (
                             <>
-                              A pair of columns per SPOC — the Dept, and that SPOC’s email. You have
-                              published no Depts yet, so the template above carries no SPOC columns:
-                              the Dept cell has to name a real one. Publish them under{" "}
-                              <Link href="/admin/structure">Structure</Link> and the pairs appear
-                              here.
+                              One pair of columns per SPOC: the Dept, and that SPOC’s email. No
+                              Depts are set up yet, so the template has no SPOC columns. Add your
+                              Depts under <Link href="/admin/structure">Structure</Link> and the
+                              columns appear here.
                             </>
                           ) : c.about === "" ? (
-                            <span className="empty">—</span>
+                            <span className="empty">no notes</span>
                           ) : (
                             c.about
                           )}
@@ -477,11 +476,11 @@ function ImportReport({
           <p className="lede">
             {[record.fileNames.clients, record.fileNames.people, record.fileNames.engagements]
               .filter((f): f is string => f !== null)
-              .join(", ")}{" "}
-            — checked {longMoment(record.stagedAt)} by {record.stagedBy.name ?? record.stagedBy.email}
+              .join(", ")}
+            . Checked {longMoment(record.stagedAt)} by {record.stagedBy.name ?? record.stagedBy.email}
             {confirmed && record.confirmedAt !== null && (
               <>
-                ; loaded {longMoment(record.confirmedAt)} by{" "}
+                , loaded {longMoment(record.confirmedAt)} by{" "}
                 {record.confirmedBy?.name ?? record.confirmedBy?.email}
               </>
             )}
@@ -507,12 +506,12 @@ function ImportReport({
         </Strip>
 
         {r.compliance.floor === null && r.compliance.engagementsBeforeReachBack > 0 && (
-          <Notice tone="warn" eyebrow="COMPLIANCE CALENDAR">
+          <Notice tone="warn" eyebrow="Compliance calendar">
             {r.compliance.engagementsBeforeReachBack} engagement
             {r.compliance.engagementsBeforeReachBack === 1 ? "" : "s"} started before{" "}
-            {r.compliance.reachBackFrom}. The calendar generates ninety days back, so without a
-            go-live floor every filing already made in your old records will show as missed. Set
-            “ask about deadlines from” on the compliance policy under{" "}
+            {r.compliance.reachBackFrom}. The calendar looks back ninety days, so until you set the
+            date deadlines are tracked from, every filing you already made will show as missed. Set
+            “ask about deadlines from” under{" "}
             <Link href="/admin/obligation-rules">Compliance rules</Link> first.
           </Notice>
         )}
@@ -530,7 +529,7 @@ function ImportReport({
             <span className="muted">
               {r.blocking > 0
                 ? "Fix the blocking rows in the sheet and upload it again."
-                : "Each row goes through the ordinary screens’ own services and is signed as it goes; the outcome says what each became."}
+                : "Each row is created exactly as if you had typed it in on the screens. Afterwards the table below shows what each row became."}
             </span>
           </Cluster>
         )}
@@ -540,8 +539,8 @@ function ImportReport({
         <Card>
           <CardHead title="Findings" level={2}>
             <p className="lede">
-              Blocking stops the load until the sheet is fixed. A warning loads and is worth a
-              look.
+              A blocking finding stops the load until the sheet is fixed. A warning still loads,
+              but is worth a look.
             </p>
           </CardHead>
           <TableWrap>
@@ -562,7 +561,7 @@ function ImportReport({
                       <Pill tone={f.severity === "blocking" ? "danger" : "warn"}>{f.severity}</Pill>
                     </Td>
                     <Td>{f.sheet}</Td>
-                    <Td align="right">{f.lineNo === null ? <span className="empty">—</span> : f.lineNo}</Td>
+                    <Td align="right">{f.lineNo === null ? <span className="empty">whole sheet</span> : f.lineNo}</Td>
                     <Td>{f.name}</Td>
                     <Td>{f.message}</Td>
                   </tr>
@@ -624,7 +623,7 @@ function ImportReport({
                               <Td>
                                 <Pill tone={actionTone(action)}>{action}</Pill>
                               </Td>
-                              <Td>{detail === null ? <span className="empty">—</span> : detail}</Td>
+                              <Td>{detail === null ? <span className="empty">none</span> : detail}</Td>
                             </tr>
                           );
                         })}
@@ -642,10 +641,9 @@ function ImportReport({
         <Card>
           <CardHead title={confirmed ? "Letters signed" : "Letters to sign"} level={2}>
             <p className="lede">
-              One letter per client and currency, dated from its earliest engagement, signed today
-              as an attestation — the paper letter’s whereabouts go on the signature. Signing is
-              what creates the engagements, and the engagements are what put work on the board and
-              filings on the calendar.
+              One letter per client and currency, dated from its earliest engagement and signed
+              today as the firm’s confirmation that the paper letter exists. Signing the letter
+              creates the engagements, which put work on the board and filings on the calendar.
             </p>
           </CardHead>
           <TableWrap>
@@ -685,7 +683,7 @@ function ImportReport({
                       <Td>
                         {l.lines.map((x) => (
                           <div key={x.engagementLineNo}>
-                            {x.serviceName} — {x.entityName}
+                            {x.serviceName} for {x.entityName}
                             {x.unitAmount === null ? "" : `, ${l.currency} ${x.unitAmount} ${x.billingFrequency}`}
                           </div>
                         ))}
@@ -694,7 +692,7 @@ function ImportReport({
                       {confirmed && (
                         <Td>
                           {o === undefined ? (
-                            <span className="empty">—</span>
+                            <span className="empty">none</span>
                           ) : (
                             <span className="cluster tight">
                               <Pill tone={actionTone(o.action)}>{o.action}</Pill>

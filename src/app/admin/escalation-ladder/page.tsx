@@ -69,22 +69,22 @@ const WATCHES = [
     value: "work_item_due",
     label: "A task is past its due date",
     detail:
-      "The turnaround the client was promised, copied onto the task when it was created. A task " +
-      "whose service states no turnaround has no due date at all and this watch skips it.",
+      "Counted from the turnaround promised for the service, which becomes the task's due date. " +
+      "A task for a service with no turnaround has no due date, so this watch skips it.",
   },
   {
     value: "work_item_unassigned",
     label: "Nobody has picked a task up",
     detail:
-      "Counted from the day it appeared. The router leaves a task unassigned rather than " +
-      "guessing a SPOC, so this is the queue that quietly grows when a client has none.",
+      "Counted from the day the task appeared. A task stays unassigned when the client has no " +
+      "SPOC to route it to, so this is the queue to keep an eye on.",
   },
   {
     value: "obligation_target",
     label: "A filing is past our own target",
     detail:
-      "The T–X date on the compliance calendar, while the statutory date is still ahead. This " +
-      "is the warning that exists so a deadline is never actually missed — once the statutory " +
+      "Your firm's own target date on the compliance calendar, set a number of days before the " +
+      "legal due date. This warning fires while the legal date is still ahead. Once the legal " +
       "date passes, the filing goes to the partner decision queue instead.",
   },
 ] as const;
@@ -93,14 +93,14 @@ const TARGETS = [
   {
     value: "assignee",
     label: "Whoever holds it",
-    detail: "A nudge rather than an escalation. Nothing happens if nobody holds it.",
+    detail: "A reminder to the person holding the task. Nothing happens if nobody holds it.",
   },
   {
     value: "manager",
     label: "Their manager",
     detail:
-      "Read from who reports to whom on the roster. Somebody with no manager recorded there " +
-      "means this rung reaches nobody — the queue says so on the row rather than going quiet.",
+      "Taken from who reports to whom on the People page. If no manager is recorded for the " +
+      "person, this step reaches nobody, and the queue says so on the row.",
   },
   {
     value: "grade_at_least",
@@ -109,8 +109,8 @@ const TARGETS = [
     // grade and abo". Found by opening the form, not by typechecking it.
     label: "A grade and above",
     detail:
-      "Not one person — the whole rung sees it. An escalation sent to a single partner is one " +
-      "that dies while that partner is on leave.",
+      "Everyone at that level and above sees it, not just one person. So it still reaches " +
+      "somebody when one partner is on leave.",
   },
 ] as const;
 
@@ -220,7 +220,8 @@ export default function EscalationLadderPage() {
         title="Escalation ladder"
         lede={
           <>
-            When the firm hears that its own work has gone quiet. What is escalated shows on the{" "}
+            Decide when the firm is told that work has stalled: a task overdue, a task nobody has
+            picked up, or a filing past your own target. Escalated items show on the{" "}
             <Link href="/work-items">work board</Link>, under Escalated.
           </>
         }
@@ -231,10 +232,9 @@ export default function EscalationLadderPage() {
       <Notice tone="neutral">
         <p>
           <strong>Nothing here fires until you publish it, and nothing is set by default.</strong>{" "}
-          A firm with no ladder escalates nobody — which is deliberate, because a threshold this
-          product invented would be one nobody agreed to. Editing the ladder later is safe: every
-          notice keeps the threshold it actually fired at, so shortening a rung tomorrow cannot
-          make yesterday&rsquo;s escalation look early.
+          A firm with no ladder escalates nobody. Editing the ladder later is safe: every notice
+          keeps the number of days it fired at, so shortening a step tomorrow cannot make
+          yesterday&rsquo;s escalation look early.
         </p>
       </Notice>
 
@@ -264,8 +264,8 @@ export default function EscalationLadderPage() {
             </div>
             {inForce.length === 0 ? (
               <Empty title="No ladder is published" icon="alert">
-                Nothing is being watched. Until a rung is published, an overdue task and a filing
-                past its internal target both pass in silence.
+                Nothing is being watched. Until a step is published, an overdue task or a filing
+                past your own target is not flagged to anyone.
               </Empty>
             ) : (
               <RungTable rungs={inForce} grades={grades} />
@@ -282,7 +282,7 @@ export default function EscalationLadderPage() {
                   {/* A draft that was never published is a real state, and a
                       firm needs to see it rather than wonder why its edit did
                       nothing. /catalogue makes the same point. */}
-                  <Sub>Written and not published — nothing is escalating on these numbers.</Sub>
+                  <Sub>Saved but not published. Nothing is escalating on these numbers.</Sub>
                 </div>
                 <Button
                   size="sm"
@@ -471,7 +471,7 @@ function LadderForm({
         <fieldset
           key={index}
           className="card"
-          aria-label={`Rung ${String(index + 1)}`}
+          aria-label={`Step ${String(index + 1)}`}
           style={{ marginTop: "var(--s-4)" }}
         >
           <FieldRow>
@@ -569,7 +569,7 @@ function LadderForm({
               has now made that mistake three times and this one was caught by
               opening the page, exactly as the other two were. */}
           <FieldRow>
-            <Field label="What to call this rung">
+            <Field label="What to call this step">
               <Input
                 value={rung.label}
                 placeholder="Tell their manager"
@@ -585,9 +585,8 @@ function LadderForm({
             </Field>
           </FieldRow>
           <p className="field-hint">
-            The rung&rsquo;s NAME is what somebody reads on the queue. Its short name is kept on
-            every notice this rung has ever raised, so renaming the one does not rewrite the
-            other.
+            The name is what people see on the queue. The short name is stored on every notice
+            this step has raised, so renaming the step later does not change old notices.
           </p>
           {/* Its own line, not a column of the row. The reason written here
               before was wrong in its detail — `.field-row` is a GRID, not
@@ -602,10 +601,10 @@ function LadderForm({
               /* Seven identical "Remove this rung". A group's name is announced
                  on entering the group and is not prepended to a button, so this
                  one is named itself — it is the press that destroys work. */
-              aria-label={`Remove rung ${String(index + 1)}`}
+              aria-label={`Remove step ${String(index + 1)}`}
               onClick={() => { setRungs((rs) => rs.filter((_, i) => i !== index)); }}
             >
-              Remove this rung
+              Remove this step
             </Button>
           </div>
         </fieldset>
@@ -614,7 +613,7 @@ function LadderForm({
       {grades.length === 0 && (
         <Notice tone="warn">
           <p>
-            This firm has no grade ladder, so a rung cannot be addressed to a grade. Set one up on{" "}
+            Your firm has no grades set up yet, so a step cannot be sent to a grade. Add them on{" "}
             <Link href="/admin/grades">Grades</Link> first.
           </p>
         </Notice>
@@ -623,7 +622,7 @@ function LadderForm({
       <div className="row" style={{ marginTop: "var(--s-4)" }}>
         <span className="cluster tight">
           <Button variant="ghost" onClick={add}>
-            Add a rung
+            Add a step
           </Button>
         </span>
         <span className="cluster tight">
@@ -636,8 +635,8 @@ function LadderForm({
         </span>
       </div>
       <p className="field-hint">
-        Saving writes a draft. Nothing escalates on it until it is published — the ladder in force
-        is whatever was published last.
+        Saving creates a draft. Nothing escalates from a draft until you publish it. The ladder in
+        force is the one published last.
       </p>
     </div>
   );

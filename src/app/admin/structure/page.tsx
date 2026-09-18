@@ -171,8 +171,9 @@ export default function StructurePage() {
       <PageHeader
         eyebrow="The firm"
         title="Firm structure"
-        lede="Most firms have one of these layers, some have both, and plenty have neither. Fill in
-        what your firm actually uses and leave the rest empty — nothing here is required."
+        lede="How your firm is organised: its Depts, its delivery teams, its time zone, and how a
+        client's work is split up. Most firms use only some of these. Fill in what your firm
+        actually uses and leave the rest empty."
       />
       <ErrorNotice error={error} />
 
@@ -202,7 +203,7 @@ export default function StructurePage() {
       <AxisList
         axis="dept"
         title="Depts"
-        blurb="The revenue axis — what the dashboard splits income by, and what a SPOC covers. FRC, TRC, RAA."
+        blurb="The firm's practice areas. The dashboard splits income by Dept, and a SPOC covers a Dept. For example FRC, TRC, RAA."
         rows={depts}
         busy={busy}
         onRename={rename}
@@ -215,7 +216,7 @@ export default function StructurePage() {
       <AxisList
         axis="team"
         title="Delivery teams"
-        blurb="Who actually does the work. FINCOMPLIANCE, VCFO CONSOLE, PAYROLL. Independent of the Depts, never nested under them — one team commonly delivers under several."
+        blurb="The teams that actually do the work, for example FINCOMPLIANCE, VCFO CONSOLE, PAYROLL. They are separate from the Depts and not nested under them. One team often delivers work for several Depts."
         rows={teams}
         busy={busy}
         onRename={rename}
@@ -251,12 +252,12 @@ export default function StructurePage() {
  * somebody made deliberately.
  */
 const COMMON_ZONES: readonly { readonly value: string; readonly label: string }[] = [
-  { value: "Asia/Kolkata", label: "India — Asia/Kolkata" },
-  { value: "Asia/Dubai", label: "United Arab Emirates — Asia/Dubai" },
-  { value: "Asia/Singapore", label: "Singapore — Asia/Singapore" },
-  { value: "Europe/London", label: "United Kingdom — Europe/London" },
-  { value: "America/New_York", label: "United States (Eastern) — America/New_York" },
-  { value: "UTC", label: "UTC — no country's calendar" },
+  { value: "Asia/Kolkata", label: "India (Asia/Kolkata)" },
+  { value: "Asia/Dubai", label: "United Arab Emirates (Asia/Dubai)" },
+  { value: "Asia/Singapore", label: "Singapore (Asia/Singapore)" },
+  { value: "Europe/London", label: "United Kingdom (Europe/London)" },
+  { value: "America/New_York", label: "United States, Eastern (America/New_York)" },
+  { value: "UTC", label: "UTC (no country's calendar)" },
 ];
 
 function TimeZoneChooser({
@@ -277,7 +278,7 @@ function TimeZoneChooser({
       <p className="muted" style={{ maxWidth: "62ch" }}>
         This decides which month a document falls into on a client&rsquo;s{" "}
         <strong>Month by month</strong> page, and which day the client chaser counts from. It
-        does <strong>not</strong> change how any date is displayed — everybody always sees dates
+        does <strong>not</strong> change how any date is displayed. Everybody always sees dates
         in their own local time.
       </p>
       {/* This was a <span className="field-label"> over a bare <select>, and
@@ -303,8 +304,9 @@ function TimeZoneChooser({
         </Field>
       </div>
       <p className="muted text-sm" id="firm-timezone-hint">
-        Changing this re-cuts what a past month page <em>shows</em> at its edges, because that
-        page is worked out when it is opened. Nothing stored moves.
+        Changing this can move a document at the very start or end of a month onto the
+        neighbouring month&rsquo;s page, because that page is worked out when it is opened.
+        Nothing stored changes.
       </p>
     </Card>
   );
@@ -339,7 +341,7 @@ function WorkSplitChooser({
     {
       value: "dept",
       label: "Split by Dept",
-      hint: "A client buying work in two Depts gets two jobs — one per Dept.",
+      hint: "A client buying work in two Depts gets two jobs, one per Dept.",
       disabledBecause: deptCount === 0 ? "no Depts defined yet" : null,
     },
     {
@@ -355,7 +357,7 @@ function WorkSplitChooser({
       <CardTitle level={2}>When a client signs, how is the work split up?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
         A client signs one engagement letter for several services. This decides whether that
-        becomes one job with everything in it, or several — one per group.
+        becomes one job with everything in it, or several jobs, one per group.
       </p>
       {/* The flex row, the gap, the 4px nudge on the radio and the dimming of
           a disabled option were all typed out here; `.check` does every one of
@@ -381,7 +383,7 @@ function WorkSplitChooser({
             value={o.value}
             label={<strong>{o.label}</strong>}
             note={
-              o.disabledBecause === null ? o.hint : `${o.hint} — ${o.disabledBecause}.`
+              o.disabledBecause === null ? o.hint : `${o.hint} Not available yet: ${o.disabledBecause}.`
             }
             checked={chosen === o.value}
             disabled={busy || o.disabledBecause !== null}
@@ -390,8 +392,8 @@ function WorkSplitChooser({
         ))}
       </fieldset>
       <p id={`${splitId}-restates`} className="muted text-sm">
-        Changing this restates nothing. Work already under way keeps the shape it started
-        with; the next engagement is split the new way.
+        Changing this does not affect work already under way. That work keeps the shape it
+        started with. The next engagement is split the new way.
       </p>
       {/* Said out loud rather than left for somebody to discover. The setting is
           stored and audited today; the orchestrator that reads it is T2.7. A
@@ -441,9 +443,9 @@ function AxisList({
 
       {rows.length === 0 ? (
         <p className="muted">
-          None defined. While this list is empty a service&apos;s {title.toLowerCase()} field
-          takes any code the firm types — the moment there is one row, the list is closed and
-          only these codes are accepted.
+          None defined yet. While this list is empty, a service&apos;s {title.toLowerCase()}{" "}
+          field accepts any code you type. Once there is one row here, only these codes are
+          accepted.
         </p>
       ) : (
         <TableWrap>
@@ -590,7 +592,7 @@ function AddAxis({
           <Field
             id={`add-${axis}-code`}
             label="Code"
-            hint="Permanent. Upper case, spaces allowed. Every service filed here names it."
+            hint="Permanent once set. Capital letters, spaces allowed. Services refer to it by this code."
           >
             <Input
               name="code"
@@ -601,7 +603,7 @@ function AddAxis({
           <Field
             id={`add-${axis}-name`}
             label="Name"
-            hint="What people read. Changeable later."
+            hint="What people see. You can change it later."
           >
             <Input
               name="name"
@@ -745,12 +747,12 @@ function RequestRoutingChooser({
     {
       value: "none",
       label: "Leave them for anyone to pick up",
-      hint: "Requests arrive on nobody's desk and whoever gets to one takes it. What the inbox does today.",
+      hint: "Requests arrive on nobody's desk, and whoever gets to one first takes it. This is the default.",
     },
     {
       value: "key_manager",
       label: "Send them to the client's Key Manager",
-      hint: "A client with no Key Manager gets a request that waits under Unassigned, saying so — never one guessed onto somebody else's desk.",
+      hint: "If a client has no Key Manager, the request waits under Unassigned and says so. It is never guessed onto somebody else's desk.",
     },
   ];
 
@@ -758,8 +760,9 @@ function RequestRoutingChooser({
     <Card>
       <CardTitle level={2}>When a client asks you for something, whose is it?</CardTitle>
       <p className="muted" style={{ maxWidth: "62ch" }}>
-        Clients raise requests from their own portal — a document they cannot find, a copy of
-        something, a correction. This decides whether one arrives on a named desk.
+        Clients raise requests from their own portal: a document they cannot find, a copy of
+        something, a correction. This decides whether a request lands on a named person&rsquo;s
+        desk.
       </p>
       {/* Named and DESCRIBED as a group, for the reason the work-split card
           above is: the paragraph under these options is about the choice, not
@@ -792,10 +795,10 @@ function RequestRoutingChooser({
         ))}
       </fieldset>
       <p id={`${routingId}-note`} className="field-hint" style={{ marginTop: "var(--s-3)" }}>
-        There is no &ldquo;send it to the SPOC&rdquo; here, and that is deliberate: a SPOC
-        covers a Dept or a delivery team, and a request names no service — so there would be
-        nothing to pick one by. Changing this setting restates nothing: requests already on a
-        desk keep their owner, and the next one is routed the new way.
+        There is no &ldquo;send it to the SPOC&rdquo; option because a SPOC covers a Dept or a
+        delivery team, and a request does not say which service it is about, so there is no way
+        to pick one. Changing this setting does not move requests already on someone&rsquo;s
+        desk. Only new requests are routed the new way.
       </p>
     </Card>
   );

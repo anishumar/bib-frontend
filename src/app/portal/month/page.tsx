@@ -112,8 +112,8 @@ export default function PortalMonthPage() {
           Nothing in a typecheck can see this sentence go stale — so when
           transport lands, this is the line to come back to. */}
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        This is a page rather than something that arrives: {firm} cannot send email or
-        messages from this system yet, so nothing about this month has been sent to you.
+        This is a page, not an email. {firm} cannot send email or messages from this system
+        yet, so nothing about this month has been sent to you.
         Everything here is also on your other pages as it happens.
       </p>
     </Page>
@@ -134,7 +134,7 @@ function DigestBody({ digest, firm }: { digest: PortalDigest; firm: string }) {
     return (
       <Empty title={`Nothing recorded in ${monthName(digest.month)}`} icon="check">
         No filing was made, no document was added and nothing was billed in that month. If
-        you expected something, ask {firm} — a quiet month here is not the same as a quiet
+        you expected something, ask {firm}. A quiet month here does not always mean a quiet
         month at their end.
       </Empty>
     );
@@ -155,7 +155,7 @@ function DigestBody({ digest, firm }: { digest: PortalDigest; firm: string }) {
       <DigestSection title="Billed" note="Invoices issued in that month." rows={digest.invoiced} />
       <DigestSection
         title="What you sent back"
-        note="Requests you answered. The date is when you FIRST replied — a second file sent later does not move it."
+        note="Requests you answered. The date is when you first replied. A second file sent later does not move it."
         rows={digest.asksAnswered}
       />
     </>

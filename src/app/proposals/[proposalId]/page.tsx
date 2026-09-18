@@ -237,7 +237,7 @@ export default function ProposalPage() {
 
       {/* The tab carries the reference for the same reason the header does: it
           is how a person names this document to anybody else. */}
-      <title>{`${proposal.ref} — ${proposal.title}`}</title>
+      <title>{`${proposal.ref} · ${proposal.title}`}</title>
       {/* The firm's own number for this quote goes in the eyebrow. The uuid in
           the address bar is the system's name for it; this is the one a client
           quotes back. */}
@@ -274,8 +274,8 @@ export default function ProposalPage() {
         <Card>
           <CardTitle level={2}>The link to send</CardTitle>
           <p className="muted text-md">
-            Shown once. Only its fingerprint is stored, so this page is the only place it can
-            ever be read — send it again to issue a new one.
+            Copy it now. It is shown only once. If you lose it, press Send again to issue a new
+            link.
           </p>
           <p className="mono" style={{ wordBreak: "break-all" }} id="share-link">
             {shareLink}
@@ -308,7 +308,7 @@ export default function ProposalPage() {
               {copied === "done"
                 ? "On the clipboard."
                 : copied === "failed"
-                  ? "The browser refused the clipboard — select the link above and copy it by hand."
+                  ? "Copying failed. Select the link above and copy it by hand."
                   : ""}
             </span>
           </div>
@@ -325,9 +325,9 @@ export default function ProposalPage() {
             <tr>
               <Th>Line</Th>
               <Th align="right">Qty</Th>
-              <Th align="right">List then</Th>
+              <Th align="right">List price</Th>
               <Th align="right">Quoted</Th>
-              <Th align="right">Disc.</Th>
+              <Th align="right">Discount</Th>
               <Th align="right">Net</Th>
               <Th />
             </tr>
@@ -366,14 +366,14 @@ export default function ProposalPage() {
                       )}
                     </>
                   ) : (
-                    "—"
+                    "no list price"
                   )}
                 </Td>
                 <Td align="right" className="mono">
                   {formatMoney(l.unitAmount, l.currency)}
                 </Td>
                 <Td align="right" className="mono">
-                  {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
+                  {l.discountPercent === null ? "none" : `${formatCount(l.discountPercent)}%`}
                 </Td>
                 <Td align="right" className="mono">
                   {formatMoney(l.net, l.currency)}
@@ -468,7 +468,7 @@ export default function ProposalPage() {
                     than pointing at the catalogue's. */}
                 <Field
                   label="From the catalogue"
-                  hint="Fills in the wording and the list price below. Change either — the line keeps its own copy, which is what makes this document readable years after the price list moves on."
+                  hint="Fills in the wording and the list price below. You can change either. The line keeps what you enter, even if the catalogue changes later."
                 >
                   <Select
                     name="serviceVersionId"
@@ -484,7 +484,7 @@ export default function ProposalPage() {
                         <option key={entry.entry.id} value={entry.published?.id}>
                           {body.name || entry.entry.key}
                           {body.listPrice !== null &&
-                            ` — ${formatMoney(body.listPrice.amount, body.listPrice.currency)}`}
+                            ` (${formatMoney(body.listPrice.amount, body.listPrice.currency)})`}
                         </option>
                       );
                     })}
@@ -608,8 +608,8 @@ export default function ProposalPage() {
           )}
           {!isDraft && proposal.status !== "sent" && (
             <p className="muted text-md">
-              This proposal is {proposal.status}. A client who comes back is a new quote — which
-              is what keeps this one readable as what they were actually shown.
+              This proposal is {proposal.status} and can no longer be changed. If the client comes
+              back, draft a new proposal.
             </p>
           )}
         </div>
@@ -679,7 +679,7 @@ export default function ProposalPage() {
             <FieldStack>
               <Field
                 label="Why did they say no?"
-                hint="In the firm's own words. The status already says the quote was lost; this is the half worth anything next quarter, and it cannot be added later."
+                hint="In your own words. It cannot be added later."
               >
                 <Textarea
                   name="declinedReason"
@@ -722,7 +722,7 @@ export default function ProposalPage() {
               {proposal.declinedReason ?? (
                 // Null on a rejection means nobody wrote one down, which is a
                 // different silence from a quote that was never decided.
-                <span className="muted">Not recorded — nobody was asked.</span>
+                <span className="muted">Not recorded.</span>
               )}
             </p>
           </>
@@ -818,10 +818,9 @@ function WriteItUp({
     <Card>
       <CardTitle level={2}>Write it up as an engagement letter</CardTitle>
       <p className="muted">
-        The terms come across as they were agreed — every line with its service, its wording,
-        its quantity, its price and its discount, in this quote&rsquo;s own currency. Nothing is
-        retyped, so nothing can be mistyped. The letter opens as a draft: its clauses are chosen
-        from the library afterwards, against the country it is written under.
+        Every line on this quote is copied into the letter as agreed: service, wording,
+        quantity, price and discount, in the same currency. The letter opens as a draft, and
+        you choose its clauses from the library afterwards.
       </p>
 
       {carrying === 0 && !offerDefault ? (
@@ -830,11 +829,10 @@ function WriteItUp({
            refusal. */
         <Notice tone="warn" eyebrow="Nothing to carry">
           <p>
-            No line on this quote names the company the work is for. A letter line has to,
-            because signing it creates an engagement — one service for one legal entity. A
-            proposal may quote a prospect that holds no entity yet, which is exactly this case.
-            Draft the letter from <Link href="/engagement-letters">Engagement letters</Link> and
-            add the lines naming each company.
+            No line on this quote says which company the work is for, and every line on a
+            letter must name one. Draft the letter from{" "}
+            <Link href="/engagement-letters">Engagement letters</Link> and add the lines there,
+            naming the company on each.
           </p>
         </Notice>
       ) : (
@@ -843,9 +841,9 @@ function WriteItUp({
             <Notice tone="warn" eyebrow="Some lines stay behind">
               <p>
                 {lineWord(carrying)} will carry across. {lineWord(withoutEntity.length)}{" "}
-                {withoutEntity.length === 1 ? "names" : "name"} no company —{" "}
-                {withoutEntity.map((l) => l.description).join(", ")} — and a letter line has
-                to name one, because signing it creates an engagement for one legal entity. Add
+                {withoutEntity.length === 1 ? "names" : "name"} no company (
+                {withoutEntity.map((l) => l.description).join(", ")}), and every line on a letter
+                must name one. Add
                 {withoutEntity.length === 1 ? " it" : " them"} to the letter by hand afterwards.
               </p>
             </Notice>
@@ -855,12 +853,11 @@ function WriteItUp({
               <p>
                 {lineWord(withoutEntity.length)}{" "}
                 {withoutEntity.length === 1 ? "does" : "do"} not say which company the work is
-                for — {withoutEntity.map((l) => l.description).join(", ")}. A letter line has
-                to name one, because signing it creates an engagement, and one engagement is
-                one service for one legal entity.{" "}
+                for: {withoutEntity.map((l) => l.description).join(", ")}. Every line on a
+                letter must name one.{" "}
                 {defaultRequired
-                  ? "No line on this quote names a company, so the letter cannot be written until you say which one below."
-                  : "Choose a company below and they come across too; leave it empty and they stay behind, and the letter says so when it opens."}
+                  ? "No line on this quote names a company, so choose one below before the letter can be written."
+                  : "Choose a company below and they come across too. Leave it empty and they stay behind, and the letter says so when it opens."}
               </p>
             </Notice>
           )}
@@ -892,8 +889,8 @@ function WriteItUp({
                 label="Which country is this letter under?"
                 hint={
                   countries.length === 0
-                    ? "No line on this quote says where the work is, and a letter states one for the whole document — it settles governing law, the courts, and which of your own companies contracts."
-                    : `This quote covers ${countries.join(" and ")}. A letter states ONE country because that is what decides its governing law, so either say which this one is under, or write one letter per country.`
+                    ? "No line on this quote says which country the work is in. A letter covers one country, which decides its governing law and which of your own companies issues it."
+                    : `This quote covers ${countries.join(" and ")}. A letter covers one country, which decides its governing law. Say which country this letter is under, or write one letter per country.`
                 }
               >
                 <Input name="jurisdiction" maxLength={2} placeholder="IN" />
@@ -907,7 +904,7 @@ function WriteItUp({
                     ? "Which company is this work for?"
                     : "Which company are the remaining lines for? (optional)"
                 }
-                hint="The client this quote is for, and the companies its own page records as its group — nothing else is offered, because a letter line names the counterparty on a contract. Every line that already names a company keeps the one it names; this only fills the blanks."
+                hint="The client this quote is for, and the group companies recorded on its page. Lines that already name a company keep it; this only fills in the blanks."
               >
                 {/* NO PRE-SELECTED COMPANY, EVEN WHEN THERE IS ONLY ONE. The
                     API's own words: a guessed party on a signed page is
@@ -917,11 +914,11 @@ function WriteItUp({
                   <option value="">
                     {defaultRequired
                       ? "Choose a company"
-                      : `Leave them behind — ${lineWord(withoutEntity.length)} will not carry`}
+                      : `Leave them behind (${lineWord(withoutEntity.length)} will not carry)`}
                   </option>
                   {entityChoices.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} — {c.relation}
+                      {c.name} ({c.relation})
                     </option>
                   ))}
                 </Select>
@@ -944,7 +941,7 @@ function WriteItUp({
             {advanceRequired && (
               <Field
                 label="How much"
-                hint="Every engagement this letter opens stays closed until somebody records the advance as received."
+                hint="No work under this letter starts until somebody records the advance as received."
               >
                 <Input name="advanceAmount" inputMode="decimal" />
               </Field>
@@ -955,8 +952,8 @@ function WriteItUp({
                 {busy === "letter" ? "Drafting…" : "Draft the engagement letter"}
               </Button>
               <p className="field-hint">
-                {lineWord(carrying)} carried at the price this client agreed. The
-                quote stays exactly as it is — it is the record of what they were shown.
+                {lineWord(carrying)} carried at the price this client agreed. The quote itself
+                stays exactly as it is.
               </p>
             </div>
           </FieldStack>

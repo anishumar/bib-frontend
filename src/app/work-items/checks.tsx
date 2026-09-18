@@ -74,11 +74,9 @@ export function CheckQueue({
     return (
       <Card>
         <Empty title="Nothing is waiting to be checked" icon="verification">
-          A task lands here when whoever holds it sends it for review from its own page. Who may
-          then check it is the firm&rsquo;s own rule, written on{" "}
-          <Link href="/admin/verification">Who checks work</Link> — except for one part of it,
-          which is never a setting: the person who did the work is never the person who approves
-          it.
+          A task lands here when the person handling it sends it for review from its own page.
+          Who may check it is set on <Link href="/admin/verification">Who checks work</Link>.
+          One rule always applies: the person who did the work cannot approve it.
         </Empty>
       </Card>
     );
@@ -96,8 +94,8 @@ export function CheckQueue({
       <Sub>
         {mine === 0 ? (
           <>
-            None of these are yours to check — every row says why. They are waiting on somebody
-            else, and that is what this list is for.
+            None of these are yours to check, and each row says why. They are waiting on
+            somebody else.
           </>
         ) : (
           <>
@@ -191,7 +189,7 @@ function CheckRow({
               bar in April never restates what was allowed in March. "No
               particular rule" is a real answer and not a blank: then maker !=
               checker is the whole of it. */}
-          <Sub>{check.policyLabel ?? "no particular rule — only maker ≠ checker"}</Sub>
+          <Sub>{check.policyLabel ?? "no particular rule, only that the maker cannot be the checker"}</Sub>
         </Td>
         <Td>{check.clientName}</Td>
         <Td>
@@ -261,7 +259,7 @@ function CheckRow({
           <Td colSpan={5}>
             <Field
               label="What has to change"
-              hint="Required. Why work came back is the only thing that ever explains rework — marking the task done later erases that it was ever sent back."
+              hint="Required. Say what needs fixing, so the person can act on it and the reason stays on record."
             >
               <Textarea
                 rows={2}

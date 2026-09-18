@@ -109,7 +109,7 @@ export default function TerritoriesPage() {
       <PageHeader
         eyebrow="The firm"
         title="Territories"
-        lede="A lead from one of these countries goes to that desk, whatever its load. Everywhere else falls through to the rotation — there is no wildcard rule, because the rotation is a better fallback than a row somebody has to remember to maintain."
+        lede="Give a country to a person, and every new lead from that country goes to them. Leads from any other country go round the rotation, to whoever holds the fewest open leads."
         aside={<Pill tone="quiet">{rules.length} set</Pill>}
       />
 
@@ -118,7 +118,7 @@ export default function TerritoriesPage() {
       {rules.length === 0 ? (
         <Card>
           <Empty title="No territories" icon="territories">
-            Every lead is assigned by the rotation — to whoever holds the fewest open leads.
+            Every lead goes round the rotation, to whoever holds the fewest open leads.
           </Empty>
         </Card>
       ) : (
@@ -127,7 +127,7 @@ export default function TerritoriesPage() {
             <thead>
               <tr>
                 <Th>Country</Th>
-                <Th>Desk</Th>
+                <Th>Goes to</Th>
                 <Th>Why</Th>
               </tr>
             </thead>
@@ -141,7 +141,7 @@ export default function TerritoriesPage() {
                       desk costs nothing extra here. If this list ever outgrows
                       the roster read, the join belongs in the API. */}
                   <Td>{nameOf(r.ownerUserId)}</Td>
-                  <Td>{r.note === null ? <span className="empty">—</span> : r.note}</Td>
+                  <Td>{r.note === null ? <span className="empty">none</span> : r.note}</Td>
                 </tr>
               ))}
             </tbody>
@@ -152,8 +152,8 @@ export default function TerritoriesPage() {
       <Card>
         <CardHead title="Set a territory" level={2}>
           <p className="lede">
-            One desk per country. Setting a country that already has one MOVES it — the rule
-            keeps its identity, and leads assigned under the old one are not re-assigned.
+            One person per country. Setting a country that already has someone moves it to the
+            new person. Leads already assigned under the old rule stay where they are.
           </p>
         </CardHead>
         <form
@@ -166,7 +166,7 @@ export default function TerritoriesPage() {
               <Field label="Country">
                 <Input name="jurisdiction" maxLength={2} placeholder="GB" required />
               </Field>
-              <Field label="Desk">
+              <Field label="Goes to">
                 <Select name="ownerUserId" required>
                   {desks.map((m) => (
                     <option key={m.membership.userId} value={m.membership.userId}>

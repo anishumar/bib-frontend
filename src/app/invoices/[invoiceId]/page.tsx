@@ -181,7 +181,7 @@ export default function InvoicePage() {
           engagement letter. Walked with several tabs open and this one was
           "BiB — 10X Workspace" while its neighbours said which document they
           were: the tab strip is how a person finds their way back. */}
-      <title>{`${invoice.number} — ${record.party.displayName}`}</title>
+      <title>{`${invoice.number} · ${record.party.displayName}`}</title>
 
       <PageHeader
         eyebrow="Commercial"
@@ -248,8 +248,8 @@ export default function InvoicePage() {
           </Meta>
           {Number(balance.outstanding) < 0 && (
             <p className="max-w-[var(--measure)] text-sm text-muted">
-              More has been received than was billed — an overpayment, or one transfer settling
-              more than this invoice.
+              More has been received than was billed. This is an overpayment, or one transfer
+              that settled more than this invoice.
             </p>
           )}
         </Card>
@@ -260,8 +260,7 @@ export default function InvoicePage() {
         <CardTitle level={2}>Lines</CardTitle>
         {record.lines.length === 0 ? (
           <p className="text-sm text-muted">
-            Nothing on it yet. An invoice with no lines asks the client for nothing, and the API
-            refuses to issue one.
+            No lines yet. An invoice cannot be issued until it has at least one line.
           </p>
         ) : (
           <TableWrap>
@@ -271,7 +270,7 @@ export default function InvoicePage() {
                 <Th>Description</Th>
                 <Th align="right">Qty</Th>
                 <Th align="right">Unit</Th>
-                <Th align="right">Disc.</Th>
+                <Th align="right">Discount</Th>
                 <Th align="right">Tax</Th>
                 <Th align="right">Net</Th>
                 {draft && <Th />}
@@ -291,7 +290,7 @@ export default function InvoicePage() {
                       em dash rather than "0%", which would be a figure this
                       reader was not shown rather than one that is true. */}
                   <Td align="right" className="mono">
-                    {l.discountPercent === null ? "—" : `${formatCount(l.discountPercent)}%`}
+                    {l.discountPercent === null ? "none" : `${formatCount(l.discountPercent)}%`}
                   </Td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
@@ -392,7 +391,7 @@ export default function InvoicePage() {
               {billable.length > 0 && (
                 <Field
                   label="What is this for?"
-                  hint="Picks up the wording and the price this client agreed on the engagement letter. Everything below stays editable — an invoice bills a period, not the whole contract."
+                  hint="Picks up the wording and the price this client agreed in the engagement letter. Everything below can still be edited, since an invoice usually bills one period rather than the whole contract."
                 >
                   <Select
                     name="engagementId"
@@ -403,7 +402,7 @@ export default function InvoicePage() {
                       setChosen(next);
                     }}
                   >
-                    <option value="">Not from an engagement — type it below</option>
+                    <option value="">Not from an engagement (type it below)</option>
                     {billable.map((b) => (
                       <option
                         key={b.engagementId}
@@ -414,9 +413,9 @@ export default function InvoicePage() {
                            yet — a picker that silently dropped it could not. */
                         disabled={b.status !== "active"}
                       >
-                        {b.entityName} — {b.description}
+                        {b.entityName}: {b.description}
                         {b.unitAmount === null ? " (no price agreed)" : ""}
-                        {b.status === "active" ? "" : " — waiting on the advance"}
+                        {b.status === "active" ? "" : " (waiting on the advance)"}
                       </option>
                     ))}
                   </Select>
@@ -427,7 +426,7 @@ export default function InvoicePage() {
                   From <span className="mono">{chosen.letterRef}</span>
                   {chosen.pricingNote === null ? "" : ` · ${chosen.pricingNote}`}
                   {chosen.unitAmount === null
-                    ? " — this line was agreed with no price, so type the figure you are billing."
+                    ? ". This line was agreed with no price, so type the figure you are billing."
                     : ""}
                 </p>
               )}
@@ -486,8 +485,8 @@ export default function InvoicePage() {
         <CardTitle level={2}>The document</CardTitle>
         {!mayAdmin && (draft || issued) && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Issuing and cancelling need <span className="mono">tenant:admin</span>: both leave
-            a permanent mark in a consecutive series a tax authority may ask about.
+            Only a firm administrator can issue or cancel an invoice, because both use up a
+            number in the series.
           </p>
         )}
         <div className="cluster">
@@ -527,8 +526,8 @@ export default function InvoicePage() {
         </div>
         {invoice.status === "cancelled" && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Cancelled — and it keeps its number. The series stays consecutive, which is what shows
-            an auditor where a number went. A replacement is a new invoice.
+            Cancelled. It keeps its number so the series stays unbroken. To replace it, raise a
+            new invoice.
           </p>
         )}
 
@@ -565,7 +564,7 @@ export default function InvoicePage() {
                 <FieldRow>
                   <Field
                     label="Record the e-invoice reference"
-                    hint="Obtained from the IRP elsewhere. It is the registry's identifier for this document and cannot be replaced once recorded."
+                    hint="The IRN you received from the e-invoice portal (IRP). It cannot be changed once recorded."
                   >
                     <Input name="irn" required />
                   </Field>
@@ -614,7 +613,7 @@ export default function InvoicePage() {
                 <tr key={p.id}>
                   <Td className="mono">{longDay(p.receivedOn)}</Td>
                   <Td>{PAYMENT_METHOD_LABELS[p.method]}</Td>
-                  <Td className="mono muted">{p.reference ?? "—"}</Td>
+                  <Td className="mono muted">{p.reference ?? "none"}</Td>
                   {/* A NEGATIVE payment is a reversal — a bounced cheque — and
                       it is a row of its own beside the original rather than the
                       original edited away. Both are shown, which is the point. */}
@@ -654,7 +653,7 @@ export default function InvoicePage() {
             <fieldset className="fieldset" aria-label="Record a payment">
               <FieldStack>
                 <FieldRow>
-                  <Field label="Amount" hint="Negative for a reversal.">
+                  <Field label="Amount" hint="Enter a negative amount to reverse a payment.">
                     <Input name="amount" required />
                   </Field>
                   <Field label="Received">
@@ -687,8 +686,7 @@ export default function InvoicePage() {
         )}
         {!issued && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Money attaches only to an issued invoice: a draft has asked for nothing, and a
-            cancelled one is a refund rather than a settlement.
+            Payments can only be recorded against an issued invoice.
           </p>
         )}
       </Card>
@@ -760,7 +758,7 @@ export default function InvoicePage() {
                       not. */}
                   <Field
                     label="Why"
-                    hint="A category, not a sentence: “how much did we write off to service failures” is a question free text cannot answer."
+                    hint="Choose a category, so credit notes can be totalled by reason later. Put the details under Particulars."
                   >
                     <Select name="reason" required>
                       {CREDIT_REASONS.map((r) => (
@@ -785,8 +783,7 @@ export default function InvoicePage() {
         )}
         {issued && !mayAdmin && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Issuing a credit note needs <span className="mono">tenant:admin</span>: it takes
-            money off a legal document, and somebody has to answer for it later.
+            Only a firm administrator can issue a credit note.
           </p>
         )}
       </Card>
@@ -794,14 +791,14 @@ export default function InvoicePage() {
       {/* ── How far it has been chased ─────────────────────────────────── */}
       {chased.length > 0 && (
         <Card>
-          <CardTitle level={2}>Chased</CardTitle>
+          <CardTitle level={2}>Payment reminders</CardTitle>
           <TableWrap>
         <Table>
             <thead>
               <tr>
                 <Th>Step</Th>
                 <Th>Action</Th>
-                <Th>Fired at</Th>
+                <Th>When</Th>
                 <Th>State</Th>
               </tr>
             </thead>
@@ -810,7 +807,7 @@ export default function InvoicePage() {
                 <tr key={a.id}>
                   <Td className="mono">{a.step}</Td>
                   <Td>{a.action.replace("_", " ")}</Td>
-                  <Td className="text-sm text-muted">D+{a.afterDays}</Td>
+                  <Td className="text-sm text-muted">{a.afterDays} days after the due date</Td>
                   <Td>
                     {/* `ok`, not `accent`. `accent` is shadcn's neutral hover
                         ground; the status teal is `ok`, and `components/tw`'s
@@ -834,8 +831,8 @@ export default function InvoicePage() {
           </Table>
         </TableWrap>
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            The worker climbs the ladder on its own. Credit hold and legal action are the two
-            rungs it may reach and not apply — those wait for a partner on{" "}
+            Reminders are sent automatically, step by step. Credit hold and legal action are
+            never applied automatically; they wait for a partner’s decision on{" "}
             <Link href="/receivables">Receivables</Link>.
           </p>
         </Card>

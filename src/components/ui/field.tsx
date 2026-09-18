@@ -255,7 +255,7 @@ export function Checkbox({
         {note === undefined ? label : <span id={labelId}>{label}</span>}
         {note !== undefined && (
           <span className="note">
-            {" — "}
+            {" · "}
             <span id={noteId}>{note}</span>
           </span>
         )}

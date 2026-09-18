@@ -160,9 +160,9 @@ export default function WorkItemPage() {
     return (
       <Page>
         <div className="cluster">
-          <Link href="/work-items">← Work</Link>
+          <Link href="/work-items">← Work board</Link>
         </div>
-        <Notice tone="danger" role="alert">{error ?? "No such work item."}</Notice>
+        <Notice tone="danger" role="alert">{error ?? "No such task."}</Notice>
       </Page>
     );
   }
@@ -177,7 +177,7 @@ export default function WorkItemPage() {
           engagement letter. Walked with several tabs open and this one was
           "BiB — 10X Workspace" while its neighbours said which document they
           were: the tab strip is how a person finds their way back. */}
-      <title>{`${item.title} — ${item.clientName}`}</title>
+      <title>{`${item.title} · ${item.clientName}`}</title>
 
       <PageHeader
         eyebrow="Delivery"
@@ -197,7 +197,7 @@ export default function WorkItemPage() {
           <>
             {item.jobId !== null && (
               <LinkButton size="sm" href={`/work/${item.jobId}`}>
-                The process
+                The job
               </LinkButton>
             )}
             <LinkButton size="sm" href={`/clients/${item.clientPartyId}`}>
@@ -246,13 +246,13 @@ export default function WorkItemPage() {
                     revision must not make finished work retroactively late, so
                     this is the number that applied when the work was raised —
                     not what the service says today. */}
-                (SLA {item.slaDaysSnapshot} days, as it stood when this was raised)
+                (turnaround of {item.slaDaysSnapshot} days, as set when this task was raised)
               </span>
             )}
           </MetaItem>
           {item.isStatutoryDue && (
             <MetaItem label="Deadline">
-              Statutory — the date comes from the law, not from the firm
+              Legal deadline. The date comes from the law, not from the firm.
             </MetaItem>
           )}
           <MetaItem label="Client can see this">{item.isClientVisible ? "Yes" : "No"}</MetaItem>
@@ -357,7 +357,7 @@ export default function WorkItemPage() {
         subjectRef={workItemId}
         partyId={item.clientPartyId}
         canWrite={canWrite}
-        emptyHint="Nothing filed against this task yet. A challan, an acknowledgement, the register the client sent — whatever somebody would go looking for a year from now."
+        emptyHint="Nothing filed on this task yet. Add the challan, the acknowledgement or the register the client sent, so it can be found a year from now."
       />
 
       <Checklist
@@ -494,7 +494,7 @@ function MoveState({
 
   return (
     <Card>
-      <CardTitle level={2}>Move it</CardTitle>
+      <CardTitle level={2}>Change state</CardTitle>
       <div className="field-row">
         <Field label="State">
           <Select
@@ -544,7 +544,7 @@ function MoveState({
            description instead, which is what it is. */
         <Field
           label="Why is it stuck?"
-          hint="Required for this state, and it is the only thing that will ever explain the delay. It stays on the task and never enters the audit log — the log cannot be erased and this names people."
+          hint="Required for this state. Say what is holding it up. The note stays on the task and is not written to the audit trail."
         >
           <Textarea
             value={reason}
@@ -598,8 +598,8 @@ function ClientVisibility({
       />
       <p className="field-hint">
         {visible
-          ? "Their own contacts see this task, its status and — if it is held up — the reason recorded on it. They never see who it is assigned to, its priority, or the description above."
-          : "Hidden from the client portal. This is where internal work about a client belongs: a write-off discussion, a quality review, a credit decision."}
+          ? "The client's contacts see this task, its status and, if it is held up, the reason recorded on it. They never see who it is assigned to or its priority."
+          : "Hidden from the client portal. Use this for internal work about a client, such as a write-off discussion, a quality review or a credit decision."}
       </p>
     </Card>
   );
@@ -659,9 +659,8 @@ function Assign({
           grid column — pointed at from the select by id instead of being its
           `hint`. */}
       <p className="field-hint" id="assign-hint">
-        Work spawned from an engagement arrives on the client&rsquo;s SPOC for that
-        department automatically. Changing it here is an override, and the trail records it
-        as one.
+        A task created from an engagement goes to the client&rsquo;s SPOC for that Dept on its
+        own. Changing it here overrides that, and the change is recorded.
       </p>
     </Card>
   );
@@ -696,8 +695,8 @@ function Checklist({
       </CardTitle>
       {lines.length === 0 && (
         <p className="muted text-md">
-          Nothing on it yet. This is the firm&rsquo;s own list for this task — separate from
-          the process steps, which live on the job.
+          Nothing on it yet. This is your firm&rsquo;s own to-do list for this task. The process
+          steps are on the job.
         </p>
       )}
       {lines.map((line) => (
@@ -775,7 +774,7 @@ function Checklist({
           goes looking for the button. The tick is the record that a person did
           something and it lives nowhere else. */}
       <p className="field-hint">
-        A ticked line cannot be removed — untick it first if it was ticked by mistake.
+        A ticked line cannot be removed. Untick it first if it was ticked by mistake.
       </p>
     </Card>
   );
@@ -873,7 +872,7 @@ function Reviews({
                     {r.decision}
                   </Pill>
                 </Td>
-                <Td className="muted">{r.notes ?? "—"}</Td>
+                <Td className="muted">{r.notes ?? "no note"}</Td>
               </tr>
             ))}
           </tbody>
@@ -956,7 +955,7 @@ function DecideReview({
               `hint` it is a description, which is what it is. */}
           <Field
             label="Note"
-            hint="Required when you send it back. Why work came back is the only thing that ever explains rework — marking the task done later erases that it was rejected at all."
+            hint="Required when you send it back. Say what needs fixing, so the reason stays on record."
           >
             <Textarea
               rows={2}
@@ -1006,7 +1005,7 @@ function DecideReview({
               {checkers.map((c) => (
                 <tr key={c.userId}>
                   <Td>{c.displayName}</Td>
-                  <Td className="muted">{c.gradeName ?? "ungraded"}</Td>
+                  <Td className="muted">{c.gradeName ?? "no grade set"}</Td>
                   <Td>
                     {c.eligible ? (
                       <Pill tone="ok">may check</Pill>
@@ -1144,10 +1143,9 @@ function Dependencies({
         )}
       </CardTitle>
       <p className="muted text-md">
-        &ldquo;This cannot start until that is finished&rdquo; — an annual filing waits on
-        twelve monthly ones. While anything here is unfinished, moving this task out of its
-        starting state is refused; cancelling it outright is not, because abandoning something
-        that never started is a real act.
+        Use this when one task cannot start until another is finished, for example an annual
+        filing that waits on twelve monthly ones. While anything here is unfinished, this task
+        cannot be moved out of its starting state. It can still be cancelled.
       </p>
 
       {deps.length === 0 ? (
@@ -1177,7 +1175,7 @@ function Dependencies({
                   onRemove(d.id);
                 }}
               >
-                Lift it
+                Remove
               </Button>
             )}
           </div>
@@ -1206,7 +1204,7 @@ function Dependencies({
                 <FieldStack>
                   <Field
                     label="Wait on"
-                    hint="This client's other work. A dependency between two clients' tasks is not offered here — a picker over the whole firm's board is not a choice anybody can make."
+                    hint="Only this client's other tasks are listed. A task for another client cannot be chosen here."
                   >
                     {/* NO PRE-SELECTED TASK. A dependency recorded against
                         whatever sorted first is a wrong fact rather than a
@@ -1250,8 +1248,8 @@ function Dependencies({
                         have prevented it. The sentence itself is rendered raw
                         by the page's error notice. */}
                     <p className="field-hint">
-                      A dependency that would make two tasks wait on each other, directly or
-                      through a chain, is refused — neither could ever start.
+                      Two tasks cannot wait on each other, directly or through a chain. That
+                      would mean neither could ever start.
                     </p>
                   </div>
                 </FieldStack>

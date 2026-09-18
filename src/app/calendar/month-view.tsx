@@ -623,7 +623,7 @@ function FilingCard({
       </div>
 
       <p className="mt-1 truncate text-xs text-muted">
-        {row.entityName ?? "—"}
+        {row.entityName ?? "no company"}
         {row.clientName !== null && row.clientName !== row.entityName && (
           <> &middot; {row.clientName}</>
         )}
@@ -672,7 +672,7 @@ function FilingCard({
             className="ml-auto text-xs text-brand underline-offset-2 hover:underline"
             aria-label={`${[row.name, row.entityName, row.periodLabel]
               .filter(Boolean)
-              .join(", ")} — on the board`}
+              .join(", ")}: open on the work board`}
           >
             on the board &rarr;
           </Link>

@@ -30,7 +30,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BiB — 10X Workspace",
+  title: "BiB · 10X Workspace",
   description: "Business in a Box: the staff workspace.",
 };
 

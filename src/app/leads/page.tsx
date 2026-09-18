@@ -240,10 +240,10 @@ export default function LeadsPage() {
           // whole point of the API returning it. Silence here would put the bug
           // back on the screen after it was fixed underneath.
           result.data.discardedTitle
-          ? `We already had an open opportunity with them, so this capture was added to it — and "${result.data.discardedTitle}" was not kept. It is still called "${result.data.lead.title}". Rename it, or close it before opening the next one.`
-          : "We already had an open opportunity with them — this capture was added to it."
+          ? `We already had an open opportunity with them, so this capture was added to it. The title "${result.data.discardedTitle}" was not kept; it is still called "${result.data.lead.title}". Rename it, or close it before opening the next one.`
+          : "We already had an open opportunity with them, so this capture was added to it."
         : result.data.matchedExistingParty
-          ? "They were already in the book; a new opportunity was opened against that record."
+          ? "They were already a client on record, so a new opportunity was opened against that record."
           : "New prospect, new opportunity.",
     );
     await load();
@@ -259,7 +259,7 @@ export default function LeadsPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Pipeline"
-        lede="Who the firm is talking to, how far along each one is, and whose it is."
+        lede="Every prospect the firm is talking to, the stage each one is at, and who is handling it. Capture a new lead at the bottom of the page."
         aside={<Pill tone="quiet">{open.length}</Pill>}
       />
       <ErrorNotice error={error} />
@@ -277,7 +277,7 @@ export default function LeadsPage() {
         <CardTitle level={2}>Open</CardTitle>
         {open.length === 0 ? (
           <p className="muted">
-            Nothing in the pipeline.
+            Nothing in the pipeline yet. Capture a lead below.
           </p>
         ) : (
           <TableWrap>
@@ -428,7 +428,7 @@ export default function LeadsPage() {
                                       ? "Why did it go elsewhere?"
                                       : "What happened to it?"
                                   }
-                                  hint="In your own words, and required — the stage says only THAT it did not close won. Lost and abandoned are different findings and this is the half worth reading next quarter."
+                                  hint="Required, in your own words. Write what actually happened, so it is useful to read back next quarter."
                                 >
                                   <Textarea
                                     name="lostReason"
@@ -517,7 +517,7 @@ export default function LeadsPage() {
                     <Td className="text-sm">
                       {l.lead.lostReason ??
                         (recordsLostReason(l.lead.stage) ? (
-                          <span className="muted">no reason recorded — nobody was asked</span>
+                          <span className="muted">no reason recorded</span>
                         ) : (
                           ""
                         ))}
@@ -541,8 +541,8 @@ export default function LeadsPage() {
       <Card>
         <CardTitle level={2}>Capture a lead</CardTitle>
         <p className="muted text-md">
-          At least one way to reach them. Email, phone and PAN are what the firm
-          deduplicates on, so the same prospect arriving twice lands on one record.
+          Give at least one way to reach them. Email, phone and PAN are used to recognise a
+          prospect already on record, so the same company does not end up with two records.
         </p>
         <form
           action={(form) => {

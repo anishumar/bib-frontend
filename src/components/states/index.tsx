@@ -182,7 +182,7 @@ export function Denied({
       </span>
       <p className="state-title">Not available to this account</p>
       <p>
-        {children ?? "Your role does not reach this part of the workspace."}
+        {children ?? "Your role does not have access to this part of the workspace."}
         {permission !== undefined && (
           <>
             {" "}

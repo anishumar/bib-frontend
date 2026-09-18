@@ -193,8 +193,8 @@ export function ChasingPanel({
       tone: "ok",
       eyebrow: "Chasing again",
       text:
-        `Anything ${clientName} still owes an answer on is back on the ladder, from today. ` +
-        `The reminder that was already due is not sent twice — each rung is taken once.`,
+        `Anything ${clientName} still owes an answer on is being reminded again, from today. ` +
+        `A reminder that already went out is not sent twice.`,
     });
   }
 
@@ -219,16 +219,16 @@ export function ChasingPanel({
     <Card>
       <CardTitle level={2}>Reminders to this client</CardTitle>
       <p className="muted">
-        When {clientName} owes the firm an answer or a document, the product reminds them —
+        When {clientName} owes the firm an answer or a document, they are reminded
         {rungs.length === 0 ? (
           <>
             {" "}
-            or it would, if the firm had published a reminder ladder. It has not, so nothing is
-            chased at all and freezing this client would change nothing.
+            automatically once the firm publishes a reminder ladder. None is published yet, so
+            nobody is being chased, and stopping reminders here would change nothing.
           </>
         ) : (
           <>
-            {" "}
+            {": "}
             {rungs.map((r, i) => (
               <span key={r.key}>
                 {i > 0 ? (i === rungs.length - 1 ? " and " : ", ") : ""}
@@ -236,8 +236,7 @@ export function ChasingPanel({
                 {r.afterDays === 1 ? "day" : "days"}
               </span>
             ))}
-            . The reminder appears in their own portal; nothing is emailed, because no channel
-            is configured yet.
+            . The reminder appears in their client portal. Nothing is emailed yet.
           </>
         )}
       </p>
@@ -246,10 +245,9 @@ export function ChasingPanel({
           stated before the button, because "freeze the client" reads like
           stopping work and it is nothing of the sort. */}
       <p className="muted">
-        Stopping reminders stops <strong>only</strong> the reminders. The work carries on, the
-        invoices carry on, {clientName} keeps the portal and can still answer — and the firm
-        goes on hearing about its own late work through the escalation ladder, which is the one
-        thing not to go blind to during a dispute.
+        Stopping reminders stops <strong>only</strong> the reminders. Work and invoices carry on,
+        {clientName} keeps their portal access and can still reply, and your own team is still
+        alerted about late work through the escalation ladder.
       </p>
 
       <ErrorNotice error={error} />
@@ -265,7 +263,7 @@ export function ChasingPanel({
         <>
           <p className="muted">
             Reminders are going out as normal.
-            {!canFreeze && " Stopping them needs permission to administer the firm."}
+            {!canFreeze && " Only a firm administrator can stop them."}
           </p>
           {canFreeze &&
             (opening ? (
@@ -283,14 +281,14 @@ export function ChasingPanel({
                       <CardTitle level={3}>Stop chasing {clientName}</CardTitle>
                       <Field
                         label="Why"
-                        hint="Required, and it is the only place this is ever readable — the reason is deliberately kept out of the audit log, because it is a partner's words about a client and that log cannot be erased. Somebody will ask in March why this client was never chased."
+                        hint="Required. Write it so that somebody reading this months later understands why this client was not chased. The reason is shown here only, not in the audit trail."
                       >
                         <Textarea name="freezeReason" rows={3} required />
                       </Field>
                       <FieldRow>
                         <Field
                           label="First day frozen"
-                          hint="Today, unless the firm decided this earlier and is recording it now."
+                          hint="Today, unless the decision was made earlier and you are recording it now."
                         >
                           <Input
                             type="date"
@@ -301,7 +299,7 @@ export function ChasingPanel({
                         </Field>
                         <Field
                           label="Until (optional)"
-                          hint="The first day chasing RESUMES, not the last day frozen. Leave it empty for the ordinary case — until somebody lifts it."
+                          hint="The first day reminders start again (not the last day they are stopped). Leave it empty to keep them stopped until somebody lifts it."
                         >
                           <Input type="date" name="freezeUntil" />
                         </Field>
@@ -413,8 +411,8 @@ export function ChasingPanel({
                           : longDay(f.validTo)}
                     </Td>
                     <Td>{f.reason}</Td>
-                    <Td className="muted">{f.setByName ?? "— account closed"}</Td>
-                    <Td className="muted">{f.liftedByName ?? "— account closed"}</Td>
+                    <Td className="muted">{f.setByName ?? "account closed"}</Td>
+                    <Td className="muted">{f.liftedByName ?? "account closed"}</Td>
                   </tr>
                 ))}
               </tbody>

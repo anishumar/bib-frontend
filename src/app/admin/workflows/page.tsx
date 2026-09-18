@@ -85,7 +85,7 @@ function BandFields({ step, onChange }: { step: StepDraft; onChange: (patch: Par
   const active = grades.filter((g) => g.isActive).sort((a, b) => a.rank - b.rank);
   return (
     <>
-      <Field label="From grade" optional hint="Lowest grade that does this step. Blank: no floor.">
+      <Field label="From grade" optional hint="The most junior grade that does this step. Leave blank for no lower limit.">
         <Select
           value={step.performerMin}
           onChange={(e) => {
@@ -100,7 +100,7 @@ function BandFields({ step, onChange }: { step: StepDraft; onChange: (patch: Par
           ))}
         </Select>
       </Field>
-      <Field label="To grade" optional hint="Highest grade that does this step. Blank: no ceiling.">
+      <Field label="To grade" optional hint="The most senior grade that does this step. Leave blank for no upper limit.">
         <Select
           value={step.performerMax}
           onChange={(e) => {
@@ -128,12 +128,12 @@ const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
   {
     value: "agent",
     label: "Automatically",
-    hint: "If no agent is built for it yet, it waits for a person instead — the process still runs.",
+    hint: "If nothing automated exists for it yet, it waits for a person instead. The process still runs.",
   },
   {
     value: "agent_with_approval",
     label: "Automatically, then a person approves",
-    hint: "The machine produces the work and somebody decides whether it stands.",
+    hint: "The system produces the work and a person decides whether to accept it.",
   },
 ];
 
@@ -160,15 +160,15 @@ const OPERATORS: { value: Operator; label: string; list: boolean; hint: string }
     value: "not_equals",
     label: "is not",
     list: false,
-    hint: "Everything except this one — a step that applies to everybody but one case.",
+    hint: "Everything except this one value. Use it for a step that applies to everybody but one case.",
   },
   {
     value: "in",
     label: "is one of",
     list: true,
-    hint: "Comma-separated. One step instead of one process per value.",
+    hint: "Separate the values with commas. One step covers several values instead of one process per value.",
   },
-  { value: "not_in", label: "is none of", list: true, hint: "Comma-separated." },
+  { value: "not_in", label: "is none of", list: true, hint: "Separate the values with commas." },
 ];
 
 function takesList(op: Operator): boolean {
@@ -333,16 +333,16 @@ export default function WorkflowsPage() {
       <PageHeader
         eyebrow="How work runs"
         title="How the firm works"
-        lede="A process is the steps a piece of work goes through, in the order they have to happen.
-        Write it once and every job for that service follows it — and every step can be a
-        person&apos;s, so this works today with nothing automated at all."
+        lede="A process is the list of steps a piece of work goes through, in order. Write it once
+        and every job for that service follows it. Every step can be done by a person, so this
+        works today with nothing automated."
       />
       <ErrorNotice error={error} />
 
       {templates.length === 0 ? (
         <p className="max-w-[64ch] text-sm text-muted">
-          No process written yet. Until one is, a signed engagement creates work that WAITS —
-          visibly, on the work board — rather than running a process nobody wrote.
+          No process written yet. Until there is one, a signed engagement creates work that
+          waits on the work board instead of following a process.
         </p>
       ) : (
         templates.map((t) => (
@@ -360,9 +360,9 @@ export default function WorkflowsPage() {
       <NewTemplate onSaved={() => void load()} onError={setError} />
 
       <p className="max-w-[64ch] text-sm text-muted">
-        A published process is <strong>frozen</strong>, and that is what makes it trustworthy: a
-        job records which version it started on and keeps walking that one. Editing a process
-        never changes work already under way — it changes what happens next time.
+        A published process <strong>cannot be changed</strong>. A job records which version it
+        started on and keeps following that one. Editing a process never changes work already
+        under way. It changes what happens next time.
       </p>
     </Page>
   );
@@ -408,7 +408,7 @@ function TemplateCard({
           it looks finished on this screen otherwise. */}
       {draft !== null && (
         <p className="text-sm text-muted">
-          Draft v{draft.version} is written but <strong>not in force</strong>. No job is
+          Draft v{draft.version} is saved but <strong>not in force</strong>. No job is
           following it.
         </p>
       )}
@@ -448,7 +448,7 @@ function TemplateCard({
           templateKey={entry.entry.key}
           initialLabel={shown.label}
           initialSteps={shown.steps}
-          note="A change is a NEW version. What is in force keeps running until you put the new one in force."
+          note="A change is saved as a new version. The version in force keeps running until you put the new one in force."
           onDone={() => {
             setEditing(false);
             onSaved();
@@ -711,8 +711,8 @@ function StepEditor({
         <FieldRow>
           {templateKey === null && (
             <Field
-              label="Handle"
-              hint="Lower case, permanent. A service points at this, and every job that ever ran resolves through it."
+              label="Short name"
+              hint="Lower case, permanent once set. A service refers to the process by this name."
             >
               <Input
                 value={key}
@@ -723,7 +723,7 @@ function StepEditor({
               />
             </Field>
           )}
-          <Field label="Name" hint="What a partner picks this process by.">
+          <Field label="Name" hint="The name people pick this process by.">
             <Input
               value={label}
               placeholder="GST monthly filing"
@@ -848,8 +848,8 @@ function StepFields({
         </Field>
         <Field
           id={`${id}-key`}
-          label="Handle"
-          hint="Lower case. Never changes once work has run."
+          label="Short name"
+          hint="Lower case. Cannot change once work has run under it."
         >
           <Input
             value={step.key}
@@ -986,9 +986,8 @@ function StepFields({
       {step.conditionFact !== "" && (
         <p className="field-hint" id={`${id}-cond-hint`} style={{ maxWidth: "62ch" }}>
           {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
-          If the service does not state this at all, the step is KEPT — under every one of these,
-          including the negative ones. A blank field must not quietly remove a step from a
-          process.
+          If the service does not state this fact at all, the step is kept, whichever option is
+          chosen. A blank fact never removes a step from a process.
         </p>
       )}
 
@@ -998,8 +997,8 @@ function StepFields({
           label="When it is done, who checks it?"
           hint={
             policies.length === 0
-              ? "No rule has been put in force yet. Write one on Who checks work — until then a step is finished by whoever does it."
-              : "Whoever does the work can never be the one who checks it. That is not a setting anywhere — the database refuses it."
+              ? "No rule has been put in force yet. Write one on Who checks work. Until then a step is finished by whoever does it."
+              : "Whoever does the work can never be the one who checks it. That cannot be switched off."
           }
         >
           <Select
@@ -1009,7 +1008,7 @@ function StepFields({
           {/* Nobody is the default and the honest one: it is what every process
               written before this field existed meant, and those processes must
               not start holding work for review because a new field appeared. */}
-          <option value="">nobody — it is finished when it is done</option>
+          <option value="">nobody, it is finished when it is done</option>
           {/* PUBLISHED rules only. A draft is not in force, and pointing a step
               at one would name a rule that governs nothing. */}
           {policies.map((pk) => (

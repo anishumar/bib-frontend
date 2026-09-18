@@ -83,14 +83,13 @@ export function Supersede({
             governs everything from that day.
           </p>
           <p>
-            If instead the date on this rule was simply <em>wrong</em> — it came from a document
-            rather than from the firm, which is true of everything shipped — close this and edit
-            the formula. That corrects the calendar; this records a change in the law.
+            If instead the date on this rule was simply <em>wrong</em>, close this and edit the
+            formula. Editing corrects the calendar. This form records a change in the law.
           </p>
         </Notice>
 
         <FieldRow>
-          <Field label="First PERIOD that uses the new rule">
+          <Field label="First period that uses the new rule">
             <Input
               type="date"
               value={effectiveFrom}
@@ -99,7 +98,7 @@ export function Supersede({
           </Field>
           <Field
             label="New rule pack"
-            error={samePack ? "The successor needs a pack of its own — this is the one it replaces." : null}
+            error={samePack ? "The new rule needs a pack of its own. This is the pack it replaces." : null}
           >
             <Input value={rulePack} onChange={(e) => { setRulePack(e.target.value); }} />
           </Field>
@@ -108,8 +107,8 @@ export function Supersede({
             `align-items: end`, so a field carrying a hint stands taller and its
             input sits higher than the ones beside it. */}
         <p className="field-hint">
-          The period&rsquo;s START, not the due date: August&rsquo;s return is August&rsquo;s law
-          even though it falls due on 20 September. Replacing{" "}
+          Give the start of the period, not the due date. August&rsquo;s return follows
+          August&rsquo;s law even though it is due on 20 September. Replacing{" "}
           <span className="mono">{rule.rulePack}</span>.
         </p>
 

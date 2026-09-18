@@ -167,7 +167,7 @@ export default function ClientRequestRecordPage() {
             {request.assignee !== null ? (
               (request.assignee.displayName ?? request.assignee.email)
             ) : request.assignmentNote !== null ? (
-              <NotStated>nobody — {request.assignmentNote}</NotStated>
+              <NotStated>nobody. {request.assignmentNote}</NotStated>
             ) : (
               <NotStated>nobody</NotStated>
             )}
@@ -186,8 +186,7 @@ export default function ClientRequestRecordPage() {
                 withdrawn request rendered read "on a closed request", which is
                 the firm's ending being used to describe the client's. The two
                 endings belong to opposite sides and this sentence covers both. */}
-            Nobody replied. On a finished request that is a real answer rather than a gap — it
-            ended without a word going back, which is worth being able to see.
+            Nobody replied. This request ended without a reply going back to the client.
           </p>
         ) : (
           <Stack gap="tight">

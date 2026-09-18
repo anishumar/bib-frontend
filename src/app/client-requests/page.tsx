@@ -194,7 +194,7 @@ export default function ClientRequestsPage() {
       <PageHeader
         eyebrow="Delivery"
         title="Client requests"
-        lede="What clients have asked you for through their portal — everything not finished, newest first."
+        lede="Everything your clients have asked for through their portal and not yet finished, newest first. Reply, take a request on, or hand it to a colleague."
       />
 
       {/* WHAT THIS FIRM DOES WITH AN ARRIVING REQUEST, said rather than left to
@@ -208,15 +208,15 @@ export default function ClientRequestsPage() {
       >
         {routing === "none" ? (
           <p>
-            An arriving request is put on nobody&rsquo;s desk — anyone who can write work can
-            take any of them. A partner can change that under{" "}
+            A new request is put on nobody&rsquo;s desk. Anyone who can work on tasks can take
+            it. A partner can change this under{" "}
             <Link href="/admin/structure">Firm structure</Link>.
           </p>
         ) : (
           <p>
-            An arriving request goes to that client&rsquo;s Key Manager. Where a client has none
-            it waits in <strong>Unassigned</strong> with a line saying so — and anybody can
-            still take one, or hand it on.
+            A new request goes to that client&rsquo;s Key Manager. Where a client has none, it
+            waits in <strong>Unassigned</strong> with a note saying so. Anybody can still take
+            it or hand it on.
           </p>
         )}
       </Notice>
@@ -496,10 +496,10 @@ function RequestCard({
           {request.assignee !== null ? (
             <>
               With <strong>{request.assignee.displayName ?? request.assignee.email}</strong>
-              {request.assignee.userId === meUserId && <> — that is you</>}
+              {request.assignee.userId === meUserId && <> (that is you)</>}
             </>
           ) : request.assignmentNote !== null ? (
-            <>Nobody yet — {request.assignmentNote}</>
+            <>Nobody yet. {request.assignmentNote}</>
           ) : (
             <>On nobody&rsquo;s desk</>
           )}
@@ -528,7 +528,7 @@ function RequestCard({
 
             <Field
               label="Send them a document (optional)"
-              hint="Only documents already filed against this client. Sending one also makes it visible in their library."
+              hint="Only documents already filed for this client. Sending one also makes it visible in their portal library."
             >
               <Select
                 value={documentId}
@@ -553,7 +553,7 @@ function RequestCard({
                         document the client already has is a different act from
                         one this reply is about to share with them, and only one
                         of the two is a disclosure decision. */}
-                    {d.isClientVisible ? " — they already have this" : " — not shared yet"}
+                    {d.isClientVisible ? " (they already have this)" : " (not shared yet)"}
                   </option>
                 ))}
               </Select>

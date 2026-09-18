@@ -93,7 +93,7 @@ export function ConfigHistory({
       {versions === null ? (
         <Loading label={`Looking up the versions of ${name}`} />
       ) : versions.length === 0 ? (
-        <p className="muted">No versions — nothing has been drafted for this yet.</p>
+        <p className="muted">No versions yet. Nothing has been drafted for this.</p>
       ) : (
         <TableWrap>
           <Table>
@@ -135,7 +135,7 @@ export function ConfigHistory({
                       : i === 0
                         ? "still in force"
                         : (versions[i - 1]?.publishedAt ?? null) === null
-                          ? "—"
+                          ? "not recorded"
                           : longInstant(versions[i - 1]?.publishedAt ?? "")}
                   </Td>
                   <Td>

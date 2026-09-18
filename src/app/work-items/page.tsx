@@ -228,10 +228,10 @@ export default function WorkItemsPage() {
       <PageHeader
         eyebrow="Delivery"
         title="Work board"
-        lede="What is owed and whose it is. The engine — which process a job is walking, and which step it is on — is its own screen."
+        lede="Every task your firm owes, who is handling it, and what is late. The steps inside each job are on the Jobs screen."
         aside={
           <LinkButton size="sm" href="/work" iconAfter={<Icon name="arrowRight" size={15} />}>
-            The engine
+            Jobs
           </LinkButton>
         }
       />
@@ -246,7 +246,7 @@ export default function WorkItemsPage() {
             {/* How many of them are the VIEWER's, because that is the half they
                 can do something about — and the other half is still counted,
                 because this queue is the whole firm's on purpose. */}
-            {mineToCheck > 0 && <> — {mineToCheck} of them yours</>}.{" "}
+            {mineToCheck > 0 && <>, {mineToCheck} of them yours</>}.{" "}
             {/* It used to link to `checks[0]`, the oldest, and there was no way
                 to reach the second: the tab is the list. */}
             <Button
@@ -296,7 +296,7 @@ export default function WorkItemsPage() {
       <div className="row">
         <Checkbox
           label="Include finished work"
-          note="off by default — a board of everything the firm has ever done is not a board."
+          note="Finished tasks are hidden unless you tick this."
           checked={includeDone}
           onChange={(e) => { setIncludeDone(e.target.checked); }}
         />
@@ -379,8 +379,8 @@ export default function WorkItemsPage() {
 function emptyMessage(tab: "mine" | "unassigned" | "checks" | "escalated" | "all"): string {
   if (tab === "mine") {
     return (
-      "Nothing is on your desk. Work arrives here when an engagement is released and you " +
-      "are the client's SPOC for that department, or when somebody assigns you a task."
+      "Nothing is on your desk. Tasks arrive here when you are the client's SPOC for that " +
+      "Dept, or when somebody assigns you a task."
     );
   }
   if (tab === "unassigned") {
@@ -389,8 +389,8 @@ function emptyMessage(tab: "mine" | "unassigned" | "checks" | "escalated" | "all
     return "Everything has an owner. That means every client has a SPOC for the work it buys.";
   }
   return (
-    "No work yet. It appears when an engagement letter is signed and its advance is " +
-    "recorded — that is what starts the engine — or when somebody raises a task by hand."
+    "No tasks yet. Tasks appear when an engagement letter is signed and its advance payment " +
+    "is recorded, or when somebody raises a task by hand."
   );
 }
 
@@ -436,7 +436,7 @@ function WorkRow({ item, today }: { item: WorkItem; today: string }) {
       <Td>
         {item.assignee === null ? (
           <>
-            <span className="empty">—</span>
+            <span className="empty">unassigned</span>
             {/* THE SENTENCE. Without it this cell is a dash and the queue is a
                 pile: "two SPOCs for FRC, pick one" and "nobody has got to it"
                 look identical, and only one of them is somebody's to fix. */}
@@ -559,7 +559,7 @@ function RaiseTask({
               </Select>
             </Field>
             <Field label="What has to be done">
-              <Input name="title" required placeholder="GSTR-3B filing — August 2026" />
+              <Input name="title" required placeholder="GSTR-3B filing, August 2026" />
             </Field>
             {/* Only when the roster loaded. Raising a task is `work:write`; the
                 roster is `tenant:admin`, so this field is simply absent for
@@ -567,7 +567,7 @@ function RaiseTask({
             {staff.length > 0 && (
               <Field label="Assign to" optional>
                 <Select name="assigneeUserId" defaultValue="">
-                  <option value="">Let the router decide</option>
+                  <option value="">Assign automatically to the client&apos;s SPOC</option>
                   {staff.map((m) => (
                     <option key={m.membership.userId} value={m.membership.userId}>
                       {m.displayName ?? m.email}
@@ -584,7 +584,7 @@ function RaiseTask({
           <Checkbox
             name="isStatutoryDue"
             label="Statutory deadline"
-            note="the firm's statutory priority is applied; there is no priority to pick."
+            note="Tick this for a legal deadline. The firm's statutory priority is applied on its own."
           />
 
           <div>
@@ -593,8 +593,7 @@ function RaiseTask({
             </Button>
             {staff.length === 0 && (
               <p className="field-hint">
-                Unassigned. Work is routed to the client&rsquo;s SPOC for the department it
-                belongs to.
+                The task goes to the client&rsquo;s SPOC for that Dept on its own.
               </p>
             )}
           </div>

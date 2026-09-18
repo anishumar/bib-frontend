@@ -150,7 +150,7 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
           count={centre.awaitingYou.length}
           lede={
             mayRespond
-              ? "Each of these is a request somebody wrote to you. Answer it here and it goes straight onto the job it belongs to."
+              ? "Each of these is something the firm has asked you for. Answer it here and it goes straight to the person handling that work."
               : "Your login can read everything here but cannot reply. Ask your contact at the firm to give this address permission to respond, or reply from a colleague's login."
           }
         >
@@ -168,7 +168,7 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
           client who sent the wrong file with no way to see what they sent. */}
       {centre.withTheFirm.length > 0 && (
         <Section
-          title="Sent — with the firm"
+          title="Sent to the firm"
           level={2}
           count={centre.withTheFirm.length}
           lede={
@@ -182,7 +182,7 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
               You have answered these. They stay here until the firm confirms it has what it
               needs
               {mayRespond
-                ? " — if you sent the wrong thing, you can still send another."
+                ? ". If you sent the wrong thing, you can still send another."
                 : ". Your login can read them but cannot reply."}
             </>
           }
@@ -230,7 +230,7 @@ function AskCard({
    * which moves the moment they answer.
    */
   const kind = KIND_LABEL[ask.askKind] ?? "A request";
-  const about = `${kind} — ${ask.workItemTitle}`;
+  const about = `${kind}: ${ask.workItemTitle}`;
 
   async function run(send: () => Promise<{ error?: unknown }>): Promise<void> {
     setBusy(true);
@@ -329,7 +329,7 @@ function AskCard({
           <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0" aria-label={about}>
             {ask.askKind === "document" && (
               <>
-                <Field label="The file" hint="Nothing is scanned before it reaches the firm.">
+                <Field label="The file" hint="Files are not scanned for viruses before they reach the firm.">
                   {/* `Input`, not a bare `<input>`. `Field` generates an id and
                       puts it on its <label>'s `for`; a raw control never
                       receives it, so the label pointed at nothing and the only
@@ -339,7 +339,7 @@ function AskCard({
                 </Field>
                 <Field
                   label="Anything to say about it (optional)"
-                  hint="Or answer in words instead — 'we hold none' is a real answer."
+                  hint="Or answer in words instead. 'We do not have this' is a valid answer."
                 >
                   <Textarea
                     rows={2}

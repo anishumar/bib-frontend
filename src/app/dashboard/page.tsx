@@ -151,10 +151,9 @@ export default function DashboardPage() {
         title="The firm’s numbers"
         lede={
           <>
-            Everything here is worked out from the invoices and engagements themselves, each
-            time you open this page. Nothing is stored, so nothing can drift — and every figure
-            is in <strong className="text-ink">{cur}</strong>, converted at the rate recorded on
-            the document it came from.
+            Worked out fresh from your invoices and engagements every time you open this page.
+            Every figure is in <strong className="text-ink">{cur}</strong>, converted at the
+            exchange rate recorded on each document.
           </>
         }
       />
@@ -187,8 +186,7 @@ export default function DashboardPage() {
                 {totalGapEngagements} active engagement{totalGapEngagements === 1 ? "" : "s"}{" "}
                 {totalGapEngagements === 1 ? "is" : "are"} not in that figure.
               </strong>{" "}
-              They are not missing revenue — they are revenue this number cannot honestly turn
-              into a monthly amount. Each reason is different:
+              Their fees cannot be turned into a monthly amount. Each reason is different:
             </p>
             <TableWrap>
               <Table>
@@ -238,7 +236,8 @@ export default function DashboardPage() {
         <TabPanel tabsId={axisTabs} value={axis}>
         {mrrSlices.length === 0 ? (
           <p className="mt-4 text-sm text-muted">
-            Nothing to split — no engagement has a fee this can turn into a monthly figure yet.
+            Nothing to split yet. No engagement has a fee that can be turned into a monthly
+            figure.
           </p>
         ) : (
           <div className="mt-4">

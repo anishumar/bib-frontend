@@ -124,16 +124,15 @@ export default function ObligationVocabularyPage() {
       <PageHeader
         eyebrow="How work runs"
         title="Compliance states and decisions"
-        lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what they mean — the product reads the TICK BOXES and never the names, so nothing breaks when you rename one."
+        lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what each one means. The tick boxes decide how a filing is treated, not the names, so renaming is always safe."
       />
       <ErrorNotice error={error} />
 
       <Card>
         <CardTitle level={2}>States a filing moves through</CardTitle>
         <p className="field-hint">
-          The four columns on the right are <strong>destinations</strong> &mdash; where a filing
-          goes when something happens to it. Your firm has exactly one of each, and marking
-          another moves it in one step.
+          The four columns on the right say where a filing goes when something happens to it.
+          Your firm has exactly one of each. Ticking a different row moves it there in one step.
         </p>
         <TableWrap>
           <Table>
@@ -303,9 +302,9 @@ export default function ObligationVocabularyPage() {
         <CardTitle level={2}>What may be decided about a missed deadline</CardTitle>
         <p className="field-hint">
           When a legal deadline passes with nothing filed, a partner picks one of these and
-          writes down <strong>why</strong>. The list is yours &mdash; and the four below came
-          from the app this replaced, so they are marked{" "}
-          <em>unconfirmed</em> until somebody here says they are right.
+          writes down <strong>why</strong>. The list is yours. The four below came from the
+          previous system, so they are marked <em>unconfirmed</em> until somebody here confirms
+          they are right.
         </p>
         <TableWrap>
           <Table>
@@ -424,7 +423,7 @@ export default function ObligationVocabularyPage() {
             decided until one exists. */}
         {options.filter((o) => o.isActive).length === 0 && (
           <Notice tone="danger">
-            You have no options in use, so nothing on the decision queue can be resolved.
+            You have no decisions in use, so nothing on the decision queue can be resolved.
           </Notice>
         )}
       </Card>
@@ -766,8 +765,8 @@ function AddOption({
           fork with consequences either way, and an option that let one be
           dismissed would hide the thing this queue exists to surface. */}
       <p className="field-hint">
-        A new decision starts unconfirmed, like the shipped four. Nothing is ever deleted
-        &mdash; retiring one keeps it on every decision already recorded against it.
+        A new decision starts unconfirmed, like the four that came with the system. Nothing is
+        ever deleted. Retiring a decision keeps it on every filing already decided with it.
       </p>
     </details>
   );

@@ -92,9 +92,9 @@ export default function DocumentBlocksPage() {
       <PageHeader
         eyebrow="Documents"
         title="Standard prose"
-        lede="Copied onto every new proposal and engagement letter. Editing a line changes the next
-        document and nothing already issued — a document owns its copy from the moment it is
-        drafted."
+        lede="The standard wording copied onto every new proposal and engagement letter. Editing a
+        line here changes the next document only. Documents already issued keep the wording they
+        were written with."
       />
       <ErrorNotice error={error} />
 
@@ -105,7 +105,7 @@ export default function DocumentBlocksPage() {
             <CardTitle level={2}>{BLOCK_KIND_LABELS[kind]}</CardTitle>
             {mine.length === 0 ? (
               <p className="muted">
-                Nothing standard. Documents drafted now carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
+                No standard lines yet, so new documents carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
               </p>
             ) : (
               <TableWrap>
@@ -225,7 +225,10 @@ export default function DocumentBlocksPage() {
                         required
                       />
                     </Field>
-                    <Field label="Only in" hint="Blank prints everywhere.">
+                    <Field
+                      label="Only in"
+                      hint="Leave blank to print in every country, or type a two-letter country code such as IN."
+                    >
                       <Input
                         name={`${kind}-jurisdiction`}
                         maxLength={2}

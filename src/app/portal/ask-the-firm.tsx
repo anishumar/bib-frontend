@@ -119,7 +119,7 @@ export function AskTheFirm({
       level={2}
       lede={
         mayRequest
-          ? `Anything you need from ${firm} — a document you cannot find, a copy of something, a correction, or a call. It goes straight to their team.`
+          ? `Anything you need from ${firm}: a document you cannot find, a copy of something, a correction, or a call. It goes straight to their team.`
           : `Your login can read everything here but cannot open a request. Ask your contact at ${firm} to give this address permission, or ask from a colleague's login.`
       }
     >
@@ -372,7 +372,7 @@ function RequestCard({
                   firm has to close with a reply saying so. */}
               <Button
                 variant="ghost"
-                aria-label={`Never mind — withdraw ${request.subject}`}
+                aria-label={`Never mind: withdraw ${request.subject}`}
                 onClick={() => void act("withdraw")}
                 disabled={busy}
               >

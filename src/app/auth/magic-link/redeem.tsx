@@ -84,7 +84,7 @@ export function RedeemMagicLink() {
     };
   }, [token, missing, router]);
 
-  const message = missing ? "This link is missing its token." : error;
+  const message = missing ? "This link is incomplete. Open the full link from your email." : error;
   if (message === null) return <Loading label="Signing you in" />;
 
   return (

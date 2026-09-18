@@ -8,6 +8,60 @@
    without being able to see them.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── Scrollbars ───────────────────────────────────────────────────────────
+   Windows draws a 17px grey gutter on every region that can scroll, and this
+   product has five of them: the page, the sidebar, a wide table, the tab strip
+   and a dialog. Shrestha (2026-09-18): the bars make the screens look messy,
+   remove them. So:
+
+   - the SIDEBAR draws no bar at all. The nav is short, it scrolls with the
+     wheel or a finger, and a bar beside a column of links is the one thing in
+     the column that is not a link.
+   - a TABLE, the TAB STRIP, the BOARD, a DIALOG and a TEXTAREA draw a thin bar only while
+     the pointer is over them (or focus is inside). Hidden outright, a nine-
+     column table on a laptop would cut off its last column with nothing to say
+     it continues; on hover the bar is the hint that it does.
+   - the PAGE keeps a thin bar with no track and a faint thumb, because on a
+     long list it is the only thing that says how far down you are.
+
+   Colours are tokens, so dark mode needs nothing here. `scrollbar-width` and
+   `scrollbar-color` are the standard properties (Chrome 121+, Firefox,
+   Safari 18.2+); the WebKit pseudo-element is kept for the sidebar only, for
+   older Safari. */
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.sidebar {
+  scrollbar-width: none;
+}
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.tablewrap,
+.tabs,
+.board,
+.dialog,
+.textarea {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.tablewrap:hover,
+.tablewrap:focus-within,
+.tabs:hover,
+.tabs:focus-within,
+.board:hover,
+.board:focus-within,
+.dialog:hover,
+.dialog:focus-within,
+.textarea:hover,
+.textarea:focus-within {
+  scrollbar-color: var(--line) transparent;
+}
+
 /* ── Shell ────────────────────────────────────────────────────────────────
    A sidebar. Navigation used to be repeated inline at the top of every page,
    which meant every page decided for itself where you could go — the admin

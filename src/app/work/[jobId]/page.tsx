@@ -136,7 +136,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
    *  refuses a correction that changed nothing anyway. */
   async function correct(stepKey: string, proposal: AgentProposal): Promise<void> {
     const edited = window.prompt(
-      "What should this say instead? The machine's answer is below — change what is wrong.",
+      "What should this say instead? The automatic answer is below. Change what is wrong.",
       JSON.stringify(proposal.proposed),
     );
     if (edited === null) return;
@@ -144,7 +144,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     try {
       parsed = JSON.parse(edited) as Record<string, unknown>;
     } catch {
-      setError("That is not valid JSON, so nothing was recorded. Nothing has changed.");
+      setError("That text is not in the format it was shown in, so nothing was recorded.");
       return;
     }
     await decide(stepKey, "corrected", parsed, null);
@@ -226,11 +226,11 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   return (
     <Page>
       <nav className="cluster">
-        <Link href="/work">← Work</Link>
+        <Link href="/work">← Jobs</Link>
       </nav>
       <PageHeader
         eyebrow="Delivery"
-        title="Process"
+        title="Job"
       />
       {/* WHOSE work this is, above the steps. After the merge one checklist can
           hold three services for one of a client's companies, and a page that
@@ -256,9 +256,8 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
 
       {steps.length === 0 ? (
         <p className="muted max-w-[var(--measure)]">
-          This job has no steps yet. That means the firm has not published a workflow template
-          for the service it delivers — the work is not lost, it waits. Publish the process and
-          the job picks it up on the next sweep.
+          This job has no steps yet, because no process has been published for this service.
+          The work is not lost, it waits. Publish the process and the job picks it up on its own.
         </p>
       ) : (
         <Card>
@@ -366,7 +365,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                       s.viewer.mayComplete ? (
                         <Button
                           disabled={busy === s.stepKey}
-                          aria-label={`Done — ${s.stepKey}`}
+                          aria-label={`Done: ${s.stepKey}`}
                           onClick={() => {
                             void complete(s.stepKey);
                           }}
@@ -380,7 +379,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         <Button
                           variant="secondary"
                           disabled={busy === s.stepKey}
-                          aria-label={`Take — ${s.stepKey}`}
+                          aria-label={`Take: ${s.stepKey}`}
                           onClick={() => {
                             void assign(s.stepKey, me);
                           }}
@@ -404,16 +403,14 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       )}
 
       <p className="muted max-w-[var(--measure)] text-sm">
-        Ticking a step records that <strong>you</strong> did it, and opens whatever was waiting
-        on it straight away. It cannot be undone: a second completion would overwrite the record
-        of who did the work.
+        Marking a step done records that <strong>you</strong> did it, and opens the steps that
+        were waiting on it. This cannot be undone.
       </p>
       <p className="muted max-w-[var(--measure)] text-sm">
-        Where a machine has proposed an answer, accepting and correcting are recorded
-        separately and both are kept beside what it originally said. That difference is the
-        only measure of whether it is getting better — so a correction that changes nothing is
-        refused, and a rejection has to say what was wrong. Rejecting does not finish the step:
-        the work still needs doing.
+        Where the system has proposed an answer, you can accept it, correct it or reject it. The
+        original answer and your decision are both kept. A correction must change something, and
+        a rejection must say what was wrong. Rejecting does not finish the step. The work still
+        needs doing.
       </p>
       {/* Working papers, challans, the evidence a step was actually done. A
           job's files belong to the FIRM rather than to a client, so no partyId
@@ -424,7 +421,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         subjectRef={jobId}
         canWrite={permissions.includes("party:write")}
         title="Working papers"
-        emptyHint="Nothing attached yet. The challan, the acknowledgement, the working paper behind a step — whatever a colleague would need to show this was done."
+        emptyHint="Nothing attached yet. Add the challan, the acknowledgement or the working paper behind a step, so a colleague can see this was done."
       />
     </Page>
   );
@@ -465,8 +462,8 @@ function CheckHistory({ checks }: { checks: StepCheck[] }) {
       {decided.map((c) => (
         <p key={c.id} className="muted mt-0.5 text-sm">
           {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
-          {c.decidedAt === null ? "—" : longInstant(c.decidedAt)}
-          {c.notes !== null && c.notes.trim() !== "" && <> — “{c.notes}”</>}
+          {c.decidedAt === null ? "an unknown date" : longInstant(c.decidedAt)}
+          {c.notes !== null && c.notes.trim() !== "" && <>: “{c.notes}”</>}
         </p>
       ))}
     </div>
@@ -505,7 +502,7 @@ function CheckActions({
         {check.viewer.reason === "IS_THE_MAKER" && (
           <>
             {" "}
-            — somebody else has to.
+            Somebody else has to.
           </>
         )}
       </p>
@@ -544,7 +541,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // of bug T2.8 found by opening this page — a label reading one fact when a
   // second had become true underneath it.
   if (step.status === "blocked" && check !== null) {
-    return <Pill tone="danger">finished — waiting to be checked</Pill>;
+    return <Pill tone="danger">finished, waiting to be checked</Pill>;
   }
   if (step.status === "blocked") {
     // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
@@ -559,7 +556,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
     const blockedBecause =
       step.proposal === null || step.proposal === undefined
         ? step.executor === "agent"
-          ? "waiting for you — no agent built for this yet"
+          ? "waiting for you (nothing automated for this yet)"
           : step.executor === "agent_with_approval"
             ? "waiting for you to approve"
             : // WHOSE (0301). "waiting for you" on a step that sits on Rohan's
@@ -571,8 +568,8 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
                 ? `waiting for ${step.assignee.displayName}`
                 : "waiting for somebody else"
         : step.proposal.decision === "escalated"
-          ? "a machine could not answer this — waiting for you to decide"
-          : "a machine answered — waiting for you to check it";
+          ? "the system could not answer this, waiting for you to decide"
+          : "the system answered, waiting for you to check it";
     return <Pill tone="danger">{blockedBecause}</Pill>;
   }
   // NOT `danger`, which is what it wore until this was seen rendered. A skip is
@@ -616,19 +613,19 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
       <div className="muted text-xs">
         {proposal.decision === "escalated" ? (
           <>
-            The machine was <strong>not sure enough to answer</strong> — {proposal.confidence}{" "}
-            against a bar of {proposal.reviewAt}. What it found is below, as material rather
-            than as an answer.
+            The system was <strong>not sure enough to answer</strong>. Its confidence was{" "}
+            {proposal.confidence} and your firm asks for at least {proposal.reviewAt}. What it
+            found is below, as working material rather than an answer.
           </>
         ) : proposal.approvalRequired ? (
           <>
-            A machine did this and <strong>your firm asks for a person on this step</strong>,
-            whatever it scored — {proposal.confidence} here.
+            The system did this with a confidence of {proposal.confidence}, and{" "}
+            <strong>your firm asks a person to approve this step</strong>.
           </>
         ) : (
           <>
-            A machine did this at <strong>{proposal.confidence}</strong>, and this firm acts
-            unattended only above {proposal.autoCommitAt}.
+            The system did this with a confidence of <strong>{proposal.confidence}</strong>. Your
+            firm lets it act on its own only above {proposal.autoCommitAt}.
           </>
         )}
       </div>

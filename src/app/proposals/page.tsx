@@ -111,7 +111,7 @@ export default function ProposalsPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Proposals"
-        lede="What the firm has quoted, and whether the client has looked at it."
+        lede="Every quote the firm is drafting or has sent, and whether the client has opened it. Draft a new one at the bottom of the page."
         aside={<Pill tone="quiet">{proposals.length}</Pill>}
       />
 
@@ -208,13 +208,13 @@ export default function ProposalsPage() {
             </FieldRow>
 
             <FieldRow>
-              <Field label="Quoted in">
+              <Field label="Currency">
                 <Input name="currency" defaultValue="INR" maxLength={3} required />
               </Field>
-              <Field label="Rate to the firm&apos;s currency">
+              <Field label="Exchange rate to the firm&apos;s currency">
                 <Input name="fxRate" defaultValue="1" required />
               </Field>
-              <Field label="Rate dated">
+              <Field label="Rate as of">
                 <Input name="fxRateDate" type="date" defaultValue={today} required />
               </Field>
               <Field label="Valid until" optional>

@@ -118,9 +118,9 @@ export default function WorkVocabularyPage() {
       <PageHeader
         eyebrow="How work runs"
         title="Work states and priorities"
-        lede="The words your firm uses for work. Rename any of them, add your own, or change what
-        they mean — the product reads the TICK BOXES and never the names, so nothing breaks
-        when you rename one."
+        lede="The words your firm uses for its tasks. Rename any of them, add your own, or change
+        what each one means. The tick boxes decide how a task is treated, not the names, so
+        renaming is always safe."
       />
       <ErrorNotice error={error} />
 
@@ -301,15 +301,14 @@ export default function WorkVocabularyPage() {
           </Table>
         </TableWrap>
         <p className="field-hint">
-          <strong>Starting</strong> is where new work begins — exactly one, and marking another
-          moves it. <strong>Finished</strong> stamps the completion time and takes the task off
-          the open board. <strong>Blocked</strong> makes a written reason mandatory the moment
-          anything enters that state, which is the only thing that ever explains a delay later.
+          <strong>Starting</strong> is where new work begins. There is exactly one, and marking
+          another row moves it. <strong>Finished</strong> records the completion time and takes
+          the task off the open board. <strong>Blocked</strong> makes a written reason mandatory
+          whenever a task enters that state, so a delay can be explained later.
           <strong> With a checker</strong> is the one box that moves work on its own: sending a
-          task for review puts it in that state, so the board column and the review queue cannot
-          disagree. Leaving every one of them unticked is a real answer &mdash; nothing moves,
-          which is what this product did before the box existed. Retiring keeps a state readable
-          on every task already in it; it just stops being offered.
+          task for review puts it in that state, so the board column and the review queue always
+          agree. Leaving every box unticked is a valid answer. Retiring a state keeps it on every
+          task already in it. It just stops being offered.
         </p>
         <AddState
           busy={busy === "new-state"}
@@ -410,11 +409,11 @@ export default function WorkVocabularyPage() {
           </Table>
         </TableWrap>
         <p className="field-hint">
-          Rank <strong>1 is the most urgent</strong>, and it is what the board sorts by — the
-          names are yours. <strong>Default</strong> is what ordinary work is created with.{" "}
-          <strong>Statutory</strong> is what work with a date set by LAW gets, which is your own
-          rule made automatic — a filing does not need somebody to remember to mark it urgent.
-          The two may be the same row if you do not want statutory work treated differently.
+          Rank <strong>1 is the most urgent</strong>, and the board sorts by it. The names are
+          yours. <strong>Default</strong> is what ordinary work is created with.{" "}
+          <strong>Statutory</strong> is what work with a legal deadline gets automatically, so
+          nobody has to remember to mark a filing urgent. The two may be the same row if you do
+          not want statutory work treated differently.
         </p>
         <AddPriority
           busy={busy === "new-priority"}
@@ -617,13 +616,13 @@ function AddState({
                 never happened. */}
             {isTerminal && (
               <Checkbox
-                label="… and the work was DONE, not dropped"
+                label="… and the work was actually done, not dropped"
                 checked={isSuccess}
                 onChange={(e) => { setIsSuccess(e.target.checked); }}
               />
             )}
             <Checkbox
-              label="Means blocked — needs a written reason"
+              label="Means blocked (needs a written reason)"
               checked={isBlocked}
               onChange={(e) => { setIsBlocked(e.target.checked); }}
             />
@@ -713,8 +712,7 @@ function AddPriority({
           on the state form: moving one silently changes what every task created
           afterwards gets, and that belongs on the row beside what it replaces. */}
       <p className="field-hint">
-        Ranks need not be consecutive, and two priorities may share one — nothing compares
-        within a rank, only across.
+        Ranks need not be consecutive, and two priorities may share one.
       </p>
     </details>
   );

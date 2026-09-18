@@ -167,8 +167,8 @@ export const VERIFICATION_RULES: readonly {
     value: "reporting_line",
     label: "The maker's own manager",
     detail:
-      "Only the person they report to may check it. The tightest rule — and it stops the " +
-      "morning that manager is on leave, because nobody else becomes eligible.",
+      "Only the person they report to may check it. This is the strictest rule: if that " +
+      "manager is on leave, nobody else can check the work.",
   },
   {
     value: "reporting_line_or_rank",
@@ -582,7 +582,7 @@ export function readServiceBody(body: Record<string, unknown> | undefined): Serv
  * the thing the string exists for.
  */
 export function formatMoney(amount: string | null, currency: string): string {
-  if (amount === null) return "—";
+  if (amount === null) return "not stated";
   const formatter = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency,
@@ -806,7 +806,7 @@ export const CREDIT_REASONS = [
 ] as const satisfies readonly CreditReason[];
 
 export const CREDIT_REASON_LABELS: Readonly<Record<CreditReason, string>> = {
-  service_failure: "Service failure — ours",
+  service_failure: "Service failure (our fault)",
   billing_error: "Billing error",
   goodwill: "Goodwill",
   scope_change: "Scope changed",
@@ -1052,18 +1052,18 @@ export const MRR_GAP_LABELS: Readonly<Record<string, string>> = {
 export const MRR_GAP_HINTS: Readonly<Record<string, string>> = {
   unpriced: "The firm agreed to the work and has not set a price. There is no revenue to count.",
   no_frequency_stated:
-    "Nobody said whether this is billed monthly, quarterly or annually — so it cannot be turned into a monthly figure.",
-  one_time: "Charged once. Real revenue, but not RECURRING revenue.",
-  custom_frequency: "The firm said 'custom' because no standard period fits. Guessing one would invent revenue.",
+    "Nobody has said whether this is billed monthly, quarterly or annually, so it cannot be turned into a monthly figure.",
+  one_time: "Charged once. Real revenue, but not recurring revenue.",
+  custom_frequency: "Billed on a custom schedule, so it cannot be turned into a monthly figure.",
 };
 
 export type AgeingBucket = DashboardOverview["receivables"]["bands"][number]["bucket"];
 
 export const AGEING_LABELS: Readonly<Record<string, string>> = {
   current: "Not yet due",
-  d1_30: "1–30 days",
-  d31_60: "31–60 days",
-  d61_90: "61–90 days",
+  d1_30: "1 to 30 days",
+  d31_60: "31 to 60 days",
+  d61_90: "61 to 90 days",
   d90_plus: "Over 90 days",
   no_due_date: "No due date set",
 };

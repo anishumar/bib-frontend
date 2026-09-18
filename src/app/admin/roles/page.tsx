@@ -74,7 +74,7 @@ export default function RolesPage() {
       <PageHeader
         eyebrow="The firm"
         title="Roles"
-        lede="What each role MEANS. Changing one publishes a new version rather than editing the old one — the version beside each name is the registry's design, not decoration."
+        lede="What each role can do in the workspace. Tick the permissions a role should have. Saving publishes a new version of the role, and the version number is shown beside its name."
         aside={<Pill tone="quiet">{roles.length} defined</Pill>}
       />
 
@@ -299,8 +299,8 @@ function NewRole({
         <div className="stack">
           <FieldRow>
             <Field
-              label="Handle"
-              hint="Permanent, and what memberships refer to."
+              label="Short name"
+              hint="Permanent once set. This is how the role is referred to everywhere."
             >
               <Input
                 required
@@ -309,7 +309,7 @@ function NewRole({
                 onChange={(e) => { setKey(e.target.value); }}
               />
             </Field>
-            <Field label="Name" hint="Changeable whenever you like.">
+            <Field label="Name" hint="You can change this whenever you like.">
               <Input
                 required
                 value={label}

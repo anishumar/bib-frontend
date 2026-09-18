@@ -98,8 +98,8 @@ function AcceptInvite() {
                  something truncated the link, so the whole of it is what to
                  paste. */
               <Notice tone="warn" eyebrow="This link is incomplete">
-                Open the link from your invitation email in full — it carries a code that this
-                page needs. If it keeps failing, ask your accountants to send a new invitation.
+                Open the full link from your invitation email. It carries a code this page
+                needs. If it keeps failing, ask your accountants to send a new invitation.
               </Notice>
             ) : (
               <form onSubmit={onSubmit}>

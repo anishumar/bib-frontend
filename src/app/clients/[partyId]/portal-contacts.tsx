@@ -341,8 +341,8 @@ export function PortalContactsPanel({
       tone: "warn",
       eyebrow: "Removed",
       text:
-        `${grant.contactEmail} can no longer see ${clientName}. Their login still works — ` +
-        `this removed one company, not the account.`,
+        `${grant.contactEmail} can no longer see ${clientName}. Their login still works. ` +
+        `This removed access to one company, not the account.`,
     });
   }
 
@@ -434,7 +434,7 @@ export function PortalContactsPanel({
       // would read as though it had acted on the page it was on.
       text:
         `${grant.contactEmail} can now see ${company.name} as well. They sign in with the ` +
-        `same login — this added a company, not an account.`,
+        `same login. This added a company, not a new account.`,
     });
   }
 
@@ -490,9 +490,8 @@ export function PortalContactsPanel({
       <CardTitle level={2}>Who at {clientName} can see this</CardTitle>
       <p className="muted">
         A contact signs in to the client portal and sees this company&rsquo;s filings, documents
-        and invoices — nothing else, and nobody at the firm by name. Access is granted one
-        company at a time: somebody who should also see a sister company is granted it on that
-        company&rsquo;s own page.
+        and invoices, and nothing else. Access is given one company at a time. Use Give another
+        company to let the same person see a group company too.
       </p>
 
       <ErrorNotice error={error} />
@@ -512,8 +511,8 @@ export function PortalContactsPanel({
         <p className="muted">
           Nobody at {clientName} can see this yet.{" "}
           {canGrant
-            ? "Invite their first contact below — the invitation and the access are one act, so there is no state where somebody signs in to an empty portal."
-            : "Inviting a client's own people needs permission to grant portal access."}
+            ? "Invite their first contact below. The invitation and the access are set up together."
+            : "You need permission to grant portal access to invite them."}
         </p>
       ) : (
         <TableWrap>
@@ -521,10 +520,10 @@ export function PortalContactsPanel({
             <thead>
               <tr>
                 <Th>Who</Th>
-                <Th>Got in?</Th>
+                <Th>Status</Th>
                 <Th>From</Th>
                 <Th>Until</Th>
-                <Th>Let in by</Th>
+                <Th>Invited by</Th>
                 <Th />
               </tr>
             </thead>
@@ -546,14 +545,14 @@ export function PortalContactsPanel({
                     {g.contactAccepted ? (
                       <Pill tone="ok">Signed in</Pill>
                     ) : (
-                      <Pill tone="warn">Invited, not yet in</Pill>
+                      <Pill tone="warn">Invited, not signed in yet</Pill>
                     )}
                   </Td>
                   <Td className="muted">{longDay(g.validFrom)}</Td>
                   {/* Half-open: the first day NOT in force. */}
                   <Td className="muted">{g.validTo === null ? "open" : longDay(g.validTo)}</Td>
                   <Td className="muted">
-                    {g.grantedByDisplayName ?? g.grantedByEmail ?? "— account closed"}
+                    {g.grantedByDisplayName ?? g.grantedByEmail ?? "account closed"}
                   </Td>
                   <Td>
                     {canGrant && (
@@ -650,7 +649,7 @@ export function PortalContactsPanel({
               </CardTitle>
 
               {elsewhere === null ? (
-                <p className="muted">Asking what they can already see…</p>
+                <p className="muted">Checking what they can already see…</p>
               ) : (
                 <>
                   <p className="muted">
@@ -665,18 +664,15 @@ export function PortalContactsPanel({
                       <strong>{seesToday.join(", ")}</strong>
                     )}
                     {queued.length > 0 && <> today, and {String(queued.length)} more from a later date</>}. They
-                    keep the same login and the same password — this adds a company, not an
-                    account.
+                    keep the same login and password. This adds a company, not a new account.
                   </p>
 
                   {offerable.length === 0 ? (
                     <Notice tone="neutral" eyebrow="Nothing left to give">
                       <p>
                         Every company recorded in {clientName}&rsquo;s group is already open to{" "}
-                        {granting.contactEmail}. A company that is not on that list is granted
-                        from its own page — access is never worked out from a group
-                        relationship, so a company nobody recorded as part of this group is a
-                        company nobody decided about.
+                        {granting.contactEmail}. To give access to a company that is not in this
+                        group, open that company&rsquo;s own page and invite them there.
                       </p>
                     </Notice>
                   ) : (
@@ -690,7 +686,7 @@ export function PortalContactsPanel({
                     >
                       <Field
                         label="Which company"
-                        hint={`Read from the shareholdings recorded on ${clientName}'s own page — a parent, a subsidiary or a shareholder, in force today. Nothing else is offered: a client's records are not opened by a relationship somebody typed into the CRM.`}
+                        hint={`Only companies recorded under Relationships as part of ${clientName}'s group are offered: a parent, a subsidiary or a shareholder in force today.`}
                       >
                         {/* NO PRE-SELECTED COMPANY. The first option is an empty
                             disabled placeholder, so opening this panel and
@@ -703,7 +699,7 @@ export function PortalContactsPanel({
                           </option>
                           {offerable.map((c) => (
                             <option key={c.id} value={c.id}>
-                              {c.name} — {c.relation}
+                              {c.name} ({c.relation})
                               {removedOn.has(c.id)
                                 ? ` · access removed ${longDay(removedOn.get(c.id) ?? "")}`
                                 : ""}
@@ -751,7 +747,7 @@ export function PortalContactsPanel({
                   <Th>Who</Th>
                   <Th>From</Th>
                   <Th>Until</Th>
-                  <Th>Let in by</Th>
+                  <Th>Invited by</Th>
                 </tr>
               </thead>
               <tbody>
@@ -761,7 +757,7 @@ export function PortalContactsPanel({
                     <Td className="muted">{longDay(g.validFrom)}</Td>
                     <Td className="muted">{g.validTo === null ? "open" : longDay(g.validTo)}</Td>
                     <Td className="muted">
-                      {g.grantedByDisplayName ?? g.grantedByEmail ?? "— account closed"}
+                      {g.grantedByDisplayName ?? g.grantedByEmail ?? "account closed"}
                     </Td>
                   </tr>
                 ))}
@@ -783,13 +779,13 @@ export function PortalContactsPanel({
             <FieldRow>
               <Field
                 label="Their email"
-                hint="The letter goes here, and it is the address they sign in with. It cannot be changed afterwards from this screen."
+                hint="The invitation is emailed here, and this is the address they will sign in with. It cannot be changed later from this screen."
               >
                 <Input name="email" type="email" required />
               </Field>
               <Field
                 label="Their name (optional)"
-                hint="Applied only if this address is new to the product. One firm inviting somebody is not grounds for renaming them at another."
+                hint="Used only if this email address does not already have a login."
               >
                 <Input name="displayName" />
               </Field>
@@ -799,8 +795,8 @@ export function PortalContactsPanel({
                 {busy ? "Inviting…" : "Invite and grant access"}
               </Button>
               <p className="field-hint">
-                One act: the login, the access to {clientName}, and the letter. The firm never
-                sees the link and never holds their password — they set it themselves.
+                This creates their login, gives them access to {clientName} and emails the
+                invitation. They set their own password; the firm never sees it.
               </p>
             </div>
           </FieldStack>

@@ -182,7 +182,7 @@ export default function CopilotPage() {
       <PageHeader
         eyebrow="10X Workspace"
         title="AI Copilot"
-        lede="Ask the firm a question in plain words. It is not connected to your records yet — this is the screen it will arrive into."
+        lede="Ask a question about your firm in plain words. The Copilot is not connected to your records yet, so it cannot answer for real. This is the screen it will arrive in."
         aside={<Pill tone="warn">Not live yet</Pill>}
       />
 
@@ -198,9 +198,8 @@ export default function CopilotPage() {
                 </span>
                 <h2>What would you like to know?</h2>
                 <p>
-                  One day this will read the same records the rest of the workspace does — and
-                  only the ones your role already reaches, because a copilot that answers past a
-                  permission is a leak with a friendly voice.
+                  When it is live, the Copilot will read the same records the rest of the
+                  workspace does, and only the ones your role can already see.
                 </p>
                 <div className="chat-suggests">
                   {OPENERS.map((opener) => (
@@ -426,8 +425,8 @@ function Answer({ question }: { question: string }) {
   return (
     <>
       <p>
-        I am not connected to your firm&rsquo;s records yet, so I cannot answer that — this
-        screen is the shape of what is coming, not the thing itself.
+        I am not connected to your firm&rsquo;s records yet, so I cannot answer that. This
+        screen shows what is coming.
       </p>
       {signpost === null ? (
         <p>
@@ -436,7 +435,7 @@ function Answer({ question }: { question: string }) {
         </p>
       ) : (
         <p>
-          The product can already answer it, though — that one lives on{" "}
+          The workspace can already answer it, though. Look on{" "}
           <Link href={signpost.href}>{signpost.label}</Link>.
         </p>
       )}

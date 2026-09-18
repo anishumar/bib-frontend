@@ -145,7 +145,7 @@ export default function LettersPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Engagement letters"
-        lede="What each client has actually signed, and what is still a draft."
+        lede="Every engagement letter: what each client has signed and what is still a draft. Draft a new one at the bottom, or write one up from an accepted proposal."
         aside={<Pill tone="quiet">{letters.length}</Pill>}
       />
       <ErrorNotice error={error} />
@@ -153,7 +153,7 @@ export default function LettersPage() {
       <Card>
         {letters.length === 0 ? (
           <p className="muted">
-            Nothing agreed yet.
+            No engagement letters yet. Draft the first one below.
           </p>
         ) : (
           <TableWrap>
@@ -241,7 +241,7 @@ export default function LettersPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Written for">
+              <Field label="Country">
                 {/* Stated, not inferred: not always the client's, not always the
                     firm's, and it decides which clauses may go on the letter. */}
                 <Input name="jurisdiction" defaultValue="IN" maxLength={2} required />
@@ -252,16 +252,16 @@ export default function LettersPage() {
               <Field label="Currency">
                 <Input name="currency" defaultValue="INR" maxLength={3} required />
               </Field>
-              <Field label="Rate to the firm&apos;s currency">
+              <Field label="Exchange rate to the firm&apos;s currency">
                 <Input name="fxRate" defaultValue="1" required />
               </Field>
-              <Field label="Rate dated">
+              <Field label="Rate as of">
                 <Input name="fxRateDate" type="date" defaultValue={today} required />
               </Field>
             </FieldRow>
 
             <Checkbox
-              label="An advance is required before work begins. Engagements will be held until it is recorded — no advance, no jobs."
+              label="An advance is required before work begins. No work is started until the advance is recorded."
               checked={advance}
               onChange={(e) => {
                 setAdvance(e.target.checked);
@@ -282,7 +282,7 @@ export default function LettersPage() {
                 "Write the document" rather than all three lines of it. */}
             <Checkbox
               label="Write the document"
-              note="who it is addressed to, why they are buying, its date, when the work begins, and the letter it replaces. Every one of these is frozen at signature, and none of them can be added afterwards."
+              note="who it is addressed to, why they are engaging you, its date, when the work begins, and the letter it replaces. None of these can be added after the letter is signed."
               checked={moreTerms}
               onChange={(e) => {
                 setMoreTerms(e.target.checked);
@@ -299,7 +299,7 @@ export default function LettersPage() {
                         blank, the API applies the firm's own preference for this
                         jurisdiction. */}
                     <Select name="issuingEntityPartyId" defaultValue="">
-                      <option value="">the firm&apos;s entity for this jurisdiction</option>
+                      <option value="">the firm&apos;s own company for this country</option>
                       {parties.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.displayName}
@@ -312,7 +312,7 @@ export default function LettersPage() {
                         billed — that is the client — which is why it is a second
                         field and not a rename of the first. */}
                     <Select name="addressedToPartyId" defaultValue="">
-                      <option value="">nobody named — the organization</option>
+                      <option value="">nobody named (addressed to the company)</option>
                       {parties.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.displayName}
@@ -326,7 +326,7 @@ export default function LettersPage() {
                   <Textarea
                     name="background"
                     rows={4}
-                    placeholder="Why this client is buying this — the paragraph the letter opens with."
+                    placeholder="Why this client is engaging you. This is the paragraph the letter opens with."
                   />
                 </Field>
 
@@ -352,7 +352,7 @@ export default function LettersPage() {
                     hint={
                       supersedable.length === 0
                         ? "No signed letter is waiting to be replaced."
-                        : "A signed letter is never edited. This is how the change is recorded."
+                        : "A signed letter cannot be edited. Choose the letter this one replaces."
                     }
                   >
                     <Select
@@ -360,10 +360,10 @@ export default function LettersPage() {
                       defaultValue=""
                       disabled={supersedable.length === 0}
                     >
-                      <option value="">nothing — this is a new agreement</option>
+                      <option value="">nothing (this is a new agreement)</option>
                       {supersedable.map((l) => (
                         <option key={l.letter.id} value={l.letter.id}>
-                          {l.letter.ref} — {l.party.displayName}
+                          {l.letter.ref} ({l.party.displayName})
                         </option>
                       ))}
                     </Select>

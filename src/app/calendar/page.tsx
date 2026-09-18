@@ -125,7 +125,7 @@ export default function CalendarPage() {
       <PageHeader
         eyebrow="Delivery"
         title="Compliance calendar"
-        lede="What each company owes, generated from the firm’s rules and the engagements it holds. Nobody types a row into this calendar — if anyone could, it could disagree with the statute."
+        lede="Every filing each client company owes, and by when. The rows are worked out from your compliance rules and the engagements you hold, so nobody types a filing in by hand."
       />
 
       <ErrorNotice error={error} />
@@ -157,7 +157,7 @@ export default function CalendarPage() {
           <Cluster gap="loose">
             <Checkbox
               label="Include filed and resolved"
-              note="off by default — within a year those are almost the whole table and never the answer."
+              note="Filed and resolved rows are hidden unless you tick this."
               checked={includeSettled}
               onChange={(e) => { setIncludeSettled(e.target.checked); }}
             />
@@ -211,7 +211,7 @@ export default function CalendarPage() {
               <Empty title="Nothing is on the calendar" icon="calendar">
                 {gaps.length > 0
                   ? `${String(gaps.length)} live ${gaps.length === 1 ? "engagement" : "engagements"} produced no filings.`
-                  : "No live engagement is covered by a rule that can compute a date. Most of the shipped India pack is waiting on a fact the firm has not given yet."}
+                  : "No live engagement is covered by a rule that can work out a date yet. Most of the built-in India rules are waiting for a fact your firm has not confirmed."}
               </Empty>
               <Cluster align="end">
                 {gaps.length > 0 ? (
@@ -297,7 +297,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         )}
       </Td>
       <Td>
-        {row.entityName ?? <span className="empty">&mdash;</span>}
+        {row.entityName ?? <span className="empty">no company</span>}
         {/* The CLIENT under the entity, because a group of four companies files
             four sets of returns and the rows would otherwise be identical. */}
         {row.clientName !== null && row.clientName !== row.entityName && (
@@ -317,7 +317,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
                 list is how somebody who cannot see the table navigates it, and
                 eleven identical entries going to eleven different work items
                 tell them nothing. The visible words do not change. */}
-            <Link href={`/work-items/${row.workItemId}`} aria-label={`${about} — on the board`}>
+            <Link href={`/work-items/${row.workItemId}`} aria-label={`${about}: open on the work board`}>
               on the board &rarr;
             </Link>
           </Sub>
@@ -366,8 +366,8 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
     return (
       <Card>
         <Empty title="Everything is covered" icon="check">
-          Every live engagement produces filings. That means every service the firm is
-          delivering is named by a rule that can compute a date.
+          Every live engagement produces filings. Every service your firm delivers is named by
+          a rule that can work out a date.
         </Empty>
       </Card>
     );
@@ -384,9 +384,9 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
   return (
     <Stack>
       <p className="lede">
-        These engagements are live and the calendar produced nothing for them.{" "}
+        These engagements are live, but the calendar produced nothing for them.{" "}
         <strong>None of this is an error.</strong> Most advisory work has no compliance rule and
-        never will; what matters is the ones that should have.
+        never will. What matters is the ones that should have one.
       </p>
       {[...byReason.entries()]
         .sort((a, b) => REASON_ORDER.indexOf(a[0]) - REASON_ORDER.indexOf(b[0]))
@@ -412,18 +412,18 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
               <tbody>
                 {rows.map((g) => (
                   <tr key={g.engagementId}>
-                    <Td>{g.clientName ?? <span className="empty">&mdash;</span>}</Td>
-                    <Td>{g.entityName ?? <span className="empty">&mdash;</span>}</Td>
+                    <Td>{g.clientName ?? <span className="empty">no client</span>}</Td>
+                    <Td>{g.entityName ?? <span className="empty">no company</span>}</Td>
                     <Td>
                       {g.serviceName ?? (
-                        <Tooltip text="The catalogue version this engagement pinned could not be resolved">
-                          <span className="unstated">unresolved service</span>
+                        <Tooltip text="The catalogue entry this engagement was quoted from could not be found">
+                          <span className="unstated">service not found</span>
                         </Tooltip>
                       )}
                     </Td>
                     <Td>
                       {g.jurisdiction === null ? (
-                        <Tooltip text="This company has no registered jurisdiction, so no rule can match it">
+                        <Tooltip text="This company has no registered country, so no rule can match it">
                           <span className="unstated">none</span>
                         </Tooltip>
                       ) : (
@@ -513,62 +513,59 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
   entity_not_registered: {
     title: "This company has no registered country",
     what:
-      "A rule matches an entity's own jurisdiction exactly, so a company nobody has registered " +
-      "as a legal entity matches nothing at all — whatever rules the firm holds. This was the " +
-      "commonest reason on the first firm this screen was opened against.",
+      "A rule matches a company by its registered country. A company that has not been " +
+      "registered as a legal entity matches no rule at all.",
     fix: "Register the company with its country and entity type.",
     where: { href: "/clients", label: "Open the book" },
   },
   rules_need_a_formula: {
     title: "A rule exists and cannot work out a date yet",
     what:
-      "The firm's own sheet describes the timing in words this system cannot turn into a day — " +
-      "\"within a statutory period after the AGM\", \"State-specific\", \"7 working days\". " +
+      "The rule describes its timing in words the system cannot turn into a date, such as " +
+      "\"within a statutory period after the AGM\" or \"7 working days\". " +
       "Each rule says exactly what it is waiting for.",
-    fix: "This is the list worth clearing: one fact each, and the filings start appearing.",
+    fix: "Clear these first. Each needs one fact, and then the filings start appearing.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_unconfirmed: {
-    title: "A rule could date this, and nobody has confirmed it",
+    title: "A rule could work out the dates, but nobody has confirmed it",
     what:
-      "A shipped rule reaches this engagement and can compute its dates, but nobody at the firm " +
-      "has checked it against the statute. Until somebody does, it puts nothing on the calendar " +
-      "— a shipped rule names no service, so confirmed it would reach every client in its " +
-      "country, and that is a claim only the firm can make.",
+      "A built-in rule reaches this engagement and can work out its dates, but nobody at your " +
+      "firm has checked it against the law yet. Until somebody does, it puts nothing on the " +
+      "calendar.",
     fix: "Confirm the rule, and say which service owes the filing so it reaches only the clients who bought it.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_retired: {
     title: "Every matching rule has been retired",
     what:
-      "Somebody switched these off. Anything they already produced still stands — a retired " +
-      "rule still explains an old filing's date — but nothing new is generated.",
+      "Somebody switched these rules off. Filings they already produced still stand, but " +
+      "nothing new is generated.",
     fix: "Reactivate one, or add its replacement under a new rule pack.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   no_rule_for_jurisdiction: {
     title: "A rule names this service, but not this country",
     what:
-      "The rule reaches a different jurisdiction from the one this company is registered in. " +
-      "A rule matches the entity's own country exactly.",
+      "The rule is written for a different country from the one this company is registered " +
+      "in.",
     fix: "Add the rule for this country, or widen the existing one.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   nothing_due_yet: {
     title: "Covered, with nothing due in the window yet",
     what:
-      "Rules match and can compute dates, but every period they would produce falls before the " +
-      "engagement began — a filing that fell due before the firm was appointed is not the " +
-      "firm's. This clears itself next period.",
+      "Rules match and can work out dates, but every period so far ended before the " +
+      "engagement began. A filing due before your firm was appointed is not your firm's. " +
+      "This clears itself next period.",
     fix: null,
     where: null,
   },
   no_rule_names_this_service: {
     title: "No compliance rule names this service",
     what:
-      "The ordinary case, and usually the right one: advisory work, an incorporation, a " +
-      "one-off report. Nothing recurring is owed to an authority, so there is nothing to " +
-      "generate.",
+      "The usual case for advisory work, an incorporation or a one-off report. Nothing " +
+      "recurring is owed to an authority, so there is nothing to generate.",
     fix: null,
     where: null,
   },
@@ -613,8 +610,7 @@ function DecisionsTab({
     return (
       <Card>
         <Empty title="Nothing is waiting on a decision" icon="check">
-          No statutory date has passed with the filing still open — and unlike an empty
-          calendar, that is unambiguously the good case.
+          No legal deadline has passed with the filing still open. That is the good case.
         </Empty>
       </Card>
     );
@@ -623,14 +619,14 @@ function DecisionsTab({
   return (
     <Stack>
       <p className="lede">
-        These deadlines have passed and nothing was filed. Each one is a choice with money on
-        both sides, and <strong>the reason is what nobody remembers later</strong> — it is what
-        answers the client who asks in eighteen months what the penalty was for.
+        These deadlines have passed and nothing was filed. Decide what happens to each one, and
+        write down why. <strong>The reason is what nobody remembers later</strong>, and it is
+        what answers a client who asks in eighteen months what the penalty was for.
       </p>
       {options.length === 0 && (
         <Notice tone="danger">
           <p>
-            This firm has no resolution options, so nothing here can be decided.{" "}
+            Your firm has not set up any decision options yet, so nothing here can be decided.{" "}
             <Link href="/admin/obligation-vocabulary">Add one →</Link>
           </p>
         </Notice>
@@ -712,7 +708,7 @@ function DecisionLine({
         )}
       </Td>
       <Td>
-        {row.entityName ?? <span className="empty">—</span>}
+        {row.entityName ?? <span className="empty">no company</span>}
         {row.clientName !== null && row.clientName !== row.entityName && (
           <Sub>{row.clientName}</Sub>
         )}
@@ -735,7 +731,7 @@ function DecisionLine({
               href={`/work-items/${row.workItemId}`}
               aria-label={`${[row.name, row.entityName, row.periodLabel]
                 .filter(Boolean)
-                .join(", ")} — on somebody's desk`}
+                .join(", ")}: open the task`}
             >
               on somebody&rsquo;s desk →
             </Link>
@@ -747,7 +743,7 @@ function DecisionLine({
           <Button
             size="sm"
             variant="secondary"
-            aria-label={`Decide — ${about}`}
+            aria-label={`Decide: ${about}`}
             onClick={() => { setOpen(true); }}
           >
             Decide
@@ -766,7 +762,7 @@ function DecisionLine({
             <Select
               size="sm"
               value={optionId}
-              aria-label={`What was decided — ${about}`}
+              aria-label={`What was decided: ${about}`}
               /* CONDITIONAL: the consequence sentence below is only drawn once
                  an option is chosen, and a describedby naming an element that
                  is not rendered describes nothing. */
@@ -788,15 +784,15 @@ function DecisionLine({
             {chosen !== undefined && (
               <p id={consequenceId} className="field-hint">
                 {chosen.closesWithoutFiling
-                  ? "This ENDS the filing. It will never be made, and the obligation closes."
+                  ? "This ends the filing. It will never be made, and the obligation closes."
                   : "The filing still has to happen. It goes back to be worked and filed late."}
               </p>
             )}
             <Input
               size="sm"
               value={reason}
-              aria-label={`Reason — ${about}`}
-              placeholder="Why — client sent books late, portal was down…"
+              aria-label={`Reason: ${about}`}
+              placeholder="Why, for example the client sent the books late…"
               onChange={(e) => { setReason(e.target.value); }}
             />
             <Cluster gap="tight">
@@ -807,7 +803,7 @@ function DecisionLine({
                 // says so before the click rather than after it — but the
                 // server's refusal is still what the message comes from.
                 disabled={optionId === "" || reason.trim() === ""}
-                aria-label={`Record decision — ${about}`}
+                aria-label={`Record decision: ${about}`}
                 onClick={() => { void record(); }}
               >
                 Record decision

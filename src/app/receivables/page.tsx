@@ -105,7 +105,7 @@ export default function ReceivablesPage() {
       <PageHeader
         eyebrow="Commercial"
         title="Receivables"
-        lede="What the firm is owed, and what the dunning worker has climbed to and stopped at."
+        lede="Every unpaid invoice, and the payment reminder steps that need a partner’s decision before they go ahead."
         aside={
           <LinkButton size="sm" href="/invoices" iconAfter={<Icon name="arrowRight" size={15} />}>
             Invoices
@@ -119,15 +119,15 @@ export default function ReceivablesPage() {
       <Section title="Waiting for a decision" level={2}>
         {pending.length === 0 ? (
           <Card>
-            <Empty title="Nothing needs a person" icon="check">
-              Nothing has reached a step the worker may not apply on its own.
+            <Empty title="Nothing needs a decision" icon="check">
+              No invoice has reached a reminder step that needs a partner’s approval.
             </Empty>
           </Card>
         ) : (
           <>
             <p className="lede">
-              The worker climbed to these and stopped. Credit hold and legal action are the two
-              rungs it may reach and may not apply.
+              These invoices have reached a step that is never applied automatically. Credit hold
+              and legal action need your approval.
             </p>
             <TableWrap>
               <Table>
@@ -151,11 +151,12 @@ export default function ReceivablesPage() {
                       <Link href={`/invoices/${p.action.invoiceId}`} className="mono">
                         {p.invoiceNumber}
                       </Link>
-                      <Sub>due {p.dueOn === null ? "—" : longDay(p.dueOn)}</Sub>
+                      <Sub>due {p.dueOn === null ? "no date" : longDay(p.dueOn)}</Sub>
                     </Td>
                     <Td>
                       <span className="mono">
-                        {p.action.step} <span className="muted">D+{p.action.afterDays}</span>
+                        {p.action.step}{" "}
+                        <span className="muted">{p.action.afterDays} days after due</span>
                       </span>
                       <Sub>
                         <Pill tone="danger">{p.action.action.replace("_", " ")}</Pill>
@@ -216,8 +217,8 @@ export default function ReceivablesPage() {
             </TableWrap>
             <p className="field-hint">
               {mayDecide
-                ? "A decision is final — the database refuses to change one. Rejecting is recorded too: the firm looked and chose not to, which is a fact somebody will want later."
-                : "Deciding these needs tenant:admin."}
+                ? "A decision is final and cannot be changed. Rejecting is recorded too, as a record that the firm looked and chose not to proceed."
+                : "Only a firm administrator can decide these."}
             </p>
           </>
         )}
@@ -228,8 +229,7 @@ export default function ReceivablesPage() {
         {owing.length === 0 ? (
           <Card>
             <Empty title="Nothing outstanding" icon="check">
-              Only ISSUED invoices appear here — a draft has asked nobody for anything, and a
-              cancelled one was withdrawn.
+              Only issued invoices appear here. Drafts and cancelled invoices are not owed.
             </Empty>
           </Card>
         ) : (

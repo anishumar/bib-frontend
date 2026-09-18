@@ -188,9 +188,9 @@ export default function CataloguePage() {
       <PageHeader
         eyebrow="Commercial"
         title="Catalogue"
-        lede="The firm&apos;s own record of what it sells. A published version is frozen — every
-        proposal and letter quoted from it resolves that exact version forever — so a change
-        is a new version, never an edit."
+        lede="Everything your firm sells: each service, its price, its turnaround and what it
+        includes. Publishing a version freezes it. Every proposal and letter quoted from it
+        keeps that version, so a change is always a new version."
       />
       {noteFor("load")}
 
@@ -210,7 +210,7 @@ export default function CataloguePage() {
                 // A service filed under no Dept is not an error and must not be
                 // dropped off the bottom of a grouped list: it is a row whose
                 // revenue lands in no column of the firm's own dashboard.
-                <NotStated>filed under no Dept</NotStated>
+                <NotStated>no Dept set</NotStated>
               ) : (
                 <span>{group.module}</span>
               )}{" "}
@@ -242,9 +242,9 @@ export default function CataloguePage() {
         <Card>
           <CardTitle level={2}>Add a service</CardTitle>
           <p className="text-md text-muted">
-            Everything but the name, the handle and how it is charged is optional, and blank
-            means the firm has not stated it — which is a real answer the record will show as
-            such. Nothing blank is sent.
+            Only the name, the short name and how it is charged are required. Leave anything else
+            blank if your firm has not decided it yet, and the service will show that field as
+            not stated.
           </p>
           <form
             action={(form) => {
@@ -257,8 +257,8 @@ export default function CataloguePage() {
                   Lower case by rule — the code that prints on a proposal is
                   `ref` below. */}
               <Field
-                label="Handle"
-                hint="Lower case, url-safe, permanent. Every issued document resolves through it."
+                label="Short name"
+                hint="Lower case, no spaces, and permanent once set. Every proposal and letter refers to the service by this."
               >
                 <Input name="key" placeholder="gst-filing" required />
               </Field>
@@ -277,9 +277,9 @@ export default function CataloguePage() {
               </Button>
             </div>
             <p className="text-sm text-muted">
-              Defining does not put it in force. Publish it, and from then on the version it
-              was quoted at is frozen — which is what lets a proposal reopened next year still
-              show the price it was sent at.
+              Adding a service saves it as a draft. Publish it to start quoting it. Once published,
+              a version never changes, so a proposal opened next year still shows the price it
+              was sent at.
             </p>
           </form>
         </Card>
@@ -288,14 +288,13 @@ export default function CataloguePage() {
       <Card>
         <CardTitle level={2}>Standard terms</CardTitle>
         <p className="text-md text-muted">
-          The clause library an engagement letter is assembled from. Each clause carries where
-          it may be USED (its jurisdictions) and, separately, what it SAYS — whose law governs
-          and which courts hear a dispute. Those are not the same fact: a clause applicable in
-          India and naming Indian law is entirely correct until it goes out on a letter issued
-          by the firm&apos;s US entity.
+          The standard clauses your engagement letters are built from. Each clause records two
+          separate things: the countries it may be used in, and what it says about whose law
+          applies and which courts hear a dispute. A clause written for India cannot go out on
+          a letter issued by your US company.
         </p>
         {clauses.length === 0 ? (
-          <p className="text-sm text-muted">No clauses defined yet.</p>
+          <p className="text-sm text-muted">No clauses written yet.</p>
         ) : (
           clauses.map((entry) => <ClauseCard key={entry.entry.id} entry={entry} />)
         )}
@@ -314,50 +313,49 @@ export default function CataloguePage() {
           >
             <CardTitle>Write a clause</CardTitle>
             <p className="text-sm text-muted">
-              Put in force the moment it is saved. A letter pins the version it was drafted from,
-              so editing the wording later is a new clause or a new version — never a change to a
-              letter already out.
+              A clause is live as soon as it is saved. Each letter keeps the version it was drafted
+              from, so changing the wording later never changes a letter already sent.
             </p>
             <FieldRow>
-              <Field label="Handle" hint="Lower case, permanent. A letter pins it by this.">
+              <Field label="Short name" hint="Lower case, no spaces, and permanent once set. Letters refer to the clause by this.">
                 <Input name="key" placeholder="governing-law-in" required />
               </Field>
               <Field label="Title">
                 <Input name="title" placeholder="Governing law and jurisdiction" required />
               </Field>
             </FieldRow>
-            <Field label="The clause, as it prints">
+            <Field label="The clause text, exactly as it will print">
               <Textarea name="text" rows={4} required />
             </Field>
             <FieldRow>
               <Field
                 label="Usable in"
                 optional
-                hint="Country codes, comma-separated. Blank means everywhere."
+                hint="Two-letter country codes separated by commas, such as IN, AE. Leave blank if it can be used anywhere."
               >
                 <Input name="jurisdictions" placeholder="IN, AE" />
               </Field>
             </FieldRow>
             <FieldRow>
-              <Field label="Governing law — country" optional hint="Only on the clause that names whose law governs.">
+              <Field label="Governing law: country" optional hint="Fill in only on the clause that says whose law applies.">
                 <Input name="lawJurisdiction" maxLength={2} placeholder="IN" style={{ textTransform: "uppercase" }} />
               </Field>
-              <Field label="Governing law — the words" optional>
+              <Field label="Governing law: wording" optional>
                 <Input name="lawText" placeholder="the laws of the Republic of India" />
               </Field>
             </FieldRow>
             <FieldRow>
-              <Field label="Courts — country" optional>
+              <Field label="Courts: country" optional>
                 <Input name="courtsJurisdiction" maxLength={2} placeholder="IN" style={{ textTransform: "uppercase" }} />
               </Field>
-              <Field label="Courts — the words" optional>
+              <Field label="Courts: wording" optional>
                 <Input name="courtsText" placeholder="the courts at New Delhi" />
               </Field>
             </FieldRow>
             {noteFor("clause")}
             <div className="cluster">
               <Button type="submit" disabled={busy !== null}>
-                Write it and put it in force
+                Save and make it live
               </Button>
             </div>
           </form>
@@ -368,8 +366,8 @@ export default function CataloguePage() {
         <CardTitle level={2}>Discount limit</CardTitle>
         <p className="text-md text-muted">
           {discountLimit === null || discountLimit === ""
-            ? "None published — so ANY discount needs sign-off from somebody holding proposal:approve. A firm that has never set a limit has not decided that anything goes."
-            : `${discountLimit}% off without sign-off. Past it, a proposal cannot be sent until somebody holding proposal:approve has approved it.`}
+            ? "No limit is set yet, so every discount needs sign-off from someone who can approve proposals."
+            : `Up to ${discountLimit}% off can be given without sign-off. Above that, a proposal cannot be sent until someone who can approve proposals has approved it.`}
         </p>
         {canWrite && (
           <form
@@ -409,8 +407,8 @@ export default function CataloguePage() {
             {noteFor("policy")}
             {discount !== undefined && (
               <p className="text-sm text-muted">
-                A new version is a draft until it is published — the limit in force does not
-                move until then.
+                A new limit is saved as a draft. The current limit stays in force until the draft
+                is published.
               </p>
             )}
           </form>
@@ -461,7 +459,7 @@ function ServiceCard({
           {published === null ? (
             // A draft was never in force, so it cannot be quoted — the proposal
             // screen will not offer it either.
-            <Pill tone="danger">draft only — never in force</Pill>
+            <Pill tone="danger">draft, not yet in force</Pill>
           ) : (
             /* `ok`, not `accent`. In force is a STATUS; `accent` is shadcn's
                neutral hover ground and the two have been confused six times on
@@ -478,7 +476,7 @@ function ServiceCard({
         // beats rendering "not stated" against every field, which would be that
         // lie in full.
         <p className="text-md text-muted">
-          Its versions could not be read, so what this service says is unknown here.
+          The details of this service could not be loaded.
         </p>
       ) : (
         <>
@@ -491,15 +489,15 @@ function ServiceCard({
         <div style={{ marginTop: "var(--s-5)" }}>
           <p className="text-md text-muted">
             {published === null
-              ? `Draft v${draft.version} is what would go in force. Nothing is quoting this service until it is published.`
-              : `A draft v${draft.version} is waiting. It changes nothing until it is published — v${published.version} above is what proposals still resolve.`}
+              ? `Draft v${draft.version} is waiting to be published. This service cannot be quoted until then.`
+              : `Draft v${draft.version} is waiting to be published. Until then, proposals keep using v${published.version}, shown above.`}
           </p>
           {published !== null && draftBody !== null && (
             // Side by side, never merged: what is in force is above, and this is
             // what would replace it. Blurring the two is the one thing this
             // screen must not do.
             <details style={{ marginTop: "var(--s-2)" }}>
-              <summary>What the pending draft v{draft.version} says</summary>
+              <summary>What draft v{draft.version} says</summary>
               <div style={{ marginTop: "var(--s-4)" }}>
                 <ServiceFacts body={draftBody} />
                 <ServiceProse body={draftBody} />
@@ -518,7 +516,7 @@ function ServiceCard({
                     onPublish(row.key, draft.version);
                   }}
                 >
-                  Publish v{draft.version} — put it in force
+                  Publish v{draft.version}
                 </Button>
               </div>
             </>
@@ -542,9 +540,8 @@ function ServiceCard({
             }}
           >
             <p className="text-sm text-muted">
-              A new version is a WHOLE new body, so this starts as a copy of what is in force.
-              Clearing a field here means the new version does not state it — which is a
-              change, not a blank.
+              This form starts as a copy of the version in force. Change what you need. If you
+              clear a field, the new version will show that field as not stated.
             </p>
             <ServiceFields
               id={`v-${row.key}`}
@@ -577,10 +574,10 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
   return (
     <Meta>
       {/* Two axes, never a tree — see Axes below. */}
-      <MetaItem label="Dept (module)">
-        {body.module === null ? <NotStated>filed under no Dept</NotStated> : body.module}
+      <MetaItem label="Dept">
+        {body.module === null ? <NotStated>no Dept set</NotStated> : body.module}
       </MetaItem>
-      <MetaItem label="Delivery team (group)">
+      <MetaItem label="Delivery team">
         {body.group === null ? <NotStated>no team</NotStated> : body.group}
       </MetaItem>
       <MetaItem label="Charged">
@@ -594,7 +591,7 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
         {/* Null is not one_time. A consumer that defaulted it would put a billing
             frequency on an engagement letter that nobody chose. */}
         {body.recurrence === null ? (
-          <NotStated>not stated — not the same as one-off</NotStated>
+          <NotStated />
         ) : (
           body.recurrence.replace("_", " ")
         )}
@@ -603,7 +600,7 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
       <MetaItem label="List price">
         {/* Null is "we quote it", never zero and never free. */}
         {body.listPrice === null ? (
-          <NotStated>no list price — quoted per engagement</NotStated>
+          <NotStated>no list price, quoted per engagement</NotStated>
         ) : (
           <span className="mono">
             {formatMoney(body.listPrice.amount, body.listPrice.currency)}
@@ -642,18 +639,16 @@ function ServiceFacts({ body }: { body: ServiceRecord }) {
 function ServiceProse({ body }: { body: ServiceRecord }) {
   return (
     <div className="prose-grid">
-      <Prose heading="What the firm will do" field="scope" text={body.scope} />
+      <Prose heading="What the firm will do" text={body.scope} />
       <Prose
         heading="What the client must do"
-        field="clientObligations"
         text={body.clientObligations}
       />
       <Prose
         heading="What the price assumes"
-        field="volumeLimits"
         text={body.volumeLimits}
       />
-      <Prose heading="What is not included" field="exclusions" text={body.exclusions} />
+      <Prose heading="What is not included" text={body.exclusions} />
     </div>
   );
 }
@@ -671,28 +666,28 @@ function Axes({ rows }: { rows: ServiceRow[] }) {
   return (
     <Card>
       <Meta>
-        <MetaItem label="By Dept — what revenue is reported by">
+        <MetaItem label="By Dept">
           <AxisChips counts={countBy(rows, (b) => b.module)} />
         </MetaItem>
-        <MetaItem label="By delivery team — who does the work">
+        <MetaItem label="By delivery team">
           <AxisChips counts={countBy(rows, (b) => b.group)} />
         </MetaItem>
       </Meta>
       <p className="text-sm text-muted">
-        Two independent dimensions, not a hierarchy: one delivery team works under more than
-        one Dept, so a service has each of these separately.
+        Dept and delivery team are set separately on each service, because one team can do
+        work for more than one Dept.
       </p>
     </Card>
   );
 }
 
 function AxisChips({ counts }: { counts: AxisCount[] }) {
-  if (counts.length === 0) return <NotStated>nothing filed</NotStated>;
+  if (counts.length === 0) return <NotStated>none set</NotStated>;
   return (
     <span className="cluster">
       {counts.map((c) => (
         <Pill key={c.label ?? ""} tone={c.label === null ? "neutral" : "code"}>
-          {c.label ?? "not filed"} · {c.count}
+          {c.label ?? "not set"} · {c.count}
         </Pill>
       ))}
     </span>
@@ -717,7 +712,7 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         <span className="mono text-muted">{entry.entry.key}</span>
         <span className="ml-auto">
           {entry.published === null ? (
-            <Pill tone="danger">draft only — never in force</Pill>
+            <Pill tone="danger">draft, not yet in force</Pill>
           ) : (
             <Pill tone="ok">in force · v{entry.published.version}</Pill>
           )}
@@ -729,12 +724,12 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
         // honest render; a record of "not stated" everywhere would read as a
         // clause that names no law, which is a different and much worse claim.
         <p className="text-md text-muted">
-          Never published, so what it says is not on this list. No letter can pin it.
+          Not published yet, so it cannot be used on a letter.
         </p>
       ) : (
         <>
           <Meta>
-            <MetaItem label="Applicable in">
+            <MetaItem label="Can be used in">
               {/* Where it may be USED. Not the same fact as what it SAYS — the
                   two below are that, and the gap between them is how a US
                   entity's letter went out naming Indian law. */}
@@ -745,15 +740,14 @@ function ClauseCard({ entry }: { entry: ConfigEntry }) {
               )}
             </MetaItem>
             <MetaItem label="Governing law">
-              <Term term={body.governingLaw} absent="this clause names no law" />
+              <Term term={body.governingLaw} absent="not stated in this clause" />
             </MetaItem>
             <MetaItem label="Courts">
-              <Term term={body.courts} absent="this clause names no forum" />
+              <Term term={body.courts} absent="not stated in this clause" />
             </MetaItem>
           </Meta>
           <Prose
             heading="The clause"
-            field="text"
             text={body.text === "" ? null : body.text}
           />
         </>
@@ -829,7 +823,7 @@ function ServiceFields({
         <Field
           id={`${id}-billingBasis`}
           label="Charged"
-          hint="What the price is a price OF."
+          hint="What the price is for: a fixed fee, an hourly rate, a retainer or a charge per unit."
         >
           <Select name="billingBasis" defaultValue={defaults?.billingBasis ?? "fixed"}>
             {BILLING_BASES.map((b) => (
@@ -846,22 +840,22 @@ function ServiceFields({
           <AxisPicker
             id={id}
             field="module"
-            label="Dept (module)"
+            label="Dept"
             rows={axes.filter((a) => a.axis === "dept")}
             current={defaults?.module ?? null}
             placeholder="FRC"
-            hint="The revenue axis. Independent of the delivery team, not above it."
+            hint="Which Dept's revenue this service counts towards."
           />
         </div>
         <div>
           <AxisPicker
             id={id}
             field="group"
-            label="Delivery team (group)"
+            label="Delivery team"
             rows={axes.filter((a) => a.axis === "team")}
             current={defaults?.group ?? null}
             placeholder="FINCOMPLIANCE"
-            hint="Who does the work. One team commonly delivers under several Depts."
+            hint="The team that does the work. One team can serve several Depts."
           />
         </div>
       </FieldRow>
@@ -878,9 +872,9 @@ function ServiceFields({
           hint={
             <>
               The process every job for this service follows.{" "}
-              <Link href="/admin/workflows">Write one</Link> if it is not here yet. Blank is a
-              real answer — the work is created and waits, visibly, rather than running a
-              process nobody wrote.
+              <Link href="/admin/workflows">Write one</Link> if it is not here yet. If you leave
+              this blank, jobs for this service are still created, but they wait until a
+              process is chosen.
             </>
           }
         >
@@ -888,7 +882,7 @@ function ServiceFields({
             name="workflowTemplateKey"
             defaultValue={defaults?.workflowTemplateKey ?? ""}
           >
-            <option value="">not stated — work for this service will wait</option>
+            <option value="">no process yet (jobs will wait)</option>
             {workflows
               .filter((w) => w.published !== null)
               .map((w) => (
@@ -906,7 +900,7 @@ function ServiceFields({
         <Field
           id={`${id}-recurrence`}
           label="Recurs"
-          hint="How often the work comes round. Not how it is billed."
+          hint="How often the work comes round, for example monthly. This is separate from how it is billed."
         >
           <Select name="recurrence" defaultValue={defaults?.recurrence ?? ""}>
             <option value="">not stated</option>
@@ -920,7 +914,7 @@ function ServiceFields({
         <Field
           id={`${id}-slaDays`}
           label="Turnaround, days"
-          hint="From signing for a one-time service; from the END of each period for a monthly, quarterly or annual one — 10 means by the 10th of the following month. Blank is NO turnaround. It is not 0 — 0 commits the firm to the day itself."
+          hint="For a one-time service, days from signing. For a monthly, quarterly or annual service, days after each period ends: 10 means by the 10th of the following month. Leave blank if there is no fixed turnaround. 0 means due on the day itself."
         >
           <Input
             name="slaDays"
@@ -946,8 +940,8 @@ function ServiceFields({
           label="Pricing note"
           hint={
             <>
-              Why there is no list price — and allowed beside one, for &quot;plus statutory
-              fees at actuals&quot;.
+              Explain the price when there is no list price, or add to one, for example &quot;plus
+              statutory fees at actuals&quot;.
             </>
           }
         >
@@ -966,7 +960,7 @@ function ServiceFields({
         <Field
           id={`${id}-jurisdictions`}
           label="Offered in"
-          hint="ISO codes, comma separated. Blank means everywhere."
+          hint="Two-letter country codes separated by commas. Leave blank if offered everywhere."
         >
           <Input
             name="jurisdictions"
@@ -984,11 +978,7 @@ function ServiceFields({
           <Field
             key={block.field}
             id={`${id}-${block.field}`}
-            label={
-              <>
-                {block.heading} <span className="mono">{block.field}</span>
-              </>
-            }
+            label={block.heading}
           >
             <Textarea
               name={block.field}
@@ -1000,9 +990,9 @@ function ServiceFields({
         ))}
       </div>
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        The firm&apos;s own words, as the firm states them — &quot;under 1,000 entries; under 8
-        bank accounts&quot;. Nothing is metered against them: past a ceiling the firm
-        re-assesses the engagement.
+        Write these in your firm&apos;s own words, for example &quot;under 1,000 entries; under 8
+        bank accounts&quot;. Nothing is counted automatically. If a client goes past a limit,
+        the firm reviews the engagement.
       </p>
     </fieldset>
   );
@@ -1369,7 +1359,7 @@ function readOneOf(v: unknown, allowed: readonly string[]): string | null {
  *  committed to any. Null is NOT zero: zero is a commitment to the day of
  *  signing, and "0 days" where nobody committed would be a lie on a screen. */
 function slaSentence(days: number | null, recurrence: string | null): ReactNode {
-  if (days === null) return <NotStated>no turnaround stated — not the same as none</NotStated>;
+  if (days === null) return <NotStated>no turnaround stated</NotStated>;
   // A recurring service counts from the end of each period (T6.13): "by the
   // 10th of the following month" is exactly ten days after a month ends.
   const recurring = recurrence === "monthly" || recurrence === "quarterly" || recurrence === "annually";
@@ -1463,9 +1453,9 @@ function AxisPicker({
         label={label}
         hint={
           <>
-            {hint} This firm has not defined its list yet, so anything upper-case is accepted —
-            define it on <Link href="/admin/structure">firm structure</Link> and this becomes a
-            picker.
+            {hint} Your firm has not set up its list yet, so type a code in capital letters. Once
+            the list exists on <Link href="/admin/structure">firm structure</Link>, this becomes
+            a drop-down.
           </>
         }
       >
@@ -1485,7 +1475,7 @@ function AxisPicker({
       hint={
         <>
           {hint}
-          {stale && " This service names a code that is not on the list; saving it as-is will be refused."}
+          {stale && " This service uses a code that is no longer on the list. Pick one from the list before saving."}
         </>
       }
     >
@@ -1494,12 +1484,12 @@ function AxisPicker({
         <option value="">not stated</option>
         {rows.map((r) => (
           <option key={r.id} value={r.code}>
-            {r.name === r.code ? r.code : `${r.code} — ${r.name}`}
+            {r.name === r.code ? r.code : `${r.code}: ${r.name}`}
             {r.isActive ? "" : " (retired)"}
           </option>
         ))}
         {stale && (
-          <option value={current}>{current} — no longer on this firm&apos;s list</option>
+          <option value={current}>{current} (no longer on this firm&apos;s list)</option>
         )}
       </Select>
     </Field>

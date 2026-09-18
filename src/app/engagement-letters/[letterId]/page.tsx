@@ -226,7 +226,7 @@ export default function LetterPage() {
     <Page>
       {/* The tab says what the caller is holding, for the same reason the header
           does. React hoists this into the document head. */}
-      <title>{`${letter.ref} — ${letter.title}`}</title>
+      <title>{`${letter.ref} · ${letter.title}`}</title>
 
       {/* The reference goes in the eyebrow. This is the string a client reads
           down the phone; the uuid in the address bar is the system's name for
@@ -236,8 +236,8 @@ export default function LetterPage() {
         title={letter.title}
         lede={
           <>
-            {record.party.displayName} · issued by {record.issuingEntity.displayName} · written
-            for {letter.jurisdiction} ·{" "}
+            {record.party.displayName} · issued by {record.issuingEntity.displayName} · country{" "}
+            {letter.jurisdiction} ·{" "}
             <Pill tone={letter.status === "withdrawn" ? "danger" : "neutral"}>
               {letter.status}
             </Pill>
@@ -265,9 +265,8 @@ export default function LetterPage() {
       {carriedPartially && (
         <Notice tone="warn" eyebrow="Some lines did not carry">
           <p>
-            This letter was written up from a quote and not every line came across — a line has
-            to name the company the work is for, because signing it creates an engagement for
-            one legal entity. Compare it against{" "}
+            This letter was written up from a quote, and not every line came across. Every line
+            on a letter must name the company the work is for. Compare it against{" "}
             {letter.proposalId === null ? (
               "the quote"
             ) : (
@@ -329,7 +328,7 @@ export default function LetterPage() {
           <MetaItem label="Addressed to">
             {record.addressedTo === null ? (
               <span className="text-sm text-muted">
-                {record.party.displayName} — no individual named
+                {record.party.displayName} (no individual named)
               </span>
             ) : (
               <>
@@ -382,8 +381,8 @@ export default function LetterPage() {
         <h3 className="eyebrow">Background</h3>
         {letter.background === null ? (
           <p className="text-md text-muted">
-            None written. The letter opens straight at the services — which is a choice, and one
-            that cannot be changed after it is sent.
+            None written. The letter opens straight with the services. This cannot be changed
+            after the letter is sent.
           </p>
         ) : (
           // Prose, as prose: this is the paragraph the client reads first, and
@@ -428,7 +427,7 @@ export default function LetterPage() {
               </p>
               {record.firmSignatory === null ? (
                 <p className="text-md text-muted">
-                  No signature block — the firm had named no signatory when this letter went out.
+                  No signature block. The firm had not named a signatory when this letter went out.
                 </p>
               ) : (
                 <>
@@ -455,9 +454,8 @@ export default function LetterPage() {
               canonical rendering and compare. */}
           <p className="mono break-all text-xs text-muted">{letter.signedContentHash}</p>
           <p className="text-sm text-muted">
-            This letter can no longer be changed — the database refuses it. A change is a new
-            letter that supersedes this one, which is what keeps this readable as what was
-            actually agreed.
+            This letter can no longer be changed. To change the terms, draft a new letter that
+            replaces this one.
           </p>
         </Card>
       )}
@@ -539,7 +537,7 @@ export default function LetterPage() {
             {lines.length === 0 && (
               <tr>
                 <Td colSpan={6} className="text-sm text-muted">
-                  Nothing agreed yet.
+                  No services on this letter yet.
                 </Td>
               </tr>
             )}
@@ -576,7 +574,7 @@ export default function LetterPage() {
         owner={{ engagementLetterId: letterId }}
         canWrite={permissions.includes("party:write")}
         editable={!isSigned}
-        frozenNote="This letter is signed, so its prose is frozen with its terms — the database refuses a change, the same way it refuses one to a line or a clause. A different wording is a new letter."
+        frozenNote="This letter is signed, so its wording can no longer be changed. Different wording means a new letter."
         onChanged={load}
       />
 
@@ -584,8 +582,7 @@ export default function LetterPage() {
         <CardTitle level={2}>Terms</CardTitle>
         {record.clauses.length === 0 ? (
           <p className="text-sm text-muted">
-            None yet. A letter cannot be sent without terms — a signed contract with none is
-            enforceable as whatever a court reads into it.
+            None yet. A letter cannot be sent without terms. Add them below.
           </p>
         ) : (
           record.clauses.map((c) => (
@@ -645,7 +642,7 @@ export default function LetterPage() {
                 label="Add a term"
                 hint={
                   available.length === 0
-                    ? `No published clause applies to ${letter.jurisdiction} that is not already on this letter. Publish one in the catalogue.`
+                    ? `Every published clause for ${letter.jurisdiction} is already on this letter. Write and publish another in the catalogue.`
                     : undefined
                 }
               >
@@ -708,12 +705,12 @@ export default function LetterPage() {
                 "Begins" was a loose paragraph beside the control it explains:
                 measured, this form described 0 of its 7. */}
             <div className="field-row mb-4">
-              <Field label="Delivered to">
+              <Field label="For which company">
                 {/* UNCHOSEN, for the same reason as the party selects on the
                     list screens: this one opened on "10x Global", so a line
                     added without touching it was delivered to the firm. */}
                 <Select name="entityPartyId" required>
-                  <option value="">Choose the entity…</option>
+                  <option value="">Choose the company…</option>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.displayName}
@@ -731,7 +728,7 @@ export default function LetterPage() {
                   keeps its own copy of both. */}
               <Field
                 label="From the catalogue"
-                hint="Fills in the wording and the list price below. Change either — what this client agreed is what the letter records."
+                hint="Fills in the wording and the list price below. You can change either. The letter records what this client agreed."
               >
                 <Select
                   name="serviceVersionId"
@@ -747,7 +744,7 @@ export default function LetterPage() {
                       <option key={entry.entry.id} value={entry.published?.id}>
                         {body.name || entry.entry.key}
                         {body.listPrice !== null &&
-                          ` — ${formatMoney(body.listPrice.amount, body.listPrice.currency)}`}
+                          ` (${formatMoney(body.listPrice.amount, body.listPrice.currency)})`}
                       </option>
                     );
                   })}
@@ -795,7 +792,7 @@ export default function LetterPage() {
                   a single shared date and the reverse cannot: an Incorporation
                   line starts the day it is signed while the GST line beside it
                   starts next period. */}
-              <Field label="Begins" hint="Blank follows the letter.">
+              <Field label="Begins" hint="Leave blank to start with the letter.">
                 <Input name="effectiveFrom" type="date" />
               </Field>
             </div>
@@ -812,9 +809,9 @@ export default function LetterPage() {
         <Card>
           <CardTitle level={2}>Engagements</CardTitle>
           <p className="text-md text-muted">
-            One per line, created when the letter was signed. These are what the delivery side
-            schedules against, and each carries the start date resolved from its line, then this
-            letter, then the signature.
+            One engagement per service line, created when the letter was signed. Work and
+            filings are scheduled from these. Each starts on its line’s date, else the letter’s
+            date, else the day of signature.
           </p>
           <TableWrap>
         <Table>
@@ -863,10 +860,10 @@ export default function LetterPage() {
           // standing signatory, because the letter has none until it is sent.
           <p className="text-md text-muted">
             {standing === null
-              ? "The firm has named no standing signatory, so this letter goes out with the firm's half of the signature block blank — nobody is recorded as having bound it."
-              : `Sending snapshots the firm's signature block onto this letter: ${
+              ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one under The firm itself."
+              : `When sent, this letter carries the firm's signature block as it is now: ${
                   standing.displayName ?? "the named account"
-                }, ${standing.title}. Naming a successor later never restates it.`}
+                }, ${standing.title}. Changing the signatory later does not change this letter.`}
           </p>
         )}
 
@@ -943,8 +940,8 @@ export default function LetterPage() {
               {/* Said plainly, because the audit trail will say it too: this
                   records an attestation by somebody at the firm, not a
                   cryptographic signature. */}
-              Recording that the client signed — on paper, or through a provider the firm
-              already uses. This is a colleague&apos;s attestation, and the audit trail says so.
+              Record here that the client has signed, on paper or through an e-signing provider
+              the firm already uses. The audit trail records who confirmed it.
             </p>
             <div className="field-row">
               <Field label="Who signed">
@@ -972,9 +969,8 @@ export default function LetterPage() {
         {letter.status === "withdrawn" && (
           <p className="text-md text-muted">
             This letter was withdrawn on{" "}
-            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}{" "}
-            and stays that way,
-            so the interval in which it was off the table is still on the record.
+            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}.
+            It stays on record as withdrawn.
           </p>
         )}
       </Card>
@@ -987,7 +983,7 @@ export default function LetterPage() {
         subjectRef={letterId}
         canWrite={permissions.includes("party:write")}
         renderable="engagement_letter"
-        emptyHint="Nothing attached yet. The signed copy belongs here — its content hash is what proves the file a client holds is the one the firm issued."
+        emptyHint="Nothing attached yet. Upload the signed copy of this letter here."
       />
     </Page>
   );

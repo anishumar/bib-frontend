@@ -165,8 +165,7 @@ export default function PortalHomePage() {
         <Notice tone="warn" eyebrow="Nothing shared with you yet">
           <p>
             Your login works, but {firm} has not yet given it access to a company. Until they
-            do there is nothing here to show — this is not an error and nothing has gone
-            missing.
+            do, there is nothing here to show. Nothing has gone wrong or gone missing.
           </p>
           <p>Ask your contact at {firm} to share your company with this email address.</p>
         </Notice>
@@ -207,7 +206,7 @@ export default function PortalHomePage() {
               it cost eighty pixels on the one screen a client lands on, and it
               read as a second step from the sentence explaining it. */}
           <p>
-            {firm} {counts.awaitingYou === 1 ? "has asked you for something" : "has asked you for a few things"} — a
+            {firm} {counts.awaitingYou === 1 ? "has asked you for something" : "has asked you for a few things"}: a
             document, an approval or an answer. Nothing here moves on until{" "}
             {counts.awaitingYou === 1 ? "it is" : "they are"} dealt with.
           </p>
@@ -226,9 +225,9 @@ export default function PortalHomePage() {
           lede={
             <>
               {firm} cannot move these on until something arrives. Where they have asked you
-              for it directly, the request is under <Link href="/portal/requests">Requests</Link>{" "}
-              with somewhere to answer it. The rest show the note {firm}&rsquo;s own team
-              wrote, unedited — which may be about something outside your control.
+              for it directly, the request is under <Link href="/portal/requests">Requests</Link>,
+              where you can answer it. The rest show the note {firm}&rsquo;s team wrote, which
+              may be about something outside your control.
             </>
           }
         >
@@ -263,7 +262,7 @@ export default function PortalHomePage() {
                           screen is right whichever of the two it is on, and it
                           survived the move that broke every other pointer on
                           this page. */}
-                      {firm} has asked you for something on this — the request is under{" "}
+                      {firm} has asked you for something on this. The request is under{" "}
                       <Link href="/portal/requests">Requests</Link>.
                     </p>
                   ) : (
@@ -291,7 +290,7 @@ export default function PortalHomePage() {
           title="Filings still owed"
           level={2}
           count={home.upcomingFilings.length}
-          lede="The date each is due by LAW. Anything already past its date is at the top."
+          lede="The date each one is due by law. Anything already past its date is at the top."
         >
           <TableWrap>
           <Table>
@@ -302,7 +301,7 @@ export default function PortalHomePage() {
                 <Th>Period</Th>
                 <Th>Due by law</Th>
                 <Th>Status</Th>
-                <Th>Last told</Th>
+                <Th>Last reminded</Th>
               </tr>
             </thead>
             <tbody>
@@ -358,7 +357,7 @@ export default function PortalHomePage() {
                   <Td>{row.companyName}</Td>
                   <Td>{row.periodLabel}</Td>
                   <Td>
-                    {row.filedOn === null ? "—" : longDay(row.filedOn)}
+                    {row.filedOn === null ? "date not recorded" : longDay(row.filedOn)}
                   </Td>
                 </tr>
               ))}
@@ -383,10 +382,10 @@ export default function PortalHomePage() {
           nav above it is the actual fix. */}
       {home.companies.length > 0 && (
         <p className="max-w-[var(--measure)] text-sm text-muted">
-          This page is what is happening now. Anything {firm} has asked you for — and anything
-          you have asked them — is under <Link href="/portal/requests">Requests</Link>. Your
-          documents, your invoices and a month-by-month record of what {firm} has done are on
-          the pages beside it.
+          This page shows what is happening now. Anything {firm} has asked you for, and
+          anything you have asked them, is under <Link href="/portal/requests">Requests</Link>.
+          Your documents, your invoices and a month-by-month record of what {firm} has done are
+          on the pages beside it.
         </p>
       )}
     </Page>
@@ -444,7 +443,7 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
             which is the shipped state and not something to report as a
             failure to a client. */}
         {row.lastNudgedAt === null ? (
-          <span className="text-faint">—</span>
+          <span className="text-faint">not yet</span>
         ) : (
           <span className="mono">{longInstant(row.lastNudgedAt)}</span>
         )}

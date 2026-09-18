@@ -349,7 +349,7 @@ export default function PartyPage() {
   if (profile === null) {
     return (
       <Page>
-        <Notice tone="danger">{error ?? "No such party."}</Notice>
+        <Notice tone="danger">{error ?? "No such client."}</Notice>
       </Page>
     );
   }
@@ -455,18 +455,17 @@ export default function PartyPage() {
           <CardTitle level={2}>Registered</CardTitle>
           {profile.legalEntities.length === 0 ? (
             <p className="muted measure">
-              Not registered anywhere yet. A compliance rule matches a
-              company&rsquo;s country exactly, so until this is filled in
-              nothing is ever due for this client and the calendar has nothing
-              to generate — it will say so on{" "}
-              <Link href="/calendar">the calendar</Link>, under Not covered.
+              No country of registration yet. Compliance rules are matched by
+              country, so until this is filled in no filings will appear for
+              this client. <Link href="/calendar">The calendar</Link> lists it
+              under Not covered.
             </p>
           ) : (
           <TableWrap>
             <Table>
               <thead>
                 <tr>
-                  <Th>Jurisdiction</Th>
+                  <Th>Country</Th>
                   <Th>Type</Th>
                   <Th>Incorporated</Th>
                   <Th>FY end</Th>
@@ -478,10 +477,10 @@ export default function PartyPage() {
                   <tr key={`${e.jurisdiction}-${e.entityType}`}>
                     <Td className="mono">{e.jurisdiction}</Td>
                     <Td>{e.entityType}</Td>
-                    <Td className="muted">{e.incorporatedOn === null ? "—" : longDay(e.incorporatedOn)}</Td>
+                    <Td className="muted">{e.incorporatedOn === null ? "not set" : longDay(e.incorporatedOn)}</Td>
                     {/* MM-DD: a financial year ends on a date in the calendar,
                         not in a particular year. */}
-                    <Td className="muted">{e.financialYearEnd ?? "—"}</Td>
+                    <Td className="muted">{e.financialYearEnd ?? "not set"}</Td>
                     <Td>
                       <Pill tone={e.status === "active" ? "neutral" : "danger"}>
                         {e.status}
@@ -543,11 +542,11 @@ export default function PartyPage() {
                   </Field>
                 </FieldRow>
                 <p className="field-hint" id={registerHintId}>
-                  The country is what a compliance rule is matched against, and
-                  the kind of company narrows which rules apply. Both are the
-                  firm&rsquo;s own words for them — <span className="mono">IN</span>{" "}
-                  and <span className="mono">private_limited</span> are what the
-                  shipped India rules look for.
+                  Compliance rules are matched by country, and the kind of company
+                  narrows which rules apply. Use the same codes your rules use:{" "}
+                  <span className="mono">IN</span> and{" "}
+                  <span className="mono">private_limited</span> are what the built-in
+                  India rules look for.
                 </p>
                 <div className="cluster">
                   <Button type="submit" loading={busy}>
@@ -564,8 +563,9 @@ export default function PartyPage() {
         <CardTitle level={2}>Identifiers</CardTitle>
         {profile.identifiers.length === 0 ? (
           <p className="muted">
-            None yet. A PAN or an email is what lets a second capture of this
-            counterparty find this record instead of making another.
+            None yet. Add a PAN, GSTIN or email so this client is recognised the
+            next time they come in as a lead, instead of a duplicate record being
+            created.
           </p>
         ) : (
           <TableWrap>
@@ -574,7 +574,7 @@ export default function PartyPage() {
                 <tr>
                   <Th>Type</Th>
                   <Th>Value</Th>
-                  <Th>Where</Th>
+                  <Th>Country</Th>
                   <Th>From</Th>
                 </tr>
               </thead>
@@ -593,7 +593,7 @@ export default function PartyPage() {
                     {/* Stored normalised by the API — uppercase, unspaced — which
                         is what makes two captures of one company match. */}
                     <Td className="mono">{i.value}</Td>
-                    <Td className="muted">{i.jurisdiction ?? "—"}</Td>
+                    <Td className="muted">{i.jurisdiction ?? "not set"}</Td>
                     <Td className="muted">{longDay(i.validFrom)}</Td>
                   </tr>
                 ))}
@@ -613,24 +613,24 @@ export default function PartyPage() {
         </CardTitle>
         <p className="muted">
           Who owns this company, who signs for it, and which other companies it is grouped
-          with — each one effective-dated, because compliance never asks who a director is,
-          it asks who was a director on 31 March. Read every row as a sentence beginning{" "}
+          with. Each relationship has a start and an end date, because compliance asks who
+          was a director on a particular day. Read every row as a sentence beginning{" "}
           <strong>{profile.party.displayName}</strong>.
         </p>
         {profile.relationships.length === 0 ? (
           <p className="muted">
             None recorded.{" "}
             {canWrite
-              ? "Recording a shareholding or a parent company here is also what lets a portal contact be given a sister company to look at — that picker reads this list and nothing else."
-              : "Recording one needs permission to write parties."}
+              ? "Record a shareholding or a parent company here. This list is also where the client portal picks the group companies a contact may be given access to."
+              : "You need permission to edit clients to record one."}
           </p>
         ) : (
           <TableWrap>
             <Table>
               <thead>
                 <tr>
-                  <Th>Is</Th>
-                  <Th>Whom</Th>
+                  <Th>Relationship</Th>
+                  <Th>With</Th>
                   <Th>From</Th>
                   <Th>Until</Th>
                   <Th />
@@ -671,7 +671,7 @@ export default function PartyPage() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          aria-label={`End it — ${profile.party.displayName} ${relationSentence(
+                          aria-label={`End it: ${profile.party.displayName} ${relationSentence(
                             r,
                             types,
                           )} ${r.counterparty.displayName}`}
@@ -730,7 +730,7 @@ export default function PartyPage() {
                 <div style={{ maxWidth: "16rem" }}>
                 <Field
                   label="The first day it is no longer in force"
-                  hint="Half-open, like every date range here: a director who resigned on the 12th is ended on the 12th, and the 11th is her last day. It has to be after the day the relationship began, and it cannot be changed afterwards — the ledger records an ending once."
+                  hint="Enter the first day it no longer applies. A director who resigned on the 12th is ended on the 12th, and the 11th was their last day. It must be after the day the relationship began, and it cannot be changed once saved."
                 >
                   <Input type="date" name="endValidTo" defaultValue={today} required />
                 </Field>
@@ -782,7 +782,7 @@ export default function PartyPage() {
                 <FieldRow>
                   <Field
                     label="The other party"
-                    hint="Every company and person on the firm's book, except this one and anything archived. A relationship needs two ends and a party cannot be its own."
+                    hint="Any company or person on your firm's books, other than this one."
                   >
                     {/* CONTROLLED, because the sentences below NAME what is
                         chosen here. No pre-selected party: a relationship
@@ -812,7 +812,7 @@ export default function PartyPage() {
 
                 <Field
                   label="How they are related"
-                  hint="Twelve sentences, and each one names both companies — six kinds of relationship, read from each end. The API stores a from and a to, and choosing the sentence is what decides which is which."
+                  hint="Each option is a sentence naming both parties. Pick the one that is true."
                 >
                   {/* DIRECTION IS NOT A SEPARATE QUESTION. Asking for it as a
                       radio or an arrow is asking somebody to translate a fact
@@ -841,13 +841,13 @@ export default function PartyPage() {
                 <FieldRow>
                   <Field
                     label="From"
-                    hint="The day it became true — an incorporation, a share transfer, a board resolution. Not today unless today is the day."
+                    hint="The day it became true, such as the incorporation date, a share transfer or a board resolution. Use today only if it happened today."
                   >
                     <Input type="date" name="relValidFrom" defaultValue={today} required />
                   </Field>
                   <Field
                     label="Until (optional)"
-                    hint="The first day it is NO LONGER true, not the last day it was. Leave it empty while it still stands."
+                    hint="The first day it is no longer true (not the last day it was). Leave it empty if it still stands."
                   >
                     <Input type="date" name="relValidTo" />
                   </Field>
@@ -895,7 +895,7 @@ export default function PartyPage() {
               <Field label="Value">
                 <Input name="value" required />
               </Field>
-              <Field label="Jurisdiction">
+              <Field label="Country" optional>
                 <Input name="jurisdiction" maxLength={2} placeholder="IN" />
               </Field>
               {/* This field and the account team's "From" BOTH hardcoded
@@ -908,7 +908,7 @@ export default function PartyPage() {
                 <Input name="validFrom" type="date" defaultValue={today} required />
               </Field>
             </FieldRow>
-            <Checkbox label="The primary one of its type for this party." name="isPrimary" />
+            <Checkbox label="This is the main one of its type for this client." name="isPrimary" />
             <div className="cluster">
               <Button type="submit" loading={busy}>
                 {busy ? "Attaching…" : "Attach"}
@@ -925,7 +925,7 @@ export default function PartyPage() {
         subjectRef={partyId}
         partyId={partyId}
         canWrite={canWrite}
-        emptyHint="Nothing on file yet. A PAN card, a certificate of incorporation, a board resolution — whatever the firm would have to go looking for."
+        emptyHint="Nothing on file yet. Upload the documents you would otherwise have to go looking for, such as a PAN card, a certificate of incorporation or a board resolution."
       />
     </Page>
   );

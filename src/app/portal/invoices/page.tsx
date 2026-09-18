@@ -102,14 +102,14 @@ export default function PortalInvoicesPage() {
             ? `Everything ${firm} has billed you, newest first. Nothing is outstanding.`
             : `Everything ${firm} has billed you, newest first. ${
                 owing.length === 1 ? "One is" : `${String(owing.length)} are`
-              } still open — each row shows what is left on it.`
+              } still open. Each row shows what is left on it.`
         }
       />
 
       {invoices.length === 0 ? (
         <Empty title="Nothing billed yet" icon="check">
           {firm} has not issued you an invoice. Anything they raise will appear here as
-          soon as it is issued — a draft they are still preparing will not.
+          soon as it is issued. A draft they are still preparing will not.
         </Empty>
       ) : (
         <>
@@ -140,7 +140,7 @@ export default function PortalInvoicesPage() {
 
       <p className="max-w-[var(--measure)] text-sm text-muted">
         These figures are {firm}&rsquo;s own record of your account. There is no way to pay
-        from this page — settle as you do now, and ask {firm} if a figure here does not
+        from this page. Settle as you do now, and ask {firm} if a figure here does not
         match what you hold.
       </p>
     </Page>
@@ -168,10 +168,10 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
         )}
       </Td>
       <Td>{inv.issuedBy}</Td>
-      <Td>{inv.issuedOn === null ? "—" : <span className="mono">{longDay(inv.issuedOn)}</span>}</Td>
+      <Td>{inv.issuedOn === null ? "not yet" : <span className="mono">{longDay(inv.issuedOn)}</span>}</Td>
       <Td>
         {inv.dueOn === null ? (
-          "—"
+          "no due date"
         ) : (
           <>
             <span className="mono">{longDay(inv.dueOn)}</span>
@@ -194,7 +194,7 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
       </Td>
       <Td>
         {cancelled ? (
-          <span className="text-faint">—</span>
+          <span className="text-faint">nothing</span>
         ) : (
           <Money amount={inv.outstanding} currency={inv.currency} />
         )}

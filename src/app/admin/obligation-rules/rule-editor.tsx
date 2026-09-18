@@ -259,11 +259,11 @@ export function RuleEditor({
               </Field>
             </FieldRow>
             <Notice eyebrow="CANNOT BE CHANGED LATER">
-              The filing, the country and the pack are this rule&rsquo;s <strong>identity</strong>.
-              Every filing it generates pins this row, so moving them would restate why those
-              filings were due when they were. The pack is prefilled with the firm&rsquo;s own,
-              kept clear of the shipped <code>gst-in@…</code> namespace so reloading a shipped pack
-              can never collide with an answer you wrote here.
+              The filing, the country and the pack <strong>identify</strong> this rule. Every
+              filing it generates points back to this row, so these three cannot change later.
+              The pack is prefilled with your firm&rsquo;s own name, kept separate from the
+              shipped <code>gst-in@…</code> pack, so reloading a shipped pack never overwrites a
+              rule you wrote.
             </Notice>
           </>
         )}
@@ -309,8 +309,8 @@ export function RuleEditor({
              nothing, and this paragraph is replaced by a Notice once the shape
              is locked. */
           <p id={periodNoteId} className="field-hint">
-            April for India: a quarter runs Apr&ndash;Jun, so leaving the year at January would put
-            every quarterly filing in the wrong period.
+            April for India: a quarter then runs April to June. Leaving the year at January would
+            put every quarterly filing in the wrong period.
           </p>
         )}
 
@@ -319,10 +319,10 @@ export function RuleEditor({
         {shapeLocked && (
           <Notice tone="warn" eyebrow="THE PERIOD SHAPE IS FIXED NOW">
             These two decide where a period <strong>begins</strong>, and this rule has already
-            produced {produced} filing{produced === 1 ? "" : "s"} keyed on those boundaries.
-            Changing them now would orphan every one of them &mdash; last quarter&rsquo;s return
-            would match no quarter. Retire this rule and write a new one instead; the retired row
-            goes on explaining the filings it made.
+            produced {produced} filing{produced === 1 ? "" : "s"} based on those periods.
+            Changing them now would leave every one of them without a matching period. Retire
+            this rule and write a new one instead. The retired rule still explains the filings
+            it made.
           </Notice>
         )}
 
@@ -421,7 +421,7 @@ export function RuleEditor({
           <Field
             label="Owed by clients who bought"
             optional
-            hint="Any service means every client with a live engagement in this country owes it. If only the clients who bought one service do, name it here — a bookkeeping client whose service excludes the filing should never see it on their portal."
+            hint="Any service means every client with a live engagement in this country owes this filing. If only clients who bought one particular service owe it, choose that service here. Otherwise a bookkeeping client could see a filing on their portal that does not apply to them."
           >
             <Select
               value={draft.serviceEntryId}
@@ -437,10 +437,10 @@ export function RuleEditor({
         {/* One paragraph, TWO fields — which is exactly why it cannot be a
             `<Field hint>` and had to be wired by hand. */}
         <p id={groupingNoteId} className="field-hint">
-          <strong>Statute grouping</strong> is the law&rsquo;s &mdash; GST, TDS, MCA &mdash; not
-          the firm&rsquo;s revenue Dept, which is a different axis. Leaving{" "}
-          <strong>entity type</strong> blank means every kind of company, which is the ordinary
-          case: GST does not care what shape a client is.
+          <strong>Statute grouping</strong> is the law&rsquo;s grouping, such as GST, TDS or MCA.
+          It is not your firm&rsquo;s Dept. Leaving <strong>entity type</strong> blank means
+          every kind of company, which is the usual case: GST applies whatever shape a client
+          is.
         </p>
 
         {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
@@ -550,7 +550,7 @@ export function Exceptions({
                         size="sm"
                         disabled={busy}
                         onClick={() => { onWithdraw(e.periodEndMonth); }}
-                        title="Put this period back under the rule's own formula. The row is kept, never destroyed — it is part of why a filing was due on the day it was."
+                        title="Put this period back under the rule's own formula. The row is kept on record, because it explains why a filing was due on the day it was."
                       >
                         Withdraw
                       </Button>
@@ -565,7 +565,7 @@ export function Exceptions({
         {open && mayWrite && rule.recurrence !== "event" && (
           <Stack>
             <FieldRow>
-              <Field label="Month the PERIOD ends in">
+              <Field label="Month the period ends in">
                 <Select value={month} onChange={(e) => { setMonth(e.target.value); }}>
                   {MONTHS.map((m, i) => (
                     <option key={m} value={String(i + 1)}>{m}</option>
@@ -609,12 +609,12 @@ export function Exceptions({
               )}
             </FieldRow>
             <p className="field-hint">
-              The month the PERIOD ends in, never the month it is due &mdash; the due month is
-              exactly what this changes.
+              Choose the month the period ends in, not the month the filing is due. The due month
+              is what this exception changes.
             </p>
             <Field
               label="Why this period is different"
-              hint="Required. A partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo."
+              hint="Required. Without it, a partner checking the calendar cannot tell a real exception from a typo."
             >
               <Input
                 value={note}
