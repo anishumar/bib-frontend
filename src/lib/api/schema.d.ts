@@ -16898,6 +16898,10 @@ export interface components {
             minGradeCode: string | null;
             maxGradeRank: number | null;
             maxGradeCode: string | null;
+            /** @description What the firm calls the lowest grade — "Analyst" — or null for an open end or a rung the ladder no longer has. Read this, not the code. */
+            minGradeName: string | null;
+            /** @description What the firm calls the highest grade, likewise. */
+            maxGradeName: string | null;
         } | null;
         JobStep: {
             /** Format: uuid */

@@ -88,7 +88,14 @@ export default function WorkPage() {
   useEffect(() => {
     let live = true;
     void api.GET("/api/v1/my-steps", {}).then((r) => {
-      if (live) setMySteps(r.data?.steps ?? []);
+      // The ones that are waiting for THIS person first. The API lists a
+      // desk by step key, which put "Bank reconciliation" above the one
+      // step Rohan could actually do; a job step carries no position, so
+      // process order is not available here — actionable first is.
+      const mine = [...(r.data?.steps ?? [])].sort(
+        (a, b) => Number(b.status === "blocked") - Number(a.status === "blocked") || a.label.localeCompare(b.label),
+      );
+      if (live) setMySteps(mine);
     });
     return () => {
       live = false;
