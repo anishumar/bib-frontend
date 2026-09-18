@@ -329,8 +329,21 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
   function download(key: Sheet): void {
     const s = template.sheets.find((x) => x.key === key);
     if (s === undefined) return;
+    // THE HINT IS IN THE HEADER CELL, in brackets: `Started On (YYYY-MM-DD)`.
+    // Nobody reads a guide; the one place a person's eye is when they type a
+    // value is the cell above it. The reader drops everything from the first
+    // "(" before matching a header, so a filled sheet comes back the same
+    // whether the hint was kept, shortened or deleted. The SPOC pair's hint
+    // names THIS firm's own Dept codes, which the API's generic entry cannot.
+    const codes = depts.map((d) => d.code).join(", ");
+    const withHint = (header: string, hint: string): string => (hint === "" ? header : `${header} (${hint})`);
     const headers = s.columns.flatMap((c) =>
-      c.header === SPOC_COLUMN_TEMPLATE ? spocSlots(depts).flatMap(spocPair) : [c.header],
+      c.header === SPOC_COLUMN_TEMPLATE
+        ? spocSlots(depts).flatMap((slot) => {
+            const [dept, email] = spocPair(slot);
+            return [withHint(dept, `your Dept code: ${codes}`), withHint(email, "that colleague's login email")];
+          })
+        : [withHint(c.header, c.hint)],
     );
     const csv = `${headers.map((h) => (h.includes(",") ? `"${h}"` : h)).join(",")}\r\n`;
     const url = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }));

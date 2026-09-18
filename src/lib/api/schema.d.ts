@@ -16124,6 +16124,8 @@ export interface components {
                 columns: {
                     header: string;
                     required: boolean;
+                    /** @description The few words a downloaded sheet prints IN the header cell, in brackets — `Started On (YYYY-MM-DD)`. The reader ignores everything from the first "(" when matching a header, so a sheet with the hints kept, shortened or deleted reads the same. */
+                    hint: string;
                     about: string;
                 }[];
             }[];
