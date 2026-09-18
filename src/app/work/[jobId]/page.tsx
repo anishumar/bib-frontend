@@ -44,12 +44,15 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const [checks, setChecks] = useState<StepCheck[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [me, setMe] = useState<string | null>(null);
+  /** Grade code → name, so a band reads "Analyst to Senior Associate" and not
+   *  the codes the wire carries. */
+  const [gradeNames, setGradeNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [result, header, me, checkList] = await Promise.all([
+    const [result, header, me, checkList, ladder] = await Promise.all([
       api.GET("/api/v1/jobs/{jobId}/steps", { params: { path: { jobId } } }),
       // The job itself, not just its steps. A merged job's steps say nothing
       // about WHOSE work they are, and after the merge that is a real question:
@@ -60,6 +63,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       // rejections are the point: a step sent back twice and then approved
       // reads as a step that sailed through if only the open one is shown.
       api.GET("/api/v1/jobs/{jobId}/checks", { params: { path: { jobId } } }),
+      api.GET("/api/v1/tenancy/grades", {}),
     ]);
     if (result.response.status === 401) {
       router.push("/login");
@@ -75,6 +79,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
     setMe(me.data?.userId ?? null);
+    setGradeNames(Object.fromEntries((ladder.data?.grades ?? []).map((g) => [g.code, g.name])));
     setError(null);
     setLoaded(true);
   }, [jobId, router]);
@@ -288,7 +293,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   </span>
                   <br />
                   <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
-                  <Desk step={s} />
+                  <Desk step={s} names={gradeNames} />
                   {s.outcomeNote !== null && (
                     <p className="muted mt-1 text-sm">{s.outcomeNote}</p>
                   )}
@@ -389,7 +394,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         </Button>
                       ) : (
                         <span className="muted text-sm">
-                          {s.performer === null ? "not yours to do" : `for ${bandLabel(s.performer)}`}
+                          {s.performer === null ? "not yours to do" : `for ${bandLabel(s.performer, gradeNames)}`}
                         </span>
                       )
                     ))}
@@ -636,10 +641,14 @@ function Proposal({ proposal }: { proposal: AgentProposal }) {
 }
 
 
-/** The band in words — "Analyst to Senior Associate", "Manager or above". */
-function bandLabel(p: NonNullable<JobStep["performer"]>): string {
-  const lo = p.minGradeCode ?? (p.minGradeRank === null ? null : `rank ${String(p.minGradeRank)}`);
-  const hi = p.maxGradeCode ?? (p.maxGradeRank === null ? null : `rank ${String(p.maxGradeRank)}`);
+/** The band in words — "Analyst to Senior Associate", "Manager or above".
+ *  The wire carries grade CODES; `names` turns them into what the ladder
+ *  calls them, and a code the ladder no longer has stays as it is. */
+function bandLabel(p: NonNullable<JobStep["performer"]>, names: Record<string, string>): string {
+  const name = (code: string | null, rank: number | null): string | null =>
+    code !== null ? (names[code] ?? code) : rank === null ? null : `rank ${String(rank)}`;
+  const lo = name(p.minGradeCode, p.minGradeRank);
+  const hi = name(p.maxGradeCode, p.maxGradeRank);
   if (lo !== null && hi !== null) return lo === hi ? lo : `${lo} to ${hi}`;
   if (lo !== null) return `${lo} or above`;
   if (hi !== null) return `${hi} or below`;
@@ -647,12 +656,12 @@ function bandLabel(p: NonNullable<JobStep["performer"]>): string {
 }
 
 /** Whose desk a step sits on, and who the process says may do it (0301). */
-function Desk({ step }: { step: JobStep }) {
+function Desk({ step, names }: { step: JobStep; names: Record<string, string> }) {
   if (step.status === "done" || step.status === "skipped" || step.status === "failed") return null;
   return (
     <p className="muted mt-1 text-sm">
       {step.assignee === null ? "on nobody's desk" : `on ${step.assignee.displayName}'s desk`}
-      {step.performer !== null && <> · for {bandLabel(step.performer)}</>}
+      {step.performer !== null && <> · for {bandLabel(step.performer, names)}</>}
     </p>
   );
 }
