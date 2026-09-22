@@ -67,6 +67,21 @@ const CSP = [
 ].join("; ");
 
 const config: NextConfig = {
+  /**
+   * Build a self-contained server into `.next/standalone`.
+   *
+   * Next traces exactly the files each route actually imports and copies them
+   * beside a generated `server.js`, so the runtime image carries neither the
+   * build toolchain nor the full `node_modules` — on this app that is the
+   * difference between shipping Tailwind, SWC and lightningcss to production
+   * and shipping none of them.
+   *
+   * It is also load-bearing rather than an optimisation: `Dockerfile` asserts
+   * `.next/standalone/server.js` exists and fails the build with an explicit
+   * message if it does not, because the alternative is a COPY that silently
+   * produces an image with no server in it.
+   */
+  output: "standalone",
   reactStrictMode: true,
   typedRoutes: true,
   /**

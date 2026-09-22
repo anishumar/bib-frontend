@@ -1,0 +1,67 @@
+# Building and deploying bib-frontend.
+#
+# SEPARATE FROM bib-backend's cloudbuild.yaml because this is a separate
+# repository with a separate image, and because of one thing that is true here
+# and nowhere else: NEXT_PUBLIC_API_BASE_URL is inlined into the JavaScript at
+# BUILD time, not read at runtime. So the API's URL is a property of the IMAGE.
+#
+# Two consequences, both of which look like bugs when met for the first time:
+#
+#   1. Pointing this app at a different API is a REBUILD, never an env change.
+#      Setting NEXT_PUBLIC_API_BASE_URL on the Cloud Run service does nothing.
+#   2. The value must EXACTLY equal the origin in the API's BIB_CORS_ORIGINS.
+#      A trailing slash, or the other of Cloud Run's two URLs for the same
+#      service, and every call is discarded by the browser with no server log —
+#      the API never sees the request. `terraform output frontend_build_arg`
+#      emits the correct value; use it rather than typing one.
+substitutions:
+  _REGION: asia-south1
+  _AR_REPOSITORY: bib
+  _IMAGE_NAME: bib-frontend
+  _SERVICE: bib-frontend
+  _API_BASE_URL: ""
+  _COMMIT_SHA: manual
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: require-api-base-url
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        if [ -z "${_API_BASE_URL}" ]; then
+          echo "FATAL: _API_BASE_URL is empty."
+          echo "The Dockerfile refuses an unset value, but failing HERE names the"
+          echo "substitution rather than a build arg nobody passed."
+          echo "Get it with: terraform output -raw frontend_build_arg"
+          exit 1
+        fi
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=NEXT_PUBLIC_API_BASE_URL=${_API_BASE_URL}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_COMMIT_SHA}
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_COMMIT_SHA}"]
+
+  - id: deploy
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_COMMIT_SHA}
+      - --region=${_REGION}
+      - --quiet
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/${_IMAGE_NAME}:${_COMMIT_SHA}

@@ -1,0 +1,32 @@
+# An ALLOW-list, for the reason spelled out in bib-backend/.dockerignore: a
+# forgotten deny-list entry ships a secret silently, a forgotten allow-list
+# entry breaks the build loudly. .env.local exists in this directory today.
+#
+# .next/ matters here beyond size. A stale local build left by `npm run dev`
+# would be copied into the builder stage, and Next reuses what it finds — so the
+# image could ship a bundle compiled against whatever NEXT_PUBLIC_API_BASE_URL
+# that developer had exported, which is precisely the value this build exists to
+# control. Excluding it is correctness, not hygiene.
+*
+
+!package.json
+!package-lock.json
+!next.config.ts
+!tsconfig.json
+!postcss.config.mjs
+# ESLint config travels with the source because a build that decides to lint and
+# finds no configuration fails on the missing config, not on the code.
+!eslint.config.mjs
+!src
+
+# next-env.d.ts is deliberately absent: it is gitignored, `next build`
+# regenerates it, and a copy from a developer's machine can only disagree with
+# the Next version the build just installed.
+
+# Re-excluded from inside the allowed tree — `*` above only matches top-level
+# entries.
+**/.DS_Store
+**/node_modules
+**/.env
+**/.env.*
+**/*.tsbuildinfo
