@@ -11963,7 +11963,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send it for signature */
+        /**
+         * Send it for signature
+         * @description Freezes the terms and dates the letter. When the deployment signs through a provider that SENDS (`signing.sends` on the letter — DocuSign), `signer` is required and an envelope is raised for them at once; if the provider refuses, the letter is still sent and `signing.request.lastFailure` says why — retry with `…/signature-request`. When it does not send, `signer` is ignored.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -11973,7 +11976,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SendEngagementLetterRequest"];
+                };
+            };
             responses: {
                 /** @description Sent */
                 200: {
@@ -11982,6 +11989,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["EngagementLetter"];
+                    };
+                };
+                /** @description DocuSign is the provider and no usable signer was given */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -12013,6 +12029,92 @@ export interface paths {
                 };
                 /** @description Not a draft, no lines, or no clauses */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/signature-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Raise the envelope again after the provider refused
+         * @description For a SENT letter whose envelope was never raised. Answers with the provider's own fault (502) if it refuses again. A letter whose envelope is already with the client is refused — ask the client to find DocuSign's email, or withdraw and send a new letter.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Raised */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterSigning"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing waiting to be raised */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The e-signature provider refused */
+                502: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -17969,6 +18071,21 @@ export interface components {
             effectiveFrom: string;
             endsOn: string | null;
         };
+        EngagementLetterSigning: {
+            provider: string;
+            sends: boolean;
+            request: {
+                signerName: string;
+                signerEmail: string;
+                envelopeId: string | null;
+                raisedAt: string | null;
+                lastFailure: string | null;
+                attempts: number;
+                /** @enum {string|null} */
+                outcome: "completed" | "declined" | "voided" | null;
+                settledAt: string | null;
+            } | null;
+        };
         EngagementLetterRecord: {
             letter: components["schemas"]["EngagementLetter"];
             party: {
@@ -18008,6 +18125,7 @@ export interface components {
             blocks: components["schemas"]["EngagementLetterBlock"][];
             totals: components["schemas"]["EngagementLetterTotals"];
             engagements: components["schemas"]["Engagement"][];
+            signing: components["schemas"]["EngagementLetterSigning"];
         };
         AddEngagementLetterLineRequest: {
             /** Format: uuid */
@@ -18035,6 +18153,12 @@ export interface components {
         AddEngagementLetterClauseRequest: {
             /** Format: uuid */
             clauseVersionId: string;
+        };
+        SendEngagementLetterRequest: {
+            signer?: {
+                name: string;
+                email: string;
+            };
         };
         SignedEngagementLetter: {
             letter: components["schemas"]["EngagementLetter"];

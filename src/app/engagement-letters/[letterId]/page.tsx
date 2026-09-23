@@ -174,6 +174,17 @@ export default function LetterPage() {
   })();
   const isDraft = letter.status === "draft";
   const isSigned = letter.status === "signed";
+  // HOW THIS LETTER IS SIGNED (0080). `sends` is the deployment's answer:
+  // true means sending raises a DocuSign envelope, so the send form asks whom
+  // to send it to and the client signs there, not on this page.
+  const { signing } = record;
+  const signatureRequest = signing.request;
+  const providerName = signing.provider === "docusign" ? "DocuSign" : signing.provider;
+  // The hand-recorded signature form is for a signature obtained ELSEWHERE —
+  // on paper, or through a provider the firm drives itself. Under DocuSign the
+  // sweep records it; the form stays only for a letter sent before envelopes
+  // existed, which has no request and no other way to be signed.
+  const recordsByHand = !signing.sends || signatureRequest === null;
   // The day it was SIGNED, where the reader is. `signed_at` is a
   // `timestamptz` and this feeds `begins()` beside `effective_from`, which is a
   // `date` — one printing path, so the instant becomes a day first. It was
@@ -867,10 +878,103 @@ export default function LetterPage() {
           </p>
         )}
 
+        {isDraft && signing.sends && (
+          // WHOM DOCUSIGN SHOULD ASK. The client's signatory, by name and
+          // address; DocuSign emails them the letter and they sign there. The
+          // name starts as the addressee's because that is usually who signs,
+          // and it stays editable because it often is not.
+          <form
+            className="mt-2"
+            action={(form) => {
+              void act("send", () =>
+                api.POST("/api/v1/engagement-letters/{letterId}/send", {
+                  params: { path: { letterId } },
+                  body: {
+                    signer: {
+                      name: String(form.get("signerName") ?? "").trim(),
+                      email: String(form.get("signerEmail") ?? "").trim(),
+                    },
+                  },
+                }),
+              );
+            }}
+          >
+            <p className="text-md text-muted">
+              {providerName} will email the letter to the person below, and they sign it there. It
+              is recorded here as signed a few minutes after they finish.
+            </p>
+            <div className="field-row">
+              <Field label="Who signs for the client">
+                <Input
+                  name="signerName"
+                  required
+                  defaultValue={record.addressedTo?.displayName ?? ""}
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label="Their email address">
+                <Input name="signerEmail" type="email" required autoComplete="off" />
+              </Field>
+              {/* `self-end` puts the button on the inputs' line rather than
+                  the labels': neither field carries a hint, so the bottoms of
+                  the three cells are the same line. */}
+              <div className="self-end">
+                <Button type="submit" className="justify-self-start" disabled={busy !== null}>
+                  Send for signature
+                </Button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {letter.status === "sent" && signing.sends && signatureRequest !== null && (
+          signatureRequest.envelopeId === null ? (
+            // THE SEND HAPPENED AND THE ENVELOPE DID NOT. The terms are frozen
+            // and the letter is dated either way; what failed is DocuSign, in
+            // its own words, and trying again is one button.
+            <Notice
+              tone="warn"
+              role="alert"
+              actions={
+                <Button
+                  size="sm"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    void act("retry", () =>
+                      api.POST("/api/v1/engagement-letters/{letterId}/signature-request", {
+                        params: { path: { letterId } },
+                      }),
+                    );
+                  }}
+                >
+                  Try again
+                </Button>
+              }
+            >
+              {providerName} has not sent this letter to {signatureRequest.signerName} (
+              {signatureRequest.signerEmail}) yet.
+              {signatureRequest.lastFailure !== null && (
+                <> {providerName} said: {signatureRequest.lastFailure}</>
+              )}
+            </Notice>
+          ) : (
+            <Notice tone="info" role="status">
+              Out for signature with {providerName}. Sent to {signatureRequest.signerName} (
+              {signatureRequest.signerEmail})
+              {signatureRequest.raisedAt !== null && <> on {longInstant(signatureRequest.raisedAt)}</>}
+              . This page shows it as signed within a few minutes of them finishing. Withdrawing
+              also cancels the envelope.{" "}
+              <span className="mono text-xs">{signatureRequest.envelopeId}</span>
+            </Notice>
+          )
+        )}
+
         {/* Both of the inline styles that used to be here were no-ops:
-            `.cluster` already sets `flex-wrap: wrap` and no margin at all. */}
-        <div className="cluster">
-          {isDraft && (
+            `.cluster` already sets `flex-wrap: wrap` and no margin at all —
+            which is why `mt-3` is here: under DocuSign a form or a notice
+            now sits directly above this row. */}
+        <div className="cluster mt-3">
+          {isDraft && !signing.sends && (
             <Button
               disabled={busy !== null}
               onClick={() => {
@@ -916,7 +1020,7 @@ export default function LetterPage() {
           )}
         </div>
 
-        {letter.status === "sent" && (
+        {letter.status === "sent" && recordsByHand && (
           <form
             className="mt-4"
             action={(form) => {
@@ -969,8 +1073,10 @@ export default function LetterPage() {
         {letter.status === "withdrawn" && (
           <p className="text-md text-muted">
             This letter was withdrawn on{" "}
-            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}.
-            It stays on record as withdrawn.
+            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}
+            {signatureRequest?.outcome === "declined" &&
+              `, because ${signatureRequest.signerName} declined to sign it in ${providerName}`}
+            . It stays on record as withdrawn.
           </p>
         )}
       </Card>
