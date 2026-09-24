@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, apiError, formatCount, formatMoney } from "@/lib/api/client";
+import { api, apiError, BLOCK_KINDS, BLOCK_KIND_LABELS, formatCount, formatMoney } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { ErrorState, Loading } from "@/components/states";
 import { Stat, Strip, Table, TableWrap, Td, Th } from "@/components/ui";
+import { Card, CardTitle } from "@/components/tw";
 import type { SharedProposal } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
 
@@ -27,6 +28,13 @@ import { longDay } from "@/lib/day";
  * It shows the API's `SharedProposal`, which is a DIFFERENT shape from the one
  * staff read — not the same one with fields blanked. A field added for
  * colleagues therefore cannot arrive on this page by default.
+ *
+ * Since 2026-09-24 that shape carries the document's own prose — the
+ * exclusions, commercial notes and team block — because the staff screen
+ * calls a sent quote's wording "the record of what the client was shown",
+ * and until then the client was shown the prices and none of the wording.
+ * Read-only, and only the words: nothing here says which lines are the
+ * firm's standard text and which were written for this client.
  */
 export default function SharedProposalPage() {
   const params = useParams<{ token: string }>();
@@ -138,6 +146,35 @@ export default function SharedProposalPage() {
             : {})}
         />
       </Strip>
+
+      {shared.blocks.length > 0 && (
+        <Card>
+          <CardTitle level={2}>What this quote covers</CardTitle>
+          {BLOCK_KINDS.map((kind) => {
+            const mine = shared.blocks.filter((b) => b.kind === kind);
+            // A kind the document carries nothing of is not drawn: an empty
+            // "Exclusions" heading reads as the firm asserting there are none.
+            if (mine.length === 0) return null;
+            return (
+              <div key={kind} className="mb-4">
+                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
+                <ul className="mt-1 list-disc pl-[18px]">
+                  {mine.map((b, i) => (
+                    // The API gives the recipient no ids, deliberately, so
+                    // position within the kind is the key.
+                    <li
+                      key={`${kind}-${String(i)}`}
+                      className={b.isHeading ? "text-md -ml-[18px] list-none" : "text-md"}
+                    >
+                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </Card>
+      )}
 
       <p className="muted">
         {shared.status === "accepted"
