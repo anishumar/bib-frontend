@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import {
   Button,
   cx,
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui";
 import type {
   ChecklistItem,
-  Member,
+  Colleague,
   Principal,
   WorkItem,
   WorkItemChecker,
@@ -86,7 +86,7 @@ export default function WorkItemPage() {
 
   const [detail, setDetail] = useState<WorkItemDetail | null>(null);
   const [vocabulary, setVocabulary] = useState<WorkVocabulary | null>(null);
-  const [roster, setRoster] = useState<Member[]>([]);
+  const [roster, setRoster] = useState<Colleague[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -96,12 +96,11 @@ export default function WorkItemPage() {
     const [item, vocab, people, principal] = await Promise.all([
       api.GET("/api/v1/work-items/{workItemId}", { params: { path: { workItemId } } }),
       api.GET("/api/v1/work-vocabulary", {}),
-      // The roster is `tenant:admin`, and this page is `party:read`. So the
-      // assignee picker is offered only to somebody who can actually read the
-      // list — the SAME honest gap the pipeline's owner dropdown and the account
-      // team form already have, left consistent with them rather than widened
-      // here on a whim. Everything else on the page works either way.
-      api.GET("/api/v1/tenancy/members", {}),
+      // The colleagues PICKER (`party:read`, like this page), not the roster
+      // (`tenant:admin`). Until 2026-09-25 this read the roster, so a manager
+      // who holds `work:write` and may assign was shown no picker at all: the
+      // gap G3.2 recorded and left consistent. Names and rungs, no emails.
+      api.GET("/api/v1/tenancy/colleagues", {}),
       api.GET("/api/v1/auth/me", {}),
     ]);
     if (item.response.status === 401) {
@@ -115,7 +114,7 @@ export default function WorkItemPage() {
     }
     setDetail(item.data);
     setVocabulary(vocab.error ? null : vocab.data);
-    setRoster(people.error ? [] : people.data.members);
+    setRoster(people.error ? [] : people.data.colleagues);
     setMe(principal.error ? null : principal.data);
     setError(null);
     setLoaded(true);
@@ -605,15 +604,15 @@ function ClientVisibility({
   );
 }
 
-/** Whose desk it is on. Offered only where the roster is readable — see the
- *  note in `load`. */
+/** Whose desk it is on. Offered to anybody with `work:write`, since the
+ *  picker behind it is `party:read` — see the note in `load`. */
 function Assign({
   roster,
   currentUserId,
   busy,
   onAssign,
 }: {
-  roster: Member[];
+  roster: Colleague[];
   currentUserId: string | null;
   busy: boolean;
   onAssign: (userId: string | null) => void;
@@ -631,17 +630,15 @@ function Assign({
             onChange={(e) => { setUserId(e.target.value); }}
           >
             <option value="">Nobody</option>
-            {roster
-              // Only people who still work here. A revoked membership stays on
-              // the roster — it is the record that they did — but offering it
-              // would produce the API's refusal, and offering what will fail is
-              // just a slower error.
-              .filter((m) => m.membership.isActive)
-              .map((m) => (
-                <option key={m.membership.userId} value={m.membership.userId}>
-                  {m.displayName ?? m.email}
-                </option>
-              ))}
+            {/* Active staff only, already: the API leaves out a revoked
+                membership, because offering it would produce the assign
+                route's refusal, and offering what will fail is just a slower
+                error. */}
+            {roster.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {colleagueLabel(m)}
+              </option>
+            ))}
           </Select>
         </Field>
         <Button

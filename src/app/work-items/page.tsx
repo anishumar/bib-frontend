@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import type {
+  Colleague,
   Escalation,
-  Member,
   PartySummary,
   Principal,
   WorkItem,
@@ -106,7 +106,7 @@ export default function WorkItemsPage() {
   const [ladderPublished, setLadderPublished] = useState(false);
   const tabsId = useId();
   const [parties, setParties] = useState<PartySummary[]>([]);
-  const [staff, setStaff] = useState<Member[]>([]);
+  const [staff, setStaff] = useState<Colleague[]>([]);
   const [includeDone, setIncludeDone] = useState(false);
   /** The firm's own states, which are the board's COLUMNS. `party:read`, the
    *  same permission this screen already needs, so every viewer gets them. */
@@ -150,11 +150,12 @@ export default function WorkItemsPage() {
       // For the "raise a task" form. `party:read`, the same permission the
       // board itself takes, so anybody who can see this screen can fill it in.
       api.GET("/api/v1/parties", {}),
-      // The roster is `tenant:admin` while raising a task is only `work:write`
-      // — so this is ASKED FOR and allowed to fail. A delivery manager gets the
-      // form without an assignee picker rather than no form at all; the item is
-      // raised unassigned, which is a state the board already has a tab for.
-      api.GET("/api/v1/tenancy/members", {}),
+      // The colleagues PICKER, not the roster: names and rungs of active staff
+      // on `party:read`, which this screen already needs, so a manager who may
+      // raise a task can also say whose desk it goes to. The roster stayed
+      // `tenant:admin` (it names emails); until 2026-09-25 this form read it and
+      // therefore showed no picker to anybody below administrator.
+      api.GET("/api/v1/tenancy/colleagues", {}),
       // The board's COLUMNS. `party:read`, so everybody who can see this screen
       // gets them — and in the same pass as the items, because a board that
       // paints its cards before its columns has no shape to paint them into.
@@ -179,11 +180,9 @@ export default function WorkItemsPage() {
     setItems(board.data.items);
     setMe(principal.error ? null : principal.data);
     setParties(book.data?.parties ?? []);
-    setStaff(
-      (roster.data?.members ?? []).filter(
-        (m) => m.membership.isActive && m.membership.audience === "STAFF",
-      ),
-    );
+    // Already active STAFF only; the API leaves out the person let go and the
+    // client contact, so there is nothing to filter here.
+    setStaff(roster.data?.colleagues ?? []);
     // The review queue is `party:read` like the board, but a role that can read
     // one and not the other is possible in principle — so a refusal here empties
     // the tab rather than blanking the page.
@@ -506,7 +505,7 @@ function RaiseTask({
   onError,
 }: {
   parties: readonly PartySummary[];
-  staff: readonly Member[];
+  staff: readonly Colleague[];
   onRaised: () => void;
   onError: (message: string) => void;
 }) {
@@ -561,16 +560,17 @@ function RaiseTask({
             <Field label="What has to be done">
               <Input name="title" required placeholder="GSTR-3B filing, August 2026" />
             </Field>
-            {/* Only when the roster loaded. Raising a task is `work:write`; the
-                roster is `tenant:admin`, so this field is simply absent for
-                somebody who may do the first and not the second. */}
+            {/* Only when the picker loaded. It is `party:read`, like the board,
+                so it is absent only when the firm has nobody active, which is
+                not a state a signed-in member of staff can be in; kept as a
+                guard rather than a promise. */}
             {staff.length > 0 && (
               <Field label="Assign to" optional>
                 <Select name="assigneeUserId" defaultValue="">
                   <option value="">Assign automatically to the client&apos;s SPOC</option>
                   {staff.map((m) => (
-                    <option key={m.membership.userId} value={m.membership.userId}>
-                      {m.displayName ?? m.email}
+                    <option key={m.userId} value={m.userId}>
+                      {colleagueLabel(m)}
                     </option>
                   ))}
                 </Select>

@@ -886,6 +886,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/colleagues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active staff, by name: whom work can be handed to
+         * @description The picker behind 'whose desk', 'who owns this lead' and 'who is the SPOC'. Active STAFF members only, by name, role and grade, and WITHOUT email addresses; the roster at /tenancy/members stays tenant:admin. Readable by anybody who can read a client.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Colleagues */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ColleaguesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/members/{membershipId}/role": {
         parameters: {
             query?: never;
@@ -15492,6 +15549,18 @@ export interface components {
         };
         MembersResponse: {
             members: components["schemas"]["Member"][];
+        };
+        Colleague: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Null when nobody has named the account. Show the role instead. */
+            displayName: string | null;
+            role: string;
+            gradeName: string | null;
+            gradeRank: number | null;
+        };
+        ColleaguesResponse: {
+            colleagues: components["schemas"]["Colleague"][];
         };
         InviteMemberResponse: components["schemas"]["Membership"] & {
             /** @description Whether a welcome letter went out. False when the relay refused it, and false by design for a CLIENT_PORTAL membership made on this route — that one carries no portal grant, so it opens onto nothing and there is nothing worth announcing. Use the portal invite route for a client. */

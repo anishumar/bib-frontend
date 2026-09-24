@@ -51,6 +51,19 @@ export type Membership =
 export type Member =
   paths["/api/v1/tenancy/members"]["get"]["responses"][200]["content"]["application/json"]["members"][number];
 
+/** A colleague as a PICKER shows them: active staff, by name and rung, with no
+ *  email. `party:read`, where the roster above is `tenant:admin`, which is
+ *  what lets a manager who may assign a task actually see whom to. */
+export type Colleague =
+  paths["/api/v1/tenancy/colleagues"]["get"]["responses"][200]["content"]["application/json"]["colleagues"][number];
+
+/** What a picker prints for a colleague. Never the email: this shape does not
+ *  carry one, on purpose, so the fallback for an unnamed account is the role. */
+export function colleagueLabel(c: Colleague): string {
+  const grade = c.gradeName === null ? "" : ` (${c.gradeName})`;
+  return `${c.displayName ?? c.role}${grade}`;
+}
+
 /**
  * A rung of the firm's own hierarchy.
  *
