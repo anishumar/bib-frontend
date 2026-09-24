@@ -15028,6 +15028,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{documentId}/links/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a document off something it was attached to
+         * @description Withdrawn, never deleted: the link stays as history, marked with when and by whom, and the document leaves that subject's file list. The bytes and every other attachment are untouched. Attaching it again afterwards is an ordinary attach.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    documentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WithdrawDocumentRequest"];
+                };
+            };
+            responses: {
+                /** @description Withdrawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentLink"];
+                    };
+                };
+                /** @description Unknown subject kind */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such document at this firm, or it is not attached to that subject */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subjects/{subjectKind}/{subjectRef}/documents": {
         parameters: {
             query?: never;
@@ -18635,6 +18716,8 @@ export interface components {
             subjectLabel: string | null;
             role: string | null;
             createdAt: string;
+            /** @description When the document was taken OFF this subject, or null while it is still attached. A withdrawn link is kept and shown as history rather than deleted (0302). */
+            withdrawnAt: string | null;
         };
         AttachDocumentRequest: {
             /** @enum {string} */
@@ -18642,6 +18725,12 @@ export interface components {
             /** Format: uuid */
             subjectRef: string;
             role?: string | null;
+        };
+        WithdrawDocumentRequest: {
+            /** @enum {string} */
+            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
+            /** Format: uuid */
+            subjectRef: string;
         };
         DocumentLinksResponse: {
             links: components["schemas"]["DocumentLink"][];

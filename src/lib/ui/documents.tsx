@@ -174,6 +174,28 @@ export function Documents({
     [load],
   );
 
+  /**
+   * Take a file OFF this page. Withdrawn, never deleted (0302, decided
+   * 2026-09-25): the API keeps the link as history, marked with who and when,
+   * and the document simply stops being listed here. Every other place it is
+   * attached, and the bytes, are untouched. Reloads for `share`'s reason.
+   */
+  const withdraw = useCallback(
+    async (documentId: string): Promise<void> => {
+      const result = await api.POST("/api/v1/documents/{documentId}/links/withdraw", {
+        params: { path: { documentId } },
+        body: { subjectKind, subjectRef },
+      });
+      if (result.error) {
+        setError(apiError(result.error).message);
+        return;
+      }
+      setError(null);
+      await load();
+    },
+    [load, subjectKind, subjectRef],
+  );
+
   async function upload(form: FormData): Promise<void> {
     const file = form.get("file");
     if (!(file instanceof File) || file.size === 0) {
@@ -392,6 +414,7 @@ export function Documents({
                 onDownload={(versionId, filename) => void get(d.id, filename, versionId)}
                 canWrite={canWrite}
                 onShare={(visible) => void share(d.id, visible)}
+                onWithdraw={() => void withdraw(d.id)}
               />
             ))}
           </tbody>
@@ -410,6 +433,7 @@ function FileRows({
   onDownload,
   canWrite,
   onShare,
+  onWithdraw,
 }: {
   doc: StoredDocument;
   expanded: boolean;
@@ -418,6 +442,8 @@ function FileRows({
   onDownload: (versionId: string | undefined, filename: string) => void;
   canWrite: boolean;
   onShare: (visible: boolean) => void;
+  /** Take this file off the page it is on. `party:write`, like attaching. */
+  onWithdraw: () => void;
 }) {
   const v = doc.latestVersion;
   /* THE ONE TRUE DISCLOSURE IN THIS APP. Everywhere else a form REPLACES the
@@ -509,6 +535,19 @@ function FileRows({
             >
               Download
             </Button>
+            {/* Attached in error: take it off THIS page. The file and its
+                other attachments stay; the link is kept as history. Named by
+                the document, because a table draws one of these per row. */}
+            {canWrite && (
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={`Take “${doc.title}” off this page`}
+                onClick={onWithdraw}
+              >
+                Take off
+              </Button>
+            )}
           </span>
         </Td>
       </tr>
