@@ -17655,6 +17655,13 @@ export interface components {
             proposal: components["schemas"]["Proposal"];
             shareToken: string;
         };
+        SharedProposalBlock: {
+            /** @enum {string} */
+            kind: "exclusion" | "commercial" | "team";
+            body: string;
+            isHeading: boolean;
+            sortOrder: number;
+        };
         SharedProposal: {
             /** Format: uuid */
             id: string;
@@ -17686,6 +17693,7 @@ export interface components {
                 currency: string;
                 unpricedLineCount: number;
             };
+            blocks: components["schemas"]["SharedProposalBlock"][];
         };
         ViewSharedProposalRequest: {
             token: string;
