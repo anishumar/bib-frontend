@@ -915,9 +915,29 @@ export const BRAND_ASSET_LABELS: Readonly<Record<BrandAssetKind, string>> = {
 };
 
 export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
-  logo: "Printed at the head of what this entity issues.",
-  signature: "The image that signs off a letter this entity binds.",
+  logo: "Printed at the head of what this entity issues. PNG or JPG.",
+  signature:
+    "The image that signs off a letter this entity binds. PNG, so the background is transparent and the mark sits on the line rather than in a white box.",
   letterhead: "The full stationery, when a firm uses one instead of a bare logo.",
+};
+
+/**
+ * What the file picker will offer, per kind.
+ *
+ * NARROWED FOR THE TWO THAT ARE DRAWN. A logo and a signature are embedded into
+ * every document the entity issues and the renderer can embed PNG and JPEG only;
+ * `image/*` invited a `.webp`, which uploaded cleanly and then vanished from
+ * every letter with nothing saying why. The API refuses it now — this is the
+ * same rule where the person picking the file can see it, not a substitute for
+ * that refusal.
+ *
+ * The letterhead keeps the wide set: it is legitimately a PDF and nothing draws
+ * it as an image.
+ */
+export const BRAND_ASSET_ACCEPT: Readonly<Record<BrandAssetKind, string>> = {
+  logo: "image/png,image/jpeg",
+  signature: "image/png",
+  letterhead: "image/*,application/pdf",
 };
 
 /** What a document can be attached to. A CLOSED set in the API — the reference

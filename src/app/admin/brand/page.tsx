@@ -30,6 +30,7 @@ import {
   downloadDocument,
   formatBytes,
   BRAND_ASSET_KINDS,
+  BRAND_ASSET_ACCEPT,
   BRAND_ASSET_HINTS,
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
@@ -414,7 +415,7 @@ function Slot({
           className="input"
           aria-labelledby={`${entityHeadingId(entity)} ${headingId}`}
           aria-describedby={hintId}
-          accept="image/*,application/pdf"
+          accept={BRAND_ASSET_ACCEPT[kind]}
           required
         />
         {/* The word on the button stays; the NAME says which of the three it
