@@ -268,7 +268,12 @@ export default function InvoicesPage() {
                     browser stop it instead. Found by walking the product. */}
                 <Select name="partyId" required>
                   <option value="">Choose who to bill…</option>
-                  {parties.map((p) => (
+                  {/* NOT the firm's own companies (F-10-1). The placeholder
+                      stopped the accident; the API now refuses the choice, so
+                      the list stops offering it. */}
+                  {parties
+                    .filter((p) => !entities.some((e) => e.id === p.id))
+                    .map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.displayName}
                     </option>

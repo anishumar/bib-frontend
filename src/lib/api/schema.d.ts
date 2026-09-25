@@ -1702,6 +1702,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/axes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Depts and delivery teams new work can be filed under
+         * @description Active rows only, in the firm's own order — what a picker offers, such as the Dept a client's SPOC covers. Readable by anybody who can read a client; the full structure, retired rows and the work split stay at /tenancy/structure, behind tenant:admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The active Depts and teams */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActiveAxesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/structure": {
         parameters: {
             query?: never;
@@ -11603,6 +11660,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{partyId}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which companies and people a letter for this client may name
+         * @description F-10-1. A letter's lines and its addressee were checked for the FIRM only, so another client's company or director could be written onto it. Drafting now refuses both, and this is the same answer as a read, on the firm's today, so a picker offers exactly what drafting accepts. A company or person missing here is fixed by recording the relationship on the client's page.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The client's companies and contacts, today */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientStructureResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/billable-engagements": {
         parameters: {
             query?: never;
@@ -15730,6 +15846,9 @@ export interface components {
             /** @description Whether the firm still files new work here. A retired row is never deleted: services already naming it keep it and still read, so an old filing still explains itself. */
             isActive: boolean;
         };
+        ActiveAxesResponse: {
+            axes: components["schemas"]["ServiceAxis"][];
+        };
         FirmStructureResponse: {
             axes: components["schemas"]["ServiceAxis"][];
             /**
@@ -18043,6 +18162,17 @@ export interface components {
             addressedToPartyId?: string;
             issuedOn?: string;
             effectiveFrom?: string;
+        };
+        StructureMember: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        ClientStructureResponse: {
+            /** @description The companies a letter for this client may cover: the client itself first, then every company recorded under it (subsidiaries at any depth) and every company it holds shares in or is a director of. Archived parties are left out. */
+            entities: components["schemas"]["StructureMember"][];
+            /** @description The people a letter for this client may be addressed to: anyone recorded as a director, authorised signatory, employee or shareholder of one of those companies, and the client itself when the client is a person. */
+            people: components["schemas"]["StructureMember"][];
         };
         BillableEngagement: {
             /** Format: uuid */

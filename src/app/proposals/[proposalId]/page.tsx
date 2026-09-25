@@ -12,7 +12,6 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
-import { groupCompanies } from "@/lib/group";
 import { DocumentBlocks } from "@/lib/ui/document-blocks";
 import type { GroupCompany } from "@/lib/group";
 import {
@@ -36,7 +35,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
-import { browserDay, longDay, longInstant } from "@/lib/day";
+import { longDay, longInstant } from "@/lib/day";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -61,10 +60,15 @@ export default function ProposalPage() {
   /**
    * The companies a line with no company of its own could be filed against.
    *
-   * The client this quote is FOR, and the companies its own page records as its
-   * group — nothing else. A picker over the firm's whole book would offer a
+   * The client this quote is FOR, and the companies its own page records under
+   * it — nothing else. A picker over the firm's whole book would offer a
    * different client's company as the counterparty on a contract, and a signed
    * letter naming the wrong legal entity is not a typo somebody notices later.
+   *
+   * Read from the API's own `structure` (F-10-1), which is what writing the
+   * letter checks every line against. It used to be `groupCompanies`, which
+   * reads the group BOTH ways round for portal access, and so offered the
+   * client's parent and its shareholders — companies the letter then refuses.
    *
    * Empty is the ordinary case and is handled as one: with nothing to offer,
    * the entity-less lines are skipped and REPORTED, which is what this screen
@@ -114,30 +118,26 @@ export default function ProposalPage() {
       return;
     }
     setRecord(one.data);
-    // The client's own profile, for the companies a line could be filed
-    // against. A second round trip on a page that already makes three, and it
-    // is worth it: the alternative is a picker over every party at the firm.
-    // A refusal here costs the picker and nothing else — the screen falls back
-    // to skipping and reporting, so this is never allowed to fail the page.
-    const client = await api.GET("/api/v1/parties/{partyId}", {
+    // The companies a line could be filed against. A second round trip on a
+    // page that already makes three, and it is worth it: the alternative is a
+    // picker over every party at the firm. A refusal here costs the picker and
+    // nothing else — the screen falls back to skipping and reporting, so this
+    // is never allowed to fail the page.
+    const structure = await api.GET("/api/v1/parties/{partyId}/structure", {
       params: { path: { partyId: one.data.proposal.partyId } },
     });
     setEntityChoices(
-      client.data === undefined
-        ? []
-        : [
-            // THE CLIENT ITSELF FIRST, and it is not in `groupCompanies` —
-            // that function returns the OTHER companies, because a party
-            // cannot hold a relationship with itself. On a quote for Cobalt
-            // Foods the commonest right answer is Cobalt Foods, so it must be
-            // on the list and it must not be pre-chosen.
-            {
-              id: client.data.party.id,
-              name: client.data.party.displayName,
-              relation: "the client this quote is for",
-            },
-            ...groupCompanies(client.data, browserDay()),
-          ],
+      (structure.data?.entities ?? []).map((e) => ({
+        id: e.id,
+        name: e.displayName,
+        // THE CLIENT ITSELF COMES FIRST — the API orders it so. On a quote for
+        // Cobalt Foods the commonest right answer is Cobalt Foods, so it must
+        // be on the list, and it must not be pre-chosen.
+        relation:
+          e.id === one.data.proposal.partyId
+            ? "the client this quote is for"
+            : "recorded under this client",
+      })),
     );
     // Published only. A service that exists as a draft was never in force, and
     // the API refuses to quote one — offering it here would be a dropdown entry
@@ -904,7 +904,7 @@ function WriteItUp({
                     ? "Which company is this work for?"
                     : "Which company are the remaining lines for? (optional)"
                 }
-                hint="The client this quote is for, and the group companies recorded on its page. Lines that already name a company keep it; this only fills in the blanks."
+                hint="The client this quote is for, and the companies its page records under it. Lines that already name a company keep it; this only fills in the blanks."
               >
                 {/* NO PRE-SELECTED COMPANY, EVEN WHEN THERE IS ONLY ONE. The
                     API's own words: a guessed party on a signed page is

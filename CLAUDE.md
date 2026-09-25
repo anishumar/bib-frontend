@@ -541,10 +541,11 @@ what shipped) rather than this product getting an opinion.
   never just shows a blank Assigned column.
 - **UNASSIGNED IS ITS OWN TAB.** Work the rule could not place, or nobody has taken — the same
   argument `/work-items` makes: unassigned work is only chased if somebody can list it.
-- **"TAKE IT" NEEDS NO ROSTER, so everybody with `work:write` gets it.** The full picker is the
-  extra, offered only where `/tenancy/members` is readable — the same honest gap
-  `/work-items/[id]`, the pipeline's owner dropdown and the account team form all have. Claiming
-  is the verb people actually use on a firm-wide list, and the assignee is the caller.
+- **"TAKE IT" NEEDS NO ROSTER, so everybody with `work:write` gets it.** Claiming is the verb
+  people actually use on a firm-wide list, and the assignee is the caller. The full picker reads
+  `/tenancy/colleagues` since 2026-09-25, as `/work-items/[id]`, the pipeline's owner dropdown
+  and the account team form do — it was the admin roster before, and so appeared only to an
+  administrator.
 - **THREE SENTENCES, NEVER A BLANK.** "With <name>", "Nobody yet — <the rule's note>", and "On
   nobody's desk" are three different facts, and collapsing them into an empty cell is T4.5's
   blank-name bug in a new place.
@@ -1067,12 +1068,13 @@ commonly the Key Manager AND a Dept's SPOC on the same client, and listing it tw
 a bigger book than they have. An archived client is shown and marked rather than dropped:
 somebody still holds it.
 
-**The assign form is not always there, and that is the API's rule rather than this screen's
-choice.** Assigning needs `party:write`, which a manager holds; the roster and the Dept list it
-needs for its two pickers are `tenant:admin` reads. So a manager can be permitted to assign and
-be shown no form — the same shape `/leads`'s owner dropdown already has, and left consistent
-with it rather than fixed here, because widening either read is a decision about who may see the
-firm's roster and it belongs in one place for both screens.
+**The assign form is there for everybody who may assign (since 2026-09-25).** Assigning needs
+`party:write`, which a manager holds; its two pickers were `tenant:admin` reads, so a manager
+could be permitted to assign and be shown no form. They are `/tenancy/colleagues` (active staff
+by name and rung, no emails — Shrestha's decision that every staff member may see colleagues'
+names) and `/tenancy/axes` (the ACTIVE Depts and teams, names the table above already prints),
+both on `party:read`. Swapping only the first left the form hidden — the Dept list 403'd — and
+only walking the page as a manager showed it.
 
 ## `/work-items` and `/admin/work-vocabulary` — the board, and the words on it (T3.1)
 
@@ -1492,6 +1494,29 @@ The signature form says out loud that it records a colleague's **attestation**, 
 cryptographic signature. The audit trail says the same thing (`signatureMethod: attested`), and
 a screen that implied more than the data supports would be the interface lying about the
 record.
+
+### Who a letter or an invoice may name (F-10-1, 2026-09-25)
+
+Every party picker on a letter and an invoice used to be the firm's whole book, and the API
+checked only that the party was the FIRM's. So a letter could be "issued by" a client, cover a
+line for another client's company (whose work then landed in this client's portal) and be
+addressed to another client's director; an invoice could be charged by a client — opening a
+numbered GST series in its name — or bill the firm itself. The API refuses all of that now, and
+**each picker offers exactly what it accepts, read from the API rather than built here**:
+
+| Picker | Reads |
+|---|---|
+| letter "Issued by", invoice "Charged by" | `/firm-entities/preferences`, deduplicated — the firm's own companies |
+| letter "Client", invoice "Bill to" | the book, minus those companies |
+| letter line "For which company", a quote's "Which company is this work for?" | `/parties/{id}/structure` → `entities` |
+| letter "Addressed to" | `/parties/{id}/structure` → `people`, re-read when the client changes |
+| invoice line's engagement | `/parties/{id}/billable-engagements`, already the billed client's |
+
+**`structure` is NOT `groupCompanies` (`lib/group.ts`), and swapping one for the other is the
+bug.** `groupCompanies` reads the group BOTH ways round, for portal access; a letter may cover
+only the client and what it HOLDS — subsidiaries at any depth, and companies it is a shareholder
+or director of (Shrestha's decision). The quote panel read `groupCompanies` until this, and so
+offered the client's parent and its shareholders: companies the letter then refused.
 
 ## The billing screens, and the two numbers that behave differently
 

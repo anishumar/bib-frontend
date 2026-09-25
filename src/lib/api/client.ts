@@ -430,6 +430,19 @@ export type PartyIdentifier = PartyProfile["identifiers"][number];
 export type PartyRelationship = PartyProfile["relationships"][number];
 
 /**
+ * Who a letter for one client may name (F-10-1): the companies its lines may be
+ * FOR, and the people it may be addressed to, on the firm's day.
+ *
+ * The API's own answer and the same read its refusal applies, so a letter's
+ * pickers offer exactly this and never build their own list. Deliberately NOT
+ * `groupCompanies` (lib/group.ts): that one reads the group both ways round for
+ * PORTAL ACCESS, while a letter may cover only the client and what it holds —
+ * its subsidiaries, and the companies it is a shareholder or director of.
+ */
+export type ClientStructure =
+  paths["/api/v1/parties/{partyId}/structure"]["get"]["responses"][200]["content"]["application/json"];
+
+/**
  * One code from the product's relationship vocabulary, with the sentence it
  * reads as from either end.
  *
