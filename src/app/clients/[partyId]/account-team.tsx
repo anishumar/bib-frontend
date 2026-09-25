@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -23,7 +23,7 @@ import type {
   AccountTeam,
   AssignmentRole,
   ClientAssignment,
-  Member,
+  Colleague,
   ServiceAxis,
 } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
@@ -49,18 +49,15 @@ import { longDay } from "@/lib/day";
  * assignment ending 1 April was in force up to and including 31 March. The
  * column says "until" rather than "to" for exactly that reason.
  *
- * ## Why the form is not always there
+ * ## Who is shown the form
  *
- * Assigning needs `party:write`, which a manager and an associate hold. But the
- * two PICKERS it needs — the firm's people and the firm's Depts — are read from
- * the admin surface, which needs `tenant:admin`. So a manager can be permitted
- * to assign and still not be shown a form to do it in.
- *
- * That is the same shape the pipeline screen already has with its owner
- * dropdown, and it is left consistent with it rather than fixed here on a
- * whim: widening either read is a decision about who may see the firm's roster,
- * and it belongs in one place for both screens. Recorded on the board as an
- * honest gap.
+ * Assigning needs `party:write`, which a manager and an associate hold. Its two
+ * PICKERS — the firm's people and the firm's Depts — were admin reads until
+ * 2026-09-25, so a manager permitted to assign was shown no form to do it in.
+ * Both are `party:read` reads now: `/tenancy/colleagues` (names and rungs, no
+ * emails) and `/tenancy/axes` (the active Depts and teams, which the table above
+ * already prints). The first swap alone left the form hidden; walking the page
+ * as a manager is what found the second.
  */
 export function AccountTeamPanel({
   partyId,
@@ -70,7 +67,7 @@ export function AccountTeamPanel({
   clientName: string;
 }) {
   const [team, setTeam] = useState<AccountTeam | null>(null);
-  const [staff, setStaff] = useState<Member[]>([]);
+  const [staff, setStaff] = useState<Colleague[]>([]);
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [asOf, setAsOf] = useState<string>(today());
   const [role, setRole] = useState<AssignmentRole>("spoc");
@@ -86,21 +83,26 @@ export function AccountTeamPanel({
         api.GET("/api/v1/parties/{partyId}/assignments", {
           params: { path: { partyId }, query: { asOf: onDate } },
         }),
-        // Both of these need tenant:admin, so a manager gets a 403 and no form.
-        // The API's rule; this screen offers what the caller can actually use
-        // rather than arguing with it.
-        api.GET("/api/v1/tenancy/members", {}),
-        api.GET("/api/v1/tenancy/structure", {}),
+        // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
+        // board): names and rungs of active staff on `party:read`, no emails. The
+        // roster is `tenant:admin`, so until 2026-09-25 nobody below
+        // administrator was shown this picker at all.
+        api.GET("/api/v1/tenancy/colleagues", {}),
+        // AND THE DEPT LIST, which was the other half of the same gap: this read
+        // was the admin-only `/tenancy/structure`, so a manager still got a 403
+        // here and no form even after the colleagues swap. Found by walking the
+        // page as a manager. `/tenancy/axes` is the active rows on `party:read`.
+        api.GET("/api/v1/tenancy/axes", {}),
       ]);
       if (assignments.error) {
         setError(apiError(assignments.error).message);
         return;
       }
       setTeam(assignments.data);
-      setStaff(roster.data?.members.filter((m) => m.membership.isActive) ?? []);
-      // Retired Depts are offered to nobody new — the API refuses them anyway,
-      // and a picker that showed them would be inviting a refusal.
-      setAxes(structure.data?.axes.filter((a) => a.isActive) ?? []);
+      setStaff(roster.data ? [...roster.data.colleagues] : []);
+      // Active only, by the API's own answer: a retired Dept is refused by the
+      // write, so a picker that offered it would be inviting a refusal.
+      setAxes(structure.data?.axes ?? []);
       setError(null);
     },
     [partyId],
@@ -393,8 +395,8 @@ export function AccountTeamPanel({
               <Field label="Who">
                 <Select name="userId">
                   {staff.map((m) => (
-                    <option key={m.membership.id} value={m.membership.userId}>
-                      {m.displayName ?? m.email}
+                    <option key={m.userId} value={m.userId}>
+                      {colleagueLabel(m)}
                     </option>
                   ))}
                 </Select>

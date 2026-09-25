@@ -219,9 +219,9 @@ export function PortalFrame({ children }: { children: ReactNode }) {
   const isPortal = principal !== null && principal.audience === "CLIENT_PORTAL";
   const loadCounts = useCallback(async (): Promise<void> => {
     if (!isPortal) return;
-    const result = await api.GET("/api/v1/portal/asks", {
-      params: { query: { asOf: browserDay() } },
-    });
+    // // No day is sent (F-07-1): which companies this login may see is resolved
+    // on the firm's own day, and a day from here can no longer reach it.
+    const result = await api.GET("/api/v1/portal/asks");
     // A FAILED READ LEAVES THE BADGE ABSENT, not zero. "Nothing is waiting on
     // you" is a claim, and this is the one place in the portal that makes it
     // without a page to explain itself on — so when the read did not land, the

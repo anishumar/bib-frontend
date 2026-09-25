@@ -140,7 +140,9 @@ export default function ClientRequestRecordPage() {
       <Card>
         <CardTitle level={2}>What they asked</CardTitle>
         <Meta>
-          <MetaItem label="How it ended">
+          {/* "How it ended" only once it has: on a request still waiting, the
+              label read as an ending above a pill saying it had not. */}
+          <MetaItem label={ended === null ? "Where it stands" : "How it ended"}>
             {ended === null ? (
               <Pill tone="warn">{whereItStands(request)}</Pill>
             ) : (
@@ -185,8 +187,13 @@ export default function ClientRequestRecordPage() {
             {/* "CLOSED" WAS WRONG HERE and the walk caught it: the first
                 withdrawn request rendered read "on a closed request", which is
                 the firm's ending being used to describe the client's. The two
-                endings belong to opposite sides and this sentence covers both. */}
-            Nobody replied. This request ended without a reply going back to the client.
+                endings belong to opposite sides and this sentence covers both.
+                AND IT WAS WRONG A SECOND WAY: an OPEN request with no reply
+                yet read "this request ended", under a banner saying it was
+                still going. Walked 2026-09-25. */}
+            {ended === null
+              ? "Nobody has replied yet. The reply goes out from the inbox on Client requests."
+              : "Nobody replied. This request ended without a reply going back to the client."}
           </p>
         ) : (
           <Stack gap="tight">

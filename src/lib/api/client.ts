@@ -51,6 +51,19 @@ export type Membership =
 export type Member =
   paths["/api/v1/tenancy/members"]["get"]["responses"][200]["content"]["application/json"]["members"][number];
 
+/** A colleague as a PICKER shows them: active staff, by name and rung, with no
+ *  email. `party:read`, where the roster above is `tenant:admin`, which is
+ *  what lets a manager who may assign a task actually see whom to. */
+export type Colleague =
+  paths["/api/v1/tenancy/colleagues"]["get"]["responses"][200]["content"]["application/json"]["colleagues"][number];
+
+/** What a picker prints for a colleague. Never the email: this shape does not
+ *  carry one, on purpose, so the fallback for an unnamed account is the role. */
+export function colleagueLabel(c: Colleague): string {
+  const grade = c.gradeName === null ? "" : ` (${c.gradeName})`;
+  return `${c.displayName ?? c.role}${grade}`;
+}
+
 /**
  * A rung of the firm's own hierarchy.
  *
@@ -415,6 +428,19 @@ export type PartyProfile =
 
 export type PartyIdentifier = PartyProfile["identifiers"][number];
 export type PartyRelationship = PartyProfile["relationships"][number];
+
+/**
+ * Who a letter for one client may name (F-10-1): the companies its lines may be
+ * FOR, and the people it may be addressed to, on the firm's day.
+ *
+ * The API's own answer and the same read its refusal applies, so a letter's
+ * pickers offer exactly this and never build their own list. Deliberately NOT
+ * `groupCompanies` (lib/group.ts): that one reads the group both ways round for
+ * PORTAL ACCESS, while a letter may cover only the client and what it holds —
+ * its subsidiaries, and the companies it is a shareholder or director of.
+ */
+export type ClientStructure =
+  paths["/api/v1/parties/{partyId}/structure"]["get"]["responses"][200]["content"]["application/json"];
 
 /**
  * One code from the product's relationship vocabulary, with the sentence it

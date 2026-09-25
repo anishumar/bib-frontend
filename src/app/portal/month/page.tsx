@@ -49,7 +49,7 @@ export default function PortalMonthPage() {
   const load = useCallback(async (): Promise<void> => {
     setLoaded(false);
     const result = await api.GET("/api/v1/portal/digest", {
-      params: { query: { month, asOf: browserDay() } },
+      params: { query: { month } },
     });
     if (result.error) {
       setError(apiError(result.error).message);

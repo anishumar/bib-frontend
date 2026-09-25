@@ -63,6 +63,12 @@ export default function LetterPage() {
   // entity` — vCFO for a group of four companies is four engagements, not one
   // — so a line has to name the company, and a dropdown of uuids would be
   // exactly the read-model failure this codebase keeps re-learning.
+  //
+  // THE CLIENT'S OWN COMPANIES, NOT THE FIRM'S BOOK (F-10-1). This was every
+  // party the firm holds, so a line could be for another client's company and
+  // its work then landed in THIS client's portal. The API refuses that now, and
+  // this list is its own answer — the client, and what its page records under
+  // it — so the picker offers exactly what the API accepts.
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
   // WHO WILL BIND THE FIRM. The letter's own block is a snapshot taken when it
   // is SENT, so a draft has none yet and the standing signatory is the only
@@ -99,11 +105,10 @@ export default function LetterPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, catalogue, library, book, signatory, me] = await Promise.all([
+    const [one, catalogue, library, signatory, me] = await Promise.all([
       api.GET("/api/v1/engagement-letters/{letterId}", { params: { path: { letterId } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
-      api.GET("/api/v1/parties"),
       api.GET("/api/v1/tenancy/firm-signatory"),
       api.GET("/api/v1/auth/me", {}),
     ]);
@@ -123,9 +128,12 @@ export default function LetterPage() {
     // only outcome is an error.
     if (catalogue.data) setServices(catalogue.data.entries.filter((e) => e.published !== null));
     if (library.data) setClauses(library.data.entries.filter((e) => e.published !== null));
-    if (book.data) {
-      setEntities(book.data.parties.map((p) => ({ id: p.id, displayName: p.displayName })));
-    }
+    // After the letter, because it is the LETTER's client whose companies these
+    // are. One more request, and only the page's first paint waits for it.
+    const structure = await api.GET("/api/v1/parties/{partyId}/structure", {
+      params: { path: { partyId: one.data.party.id } },
+    });
+    if (structure.data) setEntities(structure.data.entities);
     // Read on `config:read`, so a caller who may not administer the firm still
     // sees whose signature will be on what they are drafting. A 403 leaves it
     // null, which reads the same as "nobody named" — the page says which.
@@ -716,7 +724,10 @@ export default function LetterPage() {
                 "Begins" was a loose paragraph beside the control it explains:
                 measured, this form described 0 of its 7. */}
             <div className="field-row mb-4">
-              <Field label="For which company">
+              <Field
+                label="For which company"
+                hint={`${record.party.displayName} and the companies its client page records under it. A company missing here needs that link recorded first.`}
+              >
                 {/* UNCHOSEN, for the same reason as the party selects on the
                     list screens: this one opened on "10x Global", so a line
                     added without touching it was delivered to the firm. */}

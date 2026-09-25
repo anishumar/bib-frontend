@@ -102,11 +102,10 @@ export default function PortalHomePage() {
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    // THE BROWSER'S OWN CALENDAR DAY. A UTC server is a day behind a firm in
-    // India every morning until half past five, and this value decides both
-    // which grants are in force and which filings count as upcoming — so a
-    // client signing in at 07:00 in Delhi would otherwise be told the firm has
-    // given them nothing.
+    // THE BROWSER'S OWN CALENDAR DAY, for what this page DISPLAYS: which
+    // filings count as upcoming and which work as recent. It no longer decides
+    // which companies this login may see; the firm's own day does that, on the
+    // server (F-07-1), so no day sent from here can widen what is shown.
     const result = await api.GET("/api/v1/portal/home", {
       params: { query: { asOf: browserDay() } },
     });

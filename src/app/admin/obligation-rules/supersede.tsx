@@ -79,8 +79,13 @@ export function Supersede({
         <Notice tone="warn" eyebrow="THIS KEEPS THE OLD RULE">
           <p>
             <strong>{rule.name}</strong> goes on governing every period beginning before the day
-            you give, and goes on explaining the filings it has already produced. A new rule
-            governs everything from that day.
+            you give, and the filings made under it keep their dates. A new rule governs
+            everything from that day.
+          </p>
+          <p>
+            Filings already on the calendar for those later periods move to the new rule and its
+            dates. One that somebody has already started stays as it is, and you are told how
+            many.
           </p>
           <p>
             If instead the date on this rule was simply <em>wrong</em>, close this and edit the

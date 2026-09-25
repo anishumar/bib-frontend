@@ -559,7 +559,7 @@ export interface paths {
         get?: never;
         /**
          * Set a user's password (platform surface)
-         * @description Provisioning, not app-facing: it is how a login is seeded today, and it requires the platform key like everything under /internal. Every existing session of that user is revoked. Self-service password change arrives with the portal.
+         * @description Provisioning, not app-facing: it requires the platform key like everything under /internal, and every existing session of that user is revoked. It is no longer the only way a credential is written — since 0082 a person sets their own through POST /api/v1/auth/password-reset (forgotten, proved by the mailbox) or POST /api/v1/auth/password (known, proved by the old one). This one remains for PROVISIONING, where the platform is standing up an account rather than a person changing their own.
          */
         put: {
             parameters: {
@@ -1084,6 +1084,63 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/colleagues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active staff, by name: whom work can be handed to
+         * @description The picker behind 'whose desk', 'who owns this lead' and 'who is the SPOC'. Active STAFF members only, by name, role and grade, and WITHOUT email addresses; the roster at /tenancy/members stays tenant:admin. Readable by anybody who can read a client.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Colleagues */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ColleaguesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1842,6 +1899,63 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/axes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Depts and delivery teams new work can be filed under
+         * @description Active rows only, in the firm's own order — what a picker offers, such as the Dept a client's SPOC covers. Readable by anybody who can read a client; the full structure, retired rows and the work split stay at /tenancy/structure, behind tenant:admin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The active Depts and teams */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActiveAxesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4845,7 +4959,7 @@ export interface paths {
                         "application/json": components["schemas"]["PortalStatusHome"];
                     };
                 };
-                /** @description asOf is not an ISO date */
+                /** @description asOf is not a calendar day */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -5626,9 +5740,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -5642,15 +5754,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PortalActionCentre"];
-                    };
-                };
-                /** @description asOf is not an ISO date */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description No authenticated session */
@@ -5975,7 +6078,6 @@ export interface paths {
             parameters: {
                 query?: {
                     kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
-                    asOf?: string;
                 };
                 header?: never;
                 path?: never;
@@ -5994,7 +6096,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description asOf is not an ISO date, or kind is not a known document kind */
+                /** @description kind is not a known document kind */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -6046,9 +6148,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     documentId: string;
@@ -6125,9 +6225,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -6143,15 +6241,6 @@ export interface paths {
                         "application/json": {
                             invoices: components["schemas"]["PortalInvoice"][];
                         };
-                    };
-                };
-                /** @description asOf is not an ISO date */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description No authenticated session */
@@ -6199,7 +6288,6 @@ export interface paths {
             parameters: {
                 query: {
                     month: string;
-                    asOf?: string;
                 };
                 header?: never;
                 path?: never;
@@ -6266,9 +6354,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -6285,7 +6371,6 @@ export interface paths {
                             awaitingFirm: components["schemas"]["PortalRequest"][];
                             replied: components["schemas"]["PortalRequest"][];
                             settled: components["schemas"]["PortalRequest"][];
-                            asOf: string;
                         };
                     };
                 };
@@ -6316,9 +6401,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -6397,9 +6480,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     requestId: string;
@@ -6489,9 +6570,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     requestId: string;
@@ -10500,7 +10579,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -10556,7 +10637,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The contact details belong to more than one existing party */
+                /** @description The contact details belong to more than one existing party, or to a client the firm archived */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -11777,6 +11858,65 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which companies and people a letter for this client may name
+         * @description F-10-1. A letter's lines and its addressee were checked for the FIRM only, so another client's company or director could be written onto it. Drafting now refuses both, and this is the same answer as a read, on the firm's today, so a picker offers exactly what drafting accepts. A company or person missing here is fixed by recording the relationship on the client's page.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The client's companies and contacts, today */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientStructureResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13167,7 +13307,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -13456,11 +13598,13 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day.
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     invoiceId: string;
@@ -13476,6 +13620,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description asOf is not today anywhere */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -13999,7 +14152,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     invoiceId: string;
@@ -15175,6 +15330,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{documentId}/links/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a document off something it was attached to
+         * @description Withdrawn, never deleted: the link stays as history, marked with when and by whom, and the document leaves that subject's file list. The bytes and every other attachment are untouched. Attaching it again afterwards is an ordinary attach.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    documentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WithdrawDocumentRequest"];
+                };
+            };
+            responses: {
+                /** @description Withdrawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentLink"];
+                    };
+                };
+                /** @description Unknown subject kind */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such document at this firm, or it is not attached to that subject */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subjects/{subjectKind}/{subjectRef}/documents": {
         parameters: {
             query?: never;
@@ -15712,6 +15948,18 @@ export interface components {
         MembersResponse: {
             members: components["schemas"]["Member"][];
         };
+        Colleague: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Null when nobody has named the account. Show the role instead. */
+            displayName: string | null;
+            role: string;
+            gradeName: string | null;
+            gradeRank: number | null;
+        };
+        ColleaguesResponse: {
+            colleagues: components["schemas"]["Colleague"][];
+        };
         InviteMemberResponse: components["schemas"]["Membership"] & {
             /** @description Whether a welcome letter went out. False when the relay refused it, and false by design for a CLIENT_PORTAL membership made on this route — that one carries no portal grant, so it opens onto nothing and there is nothing worth announcing. Use the portal invite route for a client. */
             invitationSent: boolean;
@@ -15816,6 +16064,9 @@ export interface components {
             sortOrder: number;
             /** @description Whether the firm still files new work here. A retired row is never deleted: services already naming it keep it and still read, so an old filing still explains itself. */
             isActive: boolean;
+        };
+        ActiveAxesResponse: {
+            axes: components["schemas"]["ServiceAxis"][];
         };
         FirmStructureResponse: {
             axes: components["schemas"]["ServiceAxis"][];
@@ -16788,7 +17039,6 @@ export interface components {
             awaitingYou: components["schemas"]["PortalAsk"][];
             /** @description What you have answered and the firm has not finished with. It stays visible because your reply does not close an ask — the firm looks at what arrived and decides, so a wrong file is answered with 'that was not it' rather than a second request that reads as a fresh one. */
             withTheFirm: components["schemas"]["PortalAsk"][];
-            asOf: string;
         };
         PortalAnswerRequest: {
             answerText: string;
@@ -18132,6 +18382,17 @@ export interface components {
             issuedOn?: string;
             effectiveFrom?: string;
         };
+        StructureMember: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        ClientStructureResponse: {
+            /** @description The companies a letter for this client may cover: the client itself first, then every company recorded under it (subsidiaries at any depth) and every company it holds shares in or is a director of. Archived parties are left out. */
+            entities: components["schemas"]["StructureMember"][];
+            /** @description The people a letter for this client may be addressed to: anyone recorded as a director, authorised signatory, employee or shareholder of one of those companies, and the client itself when the client is a person. */
+            people: components["schemas"]["StructureMember"][];
+        };
         BillableEngagement: {
             /** Format: uuid */
             engagementId: string;
@@ -18785,6 +19046,8 @@ export interface components {
             subjectLabel: string | null;
             role: string | null;
             createdAt: string;
+            /** @description When the document was taken OFF this subject, or null while it is still attached. A withdrawn link is kept and shown as history rather than deleted (0302). */
+            withdrawnAt: string | null;
         };
         AttachDocumentRequest: {
             /** @enum {string} */
@@ -18792,6 +19055,12 @@ export interface components {
             /** Format: uuid */
             subjectRef: string;
             role?: string | null;
+        };
+        WithdrawDocumentRequest: {
+            /** @enum {string} */
+            subjectKind: "party" | "lead" | "proposal" | "engagement_letter" | "engagement" | "invoice" | "job" | "work_item";
+            /** Format: uuid */
+            subjectRef: string;
         };
         DocumentLinksResponse: {
             links: components["schemas"]["DocumentLink"][];

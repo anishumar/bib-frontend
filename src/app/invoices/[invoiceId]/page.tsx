@@ -495,7 +495,11 @@ export default function InvoicePage() {
               disabled={busy}
               onClick={() =>
                 void act(() =>
-                  api.POST("/api/v1/invoices/{invoiceId}/issue", { params: { path: { invoiceId } } }),
+                  // The date printed on the tax invoice: today where the
+                  // person issuing it is, not Greenwich's day.
+                  api.POST("/api/v1/invoices/{invoiceId}/issue", {
+                    params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                  }),
                 )
               }
             >
@@ -737,7 +741,7 @@ export default function InvoicePage() {
               const note = String(form.get("creditNote") ?? "");
               void act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/credit-notes", {
-                  params: { path: { invoiceId } },
+                  params: { path: { invoiceId }, query: { asOf: browserDay() } },
                   body: {
                     amount: String(form.get("creditAmount")),
                     reason: String(form.get("reason")) as CreditNote["reason"],

@@ -64,11 +64,9 @@ interface Company {
 }
 
 export function AskTheFirm({
-  asOf,
   companies,
   firm,
 }: {
-  asOf: string;
   readonly companies: readonly Company[];
   firm: string;
 }) {
@@ -82,10 +80,9 @@ export function AskTheFirm({
   const { panel: composePanel, trigger: composeTrigger } = useSwapFocus(composing);
 
   const load = useCallback(async (): Promise<void> => {
-    // The BROWSER's own calendar day, for the reason the status home sends it:
-    // it decides which grants are in force, and a UTC server is a day behind a
-    // firm in India every morning.
-    const result = await api.GET("/api/v1/portal/requests", { params: { query: { asOf } } });
+    // // No day is sent (F-07-1): which companies this login may see is resolved
+    // on the firm's own day, and a day from here can no longer reach it.
+    const result = await api.GET("/api/v1/portal/requests");
     if (result.error) {
       setError(apiError(result.error).message);
       setLoaded(true);
@@ -94,7 +91,7 @@ export function AskTheFirm({
     setRequests(result.data);
     setError(null);
     setLoaded(true);
-  }, [asOf]);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -143,7 +140,6 @@ export function AskTheFirm({
           <div ref={composePanel} tabIndex={-1}>
           <NewRequest
             companies={companies}
-            asOf={asOf}
             onDone={() => {
               setComposing(false);
               void load();
@@ -162,7 +158,6 @@ export function AskTheFirm({
             key={request.requestId}
             request={request}
             firm={firm}
-            asOf={asOf}
             mayRequest={mayRequest}
             onChanged={load}
           />
@@ -180,7 +175,6 @@ export function AskTheFirm({
                 key={request.requestId}
                 request={request}
                 firm={firm}
-                asOf={asOf}
                 mayRequest={mayRequest}
                 onChanged={load}
               />
@@ -194,12 +188,10 @@ export function AskTheFirm({
 
 function NewRequest({
   companies,
-  asOf,
   onDone,
   onCancel,
 }: {
   readonly companies: readonly Company[];
-  asOf: string;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -213,7 +205,6 @@ function NewRequest({
     setBusy(true);
     setError(null);
     const result = await api.POST("/api/v1/portal/requests", {
-      params: { query: { asOf } },
       body: { clientPartyId: company, subject: subject.trim(), body: body.trim() },
     });
     setBusy(false);
@@ -280,13 +271,11 @@ function NewRequest({
 function RequestCard({
   request,
   firm,
-  asOf,
   mayRequest,
   onChanged,
 }: {
   request: PortalRequest;
   firm: string;
-  asOf: string;
   mayRequest: boolean;
   onChanged: () => Promise<void>;
 }) {
@@ -302,11 +291,11 @@ function RequestCard({
     const result =
       path === "replies"
         ? await api.POST("/api/v1/portal/requests/{requestId}/replies", {
-            params: { path: { requestId: request.requestId }, query: { asOf } },
+            params: { path: { requestId: request.requestId } },
             body: { body: note.trim() },
           })
         : await api.POST("/api/v1/portal/requests/{requestId}/withdraw", {
-            params: { path: { requestId: request.requestId }, query: { asOf } },
+            params: { path: { requestId: request.requestId } },
           });
     setBusy(false);
     if (result.error) {

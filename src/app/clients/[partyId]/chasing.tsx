@@ -245,7 +245,7 @@ export function ChasingPanel({
           stated before the button, because "freeze the client" reads like
           stopping work and it is nothing of the sort. */}
       <p className="muted">
-        Stopping reminders stops <strong>only</strong> the reminders. Work and invoices carry on,
+        Stopping reminders stops <strong>only</strong> the reminders. Work and invoices carry on.{" "}
         {clientName} keeps their portal access and can still reply, and your own team is still
         alerted about late work through the escalation ladder.
       </p>

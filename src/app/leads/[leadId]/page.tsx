@@ -8,14 +8,15 @@ import {
   apiError,
   formatMoney,
   LEAD_STAGES,
+  colleagueLabel,
   recordsLostReason,
   TERMINAL_STAGES,
 } from "@/lib/api/client";
 import type {
+  Colleague,
   EventRecord,
   LeadRecord,
   LeadStage,
-  Member,
   ProposalSummary,
 } from "@/lib/api/client";
 import {
@@ -111,7 +112,7 @@ export default function LeadPage() {
   const leadId = params.leadId;
 
   const [record, setRecord] = useState<LeadRecord | null>(null);
-  const [staff, setStaff] = useState<Member[]>([]);
+  const [staff, setStaff] = useState<Colleague[]>([]);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +130,11 @@ export default function LeadPage() {
       api.GET("/api/v1/leads/{leadId}", { params: { path: { leadId } } }),
       // Needs `tenant:admin`, so an associate gets a 403 and no owner picker.
       // That is the API's rule and this screen does not argue with it.
-      api.GET("/api/v1/tenancy/members", {}),
+      // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
+      // board): names and rungs of active staff on `party:read`, no emails. The
+      // roster is `tenant:admin`, so until 2026-09-25 nobody below
+      // administrator was shown this picker at all.
+      api.GET("/api/v1/tenancy/colleagues", {}),
       // No `leadId` filter on the list, so this filters. The alternative is a
       // query parameter nothing else would use.
       api.GET("/api/v1/proposals", {}),
@@ -147,7 +152,7 @@ export default function LeadPage() {
       return;
     }
     setRecord(one.data);
-    setStaff(roster.data?.members.filter((m) => m.membership.isActive) ?? []);
+    setStaff(roster.data ? [...roster.data.colleagues] : []);
     setProposals((quotes.data?.proposals ?? []).filter((p) => p.proposal.leadId === leadId));
     // A 403 here is the ordinary answer for an associate — the trail is a
     // partner-and-manager read — and it costs the history card, not the page.
@@ -338,9 +343,10 @@ export default function LeadPage() {
                     ownerUserId === null
                       ? "on nobody's desk"
                       : `with ${
-                          staff.find((m) => m.membership.userId === ownerUserId)?.displayName ??
-                          staff.find((m) => m.membership.userId === ownerUserId)?.email ??
-                          "somebody else"
+                          (() => {
+                            const c = staff.find((m) => m.userId === ownerUserId);
+                            return c === undefined ? "somebody else" : colleagueLabel(c);
+                          })()
                         }`;
                   void act(`Now ${who}.`, () =>
                     api.PUT("/api/v1/leads/{leadId}/owner", {
@@ -352,8 +358,8 @@ export default function LeadPage() {
               >
                 <option value="">unassigned</option>
                 {staff.map((m) => (
-                  <option key={m.membership.id} value={m.membership.userId}>
-                    {m.displayName ?? m.email}
+                  <option key={m.userId} value={m.userId}>
+                    {colleagueLabel(m)}
                   </option>
                 ))}
               </Select>

@@ -8,10 +8,11 @@ import {
   apiError,
   LEAD_SOURCES,
   LEAD_STAGES,
+  colleagueLabel,
   recordsLostReason,
   TERMINAL_STAGES,
 } from "@/lib/api/client";
-import type { LeadRecord, LeadStage, Member } from "@/lib/api/client";
+import type { Colleague, LeadRecord, LeadStage } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -30,7 +31,7 @@ import {
   Th,
 } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
-import { longInstant } from "@/lib/day";
+import { browserDay, longInstant } from "@/lib/day";
 
 /**
  * The pipeline.
@@ -57,7 +58,7 @@ import { longInstant } from "@/lib/day";
 export default function LeadsPage() {
   const router = useRouter();
   const [leads, setLeads] = useState<LeadRecord[]>([]);
-  const [staff, setStaff] = useState<Member[]>([]);
+  const [staff, setStaff] = useState<Colleague[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -74,7 +75,11 @@ export default function LeadsPage() {
       // The roster needs tenant:admin, so an associate gets a 403 here and no
       // owner dropdown. That is the API's rule and this screen does not argue
       // with it — it simply offers what the caller can actually use.
-      api.GET("/api/v1/tenancy/members", {}),
+      // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
+      // board): names and rungs of active staff on `party:read`, no emails. The
+      // roster is `tenant:admin`, so until 2026-09-25 nobody below
+      // administrator was shown this picker at all.
+      api.GET("/api/v1/tenancy/colleagues", {}),
     ]);
     if (pipeline.response.status === 401) {
       router.push("/login");
@@ -86,7 +91,7 @@ export default function LeadsPage() {
       return;
     }
     setLeads(pipeline.data.leads);
-    setStaff(roster.data?.members.filter((m) => m.membership.isActive) ?? []);
+    setStaff(roster.data ? [...roster.data.colleagues] : []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -215,6 +220,8 @@ export default function LeadsPage() {
       .filter((i) => i.value !== "");
 
     const result = await api.POST("/api/v1/leads", {
+      // The day the contact details are in force from: today where you are.
+      params: { query: { asOf: browserDay() } },
       body: {
         source: String(form.get("source")) as LeadRecord["lead"]["source"],
         kind: "organization",
@@ -368,10 +375,10 @@ export default function LeadsPage() {
                                 ownerId === ""
                                   ? "on nobody's desk"
                                   : `with ${
-                                      staff.find((m) => m.membership.userId === ownerId)
-                                        ?.displayName ??
-                                      staff.find((m) => m.membership.userId === ownerId)?.email ??
-                                      "somebody else"
+                                      (() => {
+                                        const c = staff.find((m) => m.userId === ownerId);
+                                        return c === undefined ? "somebody else" : colleagueLabel(c);
+                                      })()
                                     }`;
                               void rowAct(
                                 l.lead.id,
@@ -391,8 +398,8 @@ export default function LeadsPage() {
                                 works from — so it is an option, not an absence. */}
                             <option value="">unassigned</option>
                             {staff.map((m) => (
-                              <option key={m.membership.id} value={m.membership.userId}>
-                                {m.displayName ?? m.email}
+                              <option key={m.userId} value={m.userId}>
+                                {colleagueLabel(m)}
                               </option>
                             ))}
                           </Select>

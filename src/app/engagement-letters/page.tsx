@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
-import type { LetterSummary, PartySummary } from "@/lib/api/client";
+import type { ClientStructure, LetterSummary, PartySummary } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -55,11 +55,23 @@ export default function LettersPage() {
   // editable only while it is a draft, and there is deliberately no route that
   // rewrites a sent one — the client already has it as it was sent.
   const [moreTerms, setMoreTerms] = useState(false);
+  /**
+   * WHO MAY BE NAMED BESIDE THE CLIENT (F-10-1). Both lists used to be the
+   * firm's whole book, so a letter could be "issued by" a client and addressed
+   * to another client's director, and the API accepted both. It refuses them
+   * now, so these offer exactly what it accepts: the firm's own companies for
+   * the issuer, and for the addressee the people the chosen client's page
+   * records a role for — read from the API's own answer, never built here.
+   */
+  const [firmEntities, setFirmEntities] = useState<{ id: string; displayName: string }[]>([]);
+  const [clientId, setClientId] = useState("");
+  const [contacts, setContacts] = useState<ClientStructure["people"]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book] = await Promise.all([
+    const [list, book, firm] = await Promise.all([
       api.GET("/api/v1/engagement-letters", {}),
       api.GET("/api/v1/parties", {}),
+      api.GET("/api/v1/firm-entities/preferences", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -72,9 +84,33 @@ export default function LettersPage() {
     }
     setLetters(list.data.letters);
     if (book.data) setParties(book.data.parties);
+    if (firm.data) {
+      // One row per country, so a company can appear more than once; the
+      // picker wants each once — the invoice screen's "Charged by" rule.
+      const seen = new Map<string, string>();
+      for (const pref of firm.data.preferences) seen.set(pref.firmEntity.id, pref.firmEntity.displayName);
+      setFirmEntities([...seen].map(([id, displayName]) => ({ id, displayName })));
+    }
     setError(null);
     setLoaded(true);
   }, [router]);
+
+  // The chosen client's contacts, fetched when the client changes. The select's
+  // own handler drops the old list at once, so a name recorded at the previous
+  // client is never offered for this one while the new answer is on its way.
+  useEffect(() => {
+    if (clientId === "") return;
+    let current = true;
+    void (async () => {
+      const found = await api.GET("/api/v1/parties/{partyId}/structure", {
+        params: { path: { partyId: clientId } },
+      });
+      if (current && found.data) setContacts(found.data.people);
+    })();
+    return () => {
+      current = false;
+    };
+  }, [clientId]);
 
   useEffect(() => {
     void (async () => {
@@ -232,9 +268,21 @@ export default function LettersPage() {
                     or billed the firm to itself — a valid write the API has no
                     reason to refuse. `required` plus an empty value makes the
                     browser stop it instead. Found by walking the product. */}
-                <Select name="partyId" required>
+                <Select
+                  name="partyId"
+                  required
+                  value={clientId}
+                  onChange={(e) => {
+                    setClientId(e.target.value);
+                    setContacts([]);
+                  }}
+                >
                   <option value="">Choose a client…</option>
-                  {parties.map((p) => (
+                  {/* Not the firm's own companies: a letter from the firm to
+                      itself is the footgun the placeholder above exists for. */}
+                  {parties
+                    .filter((p) => !firmEntities.some((f) => f.id === p.id))
+                    .map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.displayName}
                     </option>
@@ -300,22 +348,33 @@ export default function LettersPage() {
                         jurisdiction. */}
                     <Select name="issuingEntityPartyId" defaultValue="">
                       <option value="">the firm&apos;s own company for this country</option>
-                      {parties.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.displayName}
+                      {firmEntities.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.displayName}
                         </option>
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Addressed to">
+                  <Field
+                    label="Addressed to"
+                    hint={
+                      clientId === ""
+                        ? "Choose the client first."
+                        : contacts.length === 0
+                          ? "Nobody is recorded at this client yet. Add a director, signatory or employee on the client's page to name them here."
+                          : "Only people the client's page records as a director, signatory, employee or shareholder."
+                    }
+                  >
                     {/* A named PERSON, care-of the client above. Not who is
                         billed — that is the client — which is why it is a second
-                        field and not a rename of the first. */}
-                    <Select name="addressedToPartyId" defaultValue="">
+                        field and not a rename of the first. Keyed on the client
+                        so a new choice starts blank, never on a name from the
+                        client chosen before it. */}
+                    <Select key={clientId} name="addressedToPartyId" defaultValue="">
                       <option value="">nobody named (addressed to the company)</option>
-                      {parties.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.displayName}
+                      {contacts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.displayName}
                         </option>
                       ))}
                     </Select>

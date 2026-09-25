@@ -36,6 +36,43 @@ import { longInstant } from "@/lib/day";
  * convenience — a process must never break because engineering has not shipped
  * something yet.
  */
+/** Whether a job's window has not opened yet: a per-period job during its own
+ *  month. Compared as instants, which is what `runnableAt` is. The same test
+ *  the Jobs list makes, kept beside its reader. */
+function isUpcoming(job: Job): boolean {
+  const opens = Date.parse(job.runnableAt);
+  return !Number.isNaN(opens) && opens > Date.now();
+}
+
+/** Why there is nothing to tick yet, in the words of whichever reason it is. */
+function NoStepsYet({ job }: { job: Job | null }) {
+  if (job !== null && isUpcoming(job)) {
+    return (
+      <>
+        This job is not open yet. It opens on <strong>{longInstant(job.runnableAt)}</strong>,
+        and its process is chosen that day, so the steps appear then. Nothing needs doing
+        before that.
+      </>
+    );
+  }
+  if (job === null || job.templateVersionId === null) {
+    return (
+      <>
+        This job has no steps yet, because the service it is for does not name a published
+        process. Open the service in the Catalogue and choose the process every job for it
+        follows, or publish one first under How work runs. The work is not lost, it waits,
+        and the job picks the process up on its own.
+      </>
+    );
+  }
+  return (
+    <>
+      This job&rsquo;s process is chosen but has produced no steps yet. The next sweep opens
+      them; nothing needs doing.
+    </>
+  );
+}
+
 export default function JobStepsPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
   const router = useRouter();
@@ -256,8 +293,12 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
 
       {steps.length === 0 ? (
         <p className="muted max-w-[var(--measure)]">
-          This job has no steps yet, because no process has been published for this service.
-          The work is not lost, it waits. Publish the process and the job picks it up on its own.
+          {/* THREE reasons a job has no steps, and only one of them is the firm
+              not having written a process. Saying that one for all three sent a
+              partner to the process editor on the 24th of the month to find v1
+              already in force: a per-period job pins its process on the day it
+              OPENS (T6.13), and until then it carries none by design. */}
+          <NoStepsYet job={job} />
         </p>
       ) : (
         <Card>
@@ -577,7 +618,10 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // it sits in is dimmed to say so. Red here put it in the same colour as "could
   // not be finished" one line below, which is the opposite fact.
   if (step.status === "skipped") {
-    return <Pill>not needed</Pill>;
+    // A step withdrawn AFTER it opened (0304) keeps its start time, and says
+    // so: it was on somebody's list, and "not needed" alone reads as if it
+    // never was.
+    return <Pill>{step.startedAt !== null ? "no longer needed" : "not needed"}</Pill>;
   }
   if (step.status === "failed") {
     return <Pill tone="danger">could not be finished</Pill>;
@@ -654,6 +698,16 @@ function bandLabel(p: NonNullable<JobStep["performer"]>): string {
 
 /** Whose desk a step sits on, and who the process says may do it (0301). */
 function Desk({ step }: { step: JobStep }) {
+  // WHERE IT WAS, for a step withdrawn after it opened (0304). The assignee is
+  // kept on the row as history, so the person whose list it left can find it.
+  if (step.status === "skipped" && step.startedAt !== null) {
+    return (
+      <p className="muted mt-1 text-sm">
+        opened {longInstant(step.startedAt)}
+        {step.assignee === null ? ", on nobody's desk" : `, on ${step.assignee.displayName}'s desk`}
+      </p>
+    );
+  }
   if (step.status === "done" || step.status === "skipped" || step.status === "failed") return null;
   return (
     <p className="muted mt-1 text-sm">

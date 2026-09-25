@@ -1,18 +1,18 @@
 /**
  * The companies in one client's GROUP — and why this is a filter and not a list.
  *
- * Two screens need the same answer to the same question, and both of them are
- * screens where offering the wrong company is worse than offering none:
+ * The client page reads it, and so does **portal access**: a contact at Cobalt
+ * Foods who should also see Cobalt Logistics is granted it deliberately, one
+ * company at a time. The picker that offers those companies is an
+ * ACCESS-CONTROL picker: a name that does not belong on it is a client's
+ * records handed to somebody at another company.
  *
- * - **Portal access.** A contact at Cobalt Foods who should also see Cobalt
- *   Logistics is granted it deliberately, one company at a time. The picker
- *   that offers those companies is an ACCESS-CONTROL picker: a name that does
- *   not belong on it is a client's records handed to somebody at another
- *   company.
- * - **Writing a quote up as an engagement letter.** A quote line that names no
- *   company is filed against `defaultEntityPartyId`, and a letter line names
- *   the company the work is FOR — signing it opens an engagement. A wrong name
- *   there is a contract against the wrong legal entity.
+ * **A letter does NOT read it (F-10-1, 2026-09-25).** What a letter may cover is
+ * the API's own `GET /parties/{id}/structure` — the client and what it HOLDS
+ * (subsidiaries at any depth, companies it is a shareholder or director of) —
+ * because drafting refuses anything else, and this function also reads the
+ * group the other way round (the client's parent and its shareholders). A
+ * picker built here would offer companies the letter then refuses.
  *
  * So the list is derived narrowly, from what the firm actually recorded, and
  * the screens say in words which relationships they are reading.
