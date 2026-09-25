@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
@@ -85,6 +85,30 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // TICKS ON ONE LIST ARE NOT SERIALISED, and their answers can arrive out of
+  // order. Each PUT answers with the whole step (or check) as it stood after
+  // ITS write, so if the answer to the first of two quick ticks lands last it
+  // would put the list back to one tick, with the "3 of 4" and the Done button
+  // computed from it. So the page counts what is in flight per list: an answer
+  // is applied only when it is the last one out and nothing overlapped it, and
+  // after a burst that did overlap, the list is read again, once. Blocking a
+  // second tick until the first returns was the other way, and it drops the
+  // presses of somebody ticking quickly down a list of eight.
+  const inFlight = useRef(new Map<string, number>());
+  const overlapped = useRef(new Set<string>());
+  function sent(list: string): void {
+    const n = (inFlight.current.get(list) ?? 0) + 1;
+    inFlight.current.set(list, n);
+    if (n > 1) overlapped.current.add(list);
+  }
+  /** What to do with an answer that just arrived for `list`. */
+  function answered(list: string): "apply" | "wait" | "reload" {
+    const n = Math.max(0, (inFlight.current.get(list) ?? 1) - 1);
+    inFlight.current.set(list, n);
+    if (n > 0) return "wait";
+    return overlapped.current.delete(list) ? "reload" : "apply";
+  }
 
   const load = useCallback(async (): Promise<void> => {
     const [result, header, me, checkList] = await Promise.all([
@@ -281,20 +305,25 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     // Cleared before the call, for `decide`'s reason: a second identical
     // refusal has to be a second appearance or the press looks like nothing.
     setError(null);
+    const list = `sub:${stepKey}`;
+    sent(list);
     const result = await api.PUT("/api/v1/jobs/{jobId}/steps/{stepKey}/sub-steps/{itemKey}", {
       params: { path: { jobId, stepKey, itemKey } },
       body: { outcome, note },
     });
+    const next = answered(list);
     setBusy(null);
     if (result.error) {
       // Verbatim. "Locked while the work waits to be checked" and "this step is
       // on Rohan's desk" are the whole explanation, and both can become true
       // between this page loading and the press.
       setError(apiError(result.error).message);
+      if (next === "reload") await load();
       return false;
     }
     const updated = result.data;
-    setSteps((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+    if (next === "apply") setSteps((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+    else if (next === "reload") await load();
     return true;
   }
 
@@ -312,17 +341,22 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   ): Promise<boolean> {
     setBusy(`review:${approvalId}:${itemKey}`);
     setError(null);
+    const list = `review:${approvalId}`;
+    sent(list);
     const result = await api.PUT("/api/v1/checks/{approvalId}/review-points/{itemKey}", {
       params: { path: { approvalId, itemKey } },
       body: { outcome, note },
     });
+    const next = answered(list);
     setBusy(null);
     if (result.error) {
       setError(apiError(result.error).message);
+      if (next === "reload") await load();
       return false;
     }
     const updated = result.data;
-    setChecks((current) => current.map((c) => (c.id === updated.id ? updated : c)));
+    if (next === "apply") setChecks((current) => current.map((c) => (c.id === updated.id ? updated : c)));
+    else if (next === "reload") await load();
     return true;
   }
 
