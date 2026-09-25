@@ -546,6 +546,23 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         >
                           Reject
                         </Button>
+                        {/* The sub-steps are ticked by whoever has the step,
+                            and the list says "take it to tick them yourself";
+                            this branch is the one place that sentence would
+                            point at a button that was not on the page. */}
+                        {s.subSteps.length > 0 && s.viewer.reason === "ON_ANOTHER_DESK" && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy === s.stepKey}
+                            aria-label={`Take: ${s.stepKey}`}
+                            onClick={() => {
+                              void assign(s.stepKey, me);
+                            }}
+                          >
+                            Take it
+                          </Button>
+                        )}
                         <SubStepsLeft count={s.subStepsOpen} />
                       </>
                     ) : (
