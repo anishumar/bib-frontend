@@ -375,6 +375,21 @@ export function PortalFrame({ children }: { children: ReactNode }) {
                 <span className="r">{whose === "" ? "No company shared yet" : whose}</span>
               </span>
             </div>
+            {/* Their PASSWORD, and it is the portal that needs this more than
+                the workspace does: a portal login is the only kind in this
+                product that reliably has one, because it is set on the
+                invitation. Off this rail, the audience that owns a password
+                would have no way to change it. Not in NAV above — that list is
+                what the firm is doing for them, and this is about the login. */}
+            <Button
+              variant="link"
+              icon={<Icon name="lock" size={15} />}
+              onClick={() => {
+                router.push("/portal/account");
+              }}
+            >
+              Your account
+            </Button>
             <Button
               variant="link"
               icon={<Icon name="signout" size={15} />}

@@ -293,6 +293,10 @@ porting a screen; it is invisible in the source.
 | `/portal/month` | one calendar month of what the firm did — filed, added, billed, and what the client sent back. A SCREEN, not an email |
 | `/client-requests` | **THE OTHER DIRECTION** — what clients have asked the FIRM for, unprompted. Mine / Unassigned / Everything, with the reply box, the attachment picker and Take it on the row |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
+| `/auth/forgot-password` | **NO SESSION** — ask for a reset link. Answers the same sentence whatever happened, because the API answers 202 to everything: a friendlier "we found your account" is exactly the leak the 202 prevents |
+| `/auth/reset-password` | **NO SESSION** — where a reset link lands. Choosing a password replaces the old one, revokes every session the account held, and signs this one in. A FORM, not an effect: nothing is spent by arriving, so a mail scanner that follows the link burns nothing |
+| `/account` | **yours, not the firm's** — your password, and only that. Role, grade, reporting line and access are the firm's and live on `/admin/people` |
+| `/portal/account` | the client's half of the same card. The audience that most reliably HAS a password, and before this the only one that could not change it |
 
 ## The client portal is a SECOND AUDIENCE'S APP (T6.5)
 

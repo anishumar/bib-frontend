@@ -787,6 +787,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
               </span>
             </div>
+            {/* YOUR account, not the firm's roster. Everything about a person
+                that the FIRM decides — role, grade, reporting line, access —
+                is /admin/people behind `tenant:admin`. A password is the one
+                fact about a login that belongs to the person holding it, so it
+                is reached from here rather than from the map of the product,
+                and it needs no permission at all. */}
+            <Button
+              variant="link"
+              icon={<Icon name="lock" size={15} />}
+              onClick={() => {
+                router.push("/account");
+              }}
+            >
+              Your account
+            </Button>
             <Button
               variant="link"
               icon={<Icon name="signout" size={15} />}

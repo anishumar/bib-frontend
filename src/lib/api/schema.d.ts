@@ -345,6 +345,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a link that replaces a forgotten password
+         * @description Always answers 202, whether or not the address has an account, whether or not that account already has a password, and whether or not the letter actually went — the endpoint must not reveal who banks with the firm, and a 500 on the send path would be an enumeration oracle built out of an error. Issuing a link SPENDS every live one for that account, so nobody is ever left with two password setters in one inbox. The link is single-use, expires in thirty minutes, is stored only as a digest, and cannot be spent at the sign-in route: redeeming it opens a session only as a consequence of the password being replaced, never on its own.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordResetRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted; a link is sent if the address has an active account */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            status: "accepted";
+                        };
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password from a reset link, and sign in
+         * @description PUBLIC, because somebody who has forgotten their password has no session and this is how they get one back. The token travels in the BODY, not the path — a path lands in access logs and Referer headers, and this one is a credential until it is spent. Replacing the password and opening the session are ONE call for the reason the invitation route gives: a route that only set the password would leave somebody holding a spent token and a login screen. Every session the account held is revoked first, so a reset prompted by 'somebody else has my password' actually ends that person's access. Malformed, unknown, expired, already-used and wrong-purpose all answer identically.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+                };
+            };
+            responses: {
+                /** @description The password is replaced and a new session is open */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignInResponse"];
+                    };
+                };
+                /** @description The password is too short or too long */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The link is unknown, expired, already used, or not a reset link */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No active membership */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your own password
+         * @description The CURRENT password is required and the session does not stand in for it: a session that could mint a new password would survive every revocation the firm has, which is the one property server-side sessions exist to provide. An account that has no password yet — the ordinary state for most colleagues, who were added with a welcome link and have signed in with emailed links ever since — is answered 409 and sets its first through POST /api/v1/auth/password-reset, where reading the mailbox is what stands in. Setting the same password back is refused; the reset route does not refuse it, because the person holding a reset link is by definition the one who does not know what the old one was. On success every other session of this account is revoked and a NEW cookie is issued, pointed back at the same firm, so the tab making the request stays signed in and nothing else does.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description The password is changed; the cookie carries the replacement session */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignInResponse"];
+                    };
+                };
+                /** @description The new password fails the length policy, or is the current one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session, or the current password is wrong */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This account has no password yet — use the emailed reset link */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Too many attempts at the current password — wait, and try again */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/users/{userId}/password": {
         parameters: {
             query?: never;
@@ -15361,6 +15565,8 @@ export interface components {
                 clientName: string;
             }[] | null;
             permissions: string[];
+            /** @description Whether this account has a password at all — NOT what it is, when it was set, or how. False is the ordinary state for most colleagues at a firm: adding somebody sends them a welcome link and never a password, and they have signed in with emailed links ever since. The account screen reads this to decide which of two things to offer, because the change form refuses an account with no password to change (the first one is set through the emailed reset link, where reading the mailbox stands in for the password that does not exist yet) and a screen that guessed would be discovering its own state from a 409. */
+            hasPassword: boolean;
         };
         MembershipSummary: {
             /** Format: uuid */
@@ -15399,6 +15605,19 @@ export interface components {
         SwitchTenantRequest: {
             /** Format: uuid */
             tenantId: string;
+        };
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        PasswordResetConfirmRequest: {
+            token: string;
+            password: string;
+        };
+        ChangePasswordRequest: {
+            /** @description The password on the account NOW, and it is required rather than inferred from the session. A session is a bearer credential: one that could mint a new password would outlive every revocation the firm has, which is the one property server-side sessions exist to provide. An account with no password yet is refused here and sets its first through the emailed reset link. */
+            currentPassword: string;
+            password: string;
         };
         SetPasswordRequest: {
             password: string;
