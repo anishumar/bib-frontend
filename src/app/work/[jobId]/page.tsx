@@ -618,7 +618,10 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // it sits in is dimmed to say so. Red here put it in the same colour as "could
   // not be finished" one line below, which is the opposite fact.
   if (step.status === "skipped") {
-    return <Pill>not needed</Pill>;
+    // A step withdrawn AFTER it opened (0304) keeps its start time, and says
+    // so: it was on somebody's list, and "not needed" alone reads as if it
+    // never was.
+    return <Pill>{step.startedAt !== null ? "no longer needed" : "not needed"}</Pill>;
   }
   if (step.status === "failed") {
     return <Pill tone="danger">could not be finished</Pill>;
@@ -695,6 +698,16 @@ function bandLabel(p: NonNullable<JobStep["performer"]>): string {
 
 /** Whose desk a step sits on, and who the process says may do it (0301). */
 function Desk({ step }: { step: JobStep }) {
+  // WHERE IT WAS, for a step withdrawn after it opened (0304). The assignee is
+  // kept on the row as history, so the person whose list it left can find it.
+  if (step.status === "skipped" && step.startedAt !== null) {
+    return (
+      <p className="muted mt-1 text-sm">
+        opened {longInstant(step.startedAt)}
+        {step.assignee === null ? ", on nobody's desk" : `, on ${step.assignee.displayName}'s desk`}
+      </p>
+    );
+  }
   if (step.status === "done" || step.status === "skipped" || step.status === "failed") return null;
   return (
     <p className="muted mt-1 text-sm">
