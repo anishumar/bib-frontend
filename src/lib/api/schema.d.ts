@@ -10353,7 +10353,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -10409,7 +10411,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The contact details belong to more than one existing party */
+                /** @description The contact details belong to more than one existing party, or to a client the firm archived */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -13020,7 +13022,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -13309,11 +13313,13 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day.
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     invoiceId: string;
@@ -13329,6 +13335,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description asOf is not today anywhere */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -13852,7 +13867,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     invoiceId: string;

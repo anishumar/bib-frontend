@@ -30,7 +30,7 @@ import {
   Th,
 } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
-import { longInstant } from "@/lib/day";
+import { browserDay, longInstant } from "@/lib/day";
 
 /**
  * The pipeline.
@@ -215,6 +215,8 @@ export default function LeadsPage() {
       .filter((i) => i.value !== "");
 
     const result = await api.POST("/api/v1/leads", {
+      // The day the contact details are in force from: today where you are.
+      params: { query: { asOf: browserDay() } },
       body: {
         source: String(form.get("source")) as LeadRecord["lead"]["source"],
         kind: "organization",

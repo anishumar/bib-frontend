@@ -95,6 +95,9 @@ export default function InvoicesPage() {
     const dueOn = String(form.get("dueOn") ?? "");
     const seriesDate = String(form.get("seriesDate") ?? "");
     const result = await api.POST("/api/v1/invoices", {
+      // TODAY WHERE YOU ARE. With no series date, an invoice lands in the books
+      // of the year it is raised in, and the server's own day is Greenwich's.
+      params: { query: { asOf: browserDay() } },
       body: {
         partyId: String(form.get("partyId")),
         entityPartyId: String(form.get("entityPartyId")),
