@@ -50,9 +50,9 @@ export default function PortalInvoicesPage() {
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const result = await api.GET("/api/v1/portal/invoices", {
-      params: { query: { asOf: browserDay() } },
-    });
+    // // No day is sent (F-07-1): which companies this login may see is resolved
+    // on the firm's own day, and a day from here can no longer reach it.
+    const result = await api.GET("/api/v1/portal/invoices");
     if (result.error) {
       setError(apiError(result.error).message);
       setLoaded(true);

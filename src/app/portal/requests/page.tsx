@@ -56,7 +56,6 @@ export default function PortalRequestsPage() {
   // two different facts, and the frame has already refused to render this page
   // for the first of them, so `?? []` here can only mean the second.
   const companies = session?.portalScope ?? [];
-  const asOf = browserDay();
 
   return (
     <Page>
@@ -86,10 +85,10 @@ export default function PortalRequestsPage() {
           it a client would answer the last outstanding ask and still be looking
           at a badge saying one is waiting — the rail contradicting the page the
           reader is standing on, which is worse than no badge at all. */}
-      <ActionCentre asOf={asOf} onChanged={counts.refresh} />
+      <ActionCentre onChanged={counts.refresh} />
 
       {/* ── 2 · WHAT YOU HAVE ASKED THEM FOR (T6.8) ────────────────────────── */}
-      <AskTheFirm asOf={asOf} companies={companies} firm={firm} />
+      <AskTheFirm companies={companies} firm={firm} />
 
       {/* GRANTED NOTHING. The status home says this at length; here it needs
           saying too, because "Ask for something" needs a company to be about

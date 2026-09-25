@@ -84,7 +84,7 @@ const KIND_LABEL: Record<string, string> = {
   approval: "Your approval",
 };
 
-export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: () => void }) {
+export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
   const session = usePortalSession();
   const [centre, setCentre] = useState<PortalActionCentre | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +96,9 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
   const mayRespond = session?.permissions.includes("portal:respond") ?? false;
 
   const load = useCallback(async (): Promise<void> => {
-    const result = await api.GET("/api/v1/portal/asks", {
-      // The BROWSER's own calendar day, for the same reason the status home
-      // sends it: it decides which grants are in force, and a UTC server is a
-      // day behind a firm in India every morning.
-      params: { query: { asOf } },
-    });
+    // // No day is sent (F-07-1): which companies this login may see is resolved
+    // on the firm's own day, and a day from here can no longer reach it.
+    const result = await api.GET("/api/v1/portal/asks");
     if (result.error) {
       setError(apiError(result.error).message);
       setLoaded(true);
@@ -110,7 +107,7 @@ export function ActionCentre({ asOf, onChanged }: { asOf: string; onChanged?: ()
     setCentre(result.data);
     setError(null);
     setLoaded(true);
-  }, [asOf]);
+  }, []);
 
   useEffect(() => {
     void (async () => {

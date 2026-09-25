@@ -4698,7 +4698,7 @@ export interface paths {
                         "application/json": components["schemas"]["PortalStatusHome"];
                     };
                 };
-                /** @description asOf is not an ISO date */
+                /** @description asOf is not a calendar day */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -5479,9 +5479,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -5495,15 +5493,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PortalActionCentre"];
-                    };
-                };
-                /** @description asOf is not an ISO date */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description No authenticated session */
@@ -5828,7 +5817,6 @@ export interface paths {
             parameters: {
                 query?: {
                     kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
-                    asOf?: string;
                 };
                 header?: never;
                 path?: never;
@@ -5847,7 +5835,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description asOf is not an ISO date, or kind is not a known document kind */
+                /** @description kind is not a known document kind */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -5899,9 +5887,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     documentId: string;
@@ -5978,9 +5964,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -5996,15 +5980,6 @@ export interface paths {
                         "application/json": {
                             invoices: components["schemas"]["PortalInvoice"][];
                         };
-                    };
-                };
-                /** @description asOf is not an ISO date */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description No authenticated session */
@@ -6052,7 +6027,6 @@ export interface paths {
             parameters: {
                 query: {
                     month: string;
-                    asOf?: string;
                 };
                 header?: never;
                 path?: never;
@@ -6119,9 +6093,7 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -6138,7 +6110,6 @@ export interface paths {
                             awaitingFirm: components["schemas"]["PortalRequest"][];
                             replied: components["schemas"]["PortalRequest"][];
                             settled: components["schemas"]["PortalRequest"][];
-                            asOf: string;
                         };
                     };
                 };
@@ -6169,9 +6140,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -6250,9 +6219,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     requestId: string;
@@ -6342,9 +6309,7 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: {
-                    asOf?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     requestId: string;
@@ -16736,7 +16701,6 @@ export interface components {
             awaitingYou: components["schemas"]["PortalAsk"][];
             /** @description What you have answered and the firm has not finished with. It stays visible because your reply does not close an ask — the firm looks at what arrived and decides, so a wrong file is answered with 'that was not it' rather than a second request that reads as a fresh one. */
             withTheFirm: components["schemas"]["PortalAsk"][];
-            asOf: string;
         };
         PortalAnswerRequest: {
             answerText: string;
