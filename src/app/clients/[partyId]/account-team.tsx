@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -23,7 +23,7 @@ import type {
   AccountTeam,
   AssignmentRole,
   ClientAssignment,
-  Member,
+  Colleague,
   ServiceAxis,
 } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
@@ -70,7 +70,7 @@ export function AccountTeamPanel({
   clientName: string;
 }) {
   const [team, setTeam] = useState<AccountTeam | null>(null);
-  const [staff, setStaff] = useState<Member[]>([]);
+  const [staff, setStaff] = useState<Colleague[]>([]);
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [asOf, setAsOf] = useState<string>(today());
   const [role, setRole] = useState<AssignmentRole>("spoc");
@@ -89,7 +89,11 @@ export function AccountTeamPanel({
         // Both of these need tenant:admin, so a manager gets a 403 and no form.
         // The API's rule; this screen offers what the caller can actually use
         // rather than arguing with it.
-        api.GET("/api/v1/tenancy/members", {}),
+        // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
+        // board): names and rungs of active staff on `party:read`, no emails. The
+        // roster is `tenant:admin`, so until 2026-09-25 nobody below
+        // administrator was shown this picker at all.
+        api.GET("/api/v1/tenancy/colleagues", {}),
         api.GET("/api/v1/tenancy/structure", {}),
       ]);
       if (assignments.error) {
@@ -97,7 +101,7 @@ export function AccountTeamPanel({
         return;
       }
       setTeam(assignments.data);
-      setStaff(roster.data?.members.filter((m) => m.membership.isActive) ?? []);
+      setStaff(roster.data ? [...roster.data.colleagues] : []);
       // Retired Depts are offered to nobody new — the API refuses them anyway,
       // and a picker that showed them would be inviting a refusal.
       setAxes(structure.data?.axes.filter((a) => a.isActive) ?? []);
@@ -393,8 +397,8 @@ export function AccountTeamPanel({
               <Field label="Who">
                 <Select name="userId">
                   {staff.map((m) => (
-                    <option key={m.membership.id} value={m.membership.userId}>
-                      {m.displayName ?? m.email}
+                    <option key={m.userId} value={m.userId}>
+                      {colleagueLabel(m)}
                     </option>
                   ))}
                 </Select>

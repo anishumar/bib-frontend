@@ -66,8 +66,8 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
-import type { ClientRequest, ClientRequestReply, Member } from "@/lib/api/client";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
+import type { ClientRequest, ClientRequestReply, Colleague } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Empty, ErrorState, Loading } from "@/components/states";
 import {
@@ -103,7 +103,7 @@ export default function ClientRequestsPage() {
   const tabsId = useId();
   const [requests, setRequests] = useState<readonly ClientRequest[]>([]);
   const [routing, setRouting] = useState<string>("none");
-  const [roster, setRoster] = useState<readonly Member[]>([]);
+  const [roster, setRoster] = useState<readonly Colleague[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   /**
@@ -130,7 +130,11 @@ export default function ClientRequestsPage() {
       // `tenant:admin`, and this page is `party:read` — so a 403 here is
       // ORDINARY and is not an error. It costs the full picker and nothing
       // else: "Take it" needs no roster, because the assignee is the caller.
-      api.GET("/api/v1/tenancy/members", {}),
+      // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
+      // board): names and rungs of active staff on `party:read`, no emails. The
+      // roster is `tenant:admin`, so until 2026-09-25 nobody below
+      // administrator was shown this picker at all.
+      api.GET("/api/v1/tenancy/colleagues", {}),
     ]);
     if (inbox.response.status === 401) {
       router.push("/login");
@@ -150,7 +154,7 @@ export default function ClientRequestsPage() {
     // otherwise close a request and not find it there until they reloaded the
     // page. Null means "ask again next time the tab is opened", not "empty".
     setFinished(null);
-    setRoster(people.error ? [] : people.data.members);
+    setRoster(people.error ? [] : people.data.colleagues);
     setMe(who.error ? null : { userId: who.data.userId, permissions: who.data.permissions });
     setError(null);
     setLoaded(true);
@@ -369,7 +373,7 @@ function RequestCard({
 }: {
   request: ClientRequest;
   mayAct: boolean;
-  roster: readonly Member[];
+  roster: readonly Colleague[];
   meUserId: string | null;
   onChanged: () => Promise<void>;
 }) {
@@ -588,17 +592,14 @@ function RequestCard({
                   disabled={busy}
                 >
                   <option value="">Nobody</option>
-                  {roster
-                    // Only people who still work here. A revoked membership
-                    // stays on the roster — it is the record that they did —
-                    // and offering it would produce the API's refusal, which is
-                    // just a slower error.
-                    .filter((m) => m.membership.isActive)
-                    .map((m) => (
-                      <option key={m.membership.userId} value={m.membership.userId}>
-                        {m.displayName ?? m.email}
-                      </option>
-                    ))}
+                  {/* Only people who still work here: the colleagues read
+                      carries active staff alone, so a revoked membership is
+                      never offered. */}
+                  {roster.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {colleagueLabel(m)}
+                    </option>
+                  ))}
                 </Select>
               </Field>
             )}
