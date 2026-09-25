@@ -132,6 +132,31 @@ export default function LoginPage() {
                     Email me a sign-in link instead
                   </Button>
                 )}
+
+                {/* AND THE OTHER THING THAT EMAIL FIXES, which is not the same
+                    thing and used not to exist at all (0082).
+
+                    A sign-in link gets somebody IN; it does not give them back
+                    a password. That distinction is invisible to a colleague,
+                    who mostly has no password anyway — and it is the whole
+                    story for a client contact, who chose one on their
+                    invitation, forgot it, and cannot be re-invited: the firm
+                    re-issuing that invitation would be the firm resetting its
+                    own client's password, which the API refuses on purpose.
+                    Before this link they came back to this page and used the
+                    sign-in link every time, forever.
+
+                    It carries no state and does not need the email typed above
+                    — the next page asks for it — so it is a plain navigation
+                    rather than a third thing this form can submit. */}
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    router.push("/auth/forgot-password");
+                  }}
+                >
+                  Forgot your password?
+                </Button>
               </FieldStack>
             </form>
           </Card>
