@@ -329,7 +329,22 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
         <tbody>
           {checks.map((c) => (
             <tr key={c.id}>
-              <Td>{c.stepLabel}</Td>
+              <Td>
+                {c.stepLabel}
+                {/* HOW MUCH OF THE CHECK IS LEFT (T6.15). This queue approves
+                    nothing itself, deliberately: Open goes to the job, where
+                    the review points are ticked and Approve waits for them. So
+                    the row says there is a list to work through rather than
+                    letting a check with nine points to tick look like a
+                    one-click sign-off. */}
+                {c.reviewPoints.length > 0 && (
+                  <Sub>
+                    {c.reviewPointsOpen === 0
+                      ? `all ${String(c.reviewPoints.length)} review points ticked`
+                      : `${String(c.reviewPointsOpen)} of ${String(c.reviewPoints.length)} review points still to tick, on the job`}
+                  </Sub>
+                )}
+              </Td>
               <Td>
                 {/* Null means a machine committed it unattended — no person made
                     it, so there is no maker to be, and anybody eligible may

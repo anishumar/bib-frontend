@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
-import type { AgentProposal, Job, JobStep, StepCheck } from "@/lib/api/client";
+import type { AgentProposal, CheckLine, Job, JobStep, StepCheck } from "@/lib/api/client";
 import { Button, cx } from "@/components/ui";
 import { Card, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
+import { CheckLines } from "./check-lines";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -256,6 +257,75 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setBusy(null);
   }
 
+  /**
+   * Tick one of a step's sub-steps, mark it not applicable, or take the tick
+   * back (T6.15).
+   *
+   * PATCHES the one step rather than reloading the page, which is the opposite
+   * of what Done does and for the opposite reason. A tick opens nothing and
+   * closes nothing: the step it sits on is the only thing that changed, and the
+   * API answers with that step already described for this viewer, `subStepsOpen`
+   * included. Four reads per tick, down a list of eight, is a page that flickers
+   * under somebody while they work.
+   *
+   * The marker is the SESSION's user and is never sent. Who ticked a line is
+   * the one thing about it nobody may choose.
+   */
+  async function markSubStep(
+    stepKey: string,
+    itemKey: string,
+    outcome: CheckLine["outcome"],
+    note: string | null,
+  ): Promise<boolean> {
+    setBusy(`sub:${stepKey}:${itemKey}`);
+    // Cleared before the call, for `decide`'s reason: a second identical
+    // refusal has to be a second appearance or the press looks like nothing.
+    setError(null);
+    const result = await api.PUT("/api/v1/jobs/{jobId}/steps/{stepKey}/sub-steps/{itemKey}", {
+      params: { path: { jobId, stepKey, itemKey } },
+      body: { outcome, note },
+    });
+    setBusy(null);
+    if (result.error) {
+      // Verbatim. "Locked while the work waits to be checked" and "this step is
+      // on Rohan's desk" are the whole explanation, and both can become true
+      // between this page loading and the press.
+      setError(apiError(result.error).message);
+      return false;
+    }
+    const updated = result.data;
+    setSteps((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+    return true;
+  }
+
+  /**
+   * Tick one of an open check's review points (T6.15). The CHECKER's list, so
+   * it is keyed on the check rather than the step: a check opened after a
+   * send-back starts with every point open, and the first round's ticks stay
+   * on the first round. Patches the one check, for `markSubStep`'s reason.
+   */
+  async function markReviewPoint(
+    approvalId: string,
+    itemKey: string,
+    outcome: CheckLine["outcome"],
+    note: string | null,
+  ): Promise<boolean> {
+    setBusy(`review:${approvalId}:${itemKey}`);
+    setError(null);
+    const result = await api.PUT("/api/v1/checks/{approvalId}/review-points/{itemKey}", {
+      params: { path: { approvalId, itemKey } },
+      body: { outcome, note },
+    });
+    setBusy(null);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return false;
+    }
+    const updated = result.data;
+    setChecks((current) => current.map((c) => (c.id === updated.id ? updated : c)));
+    return true;
+  }
+
   if (!loaded) return <p className="muted">Loading…</p>;
 
   const canComplete = permissions.includes("work:write");
@@ -335,7 +405,43 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   {s.proposal !== null && s.proposal !== undefined && (
                     <Proposal proposal={s.proposal} />
                   )}
-                  <CheckHistory checks={checks.filter((c) => c.stepKey === s.stepKey)} />
+                  {/* THE DOER'S LIST (T6.15). Editable only where the API
+                      would take the tick: the step is waiting, nothing is
+                      waiting to be checked, and it is this viewer's to do. The
+                      same three facts decide the Done button, so the list and
+                      the button can never be open at different times. */}
+                  {s.subSteps.length > 0 && (
+                    <CheckLines
+                      title="Sub-steps"
+                      scope={s.label}
+                      lines={s.subSteps}
+                      open={s.subStepsOpen}
+                      editable={
+                        s.status === "blocked" &&
+                        openCheckFor(checks, s.stepKey) === null &&
+                        canComplete &&
+                        s.viewer.mayComplete
+                      }
+                      lockedBecause={subStepsLocked(s, openCheckFor(checks, s.stepKey), canComplete)}
+                      busy={lineBusy(busy, `sub:${s.stepKey}:`)}
+                      onMark={(key, outcome, note) => markSubStep(s.stepKey, key, outcome, note)}
+                    />
+                  )}
+                  {/* THE CHECKER'S LIST, on the OPEN check only. It belongs to
+                      that check, not to the step: after a send-back the next
+                      check starts with every point open, and the earlier
+                      round's ticks are in the history below, read-only. */}
+                  {openCheckFor(checks, s.stepKey) !== null &&
+                    (openCheckFor(checks, s.stepKey) as StepCheck).reviewPoints.length > 0 && (
+                      <ReviewPoints
+                        check={openCheckFor(checks, s.stepKey) as StepCheck}
+                        scope={s.label}
+                        canWrite={canComplete}
+                        busy={busy}
+                        onMark={markReviewPoint}
+                      />
+                    )}
+                  <CheckHistory scope={s.label} checks={checks.filter((c) => c.stepKey === s.stepKey)} />
                 </div>
                 <div className="grid shrink-0 gap-1.5">
                   {/* A step with an undecided proposal gets the three verdicts
@@ -370,8 +476,13 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                             handle is permanent, it is already on screen beside
                             the step's label, and none of these is a decision to
                             take against the wrong step. */}
+                        {/* Accept and Correct are held by the sub-steps too
+                            (T6.15): accepting a machine's answer is a person
+                            saying the work is done, and the API refuses both
+                            while a line is open. Reject is not held: throwing
+                            an answer away finishes nothing. */}
                         <Button
-                          disabled={busy === s.stepKey}
+                          disabled={busy === s.stepKey || s.subStepsOpen > 0}
                           aria-label={`Accept ${s.stepKey}`}
                           onClick={() => {
                             void decide(s.stepKey, "accepted", null, null);
@@ -382,7 +493,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         <Button
                           variant="secondary"
                           size="sm"
-                          disabled={busy === s.stepKey}
+                          disabled={busy === s.stepKey || s.subStepsOpen > 0}
                           aria-label={`Correct ${s.stepKey}`}
                           onClick={() => {
                             if (s.proposal) void correct(s.stepKey, s.proposal);
@@ -401,18 +512,28 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         >
                           Reject
                         </Button>
+                        <SubStepsLeft count={s.subStepsOpen} />
                       </>
                     ) : (
                       s.viewer.mayComplete ? (
-                        <Button
-                          disabled={busy === s.stepKey}
-                          aria-label={`Done: ${s.stepKey}`}
-                          onClick={() => {
-                            void complete(s.stepKey);
-                          }}
-                        >
-                          Done
-                        </Button>
+                        <>
+                          {/* DISABLED while a sub-step is open, and the sentence
+                              under it says how many. `subStepsOpen` is the count
+                              the API's 409 refuses on, so the button and the
+                              refusal cannot disagree; the refusal is still shown
+                              if one arrives, because a colleague's list is not
+                              this page's to predict. */}
+                          <Button
+                            disabled={busy === s.stepKey || s.subStepsOpen > 0}
+                            aria-label={`Done: ${s.stepKey}`}
+                            onClick={() => {
+                              void complete(s.stepKey);
+                            }}
+                          >
+                            Done
+                          </Button>
+                          <SubStepsLeft count={s.subStepsOpen} />
+                        </>
                       ) : s.viewer.reason === "ON_ANOTHER_DESK" ? (
                         /* Somebody else's step. Taking it is one click and one
                            ledger row; ticking it from underneath them is what the
@@ -447,6 +568,18 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         Marking a step done records that <strong>you</strong> did it, and opens the steps that
         were waiting on it. This cannot be undone.
       </p>
+      {/* Said only on a job whose process HAS lists. A job pinned to a version
+          written before sub-steps existed has none, and a sentence about them
+          there would describe a control that is not on the page. */}
+      {steps.some((s) => s.subSteps.length > 0) && (
+        <p className="muted max-w-[var(--measure)] text-sm">
+          Where a step has sub-steps, each one is ticked, or marked not applicable with a reason,
+          before the step can be marked done. Once it is sent to be checked the ticks are locked,
+          and they open again only if it is sent back. Review points are the checker&rsquo;s own
+          list: each one is ticked before the work can be approved, and sending it back is always
+          allowed.
+        </p>
+      )}
       <p className="muted max-w-[var(--measure)] text-sm">
         Where the system has proposed an answer, you can accept it, correct it or reject it. The
         original answer and your decision are both kept. A correction must change something, and
@@ -495,19 +628,118 @@ function openCheckFor(checks: StepCheck[], stepKey: string): StepCheck | null {
  * if only the open check is rendered, and "this took three goes" is the only
  * signal anywhere that explains where a week went.
  */
-function CheckHistory({ checks }: { checks: StepCheck[] }) {
+function CheckHistory({ checks, scope }: { checks: StepCheck[]; scope: string }) {
   const decided = checks.filter((c) => c.decision !== "pending");
   if (decided.length === 0) return null;
   return (
     <div className="mt-2">
       {decided.map((c) => (
-        <p key={c.id} className="muted mt-0.5 text-sm">
-          {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
-          {c.decidedAt === null ? "an unknown date" : longInstant(c.decidedAt)}
-          {c.notes !== null && c.notes.trim() !== "" && <>: “{c.notes}”</>}
-        </p>
+        <div key={c.id}>
+          <p className="muted mt-0.5 text-sm">
+            {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
+            {c.decidedAt === null ? "an unknown date" : longInstant(c.decidedAt)}
+            {c.notes !== null && c.notes.trim() !== "" && <>: “{c.notes}”</>}
+          </p>
+          {/* What THAT checker ticked, read-only (T6.15). A send-back at
+              point three shows points one and two ticked and the rest open,
+              which is exactly where the checker stopped and why. */}
+          {c.reviewPoints.length > 0 && (
+            <CheckLines
+              title="Review points"
+              scope={scope}
+              lines={c.reviewPoints}
+              open={c.reviewPointsOpen}
+              editable={false}
+              lockedBecause={null}
+              busy={null}
+              onMark={() => Promise.resolve(false)}
+            />
+          )}
+        </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * The review points of the one OPEN check on a step (T6.15), ticked by
+ * whoever may check it.
+ *
+ * Editable for an ELIGIBLE viewer only, which is the API's verdict on the row,
+ * so the maker can never tick their own review points: the same rule that
+ * keeps them off Approve. Everybody else sees the list as a record of how far
+ * the checker has got, with the reason they cannot tick it.
+ */
+function ReviewPoints({
+  check,
+  scope,
+  canWrite,
+  busy,
+  onMark,
+}: {
+  check: StepCheck;
+  scope: string;
+  canWrite: boolean;
+  busy: string | null;
+  onMark: (
+    approvalId: string,
+    itemKey: string,
+    outcome: CheckLine["outcome"],
+    note: string | null,
+  ) => Promise<boolean>;
+}) {
+  const editable = canWrite && check.viewer.eligible;
+  return (
+    <CheckLines
+      title="Review points"
+      scope={scope}
+      lines={check.reviewPoints}
+      open={check.reviewPointsOpen}
+      editable={editable}
+      lockedBecause={editable ? null : "Ticked by whoever checks this step."}
+      busy={lineBusy(busy, `review:${check.id}:`)}
+      onMark={(key, outcome, note) => onMark(check.id, key, outcome, note)}
+    />
+  );
+}
+
+/**
+ * Which line of one list is saving, out of the page's single `busy` slot.
+ * The slot holds `sub:<step>:<line>` or `review:<check>:<line>`, so a line on
+ * one list never shows as busy because a line of the same name on another is.
+ */
+function lineBusy(busy: string | null, prefix: string): string | null {
+  return busy !== null && busy.startsWith(prefix) ? busy.slice(prefix.length) : null;
+}
+
+/**
+ * Why the sub-steps cannot be changed right now, in words, or null when they
+ * can (or when there is nothing worth saying, as on a finished step, where the
+ * list is simply the record).
+ */
+function subStepsLocked(step: JobStep, check: StepCheck | null, canWrite: boolean): string | null {
+  if (step.status === "pending" || step.status === "running") {
+    return "These can be ticked once the step opens.";
+  }
+  if (step.status !== "blocked" || !canWrite) return null;
+  if (check !== null) {
+    return "Locked while the work waits to be checked. If it is sent back, they open again.";
+  }
+  if (step.viewer.mayComplete) return null;
+  return step.viewer.reason === "ON_ANOTHER_DESK"
+    ? "Ticked by whoever has this step on their desk. Take it to tick them yourself."
+    : "Ticked by whoever does this step.";
+}
+
+/** How many sub-steps still hold the step shut, said under the button they
+ *  hold. Nothing at all when none do. */
+function SubStepsLeft({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <p className="muted max-w-[22ch] text-sm">
+      {count === 1 ? "1 sub-step" : `${String(count)} sub-steps`} still to tick or mark not
+      applicable.
+    </p>
   );
 }
 
@@ -551,8 +783,12 @@ function CheckActions({
   }
   return (
     <>
+      {/* Approve waits for the review points (T6.15); Send back NEVER does.
+          The checker may find the problem at point three, and making them tick
+          the rest before they can say so would be asking them to record checks
+          they had no reason to finish. */}
       <Button
-        disabled={busy === check.id}
+        disabled={busy === check.id || check.reviewPointsOpen > 0}
         aria-label={`Approve ${stepKey}`}
         onClick={() => {
           onApprove(check.id);
@@ -571,6 +807,14 @@ function CheckActions({
       >
         Send back
       </Button>
+      {check.reviewPointsOpen > 0 && (
+        <p className="muted max-w-[22ch] text-sm">
+          {check.reviewPointsOpen === 1
+            ? "1 review point"
+            : `${String(check.reviewPointsOpen)} review points`}{" "}
+          still to tick before approving. Sending it back is always allowed.
+        </p>
+      )}
     </>
   );
 }

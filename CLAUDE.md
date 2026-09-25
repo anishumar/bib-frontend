@@ -257,7 +257,7 @@ porting a screen; it is invisible in the source.
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
-| `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
+| `/admin/workflows` | how the firm does its work — the steps a job walks, written once, each with its sub-steps and, where somebody checks it, the checker's review points |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
 | `/admin/escalation-ladder` | when the firm hears that its own work has gone quiet — the rungs, and who each one tells |
 | `/admin/client-reminders` | when a CLIENT hears from the firm — the chase ladder (forward from the day we asked, stopped by a freeze) and the heads-up ladder (back from a statutory date, not stopped by one). Two config kinds, one screen. |
@@ -285,7 +285,7 @@ porting a screen; it is invisible in the source.
 | `/admin/obligation-vocabulary` | the firm's own words for that calendar — the states a filing moves through, and what may be decided about one that was missed |
 | `/admin/obligation-rules` | what the law asks of a client, and when — write the due formula, add a carve-out, confirm a date, set T–X, retire a rule |
 | `/work` | the delivery board — what a signed engagement turned into |
-| `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
+| `/work/[jobId]` | one job's process: its steps, who each is waiting on, each step's sub-steps to tick (or mark not applicable with a reason), the Done button, and Approve / Send back with the check's review points |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 | `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, **what they have asked the FIRM for**, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
 | `/portal/documents` | **THE CLIENT'S LIBRARY** — every document the firm has shared with them, searchable, and each one downloads. NOT windowed: the whole point is finding last year's challan |
@@ -1001,6 +1001,44 @@ instead of the buttons — the API answers 403 there, and a greyed-out button sa
 why. Decided checks stay on the page with their notes: a step sent back twice and then approved
 reads as one that sailed through if only the open check is drawn, and "this took two goes" is
 the only signal anywhere that explains where a week went.
+
+## Sub-steps and review points (T6.15)
+
+The firm's first real process has bullets under every step ("Collect: bank statements, sales
+data ...") and, on its manager review, "Check: P&L movements ...". A step now carries two lists,
+and **two different people tick them**: the SUB-STEPS are the doer's, and all of them hold Done
+shut; the REVIEW POINTS are the checker's, and all of them hold Approve shut. **Send back is never
+held**, because the checker may find the problem at point three.
+
+- **The editor takes a text box, one line per item**, not a row of inputs with an Add button: the
+  process arrives as a document and pasting eight lines is how it gets written. A leading bullet
+  followed by a space is taken off. **Keys are never shown**: `toLines` keeps an existing line's
+  key when its words are unchanged (matched by label, so a reorder keeps them) and gives a new
+  line the next `s1, s2, …` / `r1, r2, …` that the version being edited never used.
+- **Review points appear only once a checker is chosen**, and are KEPT, with a warning and two
+  buttons (move them to the sub-steps, or remove them), when the checker is set back to nobody.
+  The API refuses them there; hiding or dropping them would lose what somebody wrote. An
+  automatic step with sub-steps is warned about for the same reason: nothing would tick them.
+- **Every disabled control reads the API's own count.** Done, Accept and Correct are disabled
+  while `subStepsOpen > 0`, Approve while `reviewPointsOpen > 0`, and a sentence under each says
+  how many are left. The 409 is still shown verbatim if it arrives.
+- **"Not applicable" asks why on the line, never in a `prompt()`**, and such a line is NEVER
+  drawn ticked: "it did not apply" is a different fact from "I did it". Every settled line says
+  who and when, with the clock (`longMoment`).
+- **A tick PATCHES the one step (or check) from the PUT's answer** rather than reloading the page
+  the way Done does: a tick opens nothing, and four reads per tick down a list of eight is a page
+  that flickers under somebody while they work.
+- **The review points belong to the CHECK, not the step.** The open check's are editable for an
+  eligible viewer only (so never for the maker); a decided check in the history shows what its
+  checker ticked, read-only, and the round after a send-back starts empty.
+- **`/work`'s To check tab approves nothing itself** (Open goes to the job), so its row says how
+  many review points are left. `/work-items`' To check tab is the TASK queue and has no review
+  points at all.
+
+**What looking at it found:** `mt-3` on the `<Fieldset>` did nothing, because `.fieldset`
+declares `margin: 0` and is unlayered; the list sat flush against the line above it. The spacing
+is on a wrapper now. And at full width the "Not applicable" buttons sat 750px from the words they
+act on, so the list is held to the measure.
 
 ## `/clients/import` — the book, from a spreadsheet (T6.12)
 

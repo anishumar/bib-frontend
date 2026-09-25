@@ -8761,6 +8761,189 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/sub-steps/{itemKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick one of a step's sub-steps, mark it not applicable, or take the tick back
+         * @description Only while the step is waiting for a person and is not waiting to be checked: submitted work is locked until the checker decides, and a finished step is settled. The same desk and grade rules as marking the step done, and the marker is the SESSION's user. Marking it not applicable needs a reason. No ledger event per tick: the row says who and when, and the counts ride on the step's own transition.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                    itemKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MarkCheckLineRequest"];
+                };
+            };
+            responses: {
+                /** @description The step, with its sub-steps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStep"];
+                    };
+                };
+                /** @description Not applicable with no reason, or a reason over 500 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job, step or sub-step in the process this job follows */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The step is not waiting for a person, is waiting to be checked, is on somebody else's desk, or is outside the person's grade band */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checks/{approvalId}/review-points/{itemKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick one of a check's review points, mark it not applicable, or take the tick back
+         * @description Only by somebody the firm's rule lets check this work, which by the rule that can never be switched off is never the person who did it. Only while the check is undecided. The ticks belong to THIS check: after a send-back the next check starts with every point open. Marking it not applicable needs a reason.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approvalId: string;
+                    itemKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MarkCheckLineRequest"];
+                };
+            };
+            responses: {
+                /** @description The check, with its review points */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StepCheck"];
+                    };
+                };
+                /** @description Not applicable with no reason, or a reason over 500 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description You did this work, or the firm's rule does not put this check in your hands */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such check, or no such review point on its step */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Somebody already decided it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/checks/{approvalId}/decide": {
         parameters: {
             query?: never;
@@ -17257,6 +17440,30 @@ export interface components {
             /** @description What the firm calls the highest grade, likewise. */
             maxGradeName: string | null;
         } | null;
+        CheckLine: {
+            /** @description The line's own key in the process, stable across edits of its wording. What a mark is stored against, and what the PUT routes take in their path. */
+            key: string;
+            /** @description What the line says, from the version of the process this job follows. */
+            label: string;
+            /**
+             * @description `done`: ticked. `not_applicable`: it did not apply here, and `note` says why. Null: open, whether nobody has touched it or somebody ticked it and took the tick back.
+             * @enum {string|null}
+             */
+            outcome: "done" | "not_applicable" | null;
+            /** @description Why it did not apply. Present on `not_applicable` and on nothing else. */
+            note: string | null;
+            /** @description Who settled it, by the name the account carries now. Null while the line is open. */
+            markedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string;
+            } | null;
+            /**
+             * Format: date-time
+             * @description When it was settled, as an instant. Null while the line is open.
+             */
+            markedAt: string | null;
+        };
         JobStep: {
             /** Format: uuid */
             id: string;
@@ -17298,6 +17505,10 @@ export interface components {
                 /** @enum {string|null} */
                 reason: "ON_ANOTHER_DESK" | "OUTSIDE_BAND" | null;
             };
+            /** @description The step's sub-steps, in the process's own order (T6.15). Ticked, or marked not applicable with a reason, by whoever does the step, and all of them before it can be marked done. Locked while the step waits to be checked and once it is done. Empty when the process names none, which is every job pinned to an earlier version. */
+            subSteps: components["schemas"]["CheckLine"][];
+            /** @description How many sub-steps are still open: the same count the complete route refuses on, so the Done button can be disabled from the data the 409 uses. `viewer.mayComplete` says WHO may tick the step; this says whether it is READY to be ticked. */
+            subStepsOpen: number;
         };
         JobStepsResponse: {
             steps: components["schemas"]["JobStep"][];
@@ -17379,6 +17590,10 @@ export interface components {
             /** Format: date-time */
             decidedAt: string | null;
             viewer: components["schemas"]["CheckEligibility"];
+            /** @description THIS check's review points, in the process's own order (T6.15): ticked, or marked not applicable with a reason, by whoever may check the step, and all of them before it can be approved. Sending it back is never held up by them. A second check after a send-back starts with every point open; a decided check shows what its checker ticked. Empty when the step names none. */
+            reviewPoints: components["schemas"]["CheckLine"][];
+            /** @description How many review points are still open: the same count the decide route refuses Approve on. */
+            reviewPointsOpen: number;
         };
         StepChecksResponse: {
             checks: components["schemas"]["StepCheck"][];
@@ -17397,6 +17612,15 @@ export interface components {
         };
         PossibleCheckersResponse: {
             checkers: components["schemas"]["PossibleChecker"][];
+        };
+        MarkCheckLineRequest: {
+            /**
+             * @description `done` ticks it, `not_applicable` says it did not apply (and needs `note`), and null takes a tick back. Sending what the line already says changes nothing, including who marked it and when.
+             * @enum {string|null}
+             */
+            outcome: "done" | "not_applicable" | null;
+            /** @description The reason, for `not_applicable`: required, trimmed, at most 500 characters. Ignored on `done` and on null. */
+            note?: string | null;
         };
         DecideCheckRequest: {
             /** @enum {string} */

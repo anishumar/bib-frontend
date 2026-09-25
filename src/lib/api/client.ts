@@ -122,6 +122,19 @@ export type JobStep =
 export type AgentProposal = NonNullable<JobStep["proposal"]>;
 
 /**
+ * One line of a step's two lists (T6.15): a SUB-STEP, ticked by whoever does
+ * the step, or a REVIEW POINT, ticked by whoever checks it. The same shape for
+ * both on purpose, because a line reads the same way wherever it sits: what it
+ * says, whether it is settled, and who settled it when.
+ *
+ * `outcome` null is OPEN, and that includes a line somebody ticked and then
+ * took the tick back. `not_applicable` is settled as surely as `done` and is
+ * never drawn as ticked: "it did not apply here" is a different fact from "I
+ * did it", and `note` says why.
+ */
+export type CheckLine = JobStep["subSteps"][number];
+
+/**
  * One check on one step — work waiting for somebody else to look at it (T2.9).
  *
  * `viewer` is the SIGNED-IN person's own verdict on this row, computed by the
