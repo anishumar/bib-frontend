@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CheckLine } from "@/lib/api/client";
 import { Button, Checkbox, Field, Fieldset, Input, cx, useSwapFocus } from "@/components/ui";
 import { Pill } from "@/components/tw";
@@ -133,6 +133,24 @@ function LineRow({
   const { panel, trigger } = useSwapFocus(asking);
   const notApplicable = line.outcome === "not_applicable";
 
+  // UNDO REMOVES ITSELF. Once the API takes it the line is open again, so
+  // "Undo" unmounts and "Not applicable" mounts in its slot, and a keyboard
+  // user who pressed Enter on Undo would be left on <body>, with the next Tab
+  // starting again from the sidebar. `useSwapFocus` cannot see this swap (the
+  // reason box never opened), and the button's own focus-back only follows one
+  // mounted button going from disabled to enabled. So the press is remembered,
+  // and when the line comes back open focus goes to the button now in that
+  // slot, only if focus was actually lost: a mouse user who clicked elsewhere
+  // meanwhile keeps where they are.
+  const undoing = useRef(false);
+  useEffect(() => {
+    if (!undoing.current || line.outcome !== null) return;
+    undoing.current = false;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    trigger.current?.focus();
+  }, [line.outcome, trigger]);
+
   async function saveReason(): Promise<void> {
     const note = reason.trim();
     // The API refuses a blank reason too, and says so. This only stops a press
@@ -182,7 +200,10 @@ function LineRow({
             loading={saving}
             aria-label={`Undo not applicable: ${line.label} (${scope})`}
             onClick={() => {
-              void onMark(line.key, null, null);
+              undoing.current = true;
+              void onMark(line.key, null, null).then((taken) => {
+                if (!taken) undoing.current = false;
+              });
             }}
           >
             Undo
