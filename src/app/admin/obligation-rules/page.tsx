@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
@@ -15,6 +15,7 @@ import {
   Input,
   Notice,
   Pill,
+  scrollBelowBar,
   Select,
   Sub,
   Table,
@@ -153,6 +154,23 @@ function Rules() {
   /** Amending the open rule, rather than correcting it. Two different acts;
    *  see `supersede.tsx` for which is which. */
   const [amending, setAmending] = useState(false);
+  /** The chain a link arrived for (`#rule-<lineageId>`): the catalogue's
+   *  "Edit in the library" lands here. `seq` counts arrivals, so arriving at
+   *  the same chain twice still scrolls twice. */
+  const [arrival, setArrival] = useState<{ lineageId: string; seq: number } | null>(null);
+  const hashRead = useRef(false);
+
+  /** Arrive at the chain the address names, if this firm has it. A chain
+   *  whose every row is retired is hidden by default, and a link that lands on
+   *  nothing reads as a broken link, so the retired rows are shown for it. */
+  const arrive = useCallback((list: readonly ObligationRule[]): void => {
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const lineageId = hash.startsWith("rule-") ? hash.slice("rule-".length) : "";
+    const chain = list.filter((r) => r.lineageId === lineageId);
+    if (chain.length === 0) return;
+    if (!chain.some((r) => r.isActive)) setShowRetired(true);
+    setArrival((a) => ({ lineageId, seq: (a?.seq ?? 0) + 1 }));
+  }, []);
 
   /** Rule ids the caller arrived focused on — `/calendar`'s coverage panel
    *  linking to the exact rules blocking one engagement. */
@@ -182,13 +200,38 @@ function Rules() {
     setPermissions(me.data?.permissions ?? []);
     setError(null);
     setLoaded(true);
-  }, [router]);
+    // THE LINK FROM THE CATALOGUE NAMES A CHAIN, and the browser's own jump
+    // to it happened before any row existed. Read once, on the first answer,
+    // so a later reload after a write never scrolls the page out from under
+    // somebody.
+    if (!hashRead.current) {
+      hashRead.current = true;
+      arrive(res.data.rules);
+    }
+  }, [router, arrive]);
 
   useEffect(() => {
     void (async () => {
       await load();
     })();
   }, [load]);
+
+  // AND A NEW HASH ON THIS PAGE. Changing only the fragment is a same-page
+  // jump: the browser scrolls to the row itself, under the bar, and nothing
+  // above runs again. Found by the check, which opened a second chain's link
+  // on a library already showing the first and landed 63px under the bar.
+  useEffect(() => {
+    const onHash = (): void => { arrive(rules); };
+    window.addEventListener("hashchange", onHash);
+    return () => { window.removeEventListener("hashchange", onHash); };
+  }, [arrive, rules]);
+
+  // Below the sticky top bar, the catalogue's own finding (`scrollBelowBar`):
+  // the row's name is what the reader came to see, and a plain jump puts it
+  // under the bar. Runs after the render that drew the arrived chain's rows.
+  useEffect(() => {
+    if (arrival !== null) scrollBelowBar(`rule-${arrival.lineageId}`);
+  }, [arrival]);
 
   const mayWrite = permissions.includes("tenant:admin");
 
@@ -368,6 +411,18 @@ function Rules() {
     .filter((r) => filter === "" || r.coverage === filter);
 
   const open = editing === null ? null : (rules.find((r) => r.id === editing) ?? null);
+
+  // ONE ANCHOR PER CHAIN, on its first row as shown: `#rule-<lineageId>`. A
+  // chain's rows share a name and sit together, so landing on the first shows
+  // them all. Keyed on the CHAIN rather than a row's id because "the law
+  // changed" gives the chain a new newest row: a link naming the row it had
+  // yesterday would land nowhere today.
+  const anchored = new Set<string>();
+  const anchorOf = (rule: ObligationRule): string | null => {
+    if (anchored.has(rule.lineageId)) return null;
+    anchored.add(rule.lineageId);
+    return `rule-${rule.lineageId}`;
+  };
 
   return (
     <Page>
@@ -567,6 +622,8 @@ function Rules() {
                       <RuleRow
                         key={rule.id}
                         rule={rule}
+                        anchor={anchorOf(rule)}
+                        arrived={arrival?.lineageId === rule.lineageId}
                         busy={busy}
                         mayWrite={mayWrite}
                         open={editing === rule.id}
@@ -668,6 +725,8 @@ function Rules() {
 
 function RuleRow({
   rule,
+  anchor,
+  arrived,
   busy,
   mayWrite,
   open,
@@ -675,6 +734,11 @@ function RuleRow({
   onPatch,
 }: {
   rule: ObligationRule;
+  /** The chain's anchor id, on the chain's first row as shown; null on the
+   *  rest, because an id is one element's. */
+  anchor: string | null;
+  /** A link arrived for this row's chain: every row of it is marked. */
+  arrived: boolean;
   busy: boolean;
   mayWrite: boolean;
   open: boolean;
@@ -700,7 +764,11 @@ function RuleRow({
     today === null || governsToday ? null : otherRowToday(rule, today.effectiveFrom, today.dueRule);
 
   return (
-    <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
+    <tr
+      id={anchor ?? undefined}
+      data-arrived={arrived ? "true" : undefined}
+      style={rule.isActive ? undefined : { opacity: 0.55 }}
+    >
       <Td>
         {rule.name}
         {rule.module !== null && <Sub>{rule.module}</Sub>}

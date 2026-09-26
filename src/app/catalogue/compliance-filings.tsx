@@ -9,8 +9,10 @@ import type {
 } from "@/lib/api/client";
 import {
   Button,
+  LinkButton,
   Notice,
   Pill,
+  scrollBelowBar,
   useAppearFocus,
   useSwapFocus,
   type PillTone,
@@ -100,6 +102,7 @@ export function ComplianceFilings({
   filings,
   unread,
   canWrite,
+  canReadLibrary,
   busy,
   working,
   note,
@@ -116,6 +119,9 @@ export function ComplianceFilings({
    *  the section still shows it, saying it may be out of date. */
   unread: boolean;
   canWrite: boolean;
+  /** Whether this session may open `/admin/obligation-rules` (`party:read`),
+   *  which decides whether each filing offers the way there. */
+  canReadLibrary: boolean;
   /** Any write on the page is in flight: every control waits. */
   busy: boolean;
   /** THIS section's write is in flight: its button shows it. */
@@ -221,6 +227,7 @@ export function ComplianceFilings({
               rule={rule}
               serviceId={service.id}
               canWrite={canWrite}
+              canReadLibrary={canReadLibrary}
               busy={busy}
               working={working}
               refusal={refusedAt("remove", rule.lineageId)}
@@ -324,6 +331,7 @@ function LinkedFiling({
   rule,
   serviceId,
   canWrite,
+  canReadLibrary,
   busy,
   working,
   refusal,
@@ -333,6 +341,7 @@ function LinkedFiling({
   rule: ObligationRule;
   serviceId: string;
   canWrite: boolean;
+  canReadLibrary: boolean;
   busy: boolean;
   working: boolean;
   /** The API's refusal of THIS filing's removal, drawn inside its
@@ -385,7 +394,7 @@ function LinkedFiling({
                 onClick={(event) => {
                   event.preventDefault();
                   window.history.replaceState(null, "", `#service-${u.serviceKey}`);
-                  showService(`service-${u.serviceKey}`);
+                  scrollBelowBar(`service-${u.serviceKey}`);
                 }}
               >
                 {u.serviceName ?? u.serviceKey}
@@ -395,8 +404,7 @@ function LinkedFiling({
         </p>
       )}
 
-      {canWrite &&
-        (confirming ? (
+      {canWrite && confirming ? (
           <div ref={panel} tabIndex={-1} className="stack tight">
             {/* THE EFFECT BEFORE THE PRESS. The sentence after it gives the
                 numbers; this one says which kinds of filing go and which stay,
@@ -444,28 +452,52 @@ function LinkedFiling({
             <Refusal note={refusal} />
           </div>
         ) : (
-          <div className="cluster">
-            <Button
-              ref={trigger}
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              /* NAMED BY THE FILING. A service with six filings has six of
-                 these, and six identical "Remove from this service" buttons
-                 are indistinguishable to somebody moving between them by name.
-                 The visible words lead the name, on this and on the two
-                 buttons that replace it, so a person who says what they see
-                 to voice control still reaches it. */
-              aria-label={`Remove from this service: ${rule.name}`}
-              onClick={() => {
-                onBegin();
-                setConfirming(true);
-              }}
-            >
-              Remove from this service
-            </Button>
-          </div>
-        ))}
+          (canWrite || canReadLibrary) && (
+            <div className="cluster">
+              {canWrite && (
+                <Button
+                  ref={trigger}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  /* NAMED BY THE FILING. A service with six filings has six of
+                     these, and six identical "Remove from this service" buttons
+                     are indistinguishable to somebody moving between them by
+                     name. The visible words lead the name, on this and on the
+                     two buttons that replace it, so a person who says what they
+                     see to voice control still reaches it. */
+                  aria-label={`Remove from this service: ${rule.name}`}
+                  onClick={() => {
+                    onBegin();
+                    setConfirming(true);
+                  }}
+                >
+                  Remove from this service
+                </Button>
+              )}
+              {/* THE WAY TO THE RULE ITSELF. The due formula, its exceptions,
+                  its lead time and "the law changed" are written once, in the
+                  library, and a partner reading a date here that is wrong
+                  otherwise has to find the rule again among fifty-seven. The
+                  anchor is the CHAIN (`lineageId`), not this row's id: a law
+                  change gives the chain a new newest row, and a link naming
+                  the old one would land nowhere. Offered to whoever may read
+                  the library; worded for somebody who cannot write there as
+                  "see", because "edit" would promise controls the library
+                  does not give them. Named by the filing, like Remove. */}
+              {canReadLibrary && (
+                <LinkButton
+                  variant="ghost"
+                  size="sm"
+                  href={`/admin/obligation-rules#rule-${rule.lineageId}`}
+                  aria-label={`${canWrite ? "Edit" : "See it"} in the library: ${rule.name}`}
+                >
+                  {canWrite ? "Edit in the library" : "See it in the library"}
+                </LinkButton>
+              )}
+            </div>
+          )
+        )}
     </li>
   );
 }
@@ -699,27 +731,6 @@ function AddControls({
       )}
     </div>
   );
-}
-
-// ── Finding a card ────────────────────────────────────────────────────────
-
-/**
- * Scroll a service's card into view BELOW the sticky top bar.
- *
- * `scrollIntoView({ block: "start" })` and a plain `#anchor` both put the
- * card's top edge at the top of the window, which is under the bar, so the one
- * thing a reader arriving from "Used in" needs to see (which service this is)
- * was the thing hidden. The bar's height is MEASURED, not typed: it follows the
- * theme and the phone layout, and a number here would drift from both. The
- * breathing room is `--s-4`, read from the tokens rather than invented.
- */
-export function showService(id: string): void {
-  const card = document.getElementById(id);
-  if (card === null) return;
-  const bar = document.querySelector(".topbar")?.getBoundingClientRect().height ?? 0;
-  const root = getComputedStyle(document.documentElement);
-  const room = parseFloat(root.getPropertyValue("--s-4")) * parseFloat(root.fontSize) || 0;
-  window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - bar - room });
 }
 
 // ── Reading a rule ────────────────────────────────────────────────────────

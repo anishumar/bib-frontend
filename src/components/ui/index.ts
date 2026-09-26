@@ -43,6 +43,7 @@ export { Skeleton, SkeletonText } from "./skeleton";
 export { Spinner } from "./spinner";
 export { useSwapFocus } from "./swap-focus";
 export { useAppearFocus } from "./appear-focus";
+export { scrollBelowBar } from "./below-bar";
 export { Stat, Strip } from "./stat";
 export { Table, TableWrap, Th, Td, Sub, EmptyRow, type CellAlign } from "./table";
 export { Tabs, TabPanel, type TabItem } from "./tabs";

@@ -342,6 +342,17 @@
 .table tbody tr[data-inactive="true"] td {
   opacity: 0.55;
 }
+/* The row a link ARRIVED at: the library's rows when the catalogue's "Edit in
+   the library" names their chain. Scrolled below the sticky bar, and marked,
+   because a chain can be two rows with one name and the reader has to see
+   which rows the link meant. Ink and a hover ground, never a status colour:
+   arriving somewhere is not "done", "late" or "wrong". */
+.table tbody tr[data-arrived="true"] td {
+  background: var(--surface-hover);
+}
+.table tbody tr[data-arrived="true"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--ink-2);
+}
 
 /* ── Pill ─────────────────────────────────────────────────────────────────
    One neutral chip for state, and three that mean something. Every tone here
