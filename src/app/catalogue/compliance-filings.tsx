@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import type {
   FilingLinkEffect,
   FilingUnlinkEffect,
@@ -27,6 +27,7 @@ import {
   CommandList,
 } from "@/components/shadcn/command";
 import {
+  describeDraft,
   describeNextChange,
   describeToday,
   draftOf,
@@ -544,7 +545,6 @@ function AddControls({
   onToggleWrite: () => void;
   writeForm: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
   // Set as an option that needs confirming is chosen, and read as the list
   // closes: Radix hands focus back to the trigger on close, which is right for
   // an add that happened and wrong for one that is waiting on the confirmation
@@ -564,8 +564,6 @@ function AddControls({
     if (pending !== null) confirmPanel.current?.focus();
   }, [pending, confirmPanel]);
 
-  const groups = byModule(offered);
-
   return (
     <div className="stack snug">
       <div className="cluster">
@@ -574,85 +572,22 @@ function AddControls({
             Every filing in your firm&rsquo;s library is already on this service.
           </p>
         ) : (
-          <Popover
-            open={open}
-            onOpenChange={(next) => {
-              if (next) onBegin();
-              setOpen(next);
+          <LibraryPicker
+            offered={offered}
+            triggerRef={pickerTrigger}
+            disabled={busy || pending !== null}
+            ariaLabel={`Add a filing to ${serviceName}`}
+            onOpen={onBegin}
+            onPick={(rule) => {
+              if (willConfirm(rule)) confirmingNext.current = true;
+              onChoose(rule);
             }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                ref={pickerTrigger}
-                variant="secondary"
-                size="sm"
-                disabled={busy || pending !== null}
-                aria-label={`Add a filing to ${serviceName}`}
-              >
-                Add a filing
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-96 max-w-[calc(100vw_-_2rem)] p-0"
-              align="start"
-              /* THE PHONE'S SIDE GUTTER. Aligned to a trigger 32px in, the
-                 list ran to the screen's edge and lost its right border on a
-                 375px phone; Radix shifts it back inside a 16px margin. */
-              collisionPadding={16}
-              onCloseAutoFocus={(event) => {
-                if (confirmingNext.current) {
-                  confirmingNext.current = false;
-                  event.preventDefault();
-                }
-              }}
-            >
-              {/* SEARCHABLE AND GROUPED, because the library is fifty-seven
-                  rules on the first day and the person adding one knows its
-                  NAME ("GSTR-3B") or its law ("TDS"), not where it sits in a
-                  list. Grouped by the statute's own grouping, the rule's
-                  `module`, which is not the firm's Dept. */}
-              <Command>
-                <CommandInput placeholder="Search by name, law or authority…" />
-                <CommandList>
-                  <CommandEmpty>Nothing in the library matches.</CommandEmpty>
-                  {groups.map((group) => (
-                    <CommandGroup key={group.module ?? ""} heading={group.module ?? "Other filings"}>
-                      {group.rules.map((rule) => (
-                        <CommandItem
-                          key={rule.lineageId}
-                          /* The id, not the name, is the item's VALUE: cmdk
-                             treats two items with one value as one item, and a
-                             firm may well hold two rules called "TDS return"
-                             in two countries. The words are the keywords. */
-                          value={rule.id}
-                          keywords={[rule.name, rule.module ?? "", rule.authority ?? ""]}
-                          onSelect={() => {
-                            if (willConfirm(rule)) confirmingNext.current = true;
-                            setOpen(false);
-                            onChoose(rule);
-                          }}
-                        >
-                          <span className="flex min-w-0 flex-col">
-                            <span className="text-sm text-ink">{rule.name}</span>
-                            {/* Worded as the service's list words it, today's
-                                rule and then what changes, so the option and
-                                the row it becomes say one date. */}
-                            <span className="mono text-xs text-muted">{describeToday(rule)}</span>
-                            {rule.nextChange !== null && (
-                              <span className="mono text-xs text-muted">
-                                {describeNextChange(rule)}
-                              </span>
-                            )}
-                            <span className="text-xs text-muted">{optionNote(rule)}</span>
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+            keepFocusOnClose={() => {
+              const keep = confirmingNext.current;
+              confirmingNext.current = false;
+              return keep;
+            }}
+          />
         )}
         <Button
           ref={writeTrigger}
@@ -743,6 +678,365 @@ function AddControls({
   );
 }
 
+/**
+ * The firm's library as a searchable list: one press picks a filing.
+ *
+ * Shared by a service's card and the "Add a service" form, so the two cannot
+ * word, group or search the options differently. What a pick then DOES is the
+ * caller's: the card adds it (or opens its confirmation), the form puts it on
+ * the list the new service will be added with.
+ */
+function LibraryPicker({
+  offered,
+  triggerRef,
+  disabled,
+  ariaLabel,
+  onOpen,
+  onPick,
+  keepFocusOnClose,
+}: {
+  offered: readonly ObligationRule[];
+  triggerRef: Ref<HTMLButtonElement>;
+  disabled: boolean;
+  ariaLabel: string;
+  onOpen?: () => void;
+  onPick: (rule: ObligationRule) => void;
+  /** Asked as the list closes. True keeps focus where the pick put it (the
+   *  card's confirmation below) instead of Radix's return to the trigger,
+   *  which is right for a pick that finished and wrong for one still waiting. */
+  keepFocusOnClose?: () => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const groups = byModule(offered);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onOpen?.();
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button ref={triggerRef} variant="secondary" size="sm" disabled={disabled} aria-label={ariaLabel}>
+          Add a filing
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-96 max-w-[calc(100vw_-_2rem)] p-0"
+        align="start"
+        /* THE PHONE'S SIDE GUTTER. Aligned to a trigger 32px in, the list ran
+           to the screen's edge and lost its right border on a 375px phone;
+           Radix shifts it back inside a 16px margin. */
+        collisionPadding={16}
+        onCloseAutoFocus={(event) => {
+          if (keepFocusOnClose?.() === true) event.preventDefault();
+        }}
+      >
+        {/* SEARCHABLE AND GROUPED, because the library is fifty-seven rules on
+            the first day and the person adding one knows its NAME ("GSTR-3B")
+            or its law ("TDS"), not where it sits in a list. Grouped by the
+            statute's own grouping, the rule's `module`, which is not the
+            firm's Dept. */}
+        <Command>
+          <CommandInput placeholder="Search by name, law or authority…" />
+          <CommandList>
+            <CommandEmpty>Nothing in the library matches.</CommandEmpty>
+            {groups.map((group) => (
+              <CommandGroup key={group.module ?? ""} heading={group.module ?? "Other filings"}>
+                {group.rules.map((rule) => (
+                  <CommandItem
+                    key={rule.lineageId}
+                    /* The id, not the name, is the item's VALUE: cmdk treats
+                       two items with one value as one item, and a firm may
+                       well hold two rules called "TDS return" in two
+                       countries. The words are the keywords. */
+                    value={rule.id}
+                    keywords={[rule.name, rule.module ?? "", rule.authority ?? ""]}
+                    onSelect={() => {
+                      onPick(rule);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-sm text-ink">{rule.name}</span>
+                      {/* Worded as the service's list words it, today's rule
+                          and then what changes, so the option and the row it
+                          becomes say one date. */}
+                      <span className="mono text-xs text-muted">{describeToday(rule)}</span>
+                      {rule.nextChange !== null && (
+                        <span className="mono text-xs text-muted">{describeNextChange(rule)}</span>
+                      )}
+                      <span className="text-xs text-muted">{optionNote(rule)}</span>
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ── A service that does not exist yet ──────────────────────────────────────
+
+/**
+ * The compliance filings a NEW service will be added with, on the "Add a
+ * service" form (2026-09-26).
+ *
+ * The firm's idea was "when you build a service, you say what it files", and
+ * the section above only exists on a service's CARD, which appears after the
+ * service is saved: a partner filling in the form looked for the filings on it
+ * and found none. So the form has the same two ways in, the library's list and
+ * "Write a new filing", and nothing is sent until "Add as a draft": this is a
+ * LIST the page adds the service with, one link (or one written rule) per
+ * line, after the service exists, because a link hangs off the service's
+ * catalogue entry and there is no entry yet.
+ *
+ * Two things are said on the list rather than after the press, because the
+ * press is the one that does them: a filing nobody has checked is CONFIRMED by
+ * adding the service (the card's own rule: the dates in words before the
+ * press that confirms them), and a filing written here goes into the firm's
+ * library, where the next service finds it.
+ *
+ * It sits OUTSIDE the service's `<form>`. The rule editor is a column of text
+ * boxes, and Enter in any box inside a form submits it: typing a filing's
+ * name and pressing Enter would have added the half-written service.
+ */
+export function NewServiceFilings({
+  filings,
+  unread,
+  busy,
+  chosen,
+  drafts,
+  onChosen,
+  onDrafts,
+}: {
+  /** The firm's library, as the page read it; null when it cannot be read. */
+  filings: readonly ObligationRule[] | null;
+  unread: boolean;
+  busy: boolean;
+  /** Filings from the library, to be linked once the service exists. */
+  chosen: readonly ObligationRule[];
+  /** Filings written here, to be written (and linked) once it exists. */
+  drafts: readonly RuleDraft[];
+  onChosen: (next: readonly ObligationRule[]) => void;
+  onDrafts: (next: readonly RuleDraft[]) => void;
+}) {
+  const headingId = useId();
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState<RuleDraft>(draftOf(null));
+  // A filing this form refuses to put on the list, and why. Only what the
+  // form can know: the API's own refusals arrive when the service is added.
+  const [refused, setRefused] = useState<string | null>(null);
+  const { panel: writePanel, trigger: writeTrigger } = useSwapFocus(writing);
+  // Taking a line off the list unmounts the button that was pressed, so focus
+  // goes to the picker rather than falling to the top of the document.
+  const picker = useRef<HTMLButtonElement>(null);
+
+  const listed = new Set(chosen.map((r) => r.lineageId));
+  const offered =
+    filings === null ? [] : sorted(filings.filter((f) => f.isActive && !listed.has(f.lineageId)));
+  const total = chosen.length + drafts.length;
+
+  function putOnList(): void {
+    const name = draft.name.trim().toLowerCase();
+    const country = draft.jurisdiction.trim().toUpperCase();
+    // WRITTEN ONCE, FOUND IN THE LIST AFTER. A filing the library already
+    // holds, written again here, is the duplicate the whole design exists to
+    // stop, and the API would only refuse it in the same pack.
+    const held = (filings ?? []).find(
+      (f) => f.isActive && f.jurisdiction === country && f.name.trim().toLowerCase() === name,
+    );
+    if (held !== undefined) {
+      setRefused(
+        `Your library already has ${held.name} for ${countryName(country)}. Choose it from “Add a filing” instead of writing it again.`,
+      );
+      return;
+    }
+    const twice = drafts.some(
+      (d) => d.jurisdiction.trim().toUpperCase() === country && d.name.trim().toLowerCase() === name,
+    );
+    if (twice) {
+      setRefused(`${draft.name.trim()} is already on this list.`);
+      return;
+    }
+    setRefused(null);
+    onDrafts([...drafts, draft]);
+    setDraft(draftOf(null));
+    setWriting(false);
+  }
+
+  return (
+    <section aria-labelledby={headingId} className="stack snug border-t border-line pt-4">
+      <h3 id={headingId}>
+        Compliance filings{" "}
+        <span className="annot">
+          · {total} {total === 1 ? "filing" : "filings"} on this list
+        </span>
+      </h3>
+      <p className="text-sm text-muted">
+        What the law asks of a client on this service, and by when. Choose them from your
+        firm&rsquo;s library or write a new one. They are added with the service when you press
+        Add as a draft, and you can add or remove them later on the service&rsquo;s card.
+      </p>
+
+      {filings === null && (
+        <p className="text-sm text-muted">
+          {unread
+            ? "The firm's library of filings could not be read just now, so it cannot be chosen from. Reload the page to try again, or write a new filing here."
+            : "Your role cannot see the firm's library of filings, so it cannot be chosen from here."}
+        </p>
+      )}
+
+      {total > 0 && (
+        <ul className="stack tight">
+          {chosen.map((rule) => {
+            const today = todayOf(rule);
+            return (
+              <li key={rule.lineageId} className="stack tight border-t border-line pt-3">
+                <div className="cluster">
+                  <strong>{rule.name}</strong>
+                  {willConfirm(rule) && <Pill tone="warn">not confirmed yet</Pill>}
+                </div>
+                <p className="mono text-xs">{describeToday(rule)}</p>
+                {rule.nextChange !== null && (
+                  <p className="mono text-xs">{describeNextChange(rule)}</p>
+                )}
+                {today.exceptions.length > 0 && (
+                  <p className="text-sm text-muted">
+                    Except:{" "}
+                    {today.exceptions
+                      .map((e) => `the period ending ${MONTHS[e.periodEndMonth - 1] ?? "?"}, ${e.note}`)
+                      .join("; ")}
+                    .
+                  </p>
+                )}
+                <p className="text-sm text-muted">{chosenNote(rule)}</p>
+                <div className="cluster">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label={`Take it off this list: ${rule.name}`}
+                    onClick={() => {
+                      onChosen(chosen.filter((r) => r.lineageId !== rule.lineageId));
+                      picker.current?.focus();
+                    }}
+                  >
+                    Take it off this list
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+          {drafts.map((d, i) => (
+            <li key={`new-${String(i)}-${d.name}`} className="stack tight border-t border-line pt-3">
+              <div className="cluster">
+                <strong>{d.name.trim()}</strong>
+                <Pill tone="neutral">written here</Pill>
+              </div>
+              <p className="mono text-xs">{describeDraft(d)}</p>
+              <p className="text-sm text-muted">
+                It goes into your firm&rsquo;s library with the service, and the next service can
+                choose it from the list.
+              </p>
+              <div className="cluster">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  aria-label={`Take it off this list: ${d.name.trim()}`}
+                  onClick={() => {
+                    onDrafts(drafts.filter((_, j) => j !== i));
+                    picker.current?.focus();
+                  }}
+                >
+                  Take it off this list
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="cluster">
+        {offered.length > 0 && (
+          <LibraryPicker
+            offered={offered}
+            triggerRef={picker}
+            disabled={busy || writing}
+            ariaLabel="Add a filing to the new service"
+            onPick={(rule) => {
+              onChosen([...chosen, rule]);
+            }}
+          />
+        )}
+        <Button
+          ref={writeTrigger}
+          variant="ghost"
+          size="sm"
+          disabled={busy && !writing}
+          aria-expanded={writing}
+          aria-label={writing ? "Cancel the new filing" : undefined}
+          onClick={() => {
+            setRefused(null);
+            if (!writing) setDraft(draftOf(null));
+            setWriting((w) => !w);
+          }}
+        >
+          {writing ? "Cancel" : "Write a new filing"}
+        </Button>
+      </div>
+
+      {writing && (
+        <div ref={writePanel} tabIndex={-1} className="stack snug">
+          <RuleEditor
+            bare
+            creating
+            draft={draft}
+            onChange={setDraft}
+            rule={null}
+            busy={busy}
+            onSave={putOnList}
+            onCancel={() => {
+              setRefused(null);
+              setWriting(false);
+            }}
+            saveLabel="Put it on this service's list"
+            cancelLabel="Cancel the new filing"
+            refusal={<Refusal note={refused === null ? null : <Notice tone="danger">{refused}</Notice>} />}
+            onRefused={() => {
+              setRefused(null);
+            }}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** What a filing on the new service's list will do, said before the press. */
+function chosenNote(rule: ObligationRule): string {
+  if (willConfirm(rule)) {
+    const early =
+      rule.leadTimeDays === 0
+        ? " Work on each one starts on the legal date itself until you set how many days early to start, on its row in the library."
+        : "";
+    return `Nobody at your firm has checked these dates against the law yet. Adding the service confirms them.${early}`;
+  }
+  if (todayOf(rule).dueRule === null) {
+    return "Its date is not known yet, so it adds nothing to the calendar until somebody answers it in the library.";
+  }
+  if (rule.recurrence === "event") {
+    return "Due when something happens rather than every period.";
+  }
+  return rule.usedIn.length === 0
+    ? "Not used by any service yet."
+    : `Also used in: ${rule.usedIn.map((u) => u.serviceName ?? u.serviceKey).join(", ")}.`;
+}
+
 // ── Reading a rule ────────────────────────────────────────────────────────
 
 /** Whether a rule's chain is on this service. `usedIn` is per CHAIN, so every
@@ -763,7 +1057,7 @@ function carries(rule: ObligationRule, serviceId: string): boolean {
  * change. What the confirmation panel shows is today's dates AND the change,
  * so the row being confirmed is on it.
  */
-function willConfirm(rule: ObligationRule): boolean {
+export function willConfirm(rule: ObligationRule): boolean {
   return (
     rule.isActive &&
     rule.status === "unconfirmed" &&

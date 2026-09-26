@@ -270,7 +270,7 @@ porting a screen; it is invisible in the source.
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
 | `/engagement-letters/[letterId]` | one letter: its terms, its signature, and the engagements it created |
-| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16) |
+| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16). The "Add a service" form lists them too (`NewServiceFilings`), sent once the service exists |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
@@ -1584,6 +1584,18 @@ left for its own change.
   save itself; the catalogue forgets which act was refused there (and on toggling or cancelling
   the form), and the library clears its `ErrorNotice`.
 - **"yet.." on the card**: a firm's reason already ending in a full stop got a second one.
+
+**The "Add a service" form has the same section (2026-09-26).** A partner filling in the form
+looked for the filings on it and found none: the card's section only exists once the service is
+saved. `NewServiceFilings` keeps a LIST (library picks and filings written there) and the page
+sends it after the service is created: the service first (a link names its catalogue entry), then
+each link, then each written rule with `serviceEntryIds`. Not one transaction, so a filing refused
+after the service went in is said by name with the API's sentence, and a refused service keeps the
+list. The section sits OUTSIDE the `<form>` and the submit reaches it with `form="define-service"`,
+because Enter in any of the editor's text boxes inside the form would submit a half-written
+service. Writing a filing the library already holds (same name and country) is refused on the
+screen with a pointer to "Add a filing"; the API would only refuse it within one pack. The
+sentence after says nothing reaches the calendar, because a new service has no client yet.
 
 **Changing files under a running `next dev` can lose a route.** Stashing and restoring three files
 for the red run left `/admin/obligation-rules` answering 404 until the page file was touched again.
