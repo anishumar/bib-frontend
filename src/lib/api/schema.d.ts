@@ -16365,6 +16365,38 @@ export interface components {
             /** @description Why this period is different, in the firm's own words. Mandatory: a partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo. */
             note: string;
         };
+        /** @description The row of this rule's CHAIN whose window governs the period containing the firm's today (the firm's own time zone): the rule today's filings are due under, which is what a screen shows as the due date. The same on every row of one chain. Differs from this row after a law change that takes effect later, when this row is the successor. Null when no row governs today yet, for a chain written to start later. */
+        ObligationRuleInForceToday: {
+            /**
+             * Format: uuid
+             * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
+             */
+            ruleId: string;
+            /** @description The first period start this row does NOT govern, or null when nothing replaces it. */
+            effectiveTo: string | null;
+            dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            unresolvedReason: string | null;
+            /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
+            exceptions: components["schemas"]["ObligationException"][];
+            /** @description The first period start this row governs; null means from the beginning. */
+            effectiveFrom: string | null;
+        } | null;
+        /** @description The row that takes over after today's period, when a law change has been recorded for a later day. Null when nothing changes. */
+        ObligationRuleNextChange: {
+            /**
+             * Format: uuid
+             * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
+             */
+            ruleId: string;
+            /** @description The first period start this row does NOT govern, or null when nothing replaces it. */
+            effectiveTo: string | null;
+            dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            unresolvedReason: string | null;
+            /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
+            exceptions: components["schemas"]["ObligationException"][];
+            /** @description The first period start the new row governs, as YYYY-MM-DD: the day to name in 'From April 2027: the 22nd of the following month'. */
+            effectiveFrom: string;
+        } | null;
         ObligationRule: {
             /** Format: uuid */
             id: string;
@@ -16413,6 +16445,8 @@ export interface components {
              */
             coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
             exceptions: components["schemas"]["ObligationException"][];
+            inForceToday: components["schemas"]["ObligationRuleInForceToday"];
+            nextChange: components["schemas"]["ObligationRuleNextChange"];
             /** @description How many calendar rows this rule has produced, ever, including any taken off the calendar when a service stopped including them. It is what decides whether the period shape can still change. */
             instanceCount: number;
         };

@@ -26,6 +26,8 @@ import {
 import {
   bodyOf,
   createBodyOf,
+  describeDue,
+  describeNextChange,
   describeRule,
   draftOf,
   Exceptions,
@@ -681,6 +683,22 @@ function RuleRow({
 }) {
   const [lead, setLead] = useState(String(rule.leadTimeDays));
 
+  // WHICH ROW TODAY'S FILINGS ARE DUE ON (T6.16 follow-up). The library lists
+  // every row of a chain, and each row's formula is its own, which is what
+  // Edit edits. What the rows did not say is which of them governs the period
+  // containing the firm's today: after "the law changed from April 2027" both
+  // read "producing dates", and a partner could not tell from the row that
+  // September is still due on the 20th. So the row in force says what changes
+  // next, and any other row says what today's filings follow instead.
+  const today = rule.inForceToday;
+  const governsToday = today !== null && today.ruleId === rule.id;
+  const next = governsToday ? describeNextChange(rule) : null;
+  // The "From April 2027" line names the day the row hands over on, so the
+  // bare "hands over on" beside it would say one date twice.
+  const handoverSaid = next !== null && rule.nextChange?.effectiveFrom === rule.effectiveTo;
+  const elsewhere =
+    today === null || governsToday ? null : otherRowToday(rule, today.effectiveFrom, today.dueRule);
+
   return (
     <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
       <Td>
@@ -729,6 +747,12 @@ function RuleRow({
         <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
           {describeRule(rule)}
         </span>
+        {next !== null && (
+          <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
+            {next}
+          </span>
+        )}
+        {elsewhere !== null && <Sub>{elsewhere}</Sub>}
         {rule.instanceCount > 0 && (
           <Sub>
             {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
@@ -738,7 +762,9 @@ function RuleRow({
             still says "producing dates" — correctly, because it governs its own
             periods — so without this line a partner would read it as live for
             periods it no longer covers, and go looking for a bug. */}
-        {rule.effectiveTo !== null && <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>}
+        {rule.effectiveTo !== null && !handoverSaid && (
+          <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>
+        )}
         {rule.effectiveFrom !== null && <Sub>governs periods from {longDay(rule.effectiveFrom)}</Sub>}
       </Td>
       <Td>
@@ -846,6 +872,28 @@ function RuleRow({
       </Td>
     </tr>
   );
+}
+
+/**
+ * What a row that does NOT govern today says instead: which side of it today's
+ * rule lies, and what that rule is due on. Both rows of a chain read "producing
+ * dates", correctly, since each governs its own periods, so only this says
+ * which one September's return follows. The comparison is of two period
+ * starts as `YYYY-MM-DD` strings; which row governs today is the API's answer
+ * (`inForceToday`), never worked out here.
+ */
+function otherRowToday(
+  rule: ObligationRule,
+  todayFrom: string | null,
+  todayDue: ObligationRule["dueRule"],
+): string {
+  const due = describeDue({ recurrence: rule.recurrence, dueRule: todayDue });
+  // A row with no start governs from the beginning, so it is never the later.
+  const later = rule.effectiveFrom !== null && (todayFrom === null || rule.effectiveFrom > todayFrom);
+  const lead = later
+    ? "Not in force yet. Today's filings follow the earlier rule"
+    : "No longer in force. Today's filings follow the later rule";
+  return due === null ? `${lead}, which cannot work out a date yet.` : `${lead}: ${due}.`;
 }
 
 const LABEL: Record<RuleCoverage, string> = {

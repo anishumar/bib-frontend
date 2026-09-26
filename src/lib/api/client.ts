@@ -366,6 +366,14 @@ export type ObligationRule =
 export type ObligationException = ObligationRule["exceptions"][number];
 export type RuleCoverage = ObligationRule["coverage"];
 
+/** The row of a rule's CHAIN that today's filings are due under, read on the
+ *  firm's own day, and the row that takes over after it when the law changed
+ *  from a later date (T6.16 follow-up). A row's own `dueRule` is the chain's
+ *  newest row, which after "from April 2027 it is the 22nd" is the successor,
+ *  so a screen saying when a filing is due reads these two instead. */
+export type RuleInForceToday = NonNullable<ObligationRule["inForceToday"]>;
+export type RuleNextChange = NonNullable<ObligationRule["nextChange"]>;
+
 /** One catalogue service a rule's chain is on (T6.16), named. The catalogue is
  *  the one place a filing meets a service; the library reads this to say
  *  where each rule is used, and the catalogue's picker reads its length. */

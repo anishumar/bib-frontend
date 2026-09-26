@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import type { ObligationRule } from "@/lib/api/client";
+import { longDay, monthYear } from "@/lib/day";
 import { Cluster, Row, Stack } from "@/components/layout";
 import {
   Button,
@@ -215,9 +216,20 @@ export function describeDraft(d: RuleDraft): string {
  * (the picker's options, a service's filings, the confirmation before adding
  * an unconfirmed one) and a third copy is how the wording drifts.
  */
-export function describeRule(rule: ObligationRule): string {
+export function describeRule(rule: Pick<ObligationRule, "recurrence" | "dueRule">): string {
   const every = EVERY[rule.recurrence] ?? rule.recurrence;
-  if (rule.dueRule === null) return every;
+  const due = describeDue(rule);
+  return due === null ? every : `${every} · ${due}`;
+}
+
+/**
+ * Only the due half of `describeRule`: "the 22nd of the following month", or
+ * null when there is no formula. For the line saying what a law change moves
+ * a date TO, where "Every month" again would be noise: a successor keeps its
+ * predecessor's period shape, because the amendment form cannot change it.
+ */
+export function describeDue(rule: Pick<ObligationRule, "recurrence" | "dueRule">): string | null {
+  if (rule.dueRule === null) return null;
 
   // An EVENT rule counts from the event, never from a period: it does not have
   // one. Saying "after the period ends" there would describe a mechanism that
@@ -225,14 +237,63 @@ export function describeRule(rule: ObligationRule): string {
   const from = rule.recurrence === "event" ? "the event" : "the period ends";
 
   if (rule.dueRule.kind === "days_after") {
-    return `${every} · ${String(rule.dueRule.dueDaysAfter ?? 0)} days after ${from}`;
+    return `${String(rule.dueRule.dueDaysAfter ?? 0)} days after ${from}`;
   }
 
   const offset = rule.dueRule.dueMonthOffset ?? 0;
   const day = ordinal(rule.dueRule.dueDayOfMonth ?? 1);
-  if (offset === 0) return `${every} · the ${day} of the month the period ends in`;
-  if (offset === 1) return `${every} · the ${day} of the following month`;
-  return `${every} · the ${day}, ${String(offset)} months after ${from}`;
+  if (offset === 0) return `the ${day} of the month the period ends in`;
+  if (offset === 1) return `the ${day} of the following month`;
+  return `the ${day}, ${String(offset)} months after ${from}`;
+}
+
+/**
+ * What a filing is due on TODAY: the formula of the chain's row that governs
+ * the period containing the firm's today, which the API reads on the firm's
+ * own day (T6.16 follow-up).
+ *
+ * A rule row's own `dueRule` is not that. The catalogue's row for a chain is
+ * its NEWEST row, and after "from April 2027 the law says the 22nd" that is the
+ * successor: the card said September was due on the 22nd while the calendar,
+ * correctly, dated it the 20th. So every place that says when a filing is due
+ * (a service's filings, the picker, the confirmation) says it through this,
+ * and `describeNextChange` says what changes and when. Null from the API means
+ * no row governs today yet; the row itself is then the best there is.
+ */
+export function todayOf(rule: ObligationRule): {
+  readonly dueRule: ObligationRule["dueRule"];
+  readonly exceptions: ObligationRule["exceptions"];
+} {
+  return rule.inForceToday ?? rule;
+}
+
+export function describeToday(rule: ObligationRule): string {
+  return describeRule({ recurrence: rule.recurrence, dueRule: todayOf(rule).dueRule });
+}
+
+/**
+ * The second line after a law change: "From April 2027: the 22nd of the
+ * following month." Null when nothing changes.
+ *
+ * The day is the first PERIOD START the new rule governs, so a 1st names its
+ * month. Any other day is said as a day, "for periods starting from", because
+ * a monthly return's period does not start mid-month and "From April 2027"
+ * would then name a month the old rule still governs.
+ */
+export function describeNextChange(rule: ObligationRule): string | null {
+  const next = rule.nextChange;
+  if (next === null) return null;
+  const when = next.effectiveFrom.endsWith("-01")
+    ? `From ${monthYear(next.effectiveFrom)}`
+    : `For periods starting from ${longDay(next.effectiveFrom)}`;
+  const due = describeDue({ recurrence: rule.recurrence, dueRule: next.dueRule });
+  if (due !== null) return `${when}: ${due}.`;
+  // A successor may be written waiting on a fact; its reason is the firm's
+  // own sentence and is printed as written, as the library prints it.
+  const reason = next.unresolvedReason?.trim() ?? "";
+  return reason === ""
+    ? `${when}: the date is not known yet.`
+    : `${when}: the date is not known yet. ${reason}`;
 }
 
 const EVERY: Record<string, string> = {

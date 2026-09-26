@@ -59,6 +59,26 @@ export function longDay(iso: string): string {
   return `${day} ${name} ${year}`;
 }
 
+const LONG_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/**
+ * A stored calendar day as the MONTH it opens, `April 2027`. Split, like
+ * `longDay`, for the same reason.
+ *
+ * For a day that STARTS a period, which is what a rule's `effectiveFrom` is:
+ * "From April 2027: the 22nd of the following month" is how a partner says a
+ * law change, and "From 01 Apr 2027" reads as though the day itself mattered.
+ * A day that is not the 1st does not name a month and gets `longDay` instead;
+ * the caller decides, because only it knows whether the day starts anything.
+ */
+export function monthYear(iso: string): string {
+  const [year = "", month = ""] = iso.split("-");
+  return `${LONG_MONTHS[Number(month) - 1] ?? month} ${year}`;
+}
+
 /**
  * An INSTANT, printed as the day it fell on WHERE THE READER IS. Parsing is
  * correct here and is the whole difference from `longDay` above: "the firm

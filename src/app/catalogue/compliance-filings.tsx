@@ -25,10 +25,12 @@ import {
   CommandList,
 } from "@/components/shadcn/command";
 import {
-  describeRule,
+  describeNextChange,
+  describeToday,
   draftOf,
   MONTHS,
   RuleEditor,
+  todayOf,
   type RuleDraft,
 } from "../admin/obligation-rules/rule-editor";
 
@@ -351,6 +353,7 @@ function LinkedFiling({
   const about = [...new Set([rule.authority, rule.module].filter((s): s is string => s !== null))].join(
     " · ",
   );
+  const next = describeNextChange(rule);
 
   return (
     <li className="stack tight border-t border-line pt-3">
@@ -359,8 +362,14 @@ function LinkedFiling({
         <Pill tone={standing.tone}>{standing.label}</Pill>
       </div>
       {about !== "" && <p className="text-xs text-muted">{about}</p>}
-      {/* The due rule in the words a partner checks against the statute. */}
-      <p className="mono text-xs">{describeRule(rule)}</p>
+      {/* The due rule in the words a partner checks against the statute, and
+          it is TODAY's: the rule governing the period containing the firm's
+          today, not the chain's newest row. After "the law changed from April
+          2027" the newest row is the successor, and this line said September
+          was due on the 22nd while the calendar dated it the 20th. What
+          changes, and from when, is the line under it. */}
+      <p className="mono text-xs">{describeToday(rule)}</p>
+      {next !== null && <p className="mono text-xs">{next}</p>}
       <p className="text-sm text-muted">{standing.sentence}</p>
       {elsewhere.length > 0 && (
         <p className="text-sm text-muted">
@@ -583,7 +592,15 @@ function AddControls({
                         >
                           <span className="flex min-w-0 flex-col">
                             <span className="text-sm text-ink">{rule.name}</span>
-                            <span className="mono text-xs text-muted">{describeRule(rule)}</span>
+                            {/* Worded as the service's list words it, today's
+                                rule and then what changes, so the option and
+                                the row it becomes say one date. */}
+                            <span className="mono text-xs text-muted">{describeToday(rule)}</span>
+                            {rule.nextChange !== null && (
+                              <span className="mono text-xs text-muted">
+                                {describeNextChange(rule)}
+                              </span>
+                            )}
                             <span className="text-xs text-muted">{optionNote(rule)}</span>
                           </span>
                         </CommandItem>
@@ -613,18 +630,23 @@ function AddControls({
       {pending !== null && (
         <div ref={confirmPanel} tabIndex={-1} className="stack tight">
           <Notice eyebrow="YOU ARE CONFIRMING">
+            {/* TODAY's dates and exceptions, then what changes: the same two
+                lines the service's list will show once it is added. */}
             <p>
-              <strong>{pending.name}</strong>: {describeRule(pending)}.
+              <strong>{pending.name}</strong>: {describeToday(pending)}.
             </p>
-            {pending.exceptions.length > 0 && (
+            {todayOf(pending).exceptions.length > 0 && (
               <p>
                 Except:{" "}
-                {pending.exceptions
-                  .map((e) => `the period ending ${MONTHS[e.periodEndMonth - 1] ?? "?"}, ${e.note}`)
+                {todayOf(pending)
+                  .exceptions.map(
+                    (e) => `the period ending ${MONTHS[e.periodEndMonth - 1] ?? "?"}, ${e.note}`,
+                  )
                   .join("; ")}
                 .
               </p>
             )}
+            {pending.nextChange !== null && <p>{describeNextChange(pending)}</p>}
             <p>
               Nobody at your firm has checked these dates against the law yet. Adding it confirms
               them, and your firm&rsquo;s clients on this service get these filings on the
