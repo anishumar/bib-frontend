@@ -1451,7 +1451,22 @@ per chain with `usedIn` named, and each card finds its own. One request per card
 lookup this file warns about, and the local limit is about 300 a minute. That read is
 `party:read` where the catalogue is `config:read`, so a session refused it gets a sentence on
 every card ("Your role cannot see the firm's compliance filings"), never an empty list that would
-say the service files nothing.
+say the service files nothing. **Only a 403 draws that sentence** (found in review): `?? null` on
+any failure turned a throttled reload into "your role cannot see" on every card for an admin, hid
+the controls, and swallowed the sentence saying what their add had just done. Any other failure
+keeps the list already read, with a warn notice that it may be out of date, or, with no list yet,
+says it could not be read and to reload.
+
+**A refusal is drawn beside the press that caused it, and takes focus** (review, measured with
+Playwright: a refused "Write it and add it to this service" drew its alert 131px ABOVE the
+viewport, over a 900px form, while the button sat at the bottom). The section remembers which act
+was pressed and draws the API's sentence inside the removal's confirmation, inside the adding
+confirmation, just above the new filing's save row (`RuleEditor`'s `refusal` slot), or by the add
+controls for a plain add; `Refusal` focuses it on appearance (`useAppearFocus`), which scrolls it
+into view. The page's `FailureNote` doc already said an error three screens above the button is an
+error nobody reads; the section had drawn it there anyway. **The picker keeps a 16px gutter on a
+phone** (`collisionPadding={16}`): aligned to a trigger 32px in, it ran to the screen's edge and
+lost its right border at 375px.
 
 **The library says where each rule is used.** Every row carries "Used in: *service*" (each a link
 to `/catalogue#service-<key>`) or *"Not used by any service, so it adds nothing to the calendar"*
