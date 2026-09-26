@@ -1503,8 +1503,9 @@ card said GSTR-3B was due on the 22nd while the calendar, correctly, dated Septe
 20th. Every rule row now carries `inForceToday` (the chain's row governing the period containing
 the FIRM's today, read by the API) and `nextChange`, and `rule-editor.tsx` words them once:
 `describeToday` ("Every month · the 20th of the following month") and `describeNextChange` ("From
-April 2027: the 22nd of the following month."; a period start that is not the 1st is said as "For
-periods starting from 15 Apr 2027", because it names no month). The service's list, the picker's
+April 2027: the 22nd of the following month."), which names `nextChange.firstPeriodStart`, the
+start of the first period the new row GOVERNS, never the day the change was recorded from (review,
+below). The service's list, the picker's
 options and the confirmation all use both, so the option and the row it becomes say one date, and
 the confirmation's exceptions are today's row's (a successor inherits none). `monthYear` is in
 `@/lib/day`, split like `longDay`. **The library lists every row of a chain**, each with its own
@@ -1552,6 +1553,41 @@ bar (above), and that `/admin/obligation-rules`' table is wider than a 1440px wi
 Filing column's long reasons set its width, so the When column (and its new lines) starts off to
 the right inside the table's own scroller. That was already true before these follow-ups and is
 left for its own change.
+
+**What review of the follow-ups found (2026-09-26), each watched red in Playwright first:**
+
+- **"From November 2026" for a change that waits for January.** The line named
+  `nextChange.effectiveFrom`, the day the change was recorded from, and the supersede form takes
+  any day: a quarterly rule changed on 1 November read "From November 2026" while October to
+  December was still due under the old rule. The API now sends `firstPeriodStart` (the backend's
+  CLAUDE.md says how it is found) and the line names that, so the same card reads "From January
+  2027". A period start is a 1st; only an event-driven rule, with no period, can start on another
+  day, and that is said as the day.
+- **The pill and the date above it described two different rows.** `standingOf` read the chain's
+  NEWEST row, so after a change waiting on a fact the card said "Every quarter · the 30th", "date
+  not known yet" and "It adds nothing to the calendar" while the confirmed row before it was
+  dating this year's returns. Each chain row now carries its own `coverage`, and `todayOf` returns
+  today's row's coverage and reason with its date, so the pill, the sentence and the picker's
+  "cannot work out a date yet" are all today's. The newest row's standing is the second line's to
+  say: "nothing goes on the calendar, because the rule from then on is retired" for a retired
+  successor, and "once somebody confirms it in the library" for an unticked one. `willConfirm`
+  stays on the newest row on purpose: it predicts what the API does, and a link confirms the
+  chain's newest row.
+- **Arriving from "Edit in the library" left focus on `<body>`.** The pressed link is unmounted
+  by the navigation, so the first Tab went to the page's top and scrolled the row away. The
+  anchored row is `tabIndex={-1}` and the arrival effect focuses it after `scrollBelowBar`, with
+  `preventScroll`; the next Tab is that row's first control. Only an arrival does it, never a
+  reload.
+- **A local refusal sat beside the API's last one.** After a 409 ("already holds a filing
+  named"), emptying the name and pressing again showed both sentences, and on the catalogue the
+  409 came back on a fresh form after Cancel. `RuleEditor` calls `onRefused` when it refuses a
+  save itself; the catalogue forgets which act was refused there (and on toggling or cancelling
+  the form), and the library clears its `ErrorNotice`.
+- **"yet.." on the card**: a firm's reason already ending in a full stop got a second one.
+
+**Changing files under a running `next dev` can lose a route.** Stashing and restoring three files
+for the red run left `/admin/obligation-rules` answering 404 until the page file was touched again.
+It is the "stale dev server" case again, not a bug in the page.
 
 ## The Escalated tab, and the ladder behind it (T4.5)
 

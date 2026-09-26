@@ -274,7 +274,10 @@ export function ComplianceFilings({
             // THE LAST SENTENCE GOES WHEN A NEW ACT STARTS. "13 filings added"
             // left under a form for a different filing, or beside a removal's
             // confirmation, reads as the answer to the thing now on screen.
+            // The last REFUSAL goes too (review): a fresh, empty form opened
+            // after Cancel still showed the 409 the old draft was given.
             setSaid(null);
+            setAct(null);
             if (!writing) setDraft(draftOf(null));
             setWriting((w) => !w);
           }}
@@ -287,10 +290,17 @@ export function ComplianceFilings({
               rule={null}
               busy={working}
               onSave={() => void write()}
-              onCancel={() => { setWriting(false); }}
+              onCancel={() => {
+                setAct(null);
+                setWriting(false);
+              }}
               saveLabel="Write it and add it to this service"
               cancelLabel={`Cancel the new filing for ${service.name}`}
               refusal={<Refusal note={refusedAt("write")} />}
+              // The form's own refusal replaces the API's: that one answered
+              // the body before this edit, and the two side by side read as
+              // two reasons for one press.
+              onRefused={() => { setAct(null); }}
             />
           }
         />
@@ -746,6 +756,12 @@ function carries(rule: ObligationRule, serviceId: string): boolean {
  * that is active, unconfirmed, has a formula and is not event-driven. A rule
  * still waiting on a fact has no date to confirm, so adding it confirms
  * nothing, and the screen must not claim it did.
+ *
+ * Read off THIS row, the chain's newest, and not today's (review asked; kept):
+ * the link confirms the chain's newest row, so this is a prediction of what
+ * the API will do, and reading today's row would mispredict it after a law
+ * change. What the confirmation panel shows is today's dates AND the change,
+ * so the row being confirmed is on it.
  */
 function willConfirm(rule: ObligationRule): boolean {
   return (
@@ -757,21 +773,29 @@ function willConfirm(rule: ObligationRule): boolean {
 }
 
 /** The option's second line: how widely it is used, and what adding it will
- *  do when that is not simply "its filings arrive". */
+ *  do when that is not simply "its filings arrive". "Cannot work out a date"
+ *  is TODAY's row's (review): it sits under today's date, and after a law
+ *  change waiting on a fact it contradicted "the 20th" printed above it. */
 function optionNote(rule: ObligationRule): string {
   const used =
     rule.usedIn.length === 0
       ? "Not used by any service yet"
       : `Used in ${String(rule.usedIn.length)} ${rule.usedIn.length === 1 ? "service" : "services"}`;
   if (willConfirm(rule)) return `${used} · not confirmed yet, adding it confirms it`;
-  if (rule.dueRule === null) return `${used} · cannot work out a date yet`;
+  if (todayOf(rule).dueRule === null) return `${used} · cannot work out a date yet`;
   if (rule.recurrence === "event") return `${used} · due when something happens`;
   return used;
 }
 
-/** What a filing on this service is doing, as a pill and a sentence. */
+/**
+ * What a filing on this service is doing TODAY, as a pill and a sentence: the
+ * standing of the row governing today's periods, the same row whose date the
+ * line above it prints (review). The newest row's own standing is what the
+ * "From April 2027" line says, in its own words.
+ */
 function standingOf(rule: ObligationRule): { tone: PillTone; label: string; sentence: string } {
-  switch (rule.coverage) {
+  const today = todayOf(rule);
+  switch (today.coverage) {
     case "generating":
       return {
         tone: "ok",
@@ -783,7 +807,9 @@ function standingOf(rule: ObligationRule): { tone: PillTone; label: string; sent
         tone: "warn",
         label: "date not known yet",
         sentence:
-          `Date not known yet: ${rule.unresolvedReason ?? "it cannot work out a date"}. ` +
+          // The reason is the firm's own sentence and often ends in a full
+          // stop already: "yet.." on the card was found by the review walk.
+          `Date not known yet: ${(today.unresolvedReason ?? "it cannot work out a date").replace(/\.$/, "")}. ` +
           "It adds nothing to the calendar until somebody answers it in the library.",
       };
     case "event_driven":

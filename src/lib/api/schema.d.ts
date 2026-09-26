@@ -16372,13 +16372,19 @@ export interface components {
              * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
              */
             ruleId: string;
-            /** @description The first period start this row does NOT govern, or null when nothing replaces it. */
+            /** @description The day this row stops, as recorded, or null when nothing replaces it. A period that STARTS on or after it is not this row's; one that started before it still is, so a quarter already running when the law changes stays with this row. */
             effectiveTo: string | null;
             dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            /** @description Present exactly when this row has no due formula: what it is still waiting for, in the firm's own words, shown in place of a date. */
             unresolvedReason: string | null;
             /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
             exceptions: components["schemas"]["ObligationException"][];
-            /** @description The first period start this row governs; null means from the beginning. */
+            /**
+             * @description What THIS row is doing, judged as the rule's own coverage is, with the chain's services: 'generating' when the calendar dates the periods it governs, 'retired' when it dates none of them, and so on. After a law change it can differ from the rule's own coverage, which is the newest row's, so a screen saying what today's filings are doing reads this.
+             * @enum {string}
+             */
+            coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
+            /** @description The day this row starts, as recorded; null means from the beginning. It governs the periods that START on or after it. */
             effectiveFrom: string | null;
         } | null;
         /** @description The row that takes over after today's period, when a law change has been recorded for a later day. Null when nothing changes. */
@@ -16388,14 +16394,22 @@ export interface components {
              * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
              */
             ruleId: string;
-            /** @description The first period start this row does NOT govern, or null when nothing replaces it. */
+            /** @description The day this row stops, as recorded, or null when nothing replaces it. A period that STARTS on or after it is not this row's; one that started before it still is, so a quarter already running when the law changes stays with this row. */
             effectiveTo: string | null;
             dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            /** @description Present exactly when this row has no due formula: what it is still waiting for, in the firm's own words, shown in place of a date. */
             unresolvedReason: string | null;
             /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
             exceptions: components["schemas"]["ObligationException"][];
-            /** @description The first period start the new row governs, as YYYY-MM-DD: the day to name in 'From April 2027: the 22nd of the following month'. */
+            /**
+             * @description What THIS row is doing, judged as the rule's own coverage is, with the chain's services: 'generating' when the calendar dates the periods it governs, 'retired' when it dates none of them, and so on. After a law change it can differ from the rule's own coverage, which is the newest row's, so a screen saying what today's filings are doing reads this.
+             * @enum {string}
+             */
+            coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
+            /** @description The day the change was recorded to take effect from, as YYYY-MM-DD. It can fall inside a period the old row still governs; firstPeriodStart is when the new row takes over. */
             effectiveFrom: string;
+            /** @description The start of the first period the new row governs, as YYYY-MM-DD, found the way the calendar dates periods: the day to name in 'From April 2027: the 22nd of the following month'. For a quarterly rule changed on 1 August it is 1 October, because the July to September quarter is still the old rule's. */
+            firstPeriodStart: string;
         } | null;
         ObligationRule: {
             /** Format: uuid */

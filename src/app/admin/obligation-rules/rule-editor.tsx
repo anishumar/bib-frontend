@@ -305,7 +305,14 @@ export function describeDue(rule: Pick<ObligationRule, "recurrence" | "dueRule">
 export function todayOf(rule: ObligationRule): {
   readonly dueRule: ObligationRule["dueRule"];
   readonly exceptions: ObligationRule["exceptions"];
+  readonly coverage: ObligationRule["coverage"];
+  readonly unresolvedReason: ObligationRule["unresolvedReason"];
 } {
+  // COVERAGE TOO (review): a pill read off the newest row said "date not
+  // known yet" for a successor waiting on a fact, beside today's 20th, while
+  // the confirmed row before it was putting this year's returns on the
+  // calendar. The API judges each row of the chain, so the pill and the
+  // date above it describe one row.
   return rule.inForceToday ?? rule;
 }
 
@@ -317,18 +324,30 @@ export function describeToday(rule: ObligationRule): string {
  * The second line after a law change: "From April 2027: the 22nd of the
  * following month." Null when nothing changes.
  *
- * The day is the first PERIOD START the new rule governs, so a 1st names its
- * month. Any other day is said as a day, "for periods starting from", because
- * a monthly return's period does not start mid-month and "From April 2027"
- * would then name a month the old rule still governs.
+ * The day is `firstPeriodStart`, the start of the first period the new rule
+ * GOVERNS, which the API works out the way the calendar dates periods. Not
+ * `effectiveFrom`, the day the change was recorded from (review): a
+ * quarterly rule changed on 1 August printed "From August 2026" in September,
+ * while the July to September quarter was still due under the old rule. A
+ * period start is a 1st and names its month; only an event-driven rule, which
+ * has no period, can start on another day, and that is said as the day.
  */
 export function describeNextChange(rule: ObligationRule): string | null {
   const next = rule.nextChange;
   if (next === null) return null;
-  const when = next.effectiveFrom.endsWith("-01")
-    ? `From ${monthYear(next.effectiveFrom)}`
-    : `For periods starting from ${longDay(next.effectiveFrom)}`;
+  const when = next.firstPeriodStart.endsWith("-01")
+    ? `From ${monthYear(next.firstPeriodStart)}`
+    : `From ${longDay(next.firstPeriodStart)}`;
+  // WHAT THE NEW ROW DOES, not only its formula (review). A retired successor
+  // dates nothing from then on, and one nobody has confirmed dates nothing
+  // until somebody does; printing its formula alone promised both.
+  if (next.coverage === "retired") {
+    return `${when}: nothing goes on the calendar, because the rule from then on is retired.`;
+  }
   const due = describeDue({ recurrence: rule.recurrence, dueRule: next.dueRule });
+  if (due !== null && next.coverage === "unconfirmed") {
+    return `${when}: ${due}, once somebody confirms it in the library.`;
+  }
   if (due !== null) return `${when}: ${due}.`;
   // A successor may be written waiting on a fact; its reason is the firm's
   // own sentence and is printed as written, as the library prints it.
@@ -379,6 +398,7 @@ export function RuleEditor({
   saveLabel,
   cancelLabel,
   refusal,
+  onRefused,
 }: {
   draft: RuleDraft;
   onChange: (next: RuleDraft) => void;
@@ -400,6 +420,10 @@ export function RuleEditor({
    *  the button that was pressed. The catalogue passes one: its form is
    *  about 900px tall, and a refusal drawn above it was off screen. */
   refusal?: ReactNode;
+  /** This form refused a save itself, before any call. The page clears the
+   *  API's last refusal here: it answered a different body, and left beside
+   *  "Give the filing a name" it read as a second reason (review). */
+  onRefused?: () => void;
 }) {
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]): void => {
     onChange({ ...draft, [key]: value });
@@ -452,6 +476,7 @@ export function RuleEditor({
     if (Object.keys(problems).length > 0) {
       setCheckedFor(formKey);
       setAttempt((n) => n + 1);
+      onRefused?.();
       return;
     }
     onSave();

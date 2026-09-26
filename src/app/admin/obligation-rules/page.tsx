@@ -229,8 +229,20 @@ function Rules() {
   // Below the sticky top bar, the catalogue's own finding (`scrollBelowBar`):
   // the row's name is what the reader came to see, and a plain jump puts it
   // under the bar. Runs after the render that drew the arrived chain's rows.
+  //
+  // AND FOCUS GOES THERE (review, measured). The link pressed in the catalogue
+  // is unmounted by the navigation, so focus fell to <body>: the first Tab
+  // went to the top of the page and scrolled the row away, and reaching the
+  // row by keyboard meant tabbing through every earlier row's controls. The
+  // row itself takes focus (`tabIndex={-1}`, not a stop of its own), without
+  // a second scroll, so the next Tab is its first control. Only on an ARRIVAL:
+  // a reload after a write never sets one.
   useEffect(() => {
-    if (arrival !== null) scrollBelowBar(`rule-${arrival.lineageId}`);
+    if (arrival === null) return;
+    const row = document.getElementById(`rule-${arrival.lineageId}`);
+    if (row === null) return;
+    scrollBelowBar(row);
+    row.focus({ preventScroll: true });
   }, [arrival]);
 
   const mayWrite = permissions.includes("tenant:admin");
@@ -601,6 +613,9 @@ function Rules() {
                 busy={busy}
                 onSave={() => void create()}
                 onCancel={() => { setCreating(false); }}
+                // The form's own refusal replaces the page's last one, which
+                // answered a different body (review).
+                onRefused={() => { setError(null); }}
               />
             )}
 
@@ -675,6 +690,7 @@ function Rules() {
                   busy={busy}
                   onSave={() => void patch(open.id, bodyOf(draft), "Saved.")}
                   onCancel={() => { setEditing(null); }}
+                  onRefused={() => { setError(null); }}
                 />
                 <Exceptions
                   rule={open}
@@ -766,6 +782,9 @@ function RuleRow({
   return (
     <tr
       id={anchor ?? undefined}
+      // Focusable by script only, so an arrival can put focus on the row
+      // without adding a Tab stop to every row of the table.
+      tabIndex={anchor === null ? undefined : -1}
       data-arrived={arrived ? "true" : undefined}
       style={rule.isActive ? undefined : { opacity: 0.55 }}
     >
