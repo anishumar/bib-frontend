@@ -463,6 +463,10 @@ function AddControls({
             <PopoverContent
               className="w-96 max-w-[calc(100vw_-_2rem)] p-0"
               align="start"
+              /* THE PHONE'S SIDE GUTTER. Aligned to a trigger 32px in, the
+                 list ran to the screen's edge and lost its right border on a
+                 375px phone; Radix shifts it back inside a 16px margin. */
+              collisionPadding={16}
               onCloseAutoFocus={(event) => {
                 if (confirmingNext.current) {
                   confirmingNext.current = false;
