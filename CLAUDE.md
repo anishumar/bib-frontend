@@ -1470,7 +1470,10 @@ another country is written on the service; `rules_unconfirmed` still goes to the
 adding a filing confirms it and this state means somebody unticked it there.
 
 **What walking it found.** "GST · GST" under every GST filing (the pack names both the authority
-and the grouping "GST"), now said once; the stale sentence above; and a smoke firm whose companies
+and the grouping "GST"), now said once; the stale sentence above; a "Used in" link that landed
+with the card's own name UNDER the sticky top bar, the one thing the reader came to see, so both
+the deep link and the in-page anchors go through `showService`, which measures the bar; and a
+smoke firm whose companies
 were never registered in a country, so every add answered "no new filings" until one was. That
 last one is the coverage tab's `entity_not_registered` reason working as designed, and it is why
 the walk registered a company before measuring the counts.
