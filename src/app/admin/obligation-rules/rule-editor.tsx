@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { ObligationRule } from "@/lib/api/client";
 import { longDay, monthYear } from "@/lib/day";
@@ -16,6 +16,7 @@ import {
   Input,
   Notice,
   Radio,
+  scrollBelowBar,
   Select,
   Table,
   Td,
@@ -174,6 +175,47 @@ export function createBodyOf(d: RuleDraft): Record<string, unknown> {
     rulePack: d.rulePack.trim(),
     leadTimeDays: 0,
   };
+}
+
+/** A field of the draft and what is wrong with it, in words. */
+type Problems = Partial<Record<keyof RuleDraft, string>>;
+
+/**
+ * What the API would refuse in this draft, said beside the field BEFORE any
+ * call (T6.16 follow-up).
+ *
+ * An empty name reached the API from "Write a new filing" and came back as
+ * zod's own sentence, "name: String must contain at least 1 character(s)",
+ * which is a developer's words on a partner's screen. So every field the body
+ * above REQUIRES is checked here, in the terms the request schema uses (a
+ * name and a pack of at least one character, a two-letter country, a day of
+ * the month from 1 to 31, and a reason when there is no formula), and the
+ * sentence says what to type. The API still refuses regardless; what it
+ * refuses for reasons only it can know (the name already taken in that pack)
+ * still arrives in the `refusal` slot.
+ *
+ * The three identity fields are checked only while CREATING, because an edit
+ * does not send them. The counts need no check: `intOf` floors them already.
+ */
+function problemsOf(d: RuleDraft, creating: boolean): Problems {
+  const out: Problems = {};
+  if (creating) {
+    if (d.name.trim() === "") out.name = "Give the filing a name, for example GSTR-3B.";
+    if (!/^[A-Za-z]{2}$/.test(d.jurisdiction.trim())) {
+      out.jurisdiction = "Give the country as its two-letter code, for example IN for India.";
+    }
+    if (d.rulePack.trim() === "") {
+      out.rulePack = `Give the rule pack a name. Your firm's own is ${firmRulePack()}.`;
+    }
+  }
+  if (d.hasFormula && d.kind === "day_of_month" && (d.dueDayOfMonth < 1 || d.dueDayOfMonth > 31)) {
+    out.dueDayOfMonth = "Give a day of the month from 1 to 31.";
+  }
+  if (!d.hasFormula && d.unresolvedReason.trim() === "") {
+    out.unresolvedReason =
+      "Say what the date is waiting for, for example the date of the AGM, or choose that this rule computes a date.";
+  }
+  return out;
 }
 
 /**
@@ -380,19 +422,54 @@ export function RuleEditor({
   // one card would untick it on the other.
   const group = `formula-${rule?.id ?? noteId}`;
 
+  // THE CHECK BEFORE THE CALL. Nothing is said until a save is pressed, so a
+  // form opening empty is not a form opening red; after that, each sentence
+  // goes the moment its field is fixed. Remembered PER FORM (the rule's id, or
+  // "new"), because the library keeps one editor mounted while a partner moves
+  // from rule to rule, and one rule's refusal must not appear on the next.
+  const formKey = rule?.id ?? "new";
+  const [checkedFor, setCheckedFor] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const problems = problemsOf(draft, creating);
+  const shown: Problems = checkedFor === formKey ? problems : {};
+
+  // FOCUS THE FIRST REFUSED FIELD, below the sticky bar. The save row is at
+  // the bottom of a form about 900px tall and the name box at its top, so a
+  // sentence drawn beside the name is off screen from the button that was
+  // pressed; moving focus there is what brings it into view, and `focus()`'s
+  // own scroll would park the field's label under the bar. Every press moves
+  // it again, so a second press on an unchanged form is not a dead button.
+  useEffect(() => {
+    if (attempt === 0) return;
+    const first = box.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (first === null || first === undefined) return;
+    scrollBelowBar(first.closest(".field") ?? first);
+    first.focus({ preventScroll: true });
+  }, [attempt]);
+
+  const save = (): void => {
+    if (Object.keys(problems).length > 0) {
+      setCheckedFor(formKey);
+      setAttempt((n) => n + 1);
+      return;
+    }
+    onSave();
+  };
+
   const form = (
     <Stack>
       {creating && (
         <>
           <FieldRow>
-            <Field label="Filing">
+            <Field label="Filing" error={shown.name ?? null}>
               <Input
                 value={draft.name}
                 placeholder="PF monthly return"
                 onChange={(e) => { set("name", e.target.value); }}
               />
             </Field>
-            <Field label="Country">
+            <Field label="Country" error={shown.jurisdiction ?? null}>
               <Input
                 value={draft.jurisdiction}
                 maxLength={2}
@@ -400,7 +477,7 @@ export function RuleEditor({
                 onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
               />
             </Field>
-            <Field label="Rule pack">
+            <Field label="Rule pack" error={shown.rulePack ?? null}>
               <Input
                 value={draft.rulePack}
                 onChange={(e) => { set("rulePack", e.target.value); }}
@@ -497,7 +574,7 @@ export function RuleEditor({
               </Field>
               {draft.kind === "day_of_month" ? (
                 <>
-                  <Field label="Day of the month">
+                  <Field label="Day of the month" error={shown.dueDayOfMonth ?? null}>
                     <Input
                       inputMode="numeric"
                       value={String(draft.dueDayOfMonth)}
@@ -532,7 +609,7 @@ export function RuleEditor({
             onChange={() => { set("hasFormula", false); }}
           />
           {!draft.hasFormula && (
-            <Field label="What it is waiting for">
+            <Field label="What it is waiting for" error={shown.unresolvedReason ?? null}>
               <Input
                 value={draft.unresolvedReason}
                 placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
@@ -585,7 +662,7 @@ export function RuleEditor({
 
       {refusal}
       <Cluster>
-        <Button onClick={onSave} loading={busy}>
+        <Button onClick={save} loading={busy}>
           {saveLabel ?? (creating ? "Write the rule" : "Save the formula")}
         </Button>
         <Button
@@ -611,7 +688,11 @@ export function RuleEditor({
     </Stack>
   );
 
-  return bare ? form : <Card>{form}</Card>;
+  // The wrapper is what the refused-field search looks inside: a page holds a
+  // form like this on every service card, and the first refused field is this
+  // form's, not the page's.
+  const boxed = <div ref={box}>{form}</div>;
+  return bare ? boxed : <Card>{boxed}</Card>;
 }
 
 /**
