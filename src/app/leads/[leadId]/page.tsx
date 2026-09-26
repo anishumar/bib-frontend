@@ -26,6 +26,8 @@ import {
   ErrorNotice,
   Field,
   FieldRow,
+  FieldStack,
+  Input,
   LinkButton,
   Meta,
   MetaItem,
@@ -42,6 +44,15 @@ import {
 import { Empty, Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { longInstant, longMoment } from "@/lib/day";
+import { CountrySelect } from "@/components/country-select";
+import { countryName } from "@/lib/country";
+import { cleanAmount, previewAmount } from "@/lib/money";
+
+/** "500000.00" as somebody would type it back: the API's two places are
+ *  noise in an edit box when there are no paise. */
+function editable(amount: string): string {
+  return amount.endsWith(".00") ? amount.slice(0, -3) : amount;
+}
 
 /**
  * One opportunity, and everything that happened to it.
@@ -96,6 +107,30 @@ function sentenceFor(event: EventRecord["event"]): string {
       return "A second capture was merged into this opportunity";
     case "lead.stage_changed":
       return from !== null && to !== null ? `Moved from ${from} to ${to}` : "Moved";
+    case "lead.details_changed": {
+      // Both sides travel in the payload, so the sentence can say what moved
+      // without a second read. Only what CHANGED is named.
+      const parts: string[] = [];
+      const cFrom = p["jurisdictionFrom"];
+      const cTo = p["jurisdictionTo"];
+      if (cFrom !== cTo) {
+        parts.push(
+          typeof cTo === "string" ? `Country set to ${countryName(cTo)}` : "Country cleared",
+        );
+      }
+      const vFrom = p["estimatedValueFrom"];
+      const vTo = p["estimatedValueTo"];
+      const currency = typeof p["currency"] === "string" ? p["currency"] : null;
+      if (vFrom !== vTo) {
+        parts.push(
+          typeof vTo === "string" && currency !== null
+            ? `value set to ${formatMoney(vTo, currency)}`
+            : "value cleared",
+        );
+      }
+      const said = parts.join(", ");
+      return said === "" ? "Details changed" : said.charAt(0).toUpperCase() + said.slice(1);
+    }
     case "lead.owner_assigned":
       // WHO is not in the sentence on purpose: the payload carries a user id,
       // and resolving it to a name here would mean a second read per row for a
@@ -124,6 +159,9 @@ export default function LeadPage() {
    *  a close with no reason and firing first would report an error the reader
    *  could not have avoided. The same shape as the list, for the same reason. */
   const [closing, setClosing] = useState<LeadStage | null>(null);
+  /** What the value box says, for the preview under it. Null until touched,
+   *  so the preview starts from the saved value. */
+  const [typedValue, setTypedValue] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     const [one, roster, quotes, history] = await Promise.all([
@@ -198,6 +236,24 @@ export default function LeadPage() {
     });
   }
 
+  function saveDetails(form: FormData): void {
+    const jurisdiction = String(form.get("jurisdiction") ?? "");
+    const estimatedValue = cleanAmount(String(form.get("estimatedValue") ?? ""));
+    void act("Country and value saved.", async () => {
+      const result = await api.PUT("/api/v1/leads/{leadId}/details", {
+        params: { path: { leadId } },
+        // BOTH are sent every time: the route replaces the pair, and a blank
+        // box is "not known", which is null on the wire.
+        body: {
+          jurisdiction: jurisdiction === "" ? null : jurisdiction,
+          estimatedValue: estimatedValue === "" ? null : estimatedValue,
+        },
+      });
+      if (!result.error) setTypedValue(null);
+      return result;
+    });
+  }
+
   if (!loaded) return <Loading label="Loading the opportunity" />;
   if (record === null) {
     return (
@@ -253,7 +309,20 @@ export default function LeadPage() {
             {/* Null is ORDINARY here — often nobody knows at capture — and an
                 unknown country matches no territory rule, which is why the
                 assignment rotation covers it. */}
-            {lead.jurisdiction ?? <NotStated>not known</NotStated>}
+            {lead.jurisdiction === null ? (
+              <NotStated>not known</NotStated>
+            ) : (
+              countryName(lead.jurisdiction)
+            )}
+          </MetaItem>
+          <MetaItem label="Could be worth">
+            {lead.estimatedValue === null ? (
+              <NotStated>not set</NotStated>
+            ) : (
+              <span className="num">
+                {formatMoney(lead.estimatedValue.amount, lead.estimatedValue.currency)}
+              </span>
+            )}
           </MetaItem>
           {/* An INSTANT, parsed: `capturedAt` is a timestamptz and the day it
               fell on where the reader is standing is the answer they want. */}
@@ -287,6 +356,58 @@ export default function LeadPage() {
         ) : (
           <p style={{ whiteSpace: "pre-wrap", maxWidth: "62ch" }}>{lead.notes}</p>
         )}
+      </Card>
+
+      {/* Open AND closed: what a deal was worth is worth correcting after it
+          closes, and the API allows it for that reason. The key remounts the
+          form on a save, so its boxes start from what was just stored. */}
+      <Card>
+        <CardTitle level={2}>Country and value</CardTitle>
+        <form
+          key={`${lead.jurisdiction ?? ""}|${lead.estimatedValue?.amount ?? ""}`}
+          action={(form) => {
+            saveDetails(form);
+          }}
+        >
+          <FieldStack>
+            <FieldRow>
+              <Field
+                label="Country"
+                hint="Where the prospect is. Changing it does not move the opportunity to another desk."
+              >
+                <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
+              </Field>
+              <Field
+                label="Could be worth"
+                hint={
+                  previewAmount(
+                    cleanAmount(
+                      typedValue ??
+                        (lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)),
+                    ),
+                  ) ?? "Your best estimate in the firm's currency. Numbers only. Leave it blank if nobody knows."
+                }
+              >
+                <Input
+                  name="estimatedValue"
+                  inputMode="decimal"
+                  placeholder="500000"
+                  defaultValue={
+                    lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)
+                  }
+                  onChange={(e) => {
+                    setTypedValue(e.target.value);
+                  }}
+                />
+              </Field>
+            </FieldRow>
+            <div className="cluster">
+              <Button type="submit" disabled={busy}>
+                Save
+              </Button>
+            </div>
+          </FieldStack>
+        </form>
       </Card>
 
       {closed ? (

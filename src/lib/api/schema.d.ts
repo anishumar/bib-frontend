@@ -11324,6 +11324,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/leads/{leadId}/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say where the prospect is and what the opportunity could be worth
+         * @description Replaces both. Idempotent: sending what the lead already says records nothing. Allowed on a closed lead, because correcting what a deal was worth changes no pipeline state.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    leadId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLeadDetailsRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Lead"];
+                    };
+                };
+                /** @description Not a country code in upper case, or not a plain amount */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such lead in this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/territory-rules": {
         parameters: {
             query?: never;
@@ -18526,6 +18607,12 @@ export interface components {
             lostReason: string | null;
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2. Null is ordinary — often nobody knows at capture — and an unknown country matches no territory rule, so the assignment rotation covers it. It is also the answer a proposal drafted from this lead needs for `clientJurisdiction`, which decides which of the firm's entities contracts. */
             jurisdiction: string | null;
+            /** @description What the opportunity could be worth: an ESTIMATE written at capture or later, not a quote (the quote is the proposal). In the firm's reporting currency, so every lead in a firm compares with every other. Null when nobody has said. */
+            estimatedValue: {
+                /** @description A decimal string, two places. */
+                amount: string;
+                currency: string;
+            } | null;
             capturedAt: string;
             closedAt: string | null;
         };
@@ -18564,6 +18651,11 @@ export interface components {
             notes?: string;
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2 in UPPER CASE. Optional — often nobody knows at capture, and a capture is never refused for it. Demanded in canonical case rather than normalised, because it is compared against the firm's territory rules. */
             jurisdiction?: string;
+            /**
+             * @description What the opportunity could be worth, as a decimal string with no commas or currency sign, in the firm's reporting currency. Optional. Like `notes`, a capture that MERGES onto a live opportunity does not apply it.
+             * @example 500000
+             */
+            estimatedValue?: string;
         };
         LeadRecord: {
             lead: components["schemas"]["Lead"];
@@ -18594,6 +18686,15 @@ export interface components {
         AssignLeadOwnerRequest: {
             /** Format: uuid */
             ownerUserId: string | null;
+        };
+        SetLeadDetailsRequest: {
+            /** @description Where the prospect is, ISO 3166-1 alpha-2 in UPPER CASE, or null for not known. Changing it does NOT reassign the lead: territory decides a desk at capture only. */
+            jurisdiction: string | null;
+            /**
+             * @description What the opportunity could be worth, as a decimal string in the firm's reporting currency, or null for not known.
+             * @example 500000
+             */
+            estimatedValue: string | null;
         };
         TerritoryRule: {
             /** Format: uuid */

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,6 +9,7 @@ import {
   LEAD_SOURCES,
   LEAD_STAGES,
   colleagueLabel,
+  formatMoney,
   recordsLostReason,
   TERMINAL_STAGES,
 } from "@/lib/api/client";
@@ -32,6 +33,48 @@ import {
 } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longInstant } from "@/lib/day";
+import { CountrySelect } from "@/components/country-select";
+import { countryName } from "@/lib/country";
+import { cleanAmount, fromMinorUnits, previewAmount, toMinorUnits } from "@/lib/money";
+
+/**
+ * A value box in the filter: blank is "no bound", a plain amount is a bound,
+ * and anything else is said to be wrong rather than silently ignored — a
+ * filter that quietly drops a bound shows a list that looks filtered and is
+ * not.
+ */
+function valueBound(raw: string): { units: bigint | null; bad: boolean } {
+  const cleaned = cleanAmount(raw);
+  if (cleaned === "") return { units: null, bad: false };
+  const units = toMinorUnits(cleaned);
+  return units === null ? { units: null, bad: true } : { units, bad: false };
+}
+
+/** The stage filter: every stage, all open, all closed, or exactly one. */
+type StageFilter = "" | "open" | "closed" | LeadStage;
+
+/** A lead's country, for a table cell: the name, with the code on hover. */
+function CountryCell({ code }: { code: string | null }) {
+  return code === null ? (
+    <span className="muted">not known</span>
+  ) : (
+    <span title={code}>{countryName(code)}</span>
+  );
+}
+
+/** A lead's estimate, for a table cell — right-aligned and tabular so a
+ *  column of amounts can be read down. */
+function ValueCell({ value }: { value: LeadRecord["lead"]["estimatedValue"] }) {
+  return (
+    <Td align="right" className="num">
+      {value === null ? (
+        <span className="muted">not set</span>
+      ) : (
+        formatMoney(value.amount, value.currency)
+      )}
+    </Td>
+  );
+}
 
 /**
  * The pipeline.
@@ -68,6 +111,16 @@ export default function LeadsPage() {
   // close without a reason and a screen that fired the request first would
   // report an error the user could not have avoided.
   const [closing, setClosing] = useState<{ leadId: string; stage: LeadStage } | null>(null);
+  // THE FILTERS. Applied here, to the list the API already returned whole,
+  // rather than as query parameters: the pipeline comes back in one read (see
+  // MAX_LIST_ROWS on the API), so filtering is instant and a partner can try
+  // three bounds in a row without three round trips.
+  const [stageFilter, setStageFilter] = useState<StageFilter>("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [minValue, setMinValue] = useState("");
+  const [maxValue, setMaxValue] = useState("");
+  // What the capture form's value box says, for the preview under it.
+  const [captureValue, setCaptureValue] = useState("");
 
   const load = useCallback(async (): Promise<void> => {
     const [pipeline, roster] = await Promise.all([
@@ -218,6 +271,10 @@ export default function LeadsPage() {
     const identifiers = (["email", "phone", "pan"] as const)
       .map((type) => ({ type, value: String(form.get(type) ?? "").trim() }))
       .filter((i) => i.value !== "");
+    // Both optional, and a blank one is SENT AS ABSENT: an unknown country and
+    // an unknown value are real answers at capture, never a reason to refuse.
+    const jurisdiction = String(form.get("jurisdiction") ?? "");
+    const estimatedValue = cleanAmount(String(form.get("estimatedValue") ?? ""));
 
     const result = await api.POST("/api/v1/leads", {
       // The day the contact details are in force from: today where you are.
@@ -231,6 +288,8 @@ export default function LeadsPage() {
         // same company twice, because the party's name was all a row had.
         title: String(form.get("title")).trim(),
         identifiers,
+        ...(jurisdiction === "" ? {} : { jurisdiction }),
+        ...(estimatedValue === "" ? {} : { estimatedValue }),
       },
     });
     setBusy(null);
@@ -238,6 +297,9 @@ export default function LeadsPage() {
       setError(apiError(result.error).message);
       return;
     }
+    // The form clears itself after its action; the preview under the value
+    // box would otherwise go on describing a number that is no longer there.
+    setCaptureValue("");
     // 201 created something; 200 landed on what was already there. Saying so is
     // the whole point of capture answering two codes.
     setNote(
@@ -256,10 +318,59 @@ export default function LeadsPage() {
     await load();
   }
 
+  const min = valueBound(minValue);
+  const max = valueBound(maxValue);
+  const valueFiltered = min.units !== null || max.units !== null;
+  const filtering = stageFilter !== "" || countryFilter !== "" || minValue !== "" || maxValue !== "";
+
+  function matches(l: LeadRecord): boolean {
+    const isClosed = TERMINAL_STAGES.includes(l.lead.stage);
+    if (stageFilter === "open" && isClosed) return false;
+    if (stageFilter === "closed" && !isClosed) return false;
+    if (stageFilter !== "" && stageFilter !== "open" && stageFilter !== "closed") {
+      if (l.lead.stage !== stageFilter) return false;
+    }
+    if (countryFilter === "none" && l.lead.jurisdiction !== null) return false;
+    if (countryFilter !== "" && countryFilter !== "none" && l.lead.jurisdiction !== countryFilter) {
+      return false;
+    }
+    if (valueFiltered) {
+      // A lead with no value cannot be "at least" anything, so a value bound
+      // hides it — and the count line below says so, so it is not a mystery.
+      const v =
+        l.lead.estimatedValue === null ? null : toMinorUnits(l.lead.estimatedValue.amount);
+      if (v === null) return false;
+      if (min.units !== null && v < min.units) return false;
+      if (max.units !== null && v > max.units) return false;
+    }
+    return true;
+  }
+
   if (!loaded) return <p className="muted">Loading…</p>;
 
   const open = leads.filter((l) => !TERMINAL_STAGES.includes(l.lead.stage));
   const closed = leads.filter((l) => TERMINAL_STAGES.includes(l.lead.stage));
+  const shownOpen = open.filter(matches);
+  const shownClosed = closed.filter(matches);
+  // A stage filter that can only match one card hides the other, rather than
+  // leaving an empty "Open" above the lost leads somebody asked for.
+  const onlyClosed =
+    stageFilter === "closed" || (stageFilter !== "" && TERMINAL_STAGES.includes(stageFilter as LeadStage));
+  const onlyOpen =
+    stageFilter === "open" ||
+    (stageFilter !== "" && stageFilter !== "closed" && !TERMINAL_STAGES.includes(stageFilter as LeadStage));
+
+  // What the open opportunities on screen could be worth, added in exact
+  // minor units and grouped by currency — one line per currency, never a sum
+  // across two.
+  const openTotals = new Map<string, bigint>();
+  for (const l of shownOpen) {
+    const v = l.lead.estimatedValue;
+    const units = v === null ? null : toMinorUnits(v.amount);
+    if (v === null || units === null) continue;
+    openTotals.set(v.currency, (openTotals.get(v.currency) ?? BigInt(0)) + units);
+  }
+  const unvaluedOpen = shownOpen.filter((l) => l.lead.estimatedValue === null).length;
 
   return (
     <Page>
@@ -280,25 +391,127 @@ export default function LeadsPage() {
         </p>
       )}
 
+      {leads.length > 0 && (
+        <Card>
+          <CardTitle level={2}>Filter</CardTitle>
+          <FieldStack>
+            <FieldRow>
+              <Field label="Stage">
+                <Select
+                  value={stageFilter}
+                  onChange={(e) => {
+                    setStageFilter(e.target.value as StageFilter);
+                  }}
+                >
+                  <option value="">Every stage</option>
+                  <option value="open">Open only</option>
+                  <option value="closed">Closed only</option>
+                  {LEAD_STAGES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Country">
+                <CountryFilter
+                  leads={leads}
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                />
+              </Field>
+              <Field
+                label="Value at least"
+                error={min.bad ? "Numbers only, like 500000." : null}
+                hint={min.units === null ? undefined : previewAmount(fromMinorUnits(min.units))}
+              >
+                <Input
+                  inputMode="decimal"
+                  value={minValue}
+                  placeholder="100000"
+                  onChange={(e) => {
+                    setMinValue(e.target.value);
+                  }}
+                />
+              </Field>
+              <Field
+                label="Value at most"
+                error={max.bad ? "Numbers only, like 2500000." : null}
+                hint={max.units === null ? undefined : previewAmount(fromMinorUnits(max.units))}
+              >
+                <Input
+                  inputMode="decimal"
+                  value={maxValue}
+                  placeholder="2500000"
+                  onChange={(e) => {
+                    setMaxValue(e.target.value);
+                  }}
+                />
+              </Field>
+            </FieldRow>
+            <div className="cluster">
+              {/* A live region: the count is what a filter ANSWERED, and
+                  somebody who cannot see the tables shrink is otherwise told
+                  nothing. */}
+              <p className="muted text-sm" role="status" aria-live="polite">
+                Showing {shownOpen.length + shownClosed.length} of {leads.length}{" "}
+                {leads.length === 1 ? "opportunity" : "opportunities"}.
+                {valueFiltered ? " Opportunities with no value set are hidden while a value filter is on." : ""}
+              </p>
+              {filtering && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setStageFilter("");
+                    setCountryFilter("");
+                    setMinValue("");
+                    setMaxValue("");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          </FieldStack>
+        </Card>
+      )}
+
+      {!onlyClosed && (
       <Card>
         <CardTitle level={2}>Open</CardTitle>
+        {open.length > 0 && openTotals.size > 0 && (
+          <p className="muted text-md">
+            Could be worth{" "}
+            {[...openTotals.entries()]
+              .map(([currency, units]) => formatMoney(fromMinorUnits(units), currency))
+              .join(" + ")}
+            {unvaluedOpen > 0
+              ? `, plus ${String(unvaluedOpen)} with no value set.`
+              : "."}
+          </p>
+        )}
         {open.length === 0 ? (
           <p className="muted">
             Nothing in the pipeline yet. Capture a lead below.
           </p>
+        ) : shownOpen.length === 0 ? (
+          <p className="muted">No open opportunity matches these filters.</p>
         ) : (
           <TableWrap>
             <Table>
               <thead>
                 <tr>
                   <Th>Opportunity</Th>
+                  <Th>Country</Th>
+                  <Th align="right">Value</Th>
                   <Th>Source</Th>
                   <Th>Stage</Th>
                   <Th>Owner</Th>
                 </tr>
               </thead>
               <tbody>
-                {open.map((l) => {
+                {shownOpen.map((l) => {
                   const closingThis = closing?.leadId === l.lead.id ? closing : null;
                   return (
                     <Fragment key={l.lead.id}>
@@ -323,6 +536,10 @@ export default function LeadsPage() {
                             {l.party.displayName}
                           </Link>
                         </Td>
+                        <Td>
+                          <CountryCell code={l.lead.jurisdiction} />
+                        </Td>
+                        <ValueCell value={l.lead.estimatedValue} />
                         <Td className="muted">{l.lead.source}</Td>
                         <Td>
                           <Select
@@ -407,7 +624,7 @@ export default function LeadsPage() {
                       </tr>
                       {closingThis !== null && (
                         <tr>
-                          <Td colSpan={4}>
+                          <Td colSpan={6}>
                             <form
                               action={(form) => {
                                 move(
@@ -481,8 +698,9 @@ export default function LeadsPage() {
           </TableWrap>
         )}
       </Card>
+      )}
 
-      {closed.length > 0 && (
+      {closed.length > 0 && !onlyOpen && (
         <Card>
           <CardTitle level={2}>Closed</CardTitle>
           {/* This table had no `thead` at all. Four columns of somebody's
@@ -494,13 +712,22 @@ export default function LeadsPage() {
               <thead>
                 <tr>
                   <Th>Opportunity</Th>
+                  <Th>Country</Th>
+                  <Th align="right">Value</Th>
                   <Th>Stage</Th>
                   <Th>Why</Th>
                   <Th>Closed</Th>
                 </tr>
               </thead>
               <tbody>
-                {closed.map((l) => (
+                {shownClosed.length === 0 && (
+                  <tr>
+                    <Td colSpan={6} className="muted">
+                      No closed opportunity matches these filters.
+                    </Td>
+                  </tr>
+                )}
+                {shownClosed.map((l) => (
                   <tr key={l.lead.id} data-inactive="true">
                     <Td>
                       <div>
@@ -510,6 +737,10 @@ export default function LeadsPage() {
                         {l.party.displayName}
                       </Link>
                     </Td>
+                    <Td>
+                      <CountryCell code={l.lead.jurisdiction} />
+                    </Td>
+                    <ValueCell value={l.lead.estimatedValue} />
                     <Td>
                       {/* `lost` and `abandoned` render as themselves. Collapsing
                           them into one word would throw away the only signal that
@@ -589,6 +820,28 @@ export default function LeadsPage() {
                 <Input name="pan" placeholder="AAACL1234M" />
               </Field>
             </FieldRow>
+            <FieldRow>
+              <Field label="Country" optional hint="Where the prospect is. Leave it if nobody knows yet.">
+                <CountrySelect name="jurisdiction" defaultValue="" />
+              </Field>
+              <Field
+                label="Could be worth"
+                optional
+                hint={
+                  previewAmount(cleanAmount(captureValue)) ??
+                  "Your best estimate in the firm's currency. Numbers only."
+                }
+              >
+                <Input
+                  name="estimatedValue"
+                  inputMode="decimal"
+                  placeholder="500000"
+                  onChange={(e) => {
+                    setCaptureValue(e.target.value);
+                  }}
+                />
+              </Field>
+            </FieldRow>
             <div className="cluster">
               <Button type="submit" disabled={busy !== null}>
                 {busy === "capture" ? "Capturing…" : "Capture"}
@@ -598,5 +851,49 @@ export default function LeadsPage() {
         </form>
       </Card>
     </Page>
+  );
+}
+
+/**
+ * The country filter offers only the countries the pipeline HAS, plus "Not
+ * known" when some lead has none. A list of 250 countries to filter a pipeline
+ * that spans three would be mostly answers that return nothing.
+ */
+function CountryFilter({
+  leads,
+  value,
+  onChange,
+}: {
+  leads: readonly LeadRecord[];
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const { present, unknown } = useMemo(() => {
+    const codes = new Set<string>();
+    let none = false;
+    for (const l of leads) {
+      if (l.lead.jurisdiction === null) none = true;
+      else codes.add(l.lead.jurisdiction);
+    }
+    return {
+      present: [...codes].sort((a, b) => countryName(a).localeCompare(countryName(b))),
+      unknown: none,
+    };
+  }, [leads]);
+  return (
+    <Select
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value);
+      }}
+    >
+      <option value="">Every country</option>
+      {present.map((code) => (
+        <option key={code} value={code}>
+          {countryName(code)}
+        </option>
+      ))}
+      {unknown && <option value="none">Not known</option>}
+    </Select>
   );
 }
