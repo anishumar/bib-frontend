@@ -78,10 +78,25 @@ import {
  * page (`GET /obligation-filings`); this section finds its own by `usedIn`.
  * One request per service is the per-row lookup this app's rules warn about,
  * and the catalogue already removed one of those (see `serviceRow`).
+ *
+ * ── A REFUSAL IS DRAWN BESIDE THE PRESS THAT CAUSED IT ──────────────────────
+ *
+ * The section drew the API's refusal once, above the add controls. That is
+ * below every filing in the list and above the whole new-filing form, about
+ * 900px of it, so a refused "Write it and add it to this service" or a refused
+ * "Remove it" on an early row showed off screen and the press looked as if it
+ * did nothing (measured in review, 2026-09-26). So the section remembers WHICH
+ * act was pressed and draws the refusal there: inside the removal's
+ * confirmation, inside the adding confirmation, above the new filing's save
+ * row, or by the add controls for a plain add. It also takes focus when it
+ * appears (`Refusal`), which scrolls it into view: the page's own rule, stated
+ * on `FailureNote`, that an error three screens above the button is an error
+ * nobody reads.
  */
 export function ComplianceFilings({
   service,
   filings,
+  unread,
   canWrite,
   busy,
   working,
@@ -91,8 +106,13 @@ export function ComplianceFilings({
   onWrite,
 }: {
   service: { readonly id: string; readonly key: string; readonly name: string };
-  /** Null when this session may not read the library at all. */
+  /** Null when this session may not read the library at all, or when the
+   *  first read of it failed (then `unread` says so). */
   filings: readonly ObligationRule[] | null;
+  /** The latest read of the library FAILED (a throttle, a server error),
+   *  which is not a question of permission. With a list from an earlier read
+   *  the section still shows it, saying it may be out of date. */
+  unread: boolean;
   canWrite: boolean;
   /** Any write on the page is in flight: every control waits. */
   busy: boolean;
@@ -116,13 +136,21 @@ export function ComplianceFilings({
   const [pending, setPending] = useState<ObligationRule | null>(null);
   const [writing, setWriting] = useState(false);
   const [draft, setDraft] = useState<RuleDraft>(draftOf(null));
+  // Which press the refusal, if one comes back, belongs to. Set before the
+  // call, so it names the act the API answered.
+  const [act, setAct] = useState<Act | null>(null);
 
   if (filings === null) {
     return (
       <section aria-labelledby={headingId} className="stack snug border-t border-line pt-4">
         <h4 id={headingId}>Compliance filings</h4>
         <p className="text-sm text-muted">
-          Your role cannot see the firm&rsquo;s compliance filings, so they are not listed here.
+          {/* NOT A PERMISSION, when the read simply failed. A throttled read
+              (the local limit is about 300 requests a minute) once drew
+              "your role cannot see" on every card for an admin. */}
+          {unread
+            ? "The firm's compliance filings could not be read just now, so they are not listed here. Reload the page to try again."
+            : "Your role cannot see the firm's compliance filings, so they are not listed here."}
         </p>
       </section>
     );
@@ -130,9 +158,14 @@ export function ComplianceFilings({
 
   const linked = sorted(filings.filter((f) => carries(f, service.id)));
   const offered = sorted(filings.filter((f) => f.isActive && !carries(f, service.id)));
+  const refusedAt = (at: Act["kind"], lineageId?: string): ReactNode =>
+    act !== null && act.kind === at && (lineageId === undefined || act.lineageId === lineageId)
+      ? note
+      : null;
 
-  async function add(rule: ObligationRule): Promise<void> {
+  async function add(rule: ObligationRule, how: "add" | "confirm"): Promise<void> {
     setSaid(null);
+    setAct({ kind: how, lineageId: rule.lineageId });
     const done = await onAdd(rule);
     if (done === null) return;
     setPending(null);
@@ -141,6 +174,7 @@ export function ComplianceFilings({
 
   async function remove(rule: ObligationRule): Promise<boolean> {
     setSaid(null);
+    setAct({ kind: "remove", lineageId: rule.lineageId });
     const done = await onRemove(rule);
     if (done === null) return false;
     setSaid(removedSentence(done.rule, done.effect));
@@ -149,6 +183,7 @@ export function ComplianceFilings({
 
   async function write(): Promise<void> {
     setSaid(null);
+    setAct({ kind: "write", lineageId: "" });
     const done = await onWrite(draft);
     if (done === null) return;
     setWriting(false);
@@ -169,6 +204,13 @@ export function ComplianceFilings({
           : "What the law asks of every client on this service, and by when. Each filing is written once in your firm's library and can be on as many services as owe it: a client holding two of them still gets one filing per period."}
       </p>
 
+      {unread && (
+        <Notice tone="warn">
+          The list of filings could not be refreshed just now, so it may not show the latest
+          change. Reload the page to see it.
+        </Notice>
+      )}
+
       {linked.length > 0 && (
         <ul className="stack tight">
           {linked.map((rule) => (
@@ -179,6 +221,7 @@ export function ComplianceFilings({
               canWrite={canWrite}
               busy={busy}
               working={working}
+              refusal={refusedAt("remove", rule.lineageId)}
               onBegin={() => { setSaid(null); }}
               onRemove={remove}
             />
@@ -191,7 +234,9 @@ export function ComplianceFilings({
           {said}
         </Notice>
       )}
-      {note}
+      {/* A plain add has no panel of its own: its refusal sits by the
+          controls it was pressed from. */}
+      <Refusal note={refusedAt("add")} />
 
       {canWrite && (
         <AddControls
@@ -200,6 +245,7 @@ export function ComplianceFilings({
           busy={busy}
           working={working}
           pending={pending}
+          confirmRefusal={refusedAt("confirm")}
           onChoose={(rule) => {
             // THE CONFIRMATION IS ONLY FOR A RULE NOBODY HAS CHECKED. A
             // confirmed one is the firm's own statement already, and asking
@@ -208,10 +254,10 @@ export function ComplianceFilings({
               setSaid(null);
               setPending(rule);
             } else {
-              void add(rule);
+              void add(rule, "add");
             }
           }}
-          onConfirm={(rule) => void add(rule)}
+          onConfirm={(rule) => void add(rule, "confirm")}
           onCancelConfirm={() => { setPending(null); }}
           onBegin={() => { setSaid(null); }}
           writing={writing}
@@ -235,11 +281,38 @@ export function ComplianceFilings({
               onCancel={() => { setWriting(false); }}
               saveLabel="Write it and add it to this service"
               cancelLabel={`Cancel the new filing for ${service.name}`}
+              refusal={<Refusal note={refusedAt("write")} />}
             />
           }
         />
       )}
     </section>
+  );
+}
+
+/** Which press a refusal answers. `lineageId` names the filing for the two
+ *  acts that are about one (removing, and adding from the list). */
+interface Act {
+  readonly kind: "add" | "confirm" | "remove" | "write";
+  readonly lineageId: string;
+}
+
+/**
+ * The API's refusal, where it is drawn, and focused as it APPEARS.
+ *
+ * Focus scrolls it into view and puts the next Tab beside it, `useAppearFocus`'s
+ * reason. Every press here clears the refusal before it calls (the page's
+ * `answered`), so a second refused press is another appearance and focus moves
+ * again.
+ */
+function Refusal({ note }: { note: ReactNode }) {
+  const shown = note !== null && note !== undefined && note !== false;
+  const ref = useAppearFocus(shown ? "refused" : null);
+  if (!shown) return null;
+  return (
+    <div ref={ref} tabIndex={-1}>
+      {note}
+    </div>
   );
 }
 
@@ -251,6 +324,7 @@ function LinkedFiling({
   canWrite,
   busy,
   working,
+  refusal,
   onBegin,
   onRemove,
 }: {
@@ -259,6 +333,9 @@ function LinkedFiling({
   canWrite: boolean;
   busy: boolean;
   working: boolean;
+  /** The API's refusal of THIS filing's removal, drawn inside its
+   *  confirmation, beside the button that was pressed. */
+  refusal: ReactNode;
   /** A new act is starting on this section: the last one's sentence goes. */
   onBegin: () => void;
   onRemove: (rule: ObligationRule) => Promise<boolean>;
@@ -355,6 +432,7 @@ function LinkedFiling({
                 Keep it
               </Button>
             </div>
+            <Refusal note={refusal} />
           </div>
         ) : (
           <div className="cluster">
@@ -391,6 +469,7 @@ function AddControls({
   busy,
   working,
   pending,
+  confirmRefusal,
   onChoose,
   onConfirm,
   onCancelConfirm,
@@ -404,6 +483,8 @@ function AddControls({
   busy: boolean;
   working: boolean;
   pending: ObligationRule | null;
+  /** The API's refusal of "Confirm and add it", drawn in the confirmation. */
+  confirmRefusal: ReactNode;
   onChoose: (rule: ObligationRule) => void;
   onConfirm: (rule: ObligationRule) => void;
   onCancelConfirm: () => void;
@@ -580,6 +661,7 @@ function AddControls({
               Cancel
             </Button>
           </div>
+          <Refusal note={confirmRefusal} />
         </div>
       )}
 

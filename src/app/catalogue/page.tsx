@@ -80,6 +80,11 @@ export default function CataloguePage() {
   // this session may not read it (`party:read`, where the catalogue itself is
   // `config:read`), which each card says rather than drawing an empty list.
   const [filings, setFilings] = useState<ObligationRule[] | null>(null);
+  // The LAST read of that library failed for a reason that is not a
+  // permission (a throttle, a server error). Kept apart from `filings` so a
+  // 429 is never drawn as "your role cannot see", and so a list read earlier
+  // stays on screen, said to be possibly out of date, rather than vanishing.
+  const [filingsUnread, setFilingsUnread] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -115,7 +120,21 @@ export default function CataloguePage() {
     setPermissions(me.data?.permissions ?? []);
     setAxes(structure.data?.axes ?? []);
     setWorkflows(processes.data?.entries ?? []);
-    setFilings(compliance.data?.filings ?? null);
+    // ONLY A 403 MEANS "YOUR ROLE CANNOT SEE". Every other failure keeps the
+    // list already on screen (null only if there has never been one) and
+    // says it could not be refreshed. `?? null` on any failure told an admin
+    // whose reload was throttled that their role could not see filings, hid
+    // the add and remove controls, and swallowed the sentence saying what
+    // their add had just done.
+    if (compliance.data !== undefined) {
+      setFilings(compliance.data.filings);
+      setFilingsUnread(false);
+    } else if (compliance.response.status === 403) {
+      setFilings(null);
+      setFilingsUnread(false);
+    } else {
+      setFilingsUnread(true);
+    }
     setFailure(null);
     // One call. What is in force AND what is waiting both come back on the list,
     // so there is nothing to fill in afterwards and no half-painted state.
@@ -328,6 +347,7 @@ export default function CataloguePage() {
                       name: row.body.name === "" ? row.key : row.body.name,
                     }}
                     filings={filings}
+                    unread={filingsUnread}
                     canWrite={canWrite}
                     busy={busy !== null}
                     working={busy === `filings:${row.key}`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import type { ReactNode } from "react";
 import type { ObligationRule } from "@/lib/api/client";
 import { Cluster, Row, Stack } from "@/components/layout";
 import {
@@ -274,6 +275,7 @@ export function RuleEditor({
   bare = false,
   saveLabel,
   cancelLabel,
+  refusal,
 }: {
   draft: RuleDraft;
   onChange: (next: RuleDraft) => void;
@@ -291,6 +293,10 @@ export function RuleEditor({
   /** The Cancel button's accessible name, when the page around it has more
    *  than one: every service card in the catalogue can hold one of these. */
   cancelLabel?: string;
+  /** The API's refusal of the save, drawn just above the save row, beside
+   *  the button that was pressed. The catalogue passes one: its form is
+   *  about 900px tall, and a refusal drawn above it was off screen. */
+  refusal?: ReactNode;
 }) {
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]): void => {
     onChange({ ...draft, [key]: value });
@@ -516,6 +522,7 @@ export function RuleEditor({
           rather than after. `dueMonthOffset: 1` is not proofreadable. */}
       <p className="mono">{describeDraft(draft)}</p>
 
+      {refusal}
       <Cluster>
         <Button onClick={onSave} loading={busy}>
           {saveLabel ?? (creating ? "Write the rule" : "Save the formula")}
