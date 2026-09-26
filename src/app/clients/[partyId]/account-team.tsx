@@ -22,6 +22,7 @@ import {
 import type {
   AccountTeam,
   AssignmentRole,
+  CaughtUpWork,
   ClientAssignment,
   Colleague,
   ServiceAxis,
@@ -72,6 +73,9 @@ export function AccountTeamPanel({
   const [asOf, setAsOf] = useState<string>(today());
   const [role, setRole] = useState<AssignmentRole>("spoc");
   const [error, setError] = useState<string | null>(null);
+  // What the last assignment MOVED of the client's waiting work (T6.17), in
+  // words, or null when there is nothing to say.
+  const [moved, setMoved] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   // An id of its own, because this control is not a `<Field>` — it sits in the
   // card's heading row, opposite the title, and `<Field>` is a stacked block.
@@ -117,6 +121,8 @@ export function AccountTeamPanel({
   async function assign(form: FormData): Promise<void> {
     setBusy(true);
     setError(null);
+    // Cleared BEFORE the call, so a second assignment says what IT moved.
+    setMoved(null);
     const chosenRole = String(form.get("role")) as AssignmentRole;
     const axisId = String(form.get("axisId") ?? "");
     const result = await api.POST("/api/v1/parties/{partyId}/assignments", {
@@ -135,6 +141,7 @@ export function AccountTeamPanel({
       setError(apiError(result.error).message);
       return;
     }
+    setMoved(caughtUpWords(result.data.caughtUp, staff, clientName));
     await load(asOf);
   }
 
@@ -227,6 +234,15 @@ export function AccountTeamPanel({
       )}
 
       <ErrorNotice error={error} />
+
+      {moved !== null && (
+        // Spaced off the table below it, which otherwise meets its border.
+        <div style={{ marginBottom: "var(--s-3)" }}>
+          <Notice tone={moved.tone} eyebrow="Work already created">
+            {moved.text}
+          </Notice>
+        </div>
+      )}
 
       {stale.length > 0 && (
         <Notice tone="warn" eyebrow="Nobody is covering this client">
@@ -445,4 +461,35 @@ function today(): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * What the catch-up moved, in words (T6.17): "3 tasks and 20 steps moved to
+ * Priya Shah." Naming somebody on the account team moves the client's work
+ * that was waiting on the Key Manager's or the signing partner's desk to be
+ * handed out, or on nobody's; work somebody handed on or started stays put.
+ * Nothing to say when nothing was waiting. The names come from the roster the
+ * form already holds; the API sends ids.
+ */
+function caughtUpWords(
+  caughtUp: CaughtUpWork,
+  staff: readonly Colleague[],
+  clientName: string,
+): { tone: "ok" | "warn"; text: string } | null {
+  if (caughtUp === null) {
+    return {
+      tone: "warn",
+      text:
+        `Saved. The work already created for ${clientName} could not be moved to the new ` +
+        `account team, so it is still where it was. Hand it out from the work board.`,
+    };
+  }
+  if (caughtUp.moves.length === 0) return null;
+  const sentences = caughtUp.moves.map((m) => {
+    const who = staff.find((c) => c.userId === m.userId)?.displayName ?? "a colleague";
+    const tasks = `${m.tasks} ${m.tasks === 1 ? "task" : "tasks"}`;
+    const steps = m.steps === 0 ? "" : ` and ${m.steps} ${m.steps === 1 ? "step" : "steps"}`;
+    return `${tasks}${steps} moved to ${who}.`;
+  });
+  return { tone: "ok", text: sentences.join(" ") };
 }

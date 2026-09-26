@@ -1940,4 +1940,17 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   is above zero, and the hint under the picker says the rule in words.
 - **`how` on the two assignment events is worded** (`HOW_WORDS` in `lib/ui/audit-words.ts`):
   the three rungs, `manual`, `taken`, `handover`, `released` and `with_task`, rather than the
-  underscored tokens.
+  underscored tokens. A `work_item.assigned` carrying `catchUp: true` reads from
+  `CAUGHT_UP_WORDS` instead ("Moved to the client's SPOC for that Dept once one was named"), and
+  the `catchUp` flag gets no row of its own.
+- **Naming the account team says what it moved** (the catch-up, 2026-09-27). The assign route
+  answers `caughtUp`; `AccountTeamPanel` turns it into one sentence per person ("1 task and 2 steps
+  moved to Asha Associate."), naming them from the colleagues list it already holds, in an `ok`
+  Notice under "Work already created". Nothing is said when nothing was waiting; `null` (moving
+  failed, the assignment still saved) is a `warn` telling the reader to hand the work out from the
+  board. Cleared BEFORE each assign, so a second one says what IT moved.
+- **An unsigned letter warns whose desk its work will land on** (the Send warning). The letter
+  page reads `GET /engagement-letters/{id}/routing` while the letter is a draft or sent, and
+  `RoutingWarning` lists each Dept whose rung is not the SPOC, with the owner and why, and a link
+  to the client's page. A warning (`role="status"`), never a disabled Send; nothing is shown when
+  every Dept has a SPOC.
