@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
-import type { ConfigEntry } from "@/lib/api/client";
+import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
+import { createBodyOf, type RuleDraft } from "../admin/obligation-rules/rule-editor";
+import { ComplianceFilings } from "./compliance-filings";
 import {
   Button,
   Field,
@@ -48,6 +50,16 @@ import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
  * READING IS BROAD, WRITING IS `tenant:admin`. An associate quotes from the
  * catalogue, so the record is theirs to read; changing what the firm sells is
  * not. The controls are offered on that basis and the API refuses regardless.
+ *
+ * A SERVICE SAYS WHAT IT FILES, HERE AND NOWHERE ELSE (T6.16). Each service
+ * card carries its compliance filings, added from the firm's library or
+ * written on the spot, and this is the one place a filing is linked to a
+ * service: the rule editor's single-service picker is gone, because a rule on
+ * NO service used to mean "every service" and that is how a bookkeeping-only
+ * client was sent 98 GST filings. A rule no service carries now adds nothing
+ * to the calendar. Removing one withdraws the upcoming filings nobody started
+ * and says what it kept. The filings are NOT versioned with the service body,
+ * and `compliance-filings.tsx` says why.
  */
 export default function CataloguePage() {
   const router = useRouter();
@@ -63,12 +75,17 @@ export default function CataloguePage() {
   // The firm's published processes, for the picker. `config:read`, like the
   // catalogue itself — an associate reading a service should see how it is done.
   const [workflows, setWorkflows] = useState<ConfigEntry[]>([]);
+  // The firm's whole compliance library, one row per chain, each saying which
+  // services carry it. ONE read for every card on the page (T6.16); null when
+  // this session may not read it (`party:read`, where the catalogue itself is
+  // `config:read`), which each card says rather than drawing an empty list.
+  const [filings, setFilings] = useState<ObligationRule[] | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [catalogue, library, policy, me, structure, processes] = await Promise.all([
+    const [catalogue, library, policy, me, structure, processes, compliance] = await Promise.all([
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
@@ -79,6 +96,9 @@ export default function CataloguePage() {
       // to use would be noise on a screen that reads fine without it.
       api.GET("/api/v1/tenancy/structure", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "workflow_template" } } }),
+      // Every service's filings in one request, never one per card: the local
+      // limit is about 300 requests a minute and this page is already six.
+      api.GET("/api/v1/obligation-filings", {}),
     ]);
     if (catalogue.response.status === 401) {
       router.push("/login");
@@ -95,6 +115,7 @@ export default function CataloguePage() {
     setPermissions(me.data?.permissions ?? []);
     setAxes(structure.data?.axes ?? []);
     setWorkflows(processes.data?.entries ?? []);
+    setFilings(compliance.data?.filings ?? null);
     setFailure(null);
     // One call. What is in force AND what is waiting both come back on the list,
     // so there is nothing to fill in afterwards and no half-painted state.
@@ -106,6 +127,16 @@ export default function CataloguePage() {
       await load();
     })();
   }, [load]);
+
+  // THE LIBRARY LINKS HERE BY SERVICE, as `/catalogue#service-<key>`, and the
+  // browser's own jump to the anchor happens before this page has read its
+  // services, so it finds nothing and stays at the top. This repeats it once
+  // the cards exist.
+  useEffect(() => {
+    if (!loaded) return;
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id !== "") document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, [loaded]);
 
   async function act(at: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
     setBusy(at);
@@ -122,6 +153,63 @@ export default function CataloguePage() {
     }
     await load();
     setBusy(null);
+  }
+
+  /**
+   * `act` for a write whose ANSWER is the point.
+   *
+   * `act` throws the success body away, which is right for a publish and wrong
+   * here: adding a filing says how many filings reached the calendar and for
+   * how many companies, and removing one says what came off and what stayed
+   * and why. So this is the same shape (busy, failure cleared BEFORE the call,
+   * the refusal verbatim at `at`, then a reload) returning the body, and the
+   * section turns it into the sentence. The reload comes first so the sentence
+   * lands on a card that already shows the new state.
+   */
+  async function answered<T>(
+    at: string,
+    call: () => Promise<{ data?: T; error?: unknown }>,
+  ): Promise<T | null> {
+    setBusy(at);
+    setFailure(null);
+    const result = await call();
+    if (result.data === undefined) {
+      setFailure(failureOf(at, result.error));
+      setBusy(null);
+      return null;
+    }
+    await load();
+    setBusy(null);
+    return result.data;
+  }
+
+  function addFiling(row: ServiceRow, rule: ObligationRule) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/services/{serviceEntryId}/filings", {
+        params: { path: { serviceEntryId: row.id } },
+        // Any rule of the chain is accepted; the one in force is what is sent.
+        body: { ruleId: rule.id },
+      }),
+    );
+  }
+
+  function removeFiling(row: ServiceRow, rule: ObligationRule) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/services/{serviceEntryId}/filings/{ruleId}/unlink", {
+        params: { path: { serviceEntryId: row.id, ruleId: rule.id } },
+      }),
+    );
+  }
+
+  /** Written into the library and onto this service in ONE call: the API links
+   *  it in the same transaction, so there is no moment where the rule exists
+   *  on no service and a failure could leave it there. */
+  function writeFiling(row: ServiceRow, draft: RuleDraft) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/obligation-rules", {
+        body: { ...createBodyOf(draft), serviceEntryIds: [row.id] } as never,
+      }),
+    );
   }
 
   function noteFor(at: string): ReactNode {
@@ -232,6 +320,23 @@ export default function CataloguePage() {
                 onNewVersion={newVersion}
                 axes={axes}
                 workflows={workflows}
+                compliance={
+                  <ComplianceFilings
+                    service={{
+                      id: row.id,
+                      key: row.key,
+                      name: row.body.name === "" ? row.key : row.body.name,
+                    }}
+                    filings={filings}
+                    canWrite={canWrite}
+                    busy={busy !== null}
+                    working={busy === `filings:${row.key}`}
+                    note={noteFor(`filings:${row.key}`)}
+                    onAdd={(rule) => addFiling(row, rule)}
+                    onRemove={(rule) => removeFiling(row, rule)}
+                    onWrite={(draft) => writeFiling(row, draft)}
+                  />
+                }
               />
             ))}
           </section>
@@ -429,6 +534,7 @@ function ServiceCard({
   onNewVersion,
   axes,
   workflows,
+  compliance,
 }: {
   row: ServiceRow;
   canWrite: boolean;
@@ -438,11 +544,16 @@ function ServiceCard({
   onNewVersion: (key: string, form: FormData) => void;
   axes: readonly ServiceAxis[];
   workflows: readonly ConfigEntry[];
+  /** The service's compliance filings (T6.16), drawn LAST and outside both
+   *  version blocks: a filing hangs off the service itself, not a version. */
+  compliance: ReactNode;
 }) {
   const { body, published, draft } = row;
   const draftBody = draft === null ? null : readServiceRecord(draft.body);
   return (
-    <article className="card stack">
+    /* The id is the anchor the library's "Used in" links land on, and the
+       KEY is the only part of a service that never changes. */
+    <article className="card stack" id={`service-${row.key}`}>
       <div className="card-head">
         {/* The firm's OWN code, printed as the firm writes it. It is on the body
             and not on the handle because a services-master renumber is an
@@ -565,6 +676,8 @@ function ServiceCard({
           </form>
         </details>
       )}
+
+      {compliance}
     </article>
   );
 }
@@ -1133,6 +1246,9 @@ function trimmed(form: FormData, field: string): string | null {
 type ConfigVersion = NonNullable<ConfigEntry["published"]>;
 
 interface ServiceRow {
+  /** The catalogue ENTRY's id: what a compliance filing is linked to (T6.16).
+   *  The entry, not a version, because a link is not part of a frozen body. */
+  readonly id: string;
   readonly key: string;
   readonly published: ConfigVersion | null;
   readonly draft: ConfigVersion | null;
@@ -1158,6 +1274,7 @@ function serviceRow(entry: ConfigEntry): ServiceRow {
   const draft = entry.pendingDraft;
   const source = published ?? draft;
   return {
+    id: entry.entry.id,
     key: entry.entry.key,
     published,
     draft,
