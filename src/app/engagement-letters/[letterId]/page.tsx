@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
 import { DocumentBlocks } from "@/lib/ui/document-blocks";
 import {
-  BLOCK_KIND_LABELS,
+  LETTER_BLOCK_KINDS,
+  PARAGRAPH_BLOCK_KINDS,
   api,
   apiError,
   clauseApplies,
@@ -16,7 +17,8 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
-import { Button, cx, Field, Input, LinkButton, Meta, MetaItem, Select } from "@/components/ui";
+import { Button, Field, Input, LinkButton, Meta, MetaItem, Select, Textarea } from "@/components/ui";
+import { FeeGroups, LineFee, groupFee } from "./fee-groups";
 import {
   Card,
   CardTitle,
@@ -90,6 +92,13 @@ export default function LetterPage() {
    */
   const [picked, setPicked] = useState("");
   /**
+   * The section the add-a-service form is pricing by, or "" for its own price.
+   * State for the same reason `picked` is: choosing a section HIDES the price
+   * boxes, because a service in a section has no price of its own and the API
+   * refuses one sent anyway.
+   */
+  const [addFee, setAddFee] = useState("");
+  /**
    * Did the carry-forward that made this letter leave lines behind?
    *
    * Read from the URL, once, and deliberately NOT stored: which lines a
@@ -148,17 +157,20 @@ export default function LetterPage() {
     })();
   }, [load]);
 
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  /** Run one call, show the API's refusal verbatim, reload on success — and
+   *  say which, so a form closes only when what was typed in it was kept. */
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(key);
     setError(null);
     const result = await call();
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(null);
-      return;
+      return false;
     }
     await load();
     setBusy(null);
+    return true;
   }
 
   if (!loaded) return <p className="text-sm text-muted">Loading…</p>;
@@ -172,7 +184,8 @@ export default function LetterPage() {
     );
   }
 
-  const { letter, totals, lines, engagements } = record;
+  const { letter, totals, lines, engagements, feeGroups } = record;
+  const groupOf = (id: string | null) => feeGroups.find((g) => g.id === id) ?? null;
   // The catalogue version the picker is on, so the two boxes beside it can be
   // filled from it. Falls back to the FIRST option, because that is what a
   // `<select>` shows before anybody touches it.
@@ -259,6 +272,12 @@ export default function LetterPage() {
             {letter.jurisdiction} ·{" "}
             <Pill tone={letter.status === "withdrawn" ? "danger" : "neutral"}>
               {letter.status}
+            </Pill>{" "}
+            {/* WHICH DOCUMENT THE PDF IS (0083). Every letter drafted now is
+                the firm's Annexure format; one issued before it re-renders in
+                the classic layout it went out in, and says so. */}
+            <Pill tone="neutral">
+              {letter.layout === "annexure" ? "Annexure format" : "classic format"}
             </Pill>
           </>
         }
@@ -479,6 +498,19 @@ export default function LetterPage() {
         </Card>
       )}
 
+      {/* THE SECTIONS OF ANNEXURE 1, and the fee each one charges (0083).
+          Before the services, because a service is put INTO a section. */}
+      {(letter.layout === "annexure" || feeGroups.length > 0) && (
+        <FeeGroups
+          letterId={letterId}
+          groups={feeGroups}
+          lines={lines}
+          editable={isDraft && permissions.includes("party:write")}
+          busy={busy}
+          act={act}
+        />
+      )}
+
       <Card>
         <CardTitle level={2}>Services</CardTitle>
         <TableWrap>
@@ -508,6 +540,37 @@ export default function LetterPage() {
                         {l.service.key}@{l.service.version}
                       </div>
                     )}
+                    {/* WHAT THE LETTER PRINTS FOR IT — the four blocks as
+                        RESOLVED, this letter's wording where it tailored one
+                        and the catalogue's where it did not. Closed, because
+                        it is long, and here because until now nothing on this
+                        page showed the scope the client is agreeing to. */}
+                    {(["scope", "clientObligations", "volumeLimits", "exclusions"] as const).some(
+                      (k) => l.terms[k].text !== null,
+                    ) && (
+                      <details className="text-sm">
+                        <summary>What it covers</summary>
+                        {(
+                          [
+                            ["scope", "Scope"],
+                            ["clientObligations", "Client's responsibilities"],
+                            ["volumeLimits", "Volume limits"],
+                            ["exclusions", "Exclusions"],
+                          ] as const
+                        ).map(([k, label]) => {
+                          const term = l.terms[k];
+                          return term.text === null ? null : (
+                            <div key={k} className="mt-1">
+                              <div className="label">
+                                {label}
+                                {term.tailored && " · written for this letter"}
+                              </div>
+                              <p className="whitespace-pre-wrap">{term.text}</p>
+                            </div>
+                          );
+                        })}
+                      </details>
+                    )}
                   </Td>
                   <Td>
                     {start.day === null ? (
@@ -522,14 +585,38 @@ export default function LetterPage() {
                   <Td align="right" className="mono">
                     {formatCount(l.quantity)}
                   </Td>
-                  <Td align="right" className="mono">
-                    {formatMoney(l.unitAmount, l.currency)}
-                  </Td>
-                  <Td align="right" className="mono">
-                    {formatMoney(l.net, l.currency)}
-                  </Td>
+                  {l.feeGroupId !== null ? (
+                    // PRICED BY ITS SECTION (0083): no figure of its own to
+                    // show, and a blank would read as free.
+                    <Td align="right" colSpan={2} className="text-sm text-muted">
+                      in {groupOf(l.feeGroupId)?.code ?? "a section"}
+                      {(() => {
+                        const g = groupOf(l.feeGroupId);
+                        return g === null ? "" : ` · ${groupFee(g)}`;
+                      })()}
+                    </Td>
+                  ) : (
+                    <>
+                      <Td align="right" className="mono">
+                        {formatMoney(l.unitAmount, l.currency)}
+                      </Td>
+                      <Td align="right" className="mono">
+                        {formatMoney(l.net, l.currency)}
+                      </Td>
+                    </>
+                  )}
                   {isDraft && (
                     <Td align="right">
+                      {permissions.includes("party:write") && (
+                        <LineFee
+                          letterId={letterId}
+                          line={l}
+                          groups={feeGroups}
+                          currency={letter.currency}
+                          busy={busy}
+                          act={act}
+                        />
+                      )}
                       <Button
                         variant="secondary"
                         size="sm"
@@ -567,6 +654,11 @@ export default function LetterPage() {
           <div className="mono text-lg">
             {formatMoney(totals.net, totals.currency)}
           </div>
+          {feeGroups.length > 0 && (
+            <div className="text-md text-muted">
+              including each section&apos;s fee once, whatever its period
+            </div>
+          )}
           {letter.advanceRequired && (
             <div className="text-md text-muted">
               advance {formatMoney(letter.advanceAmount, totals.currency)}
@@ -591,6 +683,11 @@ export default function LetterPage() {
       <DocumentBlocks
         blocks={record.blocks}
         owner={{ engagementLetterId: letterId }}
+        /* The cover letter and the acceptance print only in the Annexure
+           layout; a classic letter carries the three it always did. */
+        kinds={LETTER_BLOCK_KINDS.filter(
+          (k) => letter.layout === "annexure" || !PARAGRAPH_BLOCK_KINDS.includes(k),
+        )}
         canWrite={permissions.includes("party:write")}
         editable={!isSigned}
         frozenNote="This letter is signed, so its wording can no longer be changed. Different wording means a new letter."
@@ -696,6 +793,21 @@ export default function LetterPage() {
           <form
             action={(form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
+              // Only the tailored blocks somebody actually wrote. An empty box
+              // means "print the catalogue's words", and the API refuses a
+              // blank override outright.
+              const tailored = Object.fromEntries(
+                (
+                  [
+                    "scopeOverride",
+                    "clientObligationsOverride",
+                    "volumeLimitsOverride",
+                    "exclusionsOverride",
+                  ] as const
+                )
+                  .map((k) => [k, String(form.get(k) ?? "").trim()] as const)
+                  .filter(([, v]) => v !== ""),
+              );
               void act("line", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/lines", {
                   params: { path: { letterId } },
@@ -704,12 +816,19 @@ export default function LetterPage() {
                     serviceVersionId: String(form.get("serviceVersionId")),
                     description: String(form.get("description")),
                     quantity: String(form.get("quantity")),
-                    unitAmount: String(form.get("unitAmount")),
-                    discountPercent: String(form.get("discountPercent")),
+                    // IN A SECTION it has no price of its own (0083): the
+                    // section's fee pays for it, so neither box is sent.
+                    ...(addFee === ""
+                      ? {
+                          unitAmount: String(form.get("unitAmount")),
+                          discountPercent: String(form.get("discountPercent")),
+                        }
+                      : { feeGroupId: addFee, discountPercent: "0" }),
                     // Sent only when the drafter set one. Absent means "whatever
                     // the letter says", which is a different fact from a date
                     // that happens to match it.
                     ...(effectiveFrom === "" ? {} : { effectiveFrom }),
+                    ...tailored,
                   },
                 }),
               );
@@ -784,10 +903,34 @@ export default function LetterPage() {
                 />
               </Field>
             </div>
+            {feeGroups.length > 0 && (
+              <div className="field-row mb-4">
+                <Field
+                  label="Its fee"
+                  hint="In a section, the section's fee pays for it and it has no price of its own."
+                >
+                  <Select
+                    name="feeGroupId"
+                    value={addFee}
+                    onChange={(e) => {
+                      setAddFee(e.target.value);
+                    }}
+                  >
+                    <option value="">Priced on its own</option>
+                    {feeGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        In {g.code} · {g.title} ({groupFee(g)})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            )}
             <div className="field-row mb-4">
               <Field label="Quantity">
                 <Input name="quantity" defaultValue="1" required />
               </Field>
+              {addFee === "" && (
               <Field label={`Agreed price (${letter.currency})`}>
                 {/* THE LIST PRICE ONLY IN THIS LETTER'S OWN CURRENCY. A
                     catalogue priced in USD on a rupee letter would put the
@@ -807,9 +950,12 @@ export default function LetterPage() {
                   required
                 />
               </Field>
+              )}
+              {addFee === "" && (
               <Field label="Discount %">
                 <Input name="discountPercent" defaultValue="0" required />
               </Field>
+              )}
               {/* Per line as well as per document, because per line can express
                   a single shared date and the reverse cannot: an Incorporation
                   line starts the day it is signed while the GST line beside it
@@ -818,6 +964,49 @@ export default function LetterPage() {
                 <Input name="effectiveFrom" type="date" />
               </Field>
             </div>
+            {/* THIS LETTER'S OWN WORDING for the service (G1.6), which the
+                screen could not write until the Annexure letter printed it.
+                Empty boxes print the catalogue's words — shown as each box's
+                placeholder, so a drafter can see what they would be replacing. */}
+            <details className="mb-4">
+              <summary>Tailor the wording for this letter</summary>
+              <div className="field-row mt-2">
+                <Field label="Scope" optional>
+                  <Textarea
+                    key={`s-${picked}`}
+                    name="scopeOverride"
+                    rows={4}
+                    placeholder={pickedService?.scope ?? "The catalogue states none."}
+                  />
+                </Field>
+                <Field label="Client's responsibilities" optional>
+                  <Textarea
+                    key={`c-${picked}`}
+                    name="clientObligationsOverride"
+                    rows={4}
+                    placeholder={pickedService?.clientObligations ?? "The catalogue states none."}
+                  />
+                </Field>
+              </div>
+              <div className="field-row mt-2">
+                <Field label="Volume limits" optional>
+                  <Textarea
+                    key={`v-${picked}`}
+                    name="volumeLimitsOverride"
+                    rows={2}
+                    placeholder={pickedService?.volumeLimits ?? "The catalogue states none."}
+                  />
+                </Field>
+                <Field label="Exclusions" optional>
+                  <Textarea
+                    key={`e-${picked}`}
+                    name="exclusionsOverride"
+                    rows={2}
+                    placeholder={pickedService?.exclusions ?? "The catalogue states none."}
+                  />
+                </Field>
+              </div>
+            </details>
             <div className="cluster">
               <Button type="submit" disabled={busy !== null}>
                 Add line

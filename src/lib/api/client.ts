@@ -453,6 +453,11 @@ export type ProposalLine = ProposalRecord["lines"][number];
 export type SharedProposal =
   paths["/api/v1/proposals/shared"]["post"]["responses"][200]["content"]["application/json"];
 
+/** What sending returned about the email bib wrote (0085) — `sent`, `failed`
+ *  with the reason, or null when no email was asked for. */
+export type ProposalEmailOutcome =
+  paths["/api/v1/proposals/{proposalId}/send"]["post"]["responses"][200]["content"]["application/json"]["email"];
+
 /** A party, for a list or the client picker on a new proposal. */
 export type PartySummary =
   paths["/api/v1/parties"]["get"]["responses"][200]["content"]["application/json"]["parties"][number];
@@ -619,6 +624,12 @@ export type IdentifierType =
 export interface ServiceBody {
   readonly name: string;
   readonly listPrice: { readonly amount: string; readonly currency: string } | null;
+  /** The four blocks a letter prints for this service unless the letter
+   *  tailors them — shown as the placeholder of the box that would. */
+  readonly scope: string | null;
+  readonly clientObligations: string | null;
+  readonly volumeLimits: string | null;
+  readonly exclusions: string | null;
 }
 
 export function readServiceBody(body: Record<string, unknown> | undefined): ServiceBody {
@@ -627,10 +638,18 @@ export function readServiceBody(body: Record<string, unknown> | undefined): Serv
   const price = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : null;
   const amount = price?.["amount"];
   const currency = price?.["currency"];
+  const text = (key: string): string | null => {
+    const value = body?.[key];
+    return typeof value === "string" && value.trim() !== "" ? value : null;
+  };
   return {
     name: typeof name === "string" ? name : "",
     listPrice:
       typeof amount === "string" && typeof currency === "string" ? { amount, currency } : null,
+    scope: text("scope"),
+    clientObligations: text("clientObligations"),
+    volumeLimits: text("volumeLimits"),
+    exclusions: text("exclusions"),
   };
 }
 
@@ -722,6 +741,42 @@ export type LetterRecord =
   paths["/api/v1/engagement-letters/{letterId}"]["get"]["responses"][200]["content"]["application/json"];
 
 export type LetterClause = LetterRecord["clauses"][number];
+export type LetterLine = LetterRecord["lines"][number];
+
+/**
+ * ONE FEE FOR SEVERAL SERVICES — a section of the letter's Annexure 1 (0083).
+ *
+ * `code` is its letter, "A" or "B", its rank among the letter's live groups; the
+ * PDF heads the section with it and the Summary of Fees gives it a row. Its
+ * services carry no price of their own — `lineIds` are the ones it pays for.
+ */
+export type FeeGroup = LetterRecord["feeGroups"][number];
+
+/** How often a fee is billed, as a letter says it. The API's closed set; a
+ *  frequency added there is a compile error here. */
+export const BILLING_FREQUENCY_LABELS: Readonly<Record<FeeGroup["billingFrequency"], string>> = {
+  one_time: "One-off",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  annually: "Annually",
+  custom: "Custom",
+};
+
+/** "per month" — what a fee's figure is a figure OF. Empty for a one-off or a
+ *  custom period, where the figure is the whole fee. */
+export const PER_PERIOD: Readonly<Record<FeeGroup["billingFrequency"], string>> = {
+  one_time: "",
+  monthly: " per month",
+  quarterly: " per quarter",
+  annually: " per year",
+  custom: "",
+};
+
+/** The same, for a frequency the wire types as a plain string (the billable
+ *  read's). An unknown one says nothing rather than guessing a period. */
+export function perPeriod(frequency: string): string {
+  return Object.entries(PER_PERIOD).find(([key]) => key === frequency)?.[1] ?? "";
+}
 export type EngagementRecord = LetterRecord["engagements"][number];
 
 /**
@@ -892,13 +947,50 @@ export type StandardBlock =
 
 export type BlockKind = StandardBlock["kind"];
 
-export const BLOCK_KINDS = ["exclusion", "commercial", "team"] as const satisfies readonly BlockKind[];
+export const BLOCK_KINDS = [
+  "exclusion",
+  "commercial",
+  "team",
+  "cover",
+  "acceptance",
+] as const satisfies readonly BlockKind[];
 
 export const BLOCK_KIND_LABELS: Readonly<Record<BlockKind, string>> = {
   exclusion: "Exclusions",
   commercial: "Commercial notes",
   team: "Team",
+  cover: "Cover letter",
+  acceptance: "Acceptance",
 };
+
+/**
+ * THE COVER LETTER AND THE ACCEPTANCE ARE A LETTER'S ONLY (0083).
+ *
+ * A proposal has no cover letter and nobody signs one to accept it, so the API
+ * never copies these onto a proposal and refuses one written there by hand.
+ * These lists are what each document's screen OFFERS — the refusal is still the
+ * API's.
+ */
+export const PROPOSAL_BLOCK_KINDS = [
+  "exclusion",
+  "commercial",
+  "team",
+] as const satisfies readonly BlockKind[];
+
+/** In the order the Annexure letter prints them: the cover letter and the
+ *  acceptance on page one, then commercials, team and exclusions at the end of
+ *  Annexure 1. */
+export const LETTER_BLOCK_KINDS = [
+  "cover",
+  "acceptance",
+  "commercial",
+  "team",
+  "exclusion",
+] as const satisfies readonly BlockKind[];
+
+/** The kinds that print as PARAGRAPHS of a letter rather than items of a list
+ *  — and so are written in a box that fits a paragraph. */
+export const PARAGRAPH_BLOCK_KINDS: readonly BlockKind[] = ["cover", "acceptance"];
 
 /**
  * One line of ONE document's own prose — an exclusion, a commercial note, a
@@ -968,12 +1060,18 @@ export type BrandAsset =
 
 export type BrandAssetKind = BrandAsset["kind"];
 
-export const BRAND_ASSET_KINDS = ["logo", "signature", "letterhead"] as const satisfies readonly BrandAssetKind[];
+export const BRAND_ASSET_KINDS = [
+  "logo",
+  "signature",
+  "letterhead",
+  "proposal_cover",
+] as const satisfies readonly BrandAssetKind[];
 
 export const BRAND_ASSET_LABELS: Readonly<Record<BrandAssetKind, string>> = {
   logo: "Logo",
   signature: "Signature",
   letterhead: "Letterhead",
+  proposal_cover: "Proposal cover",
 };
 
 export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
@@ -981,6 +1079,10 @@ export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
   signature:
     "The image that signs off a letter this entity binds. PNG, so the background is transparent and the mark sits on the line rather than in a white box.",
   letterhead: "The full stationery, when a firm uses one instead of a bare logo.",
+  // WHERE the two names land is the layout's, so the artwork has to leave room
+  // for them — said here, where the person choosing the file can act on it.
+  proposal_cover:
+    "The full first page of every proposal this entity issues: your design, with the logo and 'Proposal for Services' in it. A portrait image, PNG or JPG. 'Prepared for' prints in dark text on the right, about 40% of the way down, and 'Prepared by' in white on the right, about 78% of the way down, so leave those areas clear.",
 };
 
 /**
@@ -1000,6 +1102,7 @@ export const BRAND_ASSET_ACCEPT: Readonly<Record<BrandAssetKind, string>> = {
   logo: "image/png,image/jpeg",
   signature: "image/png",
   letterhead: "image/*,application/pdf",
+  proposal_cover: "image/png,image/jpeg",
 };
 
 /** What a document can be attached to. A CLOSED set in the API — the reference

@@ -5,15 +5,21 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BLOCK_KIND_LABELS,
+  PROPOSAL_BLOCK_KINDS,
   api,
   apiError,
   formatCount,
   formatMoney,
   readServiceBody,
 } from "@/lib/api/client";
-import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
+import type { ConfigEntry, ProposalEmailOutcome, ProposalRecord } from "@/lib/api/client";
 import { DocumentBlocks } from "@/lib/ui/document-blocks";
+import { Documents } from "@/lib/ui/documents";
 import type { GroupCompany } from "@/lib/group";
+import { ProposalCover } from "./cover";
+import type { Contact, CoverEdit, Preparer } from "./cover";
+import { ClientAnswer, EmailHistory, SendAgain, SendByEmail } from "./delivery";
+import type { EmailAsk } from "./delivery";
 import {
   Button,
   Card,
@@ -75,9 +81,18 @@ export default function ProposalPage() {
    * did before the picker existed.
    */
   const [entityChoices, setEntityChoices] = useState<GroupCompany[]>([]);
+  /** Whom the cover may name under "Prepared for" — the people the client's
+   *  structure records, the same read the API checks the choice against. */
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  /** Whom it may name under "Prepared by" — the firm's own colleagues. */
+  const [preparers, setPreparers] = useState<Preparer[]>([]);
   const [services, setServices] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  /** What happened to the email the last send asked for (0085) — shown beside
+   *  the link, because a failed email leaves a SENT proposal whose link is the
+   *  only way the client can now be reached. */
+  const [emailOutcome, setEmailOutcome] = useState<ProposalEmailOutcome>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   /**
@@ -123,9 +138,20 @@ export default function ProposalPage() {
     // picker over every party at the firm. A refusal here costs the picker and
     // nothing else — the screen falls back to skipping and reporting, so this
     // is never allowed to fail the page.
-    const structure = await api.GET("/api/v1/parties/{partyId}/structure", {
-      params: { path: { partyId: one.data.proposal.partyId } },
-    });
+    const [structure, colleagues] = await Promise.all([
+      api.GET("/api/v1/parties/{partyId}/structure", {
+        params: { path: { partyId: one.data.proposal.partyId } },
+      }),
+      api.GET("/api/v1/tenancy/colleagues", {}),
+    ]);
+    setContacts((structure.data?.people ?? []).map((p) => ({ id: p.id, name: p.displayName })));
+    setPreparers(
+      (colleagues.data?.colleagues ?? []).map((c) => ({
+        userId: c.userId,
+        // An account with no name reads as its role, as the roster does.
+        name: c.displayName ?? c.role,
+      })),
+    );
     setEntityChoices(
       (structure.data?.entities ?? []).map((e) => ({
         id: e.id,
@@ -189,23 +215,60 @@ export default function ProposalPage() {
     );
   }
 
-  async function send(): Promise<void> {
-    setBusy("send");
+  /** The cover and the Background, saved in one call. True when the API took
+   *  it, so the form closes only on success. */
+  async function saveCover(edit: CoverEdit): Promise<boolean> {
+    setBusy("cover");
     setError(null);
-    const result = await api.POST("/api/v1/proposals/{proposalId}/send", {
+    const result = await api.PATCH("/api/v1/proposals/{proposalId}", {
       params: { path: { proposalId } },
+      body: edit,
     });
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(null);
-      return;
+      return false;
+    }
+    setRecord(result.data);
+    setBusy(null);
+    return true;
+  }
+
+  /**
+   * Send it — and, with an address, have bib email it (0085). `again` is the
+   * same act on a proposal already out: a NEW link, and the old one stops.
+   * True when the API took it, so a form closes only on success.
+   */
+  async function send(ask: EmailAsk, again = false): Promise<boolean> {
+    setBusy("send");
+    setError(null);
+    const body =
+      ask === null
+        ? {}
+        : { email: { to: ask.to, ...(ask.note === "" ? {} : { note: ask.note }) } };
+    const result = again
+      ? await api.POST("/api/v1/proposals/{proposalId}/reissue", {
+          params: { path: { proposalId } },
+          body,
+        })
+      : await api.POST("/api/v1/proposals/{proposalId}/send", {
+          params: { path: { proposalId } },
+          body,
+        });
+    if (result.error) {
+      setError(apiError(result.error).message);
+      setBusy(null);
+      return false;
     }
     // The link comes back ONCE — only its digest is stored, so this response is
     // the only place it can ever be read. Holding it in state rather than
     // re-fetching it is not a shortcut; there is nothing to re-fetch.
     setShareLink(`${window.location.origin}/p/${result.data.shareToken}`);
+    setEmailOutcome(result.data.email);
+    setCopied("idle");
     await load();
     setBusy(null);
+    return true;
   }
 
   if (!loaded) return <Loading />;
@@ -270,12 +333,36 @@ export default function ProposalPage() {
 
       <ErrorNotice error={error} />
 
+      <ProposalCover
+        record={record}
+        contacts={contacts}
+        preparers={preparers}
+        editable={isDraft && canWrite}
+        busy={busy === "cover"}
+        onSave={saveCover}
+      />
+
       {shareLink !== null && (
         <Card>
-          <CardTitle level={2}>The link to send</CardTitle>
+          <CardTitle level={2}>
+            {emailOutcome?.status === "sent" ? "Emailed" : "The link to send"}
+          </CardTitle>
+          {emailOutcome?.status === "sent" && (
+            <Notice tone="ok">
+              Emailed to {emailOutcome.to}, with the PDF and the Accept and Decline buttons.
+              The link below is the one in the email. Copy it only to send it another way too.
+            </Notice>
+          )}
+          {emailOutcome?.status === "failed" && (
+            <Notice tone="danger">
+              The proposal is sent, but the email to {emailOutcome.to} did not go:{" "}
+              {emailOutcome.reason}. Copy the link below and send it yourself, or use Send again
+              once the problem is fixed.
+            </Notice>
+          )}
           <p className="muted text-md">
-            Copy it now. It is shown only once. If you lose it, press Send again to issue a new
-            link.
+            Copy it now. It is shown only once. If you lose it, use Send again for a new link.
+            The old one then stops working.
           </p>
           <p className="mono" style={{ wordBreak: "break-all" }} id="share-link">
             {shareLink}
@@ -439,6 +526,7 @@ export default function ProposalPage() {
       <DocumentBlocks
         blocks={record.blocks}
         owner={{ proposalId }}
+        kinds={PROPOSAL_BLOCK_KINDS}
         canWrite={canWrite}
         editable={isDraft}
         frozenNote={`This quote is ${proposal.status}, so its wording is the record of what the client was shown. A different offer is a new quote.`}
@@ -573,11 +661,6 @@ export default function ProposalPage() {
               Approve the discount
             </Button>
           )}
-          {isDraft && (
-            <Button loading={busy === "send"} disabled={busy !== null} onClick={() => void send()}>
-              {busy === "send" ? "Sending…" : "Send"}
-            </Button>
-          )}
           {proposal.status === "sent" && !declining && (
             <>
               <Button
@@ -613,7 +696,42 @@ export default function ProposalPage() {
             </p>
           )}
         </div>
+        {proposal.status === "sent" && !declining && (
+          <p className="muted text-sm mt-2">
+            The client can accept or decline on the proposal&apos;s own page. If they answered
+            another way — a call, a meeting — record it with the buttons above.
+          </p>
+        )}
+
+        {/* SEND, BY EMAIL OR NOT (0085). The address is the person it was
+            prepared for, when the firm holds theirs — in the box, visible,
+            before anybody presses. */}
+        {isDraft && canWrite && (
+          <div className="mt-4">
+            <SendByEmail
+              mode="send"
+              defaultTo={record.addressee?.email ?? ""}
+              replyTo={record.preparedBy?.email ?? null}
+              busy={busy === "send"}
+              onSend={(ask) => {
+                void send(ask);
+              }}
+            />
+          </div>
+        )}
+
+        {!isDraft && <EmailHistory emails={record.emails} />}
+        {proposal.status === "sent" && canWrite && !declining && (
+          <SendAgain
+            defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? ""}
+            replyTo={record.preparedBy?.email ?? null}
+            busy={busy === "send"}
+            onSend={(ask) => send(ask, true)}
+          />
+        )}
       </Card>
+
+      {record.clientDecision !== null && <ClientAnswer answer={record.clientDecision} />}
 
       {/* WHAT HAPPENS NEXT, and until now nothing did. Pressing "Client
           accepted" left a page with zero controls on it: it explained, well,
@@ -648,10 +766,11 @@ export default function ProposalPage() {
         />
       )}
 
+      {/* ONLY WHEN IT HAS SOMETHING IN IT — the decline form, or the reason a
+          rejected quote was declined. It rendered unconditionally, so every
+          draft carried an empty card above its files. */}
+      {((proposal.status === "sent" && declining) || proposal.status === "rejected") && (
       <Card>
-        <div className="cluster">
-        </div>
-
         {proposal.status === "sent" && declining && (
           <div ref={declinePanel} tabIndex={-1}>
           <form
@@ -728,6 +847,25 @@ export default function ProposalPage() {
           </>
         )}
       </Card>
+      )}
+
+      {/* THE PROPOSAL AS A DOCUMENT (0084): the firm's "Proposal For Services"
+          — the cover, the services by Dept, the Summary of Fees and the Notes —
+          generated from what this page says, and kept like any file. Not shown
+          to the client's portal by default: a quote may never be sent. */}
+      <Documents
+        // Remounted when the PDF of record changes: sending by email files it
+        // (0085), and the panel reads its own list only when it mounts — so
+        // without this it says "Nothing attached yet" beside the email that
+        // attached it, until somebody reloads the page.
+        key={record.sentPdf?.versionId ?? "no-pdf-of-record"}
+        subjectKind="proposal"
+        subjectRef={proposalId}
+        canWrite={canWrite}
+        title="Proposal PDF"
+        renderable="proposal"
+        emptyHint="No PDF yet. Generate one to read the proposal as the client will, or to send it with the link."
+      />
     </Page>
   );
 }
