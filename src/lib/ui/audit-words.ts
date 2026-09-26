@@ -317,7 +317,27 @@ const KEY_WORDS: Record<string, string> = {
   onCreate: "Added when it was written",
   services: "Services",
   serviceKey: "Service",
+  serviceName: "Service",
 };
+
+/**
+ * A HANDLE, and the payload key naming the same thing in words when the event
+ * carries it. The row keeps the handle's label and prints the name in place
+ * of the handle, so a reader sees "Service: GST Compliance" once, not the key
+ * and the name as two rows.
+ *
+ * `obligation_rule.linked` / `unlinked` carry `serviceName` beside
+ * `serviceKey` since 2026-09-26, fixed when the event was written, so a later
+ * rename does not rewrite what the trail says. Events written before that have
+ * the key alone, and a name of null means the service had no version to be
+ * named by: both print the key, which is what those rows always said.
+ */
+const NAMED_BY: Record<string, string> = {
+  serviceKey: "serviceName",
+};
+const HANDLE_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(NAMED_BY).map(([handle, name]) => [name, handle]),
+);
 
 export interface DetailRow {
   readonly label: string;
@@ -355,7 +375,14 @@ export function detailRows(payload: Record<string, unknown>): DetailRow[] {
   const rows: DetailRow[] = [];
   for (const [key, value] of Object.entries(payload)) {
     if (/Ids?$/.test(key) || key === "id") continue;
-    const shown = plainValue(value);
+    // A name is printed on its handle's row (`NAMED_BY`), and on its own only
+    // in a payload that has no handle for it to sit on.
+    const handle = HANDLE_OF[key];
+    if (handle !== undefined && handle in payload) continue;
+    const nameKey = NAMED_BY[key];
+    const name = nameKey === undefined ? undefined : payload[nameKey];
+    const shown =
+      typeof name === "string" && name.trim() !== "" ? name : plainValue(value);
     if (shown === null) continue;
     rows.push({ label: KEY_WORDS[key] ?? capitalise(words(key)), value: shown });
   }
