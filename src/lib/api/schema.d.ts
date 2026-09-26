@@ -7505,7 +7505,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["WorkItem"];
+                        "application/json": components["schemas"]["AssignedWorkItem"];
                     };
                 };
                 /** @description No authenticated session */
@@ -18623,6 +18623,10 @@ export interface components {
             stateId: string;
             /** @description Required when the target state is one the firm has marked as BLOCKED, and refused otherwise. 'Blocked' on its own records that work is stuck and never why — and a year later 'are our delays ours or the client's' has no query that can answer it. */
             blockedReason?: string | null;
+        };
+        AssignedWorkItem: components["schemas"]["WorkItem"] & {
+            /** @description How many of the job's steps moved to the new owner with the task: the steps nobody held, or that the task's previous owner held, which the process lets the new owner do. Zero when the task has no job, when it was taken off a desk, or when another open task of the same job is on somebody else's desk. */
+            stepsHandedOver: number;
         };
         AssignWorkItemRequest: {
             /** Format: uuid */

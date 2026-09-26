@@ -1925,3 +1925,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Work always has an owner, and handing out a task hands out its job (2026-09-27)
+
+The API's owner rule (backend T6.17): work the engine creates goes to the client's SPOC, else its
+Key Manager, else the person who signs for the firm, to HAND OUT. Three screen consequences:
+
+- **The assignment note is shown whenever it exists**, not only on an unassigned task: on a Key
+  Manager's or the signing partner's desk it is the sentence saying the task came to them to hand
+  out, and why. The API clears it when anybody moves the task by hand, so it never goes stale.
+  Both `/work-items` cards and `/work-items/[workItemId]` read it this way.
+- **Save on "Whose desk" can move the job's steps too.** The assign route answers
+  `stepsHandedOver`; the card says "N steps of this job went with it" (`role="status"`) when it
+  is above zero, and the hint under the picker says the rule in words.
+- **`how` on the two assignment events is worded** (`HOW_WORDS` in `lib/ui/audit-words.ts`):
+  the three rungs, `manual`, `taken`, `handover`, `released` and `with_task`, rather than the
+  underscored tokens.
