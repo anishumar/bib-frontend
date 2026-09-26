@@ -478,35 +478,38 @@ export default function CataloguePage() {
             onChosen={setNewChosen}
             onDrafts={setNewDrafts}
           />
-          {noteFor("define")}
-          {newChosen.some(willConfirm) && (
-            // SAID BESIDE THE PRESS THAT DOES IT: adding the service confirms
-            // these dates, and each is already written out in words above.
+          {/* THE SUBMIT STANDS APART from the filings panel above it: a line
+              and space, so "Add as a draft" is read as the form's one action
+              and not as a fourth button of the filings list. */}
+          <div className="stack snug mt-6 border-t border-line pt-4">
+            {noteFor("define")}
+            {newChosen.some(willConfirm) && (
+              // SAID BESIDE THE PRESS THAT DOES IT: adding the service confirms
+              // these dates, and each is already written out in words above.
+              <p className="text-sm text-muted">
+                Adding the service also confirms the dates of{" "}
+                {newChosen
+                  .filter(willConfirm)
+                  .map((r) => r.name)
+                  .join(", ")}
+                , which nobody at your firm has checked against the law yet.
+              </p>
+            )}
+            <div className="cluster">
+              <Button
+                type="submit"
+                form="define-service"
+                loading={busy === "define"}
+                disabled={busy !== null && busy !== "define"}
+              >
+                Add as a draft
+              </Button>
+            </div>
             <p className="text-sm text-muted">
-              Adding the service also confirms the dates of{" "}
-              {newChosen
-                .filter(willConfirm)
-                .map((r) => r.name)
-                .join(", ")}
-              , which nobody at your firm has checked against the law yet.
+              Saved as a draft, with the filings above. Publish it to start quoting it: a published
+              version never changes, so a proposal keeps the price it was sent at.
             </p>
-          )}
-          <div className="cluster">
-            <Button
-              type="submit"
-              form="define-service"
-              loading={busy === "define"}
-              disabled={busy !== null && busy !== "define"}
-            >
-              Add as a draft
-            </Button>
           </div>
-          <p className="text-sm text-muted">
-            Adding a service saves it as a draft. Publish it to start quoting it. Once published,
-            a version never changes, so a proposal opened next year still shows the price it was
-            sent at. Its compliance filings are not part of a version: they are added now, and
-            can be changed on its card at any time.
-          </p>
           {defined !== null && (
             <div ref={definedRef} tabIndex={-1} className="stack tight">
               <Notice tone="ok">

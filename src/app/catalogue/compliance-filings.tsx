@@ -869,17 +869,23 @@ export function NewServiceFilings({
   }
 
   return (
-    <section aria-labelledby={headingId} className="stack snug border-t border-line pt-4">
-      <h3 id={headingId}>
-        Compliance filings{" "}
+    /* A PANEL OF ITS OWN, sunk, because it is a different kind of thing from
+       the fields above it: those are the service's frozen terms, this is a
+       list the service is added WITH. Flat on the card, its buttons ran
+       straight into "Add as a draft" and read as one row of four. */
+    <section
+      aria-labelledby={headingId}
+      className="stack snug mt-6 rounded-md border border-line bg-surface-sunk p-4"
+    >
+      <div className="row">
+        <h3 id={headingId}>Compliance filings</h3>
         <span className="annot">
-          · {total} {total === 1 ? "filing" : "filings"} on this list
+          {total} {total === 1 ? "filing" : "filings"} added
         </span>
-      </h3>
+      </div>
       <p className="text-sm text-muted">
-        What the law asks of a client on this service, and by when. Choose them from your
-        firm&rsquo;s library or write a new one. They are added with the service when you press
-        Add as a draft, and you can add or remove them later on the service&rsquo;s card.
+        What a client on this service has to file, and by when. Choose from your firm&rsquo;s
+        library, or write a new one.
       </p>
 
       {filings === null && (
@@ -890,22 +896,48 @@ export function NewServiceFilings({
         </p>
       )}
 
-      {total > 0 && (
+      {total === 0 ? (
+        // AN EMPTY LIST SAYS WHAT EMPTY MEANS: a service with no filings puts
+        // nothing on the calendar, which is right for advisory work and a
+        // mistake for a GST service, and only the partner knows which this is.
+        <p className="rounded-sm border border-dashed border-line p-3 text-sm text-muted">
+          None added yet. A service with no filings puts nothing on the compliance calendar.
+        </p>
+      ) : (
         <ul className="stack tight">
+          {/* ONE ROW PER FILING, the name and its date on the left and the one
+              action at the far end, so a list of six reads down one column
+              instead of a button on a line of its own under every filing. */}
           {chosen.map((rule) => {
             const today = todayOf(rule);
             return (
-              <li key={rule.lineageId} className="stack tight border-t border-line pt-3">
-                <div className="cluster">
-                  <strong>{rule.name}</strong>
-                  {willConfirm(rule) && <Pill tone="warn">not confirmed yet</Pill>}
+              <li key={rule.lineageId} className="rounded-sm border border-line bg-surface p-3">
+                <div className="row">
+                  <div className="stack tight">
+                    <div className="cluster">
+                      <strong>{rule.name}</strong>
+                      {willConfirm(rule) && <Pill tone="warn">not confirmed yet</Pill>}
+                    </div>
+                    <span className="mono text-xs text-muted">{describeToday(rule)}</span>
+                    {rule.nextChange !== null && (
+                      <span className="mono text-xs text-muted">{describeNextChange(rule)}</span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label={`Remove from this list: ${rule.name}`}
+                    onClick={() => {
+                      onChosen(chosen.filter((r) => r.lineageId !== rule.lineageId));
+                      picker.current?.focus();
+                    }}
+                  >
+                    Remove
+                  </Button>
                 </div>
-                <p className="mono text-xs">{describeToday(rule)}</p>
-                {rule.nextChange !== null && (
-                  <p className="mono text-xs">{describeNextChange(rule)}</p>
-                )}
                 {today.exceptions.length > 0 && (
-                  <p className="text-sm text-muted">
+                  <p className="mt-2 text-xs text-muted">
                     Except:{" "}
                     {today.exceptions
                       .map((e) => `the period ending ${MONTHS[e.periodEndMonth - 1] ?? "?"}, ${e.note}`)
@@ -913,49 +945,37 @@ export function NewServiceFilings({
                     .
                   </p>
                 )}
-                <p className="text-sm text-muted">{chosenNote(rule)}</p>
-                <div className="cluster">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    aria-label={`Take it off this list: ${rule.name}`}
-                    onClick={() => {
-                      onChosen(chosen.filter((r) => r.lineageId !== rule.lineageId));
-                      picker.current?.focus();
-                    }}
-                  >
-                    Take it off this list
-                  </Button>
-                </div>
+                <p className="mt-2 text-xs text-muted">{chosenNote(rule)}</p>
               </li>
             );
           })}
           {drafts.map((d, i) => (
-            <li key={`new-${String(i)}-${d.name}`} className="stack tight border-t border-line pt-3">
-              <div className="cluster">
-                <strong>{d.name.trim()}</strong>
-                <Pill tone="neutral">written here</Pill>
-              </div>
-              <p className="mono text-xs">{describeDraft(d)}</p>
-              <p className="text-sm text-muted">
-                It goes into your firm&rsquo;s library with the service, and the next service can
-                choose it from the list.
-              </p>
-              <div className="cluster">
+            <li key={`new-${String(i)}-${d.name}`} className="rounded-sm border border-line bg-surface p-3">
+              <div className="row">
+                <div className="stack tight">
+                  <div className="cluster">
+                    <strong>{d.name.trim()}</strong>
+                    <Pill tone="neutral">new</Pill>
+                  </div>
+                  <span className="mono text-xs text-muted">{describeDraft(d)}</span>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  aria-label={`Take it off this list: ${d.name.trim()}`}
+                  aria-label={`Remove from this list: ${d.name.trim()}`}
                   onClick={() => {
                     onDrafts(drafts.filter((_, j) => j !== i));
                     picker.current?.focus();
                   }}
                 >
-                  Take it off this list
+                  Remove
                 </Button>
               </div>
+              <p className="mt-2 text-xs text-muted">
+                Written here. It goes into your firm&rsquo;s library with the service, so the next
+                service can choose it.
+              </p>
             </li>
           ))}
         </ul>
@@ -991,7 +1011,7 @@ export function NewServiceFilings({
       </div>
 
       {writing && (
-        <div ref={writePanel} tabIndex={-1} className="stack snug">
+        <div ref={writePanel} tabIndex={-1} className="stack snug rounded-sm border border-line bg-surface p-4">
           <RuleEditor
             bare
             creating
