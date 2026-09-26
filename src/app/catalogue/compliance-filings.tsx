@@ -292,8 +292,18 @@ function LinkedFiling({
             <span key={u.serviceEntryId}>
               {i > 0 && ", "}
               {/* The same page, so a plain anchor: every service card carries
-                  its key as an id. */}
-              <a href={`#service-${u.serviceKey}`}>{u.serviceName ?? u.serviceKey}</a>
+                  its key as an id. The jump is ours, not the browser's, which
+                  would put the card's name under the sticky top bar. */}
+              <a
+                href={`#service-${u.serviceKey}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  window.history.replaceState(null, "", `#service-${u.serviceKey}`);
+                  showService(`service-${u.serviceKey}`);
+                }}
+              >
+                {u.serviceName ?? u.serviceKey}
+              </a>
             </span>
           ))}
         </p>
@@ -581,6 +591,27 @@ function AddControls({
       )}
     </div>
   );
+}
+
+// ── Finding a card ────────────────────────────────────────────────────────
+
+/**
+ * Scroll a service's card into view BELOW the sticky top bar.
+ *
+ * `scrollIntoView({ block: "start" })` and a plain `#anchor` both put the
+ * card's top edge at the top of the window, which is under the bar, so the one
+ * thing a reader arriving from "Used in" needs to see (which service this is)
+ * was the thing hidden. The bar's height is MEASURED, not typed: it follows the
+ * theme and the phone layout, and a number here would drift from both. The
+ * breathing room is `--s-4`, read from the tokens rather than invented.
+ */
+export function showService(id: string): void {
+  const card = document.getElementById(id);
+  if (card === null) return;
+  const bar = document.querySelector(".topbar")?.getBoundingClientRect().height ?? 0;
+  const root = getComputedStyle(document.documentElement);
+  const room = parseFloat(root.getPropertyValue("--s-4")) * parseFloat(root.fontSize) || 0;
+  window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - bar - room });
 }
 
 // ── Reading a rule ────────────────────────────────────────────────────────

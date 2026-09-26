@@ -8,7 +8,7 @@ import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
 import { createBodyOf, type RuleDraft } from "../admin/obligation-rules/rule-editor";
-import { ComplianceFilings } from "./compliance-filings";
+import { ComplianceFilings, showService } from "./compliance-filings";
 import {
   Button,
   Field,
@@ -131,11 +131,11 @@ export default function CataloguePage() {
   // THE LIBRARY LINKS HERE BY SERVICE, as `/catalogue#service-<key>`, and the
   // browser's own jump to the anchor happens before this page has read its
   // services, so it finds nothing and stays at the top. This repeats it once
-  // the cards exist.
+  // the cards exist, below the sticky top bar (see `showService`).
   useEffect(() => {
     if (!loaded) return;
     const id = decodeURIComponent(window.location.hash.slice(1));
-    if (id !== "") document.getElementById(id)?.scrollIntoView({ block: "start" });
+    if (id !== "") showService(id);
   }, [loaded]);
 
   async function act(at: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
