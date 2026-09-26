@@ -140,6 +140,10 @@ const VERB_WORDS: Record<string, string> = {
   "obligation_rule.exception_added": "A carve-out was added to a compliance rule",
   "obligation_rule.exception_removed": "A carve-out was removed from a compliance rule",
   "obligation_rule.superseded": "A compliance rule was replaced by a new version",
+  // T6.16: the catalogue is where a filing meets a service. The record's
+  // object is the rule's CHAIN, so "compliance rule" below still names it.
+  "obligation_rule.linked": "A compliance filing was added to a service",
+  "obligation_rule.unlinked": "A compliance filing was removed from a service",
   "obligation_rules.seeded": "The standard compliance rules were loaded",
   "obligation_state.created": "A filing status was added",
   "obligation_state.updated": "A filing status was changed",
@@ -147,6 +151,7 @@ const VERB_WORDS: Record<string, string> = {
   "obligation_resolution_option.updated": "A way to close a missed filing was changed",
   "obligation_vocabulary.seeded": "The standard filing statuses were loaded",
   "obligation.spawned": "A filing was added to the calendar",
+  "obligation.restored": "A filing taken off the calendar was put back on it",
   "obligation.work_raised": "A task was raised for a filing",
   "obligation.filed": "A filing was marked as filed",
   "obligation.filing_reversed": "A filing's filed mark was undone",
@@ -298,7 +303,41 @@ const KEY_WORDS: Record<string, string> = {
   filedOn: "Filed on",
   occurredOn: "On",
   count: "Count",
+  // What adding or removing a filing did to the calendar (T6.16). Spelled out
+  // they read "Kept started" and "Kept covered elsewhere", which say nothing
+  // to a partner about WHY a filing stayed.
+  spawned: "Filings added",
+  restored: "Filings put back",
+  withdrawn: "Filings taken off",
+  kept: "Filings kept",
+  keptStarted: "Kept, work had started",
+  keptPastDue: "Kept, date passed or a decision waiting",
+  keptCoveredElsewhere: "Kept, another service still includes it",
+  repointed: "Moved to the client's other service",
+  onCreate: "Added when it was written",
+  services: "Services",
+  serviceKey: "Service",
+  serviceName: "Service",
 };
+
+/**
+ * A HANDLE, and the payload key naming the same thing in words when the event
+ * carries it. The row keeps the handle's label and prints the name in place
+ * of the handle, so a reader sees "Service: GST Compliance" once, not the key
+ * and the name as two rows.
+ *
+ * `obligation_rule.linked` / `unlinked` carry `serviceName` beside
+ * `serviceKey` since 2026-09-26, fixed when the event was written, so a later
+ * rename does not rewrite what the trail says. Events written before that have
+ * the key alone, and a name of null means the service had no version to be
+ * named by: both print the key, which is what those rows always said.
+ */
+const NAMED_BY: Record<string, string> = {
+  serviceKey: "serviceName",
+};
+const HANDLE_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(NAMED_BY).map(([handle, name]) => [name, handle]),
+);
 
 export interface DetailRow {
   readonly label: string;
@@ -336,7 +375,14 @@ export function detailRows(payload: Record<string, unknown>): DetailRow[] {
   const rows: DetailRow[] = [];
   for (const [key, value] of Object.entries(payload)) {
     if (/Ids?$/.test(key) || key === "id") continue;
-    const shown = plainValue(value);
+    // A name is printed on its handle's row (`NAMED_BY`), and on its own only
+    // in a payload that has no handle for it to sit on.
+    const handle = HANDLE_OF[key];
+    if (handle !== undefined && handle in payload) continue;
+    const nameKey = NAMED_BY[key];
+    const name = nameKey === undefined ? undefined : payload[nameKey];
+    const shown =
+      typeof name === "string" && name.trim() !== "" ? name : plainValue(value);
     if (shown === null) continue;
     rows.push({ label: KEY_WORDS[key] ?? capitalise(words(key)), value: shown });
   }

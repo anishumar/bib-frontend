@@ -257,7 +257,7 @@ porting a screen; it is invisible in the source.
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
-| `/admin/workflows` | how the firm does its work — the steps a job walks, written once |
+| `/admin/workflows` | how the firm does its work — the steps a job walks, written once, each with its sub-steps and, where somebody checks it, the checker's review points |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
 | `/admin/escalation-ladder` | when the firm hears that its own work has gone quiet — the rungs, and who each one tells |
 | `/admin/client-reminders` | when a CLIENT hears from the firm — the chase ladder (forward from the day we asked, stopped by a freeze) and the heads-up ladder (back from a statutory date, not stopped by one). Two config kinds, one screen. |
@@ -270,7 +270,7 @@ porting a screen; it is invisible in the source.
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
 | `/engagement-letters/[letterId]` | one letter: its terms, its signature, and the engagements it created |
-| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
+| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16). The "Add a service" form lists them too (`NewServiceFilings`), sent once the service exists |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
@@ -281,11 +281,11 @@ porting a screen; it is invisible in the source.
 | `/work-items` | the board — what is owed, whose desk it is on, what is late, what is waiting to be checked, and what the ladder has escalated |
 | `/work-items/[workItemId]` | one task: its checklist, what it waits on, what the firm has asked the CLIENT for, and every review it has been through |
 | `/admin/work-vocabulary` | the firm's own words for work — the states a task moves through and how urgent it can be |
-| `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision |
+| `/calendar` | the compliance calendar — what each company owes and by when, WHY an engagement produced nothing, and the deadlines waiting on a partner's decision. A filing taken off when a service stopped including it is not shown (the API leaves it out) |
 | `/admin/obligation-vocabulary` | the firm's own words for that calendar — the states a filing moves through, and what may be decided about one that was missed |
-| `/admin/obligation-rules` | what the law asks of a client, and when — write the due formula, add a carve-out, confirm a date, set T–X, retire a rule |
+| `/admin/obligation-rules` | **the LIBRARY**: what the law asks of a client, and when — write the due formula, add a carve-out, confirm a date, set T–X, retire a rule, and see where each rule is USED. No service is chosen here, and a rule no service uses adds nothing to the calendar |
 | `/work` | the delivery board — what a signed engagement turned into |
-| `/work/[jobId]` | one job's process: its steps, who each is waiting on, the Done button, and Approve / Send back |
+| `/work/[jobId]` | one job's process: its steps, who each is waiting on, each step's sub-steps to tick (or mark not applicable with a reason), the Done button, and Approve / Send back with the check's review points |
 | `/audit` | every state transition, and any object's own timeline via `?type=&id=` |
 | `/portal` | **THE CLIENT'S APP** — what the firm has ASKED THEM FOR and where to answer it, **what they have asked the FIRM for**, what it is doing for the companies this contact was granted, what is held up, and what has been filed. A CLIENT_PORTAL session only; a staff one is sent back to the workspace |
 | `/portal/documents` | **THE CLIENT'S LIBRARY** — every document the firm has shared with them, searchable, and each one downloads. NOT windowed: the whole point is finding last year's challan |
@@ -1006,6 +1006,44 @@ why. Decided checks stay on the page with their notes: a step sent back twice an
 reads as one that sailed through if only the open check is drawn, and "this took two goes" is
 the only signal anywhere that explains where a week went.
 
+## Sub-steps and review points (T6.15)
+
+The firm's first real process has bullets under every step ("Collect: bank statements, sales
+data ...") and, on its manager review, "Check: P&L movements ...". A step now carries two lists,
+and **two different people tick them**: the SUB-STEPS are the doer's, and all of them hold Done
+shut; the REVIEW POINTS are the checker's, and all of them hold Approve shut. **Send back is never
+held**, because the checker may find the problem at point three.
+
+- **The editor takes a text box, one line per item**, not a row of inputs with an Add button: the
+  process arrives as a document and pasting eight lines is how it gets written. A leading bullet
+  followed by a space is taken off. **Keys are never shown**: `toLines` keeps an existing line's
+  key when its words are unchanged (matched by label, so a reorder keeps them) and gives a new
+  line the next `s1, s2, …` / `r1, r2, …` that the version being edited never used.
+- **Review points appear only once a checker is chosen**, and are KEPT, with a warning and two
+  buttons (move them to the sub-steps, or remove them), when the checker is set back to nobody.
+  The API refuses them there; hiding or dropping them would lose what somebody wrote. An
+  automatic step with sub-steps is warned about for the same reason: nothing would tick them.
+- **Every disabled control reads the API's own count.** Done, Accept and Correct are disabled
+  while `subStepsOpen > 0`, Approve while `reviewPointsOpen > 0`, and a sentence under each says
+  how many are left. The 409 is still shown verbatim if it arrives.
+- **"Not applicable" asks why on the line, never in a `prompt()`**, and such a line is NEVER
+  drawn ticked: "it did not apply" is a different fact from "I did it". Every settled line says
+  who and when, with the clock (`longMoment`).
+- **A tick PATCHES the one step (or check) from the PUT's answer** rather than reloading the page
+  the way Done does: a tick opens nothing, and four reads per tick down a list of eight is a page
+  that flickers under somebody while they work.
+- **The review points belong to the CHECK, not the step.** The open check's are editable for an
+  eligible viewer only (so never for the maker); a decided check in the history shows what its
+  checker ticked, read-only, and the round after a send-back starts empty.
+- **`/work`'s To check tab approves nothing itself** (Open goes to the job), so its row says how
+  many review points are left. `/work-items`' To check tab is the TASK queue and has no review
+  points at all.
+
+**What looking at it found:** `mt-3` on the `<Fieldset>` did nothing, because `.fieldset`
+declares `margin: 0` and is unlayered; the list sat flush against the line above it. The spacing
+is on a wrapper now. And at full width the "Not applicable" buttons sat 750px from the words they
+act on, so the list is held to the measure.
+
 ## `/clients/import` — the book, from a spreadsheet (T6.12)
 
 One screen, five parts in reading order: the three templates (header-only CSVs, with the firm's
@@ -1328,9 +1366,12 @@ is in. They are writing it because they know when it is due.
 
 **Writing a rule prefills the pack as `firm@<year>`**, editable, kept clear of the shipped
 `gst-in@…` namespace so re-seeding a vendor pack can never collide with an answer the firm wrote
-itself. And the form SAYS that a new rule generates nothing yet: the API deliberately does not
-materialise a half-written rule, so leaving somebody watching an empty calendar would be this
-screen's silence rather than the API's.
+itself. And the form SAYS that a new rule generates nothing yet. Since T6.16 that is because a rule
+written HERE is on no service, and a rule on no service adds nothing at all, tonight or ever, so
+the notice says to add it to a service in the Catalogue; the old sentence promised the nightly run
+would fill it, which stopped being true. The catalogue's "Write a new filing" is the path that
+writes, links and fills the calendar in one act. **The editor's "Owed by clients who bought"
+picker is gone**, and why is the next section.
 
 **The formula is rendered as a sentence a partner can check against the statute** — "Every month ·
 the 20th of the following month" — never as `dueMonthOffset: 1`. The first version of that function
@@ -1339,6 +1380,230 @@ an event-driven rule, "30 days after the period ends" when an event rule has no 
 were grammatical nonsense and the second was factually wrong; the types were perfectly happy with
 both.
 
+
+## `/catalogue`'s compliance filings: where a rule meets a service (T6.16)
+
+A compliance rule used to name AT MOST ONE service from the rule editor ("Owed by clients who
+bought"), and leaving it blank meant **every** service. That blank is how 98 GST filings reached a
+bookkeeping-only client on 2026-09-18, and "at most one" meant a filing two services owe had to be
+written twice. **The firm's own idea (2026-09-26) is the shape now:** when you build a service in
+the catalogue you say what it files, a service carries any number of filings, and a filing written
+once is in the list for the next service. Four decisions came with it, and the screens render them
+rather than make them:
+
+1. **A rule on no service adds nothing to the calendar.** "Every service" is gone. So the
+   catalogue is the ONE place a filing reaches a client, and the editor's picker went rather than
+   being kept beside the new one: two places to say "which service" is how two answers drift.
+2. **Removing a filing from a service withdraws its untouched upcoming filings** for clients no
+   other service of theirs still covers. Kept and marked, never deleted; anything started, filed,
+   decided or past its date stays, and is counted.
+3. **`/admin/obligation-rules` stays as the LIBRARY**: every rule, where each is used, its
+   exceptions, and the law-changed panel.
+4. Built before the SFF freeze.
+
+**What is on each service card** (`src/app/catalogue/compliance-filings.tsx`), drawn LAST and
+outside both version blocks:
+
+- **The filings it carries**: name, who it is filed with, the due rule in words (`describeRule`,
+  now exported from `rule-editor.tsx` so the picker, the list and the confirmation cannot word one
+  rule three ways; since the follow-ups, TODAY's rule and the next change, see below), a status
+  pill and SENTENCE (on the calendar for this service's clients
+  registered in India / date not known yet: *the rule's own reason* / event-driven / not confirmed /
+  retired), and "Also used in: …" linking to the other service's card.
+- **"Add a filing"** is a searchable picker (Popover + Command, the `month-view.tsx` precedent)
+  over the firm's whole library, grouped by the statute's `module` (GST / TDS / MCA, never the
+  firm's Dept). Each option says its due rule in words and how many services use it. The item's
+  cmdk VALUE is the rule id and the words are `keywords`, because cmdk treats two items with one
+  value as one item and "TDS return" can exist in two countries.
+- **Choosing an UNCONFIRMED rule opens an inline confirmation, not a `window.confirm`**: the
+  dates in words, the exceptions, the fact that nobody at the firm has checked them, which other
+  services it is confirmed for too, and that a zero lead time means work starts on the legal date.
+  Adding it confirms it (the API's own path and event). A rule that is already confirmed is added
+  on the click; asking again would be a second press that says nothing. A rule still waiting on a
+  fact is added WITHOUT a confirmation, because it has no date to confirm, and the sentence after
+  says nothing went on the calendar and why.
+- **"Write a new filing"** is the library's own editor rendered `bare` (a card inside the service
+  card drew two borders) with `createBodyOf(draft)` plus `serviceEntryIds: [thisService]`, in ONE
+  call, so there is no moment where the rule exists on no service. `createBodyOf` is shared with
+  the library's "Write a rule", so the two writers cannot send different shapes. The editor's radio
+  group is named by `useId` now: every card can hold one of these forms, and two radio groups with
+  one name in one document are one group.
+- **"Remove from this service"** is replaced by a confirmation that states the effect BEFORE the
+  press (what comes off, what stays, that it is kept and comes back if added again), then the
+  counts after: *"13 upcoming filings taken off the calendar"*, or *"13 kept because another
+  service the same client holds still includes it"*. The three kept reasons (started / past its
+  date or waiting on a decision / covered elsewhere) are said apart, because they are different
+  things to know.
+- **Every press says what it did, in words**, and the sentence takes focus (`useAppearFocus`),
+  because a removal unmounts the row whose button was pressed. *"12 filings added to the calendar
+  for 4 companies"* (companies, because that is what the API counts: a group files per company),
+  *"13 filings taken off earlier are back on the calendar"* after a re-add, and *"GSTR-3B was
+  already on this service. Nothing changed."* for a second press. The sentence is CLEARED when the
+  next act starts (the picker opens, a removal is opened, the write form toggles): *"13 added"*
+  left beside a removal's confirmation read as that removal's answer.
+- **Accessible names lead with the visible words** (`Remove from this service: GSTR-3B`,
+  `Remove it: GSTR-3B`, `Keep it: GSTR-3B`), so six filings are six different buttons by name and
+  somebody saying what they see to voice control still reaches them.
+
+**The links are not versioned, and that is the design, not a gap.** Everything else on the card is
+a published version, frozen. A link hangs off the service's catalogue ENTRY (`entry.entry.id`,
+which `serviceRow` now keeps as `id`), so adding a filing needs no new version and a draft-only
+service can carry filings already. A proposal pins a version for its PRICE; what the law asks of a
+client is not a term the firm agreed with them.
+
+**One read for the whole page.** `GET /obligation-filings` returns the firm's library once, one row
+per chain with `usedIn` named, and each card finds its own. One request per card is the per-row
+lookup this file warns about, and the local limit is about 300 a minute. That read is
+`party:read` where the catalogue is `config:read`, so a session refused it gets a sentence on
+every card ("Your role cannot see the firm's compliance filings"), never an empty list that would
+say the service files nothing. **Only a 403 draws that sentence** (found in review): `?? null` on
+any failure turned a throttled reload into "your role cannot see" on every card for an admin, hid
+the controls, and swallowed the sentence saying what their add had just done. Any other failure
+keeps the list already read, with a warn notice that it may be out of date, or, with no list yet,
+says it could not be read and to reload.
+
+**A refusal is drawn beside the press that caused it, and takes focus** (review, measured with
+Playwright: a refused "Write it and add it to this service" drew its alert 131px ABOVE the
+viewport, over a 900px form, while the button sat at the bottom). The section remembers which act
+was pressed and draws the API's sentence inside the removal's confirmation, inside the adding
+confirmation, just above the new filing's save row (`RuleEditor`'s `refusal` slot), or by the add
+controls for a plain add; `Refusal` focuses it on appearance (`useAppearFocus`), which scrolls it
+into view. The page's `FailureNote` doc already said an error three screens above the button is an
+error nobody reads; the section had drawn it there anyway. **The picker keeps a 16px gutter on a
+phone** (`collisionPadding={16}`): aligned to a trigger 32px in, it ran to the screen's edge and
+lost its right border at 375px.
+
+**The library says where each rule is used.** Every row carries "Used in: *service*" (each a link
+to `/catalogue#service-<key>`) or *"Not used by any service, so it adds nothing to the calendar"*
+as a sentence, never a blank: a confirmed rule with a formula and no service looks as though it
+were working. `coverage` gained `unlinked` for the same reason, un-toned (whether a service uses a
+filing is a choice, not a job), with its own filter and count. The catalogue page scrolls to the
+hash once its cards exist, because the browser's own jump happens before the services are read.
+
+**The calendar leaves withdrawn filings out and does not filter anything itself.** Every read it
+makes excludes them on the server, and a second filter in the browser is a second answer to "what
+is on the calendar". The optional "N taken off" count was not built: the catalogue says it at the
+moment it happens, which is when somebody can act on it. Its coverage reasons point at the
+Catalogue where the fix is there (`where` gained `/catalogue`): `no_rule_names_this_service` now
+means *no filing is on this service* and says, conditionally, where to add one; a filing for
+another country is written on the service; `rules_unconfirmed` still goes to the library, because
+adding a filing confirms it and this state means somebody unticked it there.
+
+**What walking it found.** "GST · GST" under every GST filing (the pack names both the authority
+and the grouping "GST"), now said once; the stale sentence above; a "Used in" link that landed
+with the card's own name UNDER the sticky top bar, the one thing the reader came to see, so both
+the deep link and the in-page anchors go through `scrollBelowBar` (`@/components/ui` since the
+follow-ups below; it was the catalogue's own `showService`), which measures the bar; and a
+smoke firm whose companies
+were never registered in a country, so every add answered "no new filings" until one was. That
+last one is the coverage tab's `entity_not_registered` reason working as designed, and it is why
+the walk registered a company before measuring the counts.
+
+### The follow-ups (2026-09-26), decided by the user
+
+**A filing's date is TODAY's rule, and a law change is a second line.** The catalogue's row for a
+chain is its newest row, and after "the law changed from April 2027" that is the successor: the
+card said GSTR-3B was due on the 22nd while the calendar, correctly, dated September's return the
+20th. Every rule row now carries `inForceToday` (the chain's row governing the period containing
+the FIRM's today, read by the API) and `nextChange`, and `rule-editor.tsx` words them once:
+`describeToday` ("Every month · the 20th of the following month") and `describeNextChange` ("From
+April 2027: the 22nd of the following month."), which names `nextChange.firstPeriodStart`, the
+start of the first period the new row GOVERNS, never the day the change was recorded from (review,
+below). The service's list, the picker's
+options and the confirmation all use both, so the option and the row it becomes say one date, and
+the confirmation's exceptions are today's row's (a successor inherits none). `monthYear` is in
+`@/lib/day`, split like `longDay`. **The library lists every row of a chain**, each with its own
+formula, which is what Edit edits; the row in force adds the "From April 2027" line (in place of
+the bare "hands over on", which named the same day), and any other row says what today's filings
+follow instead ("Not in force yet. Today's filings follow the earlier rule: the 20th of the
+following month."). Which row governs today is always the API's answer; nothing here computes it.
+
+**"Edit in the library" on every filing** (`LinkedFiling`), a `LinkButton` beside Remove, offered
+on `party:read` (the library's read) and worded "See it in the library" for somebody without
+`tenant:admin`, because "edit" would promise controls the library does not give them. It lands on
+`/admin/obligation-rules#rule-<lineageId>`: **the anchor is the CHAIN**, on its first row as shown,
+because a law change gives the chain a new newest row and a link naming yesterday's row id would
+land nowhere. The library reads the hash on its FIRST answer only (a reload after a write must
+never scroll the page out from under somebody) and on `hashchange` (a fragment-only change is a
+same-page jump the browser makes itself, under the bar: measured 63px under before the listener),
+shows retired rows when the whole chain is retired, scrolls through `scrollBelowBar`, and marks
+every row of the chain `data-arrived` (`.table` in `components.css`: a hover ground and an ink
+edge, never a status colour). Its rows are not collapsed, so there is nothing to expand: the row
+holds the lead time, the tick and Edit.
+
+**A form that would be refused is refused HERE, beside the field, before any call.** An empty name
+on "Write a new filing" went to the API and came back as zod's own sentence ("name: String must
+contain at least 1 character(s)"). `RuleEditor` now checks every field its body requires, in the
+request schema's terms (name and pack non-empty, a two-letter country, a day 1 to 31, a reason when
+there is no formula), and draws the sentence in the field's own `error` ("Give the filing a name,
+for example GSTR-3B."). Nothing shows until a save is pressed, each sentence goes the moment its
+field is fixed, and it is remembered per form (a rule's id, or "new"), because the library keeps
+one editor mounted while a partner moves between rules. **Focus moves to the first refused field,
+below the bar**: the save row is at the bottom of a form about 900px tall and the name box at its
+top, so a sentence beside the name is off screen from the button pressed. `.field-row` is
+`align-items: start` now, so an error inside one column no longer lifts its input above its
+neighbours (the old hint warning above was about `end`). The library's "Write a rule" gets all of
+it for free; what only the API can know (a name already taken in that pack) still arrives in the
+`refusal` slot.
+
+**`/audit` says the service's NAME for a filing added or removed.** `obligation_rule.linked` /
+`unlinked` carry `serviceName` beside `serviceKey` since the same day, fixed at the write.
+`audit-words.ts`'s `NAMED_BY` prints the name on the key's own row ("Service: Payroll Processing",
+never two rows), and an event written before it, or naming a service with no version, prints the
+key as it always did.
+
+**Found by measuring, and none of it visible to the gate:** the same-page hash landing under the
+bar (above), and that `/admin/obligation-rules`' table is wider than a 1440px window, because the
+Filing column's long reasons set its width, so the When column (and its new lines) starts off to
+the right inside the table's own scroller. That was already true before these follow-ups and is
+left for its own change.
+
+**What review of the follow-ups found (2026-09-26), each watched red in Playwright first:**
+
+- **"From November 2026" for a change that waits for January.** The line named
+  `nextChange.effectiveFrom`, the day the change was recorded from, and the supersede form takes
+  any day: a quarterly rule changed on 1 November read "From November 2026" while October to
+  December was still due under the old rule. The API now sends `firstPeriodStart` (the backend's
+  CLAUDE.md says how it is found) and the line names that, so the same card reads "From January
+  2027". A period start is a 1st; only an event-driven rule, with no period, can start on another
+  day, and that is said as the day.
+- **The pill and the date above it described two different rows.** `standingOf` read the chain's
+  NEWEST row, so after a change waiting on a fact the card said "Every quarter · the 30th", "date
+  not known yet" and "It adds nothing to the calendar" while the confirmed row before it was
+  dating this year's returns. Each chain row now carries its own `coverage`, and `todayOf` returns
+  today's row's coverage and reason with its date, so the pill, the sentence and the picker's
+  "cannot work out a date yet" are all today's. The newest row's standing is the second line's to
+  say: "nothing goes on the calendar, because the rule from then on is retired" for a retired
+  successor, and "once somebody confirms it in the library" for an unticked one. `willConfirm`
+  stays on the newest row on purpose: it predicts what the API does, and a link confirms the
+  chain's newest row.
+- **Arriving from "Edit in the library" left focus on `<body>`.** The pressed link is unmounted
+  by the navigation, so the first Tab went to the page's top and scrolled the row away. The
+  anchored row is `tabIndex={-1}` and the arrival effect focuses it after `scrollBelowBar`, with
+  `preventScroll`; the next Tab is that row's first control. Only an arrival does it, never a
+  reload.
+- **A local refusal sat beside the API's last one.** After a 409 ("already holds a filing
+  named"), emptying the name and pressing again showed both sentences, and on the catalogue the
+  409 came back on a fresh form after Cancel. `RuleEditor` calls `onRefused` when it refuses a
+  save itself; the catalogue forgets which act was refused there (and on toggling or cancelling
+  the form), and the library clears its `ErrorNotice`.
+- **"yet.." on the card**: a firm's reason already ending in a full stop got a second one.
+
+**The "Add a service" form has the same section (2026-09-26).** A partner filling in the form
+looked for the filings on it and found none: the card's section only exists once the service is
+saved. `NewServiceFilings` keeps a LIST (library picks and filings written there) and the page
+sends it after the service is created: the service first (a link names its catalogue entry), then
+each link, then each written rule with `serviceEntryIds`. Not one transaction, so a filing refused
+after the service went in is said by name with the API's sentence, and a refused service keeps the
+list. The section sits OUTSIDE the `<form>` and the submit reaches it with `form="define-service"`,
+because Enter in any of the editor's text boxes inside the form would submit a half-written
+service. Writing a filing the library already holds (same name and country) is refused on the
+screen with a pointer to "Add a filing"; the API would only refuse it within one pack. The
+sentence after says nothing reaches the calendar, because a new service has no client yet.
+
+**Changing files under a running `next dev` can lose a route.** Stashing and restoring three files
+for the red run left `/admin/obligation-rules` answering 404 until the page file was touched again.
+It is the "stale dev server" case again, not a bug in the page.
 
 ## The Escalated tab, and the ladder behind it (T4.5)
 
@@ -1554,7 +1819,8 @@ approving: the firm looked and chose not to, which is a fact somebody wants late
 ## Two screens that show the registry rather than hiding it
 
 `/catalogue` offers "new version" and never "edit", because publishing FREEZES a config
-version — that is what makes a proposal's pinned price still resolve next year. A draft is
+version — that is what makes a proposal's pinned price still resolve next year. A service's
+compliance filings are the one thing on its card that is NOT versioned, on purpose (T6.16, above). A draft is
 shown as "draft only" rather than omitted, because a draft that was never published is a real
 state a firm needs to see and fix, and the proposal screen correctly refuses to quote one.
 

@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
-import type { ConfigEntry } from "@/lib/api/client";
+import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
+import { createBodyOf, type RuleDraft } from "../admin/obligation-rules/rule-editor";
+import { ComplianceFilings, NewServiceFilings, willConfirm } from "./compliance-filings";
 import {
   Button,
+  scrollBelowBar,
   Field,
   FieldRow,
   Input,
@@ -20,6 +23,7 @@ import {
   Prose,
   Select,
   Textarea,
+  useAppearFocus,
 } from "@/components/ui";
 import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
 
@@ -48,6 +52,18 @@ import { Card, CardTitle, Page, PageHeader } from "@/components/tw";
  * READING IS BROAD, WRITING IS `tenant:admin`. An associate quotes from the
  * catalogue, so the record is theirs to read; changing what the firm sells is
  * not. The controls are offered on that basis and the API refuses regardless.
+ *
+ * A SERVICE SAYS WHAT IT FILES, HERE AND NOWHERE ELSE (T6.16). Each service
+ * card carries its compliance filings, added from the firm's library or
+ * written on the spot, and this is the one place a filing is linked to a
+ * service: the rule editor's single-service picker is gone, because a rule on
+ * NO service used to mean "every service" and that is how a bookkeeping-only
+ * client was sent 98 GST filings. A rule no service carries now adds nothing
+ * to the calendar. Removing one withdraws the upcoming filings nobody started
+ * and says what it kept. The filings are NOT versioned with the service body,
+ * and `compliance-filings.tsx` says why. The "Add a service" form lists them
+ * too (`NewServiceFilings`), because that is where a partner building a
+ * service looks for them; they are sent once the service exists.
  */
 export default function CataloguePage() {
   const router = useRouter();
@@ -63,12 +79,30 @@ export default function CataloguePage() {
   // The firm's published processes, for the picker. `config:read`, like the
   // catalogue itself — an associate reading a service should see how it is done.
   const [workflows, setWorkflows] = useState<ConfigEntry[]>([]);
+  // The firm's whole compliance library, one row per chain, each saying which
+  // services carry it. ONE read for every card on the page (T6.16); null when
+  // this session may not read it (`party:read`, where the catalogue itself is
+  // `config:read`), which each card says rather than drawing an empty list.
+  const [filings, setFilings] = useState<ObligationRule[] | null>(null);
+  // The LAST read of that library failed for a reason that is not a
+  // permission (a throttle, a server error). Kept apart from `filings` so a
+  // 429 is never drawn as "your role cannot see", and so a list read earlier
+  // stays on screen, said to be possibly out of date, rather than vanishing.
+  const [filingsUnread, setFilingsUnread] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The compliance filings the service being ADDED will carry: chosen from the
+  // library or written on the form, and sent only once the service exists,
+  // because a link hangs off its catalogue entry (see `NewServiceFilings`).
+  const [newChosen, setNewChosen] = useState<readonly ObligationRule[]>([]);
+  const [newDrafts, setNewDrafts] = useState<readonly RuleDraft[]>([]);
+  // What adding the service DID, filings included, in words.
+  const [defined, setDefined] = useState<Defined | null>(null);
+  const definedRef = useAppearFocus(defined === null ? null : defined.sentence);
 
   const load = useCallback(async (): Promise<void> => {
-    const [catalogue, library, policy, me, structure, processes] = await Promise.all([
+    const [catalogue, library, policy, me, structure, processes, compliance] = await Promise.all([
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
@@ -79,6 +113,9 @@ export default function CataloguePage() {
       // to use would be noise on a screen that reads fine without it.
       api.GET("/api/v1/tenancy/structure", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "workflow_template" } } }),
+      // Every service's filings in one request, never one per card: the local
+      // limit is about 300 requests a minute and this page is already six.
+      api.GET("/api/v1/obligation-filings", {}),
     ]);
     if (catalogue.response.status === 401) {
       router.push("/login");
@@ -95,6 +132,21 @@ export default function CataloguePage() {
     setPermissions(me.data?.permissions ?? []);
     setAxes(structure.data?.axes ?? []);
     setWorkflows(processes.data?.entries ?? []);
+    // ONLY A 403 MEANS "YOUR ROLE CANNOT SEE". Every other failure keeps the
+    // list already on screen (null only if there has never been one) and
+    // says it could not be refreshed. `?? null` on any failure told an admin
+    // whose reload was throttled that their role could not see filings, hid
+    // the add and remove controls, and swallowed the sentence saying what
+    // their add had just done.
+    if (compliance.data !== undefined) {
+      setFilings(compliance.data.filings);
+      setFilingsUnread(false);
+    } else if (compliance.response.status === 403) {
+      setFilings(null);
+      setFilingsUnread(false);
+    } else {
+      setFilingsUnread(true);
+    }
     setFailure(null);
     // One call. What is in force AND what is waiting both come back on the list,
     // so there is nothing to fill in afterwards and no half-painted state.
@@ -106,6 +158,16 @@ export default function CataloguePage() {
       await load();
     })();
   }, [load]);
+
+  // THE LIBRARY LINKS HERE BY SERVICE, as `/catalogue#service-<key>`, and the
+  // browser's own jump to the anchor happens before this page has read its
+  // services, so it finds nothing and stays at the top. This repeats it once
+  // the cards exist, below the sticky top bar (see `scrollBelowBar`).
+  useEffect(() => {
+    if (!loaded) return;
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id !== "") scrollBelowBar(id);
+  }, [loaded]);
 
   async function act(at: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
     setBusy(at);
@@ -124,17 +186,130 @@ export default function CataloguePage() {
     setBusy(null);
   }
 
+  /**
+   * `act` for a write whose ANSWER is the point.
+   *
+   * `act` throws the success body away, which is right for a publish and wrong
+   * here: adding a filing says how many filings reached the calendar and for
+   * how many companies, and removing one says what came off and what stayed
+   * and why. So this is the same shape (busy, failure cleared BEFORE the call,
+   * the refusal verbatim at `at`, then a reload) returning the body, and the
+   * section turns it into the sentence. The reload comes first so the sentence
+   * lands on a card that already shows the new state.
+   */
+  async function answered<T>(
+    at: string,
+    call: () => Promise<{ data?: T; error?: unknown }>,
+  ): Promise<T | null> {
+    setBusy(at);
+    setFailure(null);
+    const result = await call();
+    if (result.data === undefined) {
+      setFailure(failureOf(at, result.error));
+      setBusy(null);
+      return null;
+    }
+    await load();
+    setBusy(null);
+    return result.data;
+  }
+
+  function addFiling(row: ServiceRow, rule: ObligationRule) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/services/{serviceEntryId}/filings", {
+        params: { path: { serviceEntryId: row.id } },
+        // Any rule of the chain is accepted; the one in force is what is sent.
+        body: { ruleId: rule.id },
+      }),
+    );
+  }
+
+  function removeFiling(row: ServiceRow, rule: ObligationRule) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/services/{serviceEntryId}/filings/{ruleId}/unlink", {
+        params: { path: { serviceEntryId: row.id, ruleId: rule.id } },
+      }),
+    );
+  }
+
+  /** Written into the library and onto this service in ONE call: the API links
+   *  it in the same transaction, so there is no moment where the rule exists
+   *  on no service and a failure could leave it there. */
+  function writeFiling(row: ServiceRow, draft: RuleDraft) {
+    return answered(`filings:${row.key}`, () =>
+      api.POST("/api/v1/obligation-rules", {
+        body: { ...createBodyOf(draft), serviceEntryIds: [row.id] } as never,
+      }),
+    );
+  }
+
   function noteFor(at: string): ReactNode {
     return failure !== null && failure.at === at ? <FailureNote failure={failure} /> : null;
   }
 
-  function define(form: FormData): void {
-    void act("define", () =>
-      api.POST("/api/v1/config/{kind}", {
-        params: { path: { kind: "service" } },
-        body: { key: String(form.get("key")).trim(), body: serviceBody(form) },
-      }),
-    );
+  /**
+   * Add a service, and then the compliance filings the form listed for it.
+   *
+   * THREE KINDS OF CALL, IN ORDER, AND NOT ONE TRANSACTION. The service first,
+   * because every link names its catalogue entry and there is none before it.
+   * Then each filing from the library, then each one written on the form (the
+   * create links it in the same call, so a written rule is never left on no
+   * service). They are separate routes owned by separate use cases, so a
+   * filing can be refused after the service went in: that is said filing by
+   * filing, with the API's own sentence, and the service's card is where it is
+   * added again. A refused SERVICE sends nothing else and keeps the list, so
+   * the partner does not have to choose the filings twice.
+   */
+  async function define(form: FormData): Promise<void> {
+    const key = String(form.get("key")).trim();
+    const name = String(form.get("name") ?? "").trim();
+    setBusy("define");
+    setFailure(null);
+    setDefined(null);
+    const made = await api.POST("/api/v1/config/{kind}", {
+      params: { path: { kind: "service" } },
+      body: { key, body: serviceBody(form) },
+    });
+    if (made.data === undefined) {
+      setFailure(failureOf("define", made.error));
+      setBusy(null);
+      return;
+    }
+    const serviceEntryId = made.data.entry.id;
+    const added: string[] = [];
+    const confirmed: string[] = [];
+    const failed: { name: string; message: string }[] = [];
+    for (const rule of newChosen) {
+      const linked = await api.POST("/api/v1/services/{serviceEntryId}/filings", {
+        params: { path: { serviceEntryId } },
+        body: { ruleId: rule.id },
+      });
+      if (linked.data === undefined) {
+        failed.push({ name: rule.name, message: apiError(linked.error).message });
+        continue;
+      }
+      added.push(rule.name);
+      if (linked.data.effect.confirmed) confirmed.push(rule.name);
+    }
+    for (const draft of newDrafts) {
+      const written = await api.POST("/api/v1/obligation-rules", {
+        body: { ...createBodyOf(draft), serviceEntryIds: [serviceEntryId] } as never,
+      });
+      if (written.error) {
+        failed.push({ name: draft.name.trim(), message: apiError(written.error).message });
+        continue;
+      }
+      added.push(draft.name.trim());
+    }
+    setNewChosen([]);
+    setNewDrafts([]);
+    await load();
+    setBusy(null);
+    setDefined({
+      key,
+      sentence: definedSentence(name === "" ? key : name, added, confirmed),
+      failed,
+    });
   }
 
   function newVersion(key: string, form: FormData): void {
@@ -232,6 +407,25 @@ export default function CataloguePage() {
                 onNewVersion={newVersion}
                 axes={axes}
                 workflows={workflows}
+                compliance={
+                  <ComplianceFilings
+                    service={{
+                      id: row.id,
+                      key: row.key,
+                      name: row.body.name === "" ? row.key : row.body.name,
+                    }}
+                    filings={filings}
+                    unread={filingsUnread}
+                    canWrite={canWrite}
+                    canReadLibrary={permissions.includes("party:read")}
+                    busy={busy !== null}
+                    working={busy === `filings:${row.key}`}
+                    note={noteFor(`filings:${row.key}`)}
+                    onAdd={(rule) => addFiling(row, rule)}
+                    onRemove={(rule) => removeFiling(row, rule)}
+                    onWrite={(draft) => writeFiling(row, draft)}
+                  />
+                }
               />
             ))}
           </section>
@@ -247,8 +441,9 @@ export default function CataloguePage() {
             not stated.
           </p>
           <form
+            id="define-service"
             action={(form) => {
-              define(form);
+              void define(form);
             }}
           >
             <FieldRow>
@@ -270,18 +465,79 @@ export default function CataloguePage() {
               axes={axes}
               workflows={workflows}
             />
+          </form>
+          {/* OUTSIDE the form on purpose: the filing editor is a column of text
+              boxes, and Enter in a box inside a form submits it. The submit
+              below reaches the form by its id. */}
+          <NewServiceFilings
+            filings={filings}
+            unread={filingsUnread}
+            busy={busy !== null}
+            chosen={newChosen}
+            drafts={newDrafts}
+            onChosen={setNewChosen}
+            onDrafts={setNewDrafts}
+          />
+          {/* THE SUBMIT STANDS APART from the filings panel above it: a line
+              and space, so "Add as a draft" is read as the form's one action
+              and not as a fourth button of the filings list. */}
+          <div className="stack snug mt-6 border-t border-line pt-4">
             {noteFor("define")}
+            {newChosen.some(willConfirm) && (
+              // SAID BESIDE THE PRESS THAT DOES IT: adding the service confirms
+              // these dates, and each is already written out in words above.
+              <p className="text-sm text-muted">
+                Adding the service also confirms the dates of{" "}
+                {newChosen
+                  .filter(willConfirm)
+                  .map((r) => r.name)
+                  .join(", ")}
+                , which nobody at your firm has checked against the law yet.
+              </p>
+            )}
             <div className="cluster">
-              <Button type="submit" disabled={busy !== null}>
+              <Button
+                type="submit"
+                form="define-service"
+                loading={busy === "define"}
+                disabled={busy !== null && busy !== "define"}
+              >
                 Add as a draft
               </Button>
             </div>
             <p className="text-sm text-muted">
-              Adding a service saves it as a draft. Publish it to start quoting it. Once published,
-              a version never changes, so a proposal opened next year still shows the price it
-              was sent at.
+              Saved as a draft, with the filings above. Publish it to start quoting it: a published
+              version never changes, so a proposal keeps the price it was sent at.
             </p>
-          </form>
+          </div>
+          {defined !== null && (
+            <div ref={definedRef} tabIndex={-1} className="stack tight">
+              <Notice tone="ok">
+                <p>{defined.sentence}</p>
+                <div className="cluster">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      window.history.replaceState(null, "", `#service-${defined.key}`);
+                      scrollBelowBar(`service-${defined.key}`);
+                    }}
+                  >
+                    Go to the service
+                  </Button>
+                </div>
+              </Notice>
+              {defined.failed.length > 0 && (
+                <Notice tone="danger">
+                  {defined.failed.map((f) => (
+                    <p key={f.name}>
+                      {f.name} was not added: {f.message} Add it from the service&rsquo;s card.
+                    </p>
+                  ))}
+                </Notice>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
@@ -429,6 +685,7 @@ function ServiceCard({
   onNewVersion,
   axes,
   workflows,
+  compliance,
 }: {
   row: ServiceRow;
   canWrite: boolean;
@@ -438,11 +695,16 @@ function ServiceCard({
   onNewVersion: (key: string, form: FormData) => void;
   axes: readonly ServiceAxis[];
   workflows: readonly ConfigEntry[];
+  /** The service's compliance filings (T6.16), drawn LAST and outside both
+   *  version blocks: a filing hangs off the service itself, not a version. */
+  compliance: ReactNode;
 }) {
   const { body, published, draft } = row;
   const draftBody = draft === null ? null : readServiceRecord(draft.body);
   return (
-    <article className="card stack">
+    /* The id is the anchor the library's "Used in" links land on, and the
+       KEY is the only part of a service that never changes. */
+    <article className="card stack" id={`service-${row.key}`}>
       <div className="card-head">
         {/* The firm's OWN code, printed as the firm writes it. It is on the body
             and not on the handle because a services-master renumber is an
@@ -565,6 +827,8 @@ function ServiceCard({
           </form>
         </details>
       )}
+
+      {compliance}
     </article>
   );
 }
@@ -1133,6 +1397,9 @@ function trimmed(form: FormData, field: string): string | null {
 type ConfigVersion = NonNullable<ConfigEntry["published"]>;
 
 interface ServiceRow {
+  /** The catalogue ENTRY's id: what a compliance filing is linked to (T6.16).
+   *  The entry, not a version, because a link is not part of a frozen body. */
+  readonly id: string;
   readonly key: string;
   readonly published: ConfigVersion | null;
   readonly draft: ConfigVersion | null;
@@ -1158,6 +1425,7 @@ function serviceRow(entry: ConfigEntry): ServiceRow {
   const draft = entry.pendingDraft;
   const source = published ?? draft;
   return {
+    id: entry.entry.id,
     key: entry.entry.key,
     published,
     draft,
@@ -1369,6 +1637,40 @@ function slaSentence(days: number | null, recurrence: string | null): ReactNode 
 }
 
 // ── Failures ─────────────────────────────────────────────────────────────────
+
+/** What adding a service did, filings included: the sentence, the service to
+ *  go to, and each filing the API refused after the service went in. */
+interface Defined {
+  readonly key: string;
+  readonly sentence: string;
+  readonly failed: readonly { readonly name: string; readonly message: string }[];
+}
+
+/** "A, B and C". */
+function listed(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1] ?? ""}`;
+}
+
+/**
+ * After "Add as a draft". A NEW service has no client yet, so nothing reaches
+ * the calendar, and the sentence says so: "3 filings added" with an unchanged
+ * calendar reads as a press that half worked.
+ */
+function definedSentence(name: string, added: readonly string[], confirmed: readonly string[]): string {
+  if (added.length === 0) {
+    return `${name} is added as a draft. It carries no compliance filings yet; add them on its card.`;
+  }
+  const filings = `${String(added.length)} compliance ${added.length === 1 ? "filing" : "filings"}`;
+  const sure =
+    confirmed.length === 0
+      ? ""
+      : ` The dates of ${listed(confirmed)} are confirmed now.`;
+  return (
+    `${name} is added as a draft with ${filings}: ${listed(added)}.${sure}` +
+    " No client is on it yet, so nothing goes on the calendar until one signs for it."
+  );
+}
 
 interface Failure {
   readonly at: string;

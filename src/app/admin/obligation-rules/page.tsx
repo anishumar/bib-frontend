@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { ConfigEntry, ObligationRule, RuleCoverage } from "@/lib/api/client";
+import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
 import { Cluster, Page, PageHeader, Row, Stack } from "@/components/layout";
 import {
   Button,
@@ -15,6 +15,7 @@ import {
   Input,
   Notice,
   Pill,
+  scrollBelowBar,
   Select,
   Sub,
   Table,
@@ -25,10 +26,13 @@ import {
 } from "@/components/ui";
 import {
   bodyOf,
+  createBodyOf,
+  describeDue,
+  describeNextChange,
+  describeRule,
   draftOf,
   Exceptions,
   MONTHS,
-  ordinal,
   RuleEditor,
   type RuleDraft,
 } from "./rule-editor";
@@ -91,6 +95,22 @@ import { longDay } from "@/lib/day";
  * coverage panel names the live engagements producing nothing and links here
  * with the exact blocked rules in `?rules=`. So the count filters, the deep
  * link focuses, and there is no third surface to keep true.
+ *
+ * ── THIS IS THE LIBRARY, AND A SERVICE IS CHOSEN SOMEWHERE ELSE (T6.16) ─────
+ *
+ * Every rule the firm has, where each one is used, its exceptions and the
+ * law-changed panel. What it no longer does is say WHICH SERVICE owes a rule:
+ * that is `/catalogue`, the one place a filing meets a service, and a rule
+ * used by no service adds nothing to the calendar at all (decision 1 of
+ * T6.16). The old editor picker's blank answer meant "every service", which is
+ * how 98 GST filings reached a bookkeeping-only client on 2026-09-18.
+ *
+ * So each row says where it is used, by NAME and linking to that service's
+ * card, or says in words that nothing uses it. Confirming a rule here is still
+ * possible and still means "checked against the statute", but it no longer
+ * reaches any client on its own: adding a rule to a service in the catalogue
+ * is what puts it on the calendar, and adding an unconfirmed one confirms it
+ * in the same act, after the catalogue has shown its dates in words.
  */
 export default function ObligationRulesPage() {
   // `useSearchParams` suspends during prerender; the boundary is the framework's
@@ -121,7 +141,6 @@ function Rules() {
   const router = useRouter();
   const params = useSearchParams();
   const [rules, setRules] = useState<ObligationRule[]>([]);
-  const [services, setServices] = useState<ConfigEntry[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -135,6 +154,23 @@ function Rules() {
   /** Amending the open rule, rather than correcting it. Two different acts;
    *  see `supersede.tsx` for which is which. */
   const [amending, setAmending] = useState(false);
+  /** The chain a link arrived for (`#rule-<lineageId>`): the catalogue's
+   *  "Edit in the library" lands here. `seq` counts arrivals, so arriving at
+   *  the same chain twice still scrolls twice. */
+  const [arrival, setArrival] = useState<{ lineageId: string; seq: number } | null>(null);
+  const hashRead = useRef(false);
+
+  /** Arrive at the chain the address names, if this firm has it. A chain
+   *  whose every row is retired is hidden by default, and a link that lands on
+   *  nothing reads as a broken link, so the retired rows are shown for it. */
+  const arrive = useCallback((list: readonly ObligationRule[]): void => {
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const lineageId = hash.startsWith("rule-") ? hash.slice("rule-".length) : "";
+    const chain = list.filter((r) => r.lineageId === lineageId);
+    if (chain.length === 0) return;
+    if (!chain.some((r) => r.isActive)) setShowRetired(true);
+    setArrival((a) => ({ lineageId, seq: (a?.seq ?? 0) + 1 }));
+  }, []);
 
   /** Rule ids the caller arrived focused on — `/calendar`'s coverage panel
    *  linking to the exact rules blocking one engagement. */
@@ -144,13 +180,12 @@ function Rules() {
   }, [params]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [res, me, catalogue] = await Promise.all([
+    // Two reads, not three. The catalogue's service list was fetched only to
+    // feed the editor's service picker, and that picker is gone (T6.16): where
+    // a rule is used arrives on the rule itself, as `usedIn`, names included.
+    const [res, me] = await Promise.all([
       api.GET("/api/v1/obligation-rules", {}),
       api.GET("/api/v1/auth/me", {}),
-      // `tenant:admin`, like the form it feeds. A reader without it gets no
-      // list and no form, which is the same answer — `?? []` is the whole
-      // handling, deliberately.
-      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
     ]);
     if (res.response.status === 401) {
       router.push("/login");
@@ -163,16 +198,52 @@ function Rules() {
     }
     setRules(res.data.rules);
     setPermissions(me.data?.permissions ?? []);
-    setServices(catalogue.data?.entries ?? []);
     setError(null);
     setLoaded(true);
-  }, [router]);
+    // THE LINK FROM THE CATALOGUE NAMES A CHAIN, and the browser's own jump
+    // to it happened before any row existed. Read once, on the first answer,
+    // so a later reload after a write never scrolls the page out from under
+    // somebody.
+    if (!hashRead.current) {
+      hashRead.current = true;
+      arrive(res.data.rules);
+    }
+  }, [router, arrive]);
 
   useEffect(() => {
     void (async () => {
       await load();
     })();
   }, [load]);
+
+  // AND A NEW HASH ON THIS PAGE. Changing only the fragment is a same-page
+  // jump: the browser scrolls to the row itself, under the bar, and nothing
+  // above runs again. Found by the check, which opened a second chain's link
+  // on a library already showing the first and landed 63px under the bar.
+  useEffect(() => {
+    const onHash = (): void => { arrive(rules); };
+    window.addEventListener("hashchange", onHash);
+    return () => { window.removeEventListener("hashchange", onHash); };
+  }, [arrive, rules]);
+
+  // Below the sticky top bar, the catalogue's own finding (`scrollBelowBar`):
+  // the row's name is what the reader came to see, and a plain jump puts it
+  // under the bar. Runs after the render that drew the arrived chain's rows.
+  //
+  // AND FOCUS GOES THERE (review, measured). The link pressed in the catalogue
+  // is unmounted by the navigation, so focus fell to <body>: the first Tab
+  // went to the top of the page and scrolled the row away, and reaching the
+  // row by keyboard meant tabbing through every earlier row's controls. The
+  // row itself takes focus (`tabIndex={-1}`, not a stop of its own), without
+  // a second scroll, so the next Tab is its first control. Only on an ARRIVAL:
+  // a reload after a write never sets one.
+  useEffect(() => {
+    if (arrival === null) return;
+    const row = document.getElementById(`rule-${arrival.lineageId}`);
+    if (row === null) return;
+    scrollBelowBar(row);
+    row.focus({ preventScroll: true });
+  }, [arrival]);
 
   const mayWrite = permissions.includes("tenant:admin");
 
@@ -232,14 +303,10 @@ function Rules() {
     // focus when a message APPEARS, so a second identical refusal has to be a
     // second absent → present transition or the press looks like it did nothing.
     setError(null);
+    // No `serviceEntryIds`: the library writes a rule on no service. The one
+    // body shape is `createBodyOf`, shared with the catalogue's writer.
     const res = await api.POST("/api/v1/obligation-rules", {
-      body: {
-        ...bodyOf(draft),
-        name: draft.name.trim(),
-        jurisdiction: draft.jurisdiction.trim().toUpperCase(),
-        rulePack: draft.rulePack.trim(),
-        leadTimeDays: 0,
-      } as never,
+      body: createBodyOf(draft) as never,
     });
     setBusy(false);
     if (res.error) {
@@ -248,11 +315,13 @@ function Rules() {
     }
     setError(null);
     setCreating(false);
-    // A new rule generates nothing on the way in — see the service. Say so,
-    // rather than leaving somebody watching an empty calendar.
+    // A rule written HERE is on no service, so it adds nothing to the calendar
+    // tonight or ever, until a service carries it (T6.16, decision 1). The old
+    // sentence promised the nightly run would fill it, which is no longer true,
+    // and a promise the sweep does not keep reads as a broken sweep.
     setNotice(
-      "Saved. It has not produced any filings yet. Add any carve-outs first; the nightly run " +
-        "will then put it on the calendar. To fill the calendar now, save the formula again.",
+      "Saved. It is not used by any service yet, so it adds nothing to the calendar. " +
+        "Add it to a service in the Catalogue, and that service's clients get its filings.",
     );
     await load();
   }
@@ -355,12 +424,34 @@ function Rules() {
 
   const open = editing === null ? null : (rules.find((r) => r.id === editing) ?? null);
 
+  // ONE ANCHOR PER CHAIN, on its first row as shown: `#rule-<lineageId>`. A
+  // chain's rows share a name and sit together, so landing on the first shows
+  // them all. Keyed on the CHAIN rather than a row's id because "the law
+  // changed" gives the chain a new newest row: a link naming the row it had
+  // yesterday would land nowhere today.
+  const anchored = new Set<string>();
+  const anchorOf = (rule: ObligationRule): string | null => {
+    if (anchored.has(rule.lineageId)) return null;
+    anchored.add(rule.lineageId);
+    return `rule-${rule.lineageId}`;
+  };
+
   return (
     <Page>
       <PageHeader
         eyebrow="How work runs"
         title="Compliance rules"
-        lede="What the law requires of each client, and by when. The compliance calendar is built from these rules, so nobody has to type a filing in by hand."
+        lede={
+          /* THE LINE AT THE TOP IS WHERE A SERVICE IS CHOSEN, because this
+             screen used to be that place and a partner who remembers the old
+             picker will look for it here first. */
+          <>
+            What the law requires of each client, and by when: your firm&rsquo;s library of
+            compliance filings, so nobody has to type a filing in by hand. A filing reaches a
+            client only once it is added to one of your services in the{" "}
+            <Link href="/catalogue">Catalogue</Link>.
+          </>
+        }
       />
 
       <Stack>
@@ -374,7 +465,10 @@ function Rules() {
                 Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
                 engagement&rsquo;s calendar.
               </strong>{" "}
-              Give each one a formula and its filings appear.
+              {/* "and confirm it", because answering a shipped rule leaves it
+                  unconfirmed and it still puts nothing on the calendar. The
+                  sentence said only "give it a formula" and was half true. */}
+              Give each one a formula and confirm it, and its filings appear.
             </p>
             <p>
               <Link href="/admin/obligation-rules">Show every rule</Link>
@@ -403,18 +497,36 @@ function Rules() {
             <Notice>
               <p>
                 <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
-                {/* A shipped rule generates NOTHING until the firm confirms it:
-                    a pack row names no service, so confirmed it reaches every
-                    client in its country — which is a claim only the firm can
-                    make. So the count of unconfirmed formulas is a control too. */}
+                {/* A RULE NO SERVICE USES ADDS NOTHING (T6.16, decision 1).
+                    Before it, a pack row named no service and "no service"
+                    meant EVERY service, so confirming one reached every client
+                    in its country. Now every shipped rule with a formula lands
+                    here until a service in the catalogue carries it, which is
+                    also where an unconfirmed one gets confirmed. So the count
+                    is a control, and the sentence says where the fix is. */}
                 <Button
                   variant="link"
-                  onClick={() => { setFilter(filter === "unconfirmed" ? "" : "unconfirmed"); }}
+                  onClick={() => { setFilter(filter === "unlinked" ? "" : "unlinked"); }}
                 >
-                  {counts.get("unconfirmed") ?? 0} can compute a date but are not yet confirmed
+                  {counts.get("unlinked") ?? 0} can compute a date but no service uses them
                 </Button>
-                : nothing goes on the calendar from those until somebody here checks them
-                against the law and says which service owes them.{" "}
+                : a filing goes on the calendar only once it is added to a service in the{" "}
+                <Link href="/catalogue">Catalogue</Link>, and adding one there confirms it.{" "}
+                {/* A rule a service uses and nobody has confirmed is still
+                    possible: somebody can untick the box below after adding it.
+                    Rare, so it is mentioned only when it is true. */}
+                {(counts.get("unconfirmed") ?? 0) > 0 && (
+                  <>
+                    <Button
+                      variant="link"
+                      onClick={() => { setFilter(filter === "unconfirmed" ? "" : "unconfirmed"); }}
+                    >
+                      {counts.get("unconfirmed") ?? 0} used by a service but not yet confirmed
+                    </Button>
+                    : nothing goes on the calendar from those until somebody here checks them
+                    against the law.{" "}
+                  </>
+                )}
                 {/* THE COUNT IS THE CONTROL. It was a number for three tasks
                     and the list it described was four clicks away — so the one
                     thing this screen exists to get answered was the hardest
@@ -453,6 +565,7 @@ function Rules() {
                 >
                   <option value="">Every rule</option>
                   <option value="generating">Producing dates</option>
+                  <option value="unlinked">Not used by any service</option>
                   <option value="unconfirmed">Not yet confirmed</option>
                   <option value="needs_formula">Waiting on a fact</option>
                   <option value="event_driven">Event-driven</option>
@@ -495,12 +608,14 @@ function Rules() {
               <RuleEditor
                 draft={draft}
                 onChange={setDraft}
-                services={services}
                 rule={null}
                 creating
                 busy={busy}
                 onSave={() => void create()}
                 onCancel={() => { setCreating(false); }}
+                // The form's own refusal replaces the page's last one, which
+                // answered a different body (review).
+                onRefused={() => { setError(null); }}
               />
             )}
 
@@ -522,6 +637,8 @@ function Rules() {
                       <RuleRow
                         key={rule.id}
                         rule={rule}
+                        anchor={anchorOf(rule)}
+                        arrived={arrival?.lineageId === rule.lineageId}
                         busy={busy}
                         mayWrite={mayWrite}
                         open={editing === rule.id}
@@ -568,12 +685,12 @@ function Rules() {
                 <RuleEditor
                   draft={draft}
                   onChange={setDraft}
-                  services={services}
                   rule={open}
                   creating={false}
                   busy={busy}
                   onSave={() => void patch(open.id, bodyOf(draft), "Saved.")}
                   onCancel={() => { setEditing(null); }}
+                  onRefused={() => { setError(null); }}
                 />
                 <Exceptions
                   rule={open}
@@ -624,6 +741,8 @@ function Rules() {
 
 function RuleRow({
   rule,
+  anchor,
+  arrived,
   busy,
   mayWrite,
   open,
@@ -631,6 +750,11 @@ function RuleRow({
   onPatch,
 }: {
   rule: ObligationRule;
+  /** The chain's anchor id, on the chain's first row as shown; null on the
+   *  rest, because an id is one element's. */
+  anchor: string | null;
+  /** A link arrived for this row's chain: every row of it is marked. */
+  arrived: boolean;
   busy: boolean;
   mayWrite: boolean;
   open: boolean;
@@ -639,8 +763,31 @@ function RuleRow({
 }) {
   const [lead, setLead] = useState(String(rule.leadTimeDays));
 
+  // WHICH ROW TODAY'S FILINGS ARE DUE ON (T6.16 follow-up). The library lists
+  // every row of a chain, and each row's formula is its own, which is what
+  // Edit edits. What the rows did not say is which of them governs the period
+  // containing the firm's today: after "the law changed from April 2027" both
+  // read "producing dates", and a partner could not tell from the row that
+  // September is still due on the 20th. So the row in force says what changes
+  // next, and any other row says what today's filings follow instead.
+  const today = rule.inForceToday;
+  const governsToday = today !== null && today.ruleId === rule.id;
+  const next = governsToday ? describeNextChange(rule) : null;
+  // The "From April 2027" line names the day the row hands over on, so the
+  // bare "hands over on" beside it would say one date twice.
+  const handoverSaid = next !== null && rule.nextChange?.effectiveFrom === rule.effectiveTo;
+  const elsewhere =
+    today === null || governsToday ? null : otherRowToday(rule, today.effectiveFrom, today.dueRule);
+
   return (
-    <tr style={rule.isActive ? undefined : { opacity: 0.55 }}>
+    <tr
+      id={anchor ?? undefined}
+      // Focusable by script only, so an arrival can put focus on the row
+      // without adding a Tab stop to every row of the table.
+      tabIndex={anchor === null ? undefined : -1}
+      data-arrived={arrived ? "true" : undefined}
+      style={rule.isActive ? undefined : { opacity: 0.55 }}
+    >
       <Td>
         {rule.name}
         {rule.module !== null && <Sub>{rule.module}</Sub>}
@@ -655,6 +802,28 @@ function RuleRow({
               .join(" · ")}
           </p>
         )}
+        {/* WHERE IT IS USED (T6.16), by the service's NAME and linking to its
+            card in the catalogue, which is where it is added and removed. The
+            empty case is a SENTENCE, not a blank: a rule on no service adds
+            nothing to the calendar at all, and a blank cell would let a
+            confirmed, formula-bearing rule look as though it were working. */}
+        <p className="cell-note">
+          {rule.usedIn.length === 0 ? (
+            "Not used by any service, so it adds nothing to the calendar."
+          ) : (
+            <>
+              Used in:{" "}
+              {rule.usedIn.map((u, i) => (
+                <span key={u.serviceEntryId}>
+                  {i > 0 && ", "}
+                  <Link href={`/catalogue#service-${u.serviceKey}`}>
+                    {u.serviceName ?? u.serviceKey}
+                  </Link>
+                </span>
+              ))}
+            </>
+          )}
+        </p>
       </Td>
       <Td>
         {rule.authority ?? <span className="muted">not stated</span>}
@@ -663,8 +832,14 @@ function RuleRow({
       <Td>
         <Pill tone={TONE[rule.coverage]}>{LABEL[rule.coverage]}</Pill>
         <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
-          {describe(rule)}
+          {describeRule(rule)}
         </span>
+        {next !== null && (
+          <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
+            {next}
+          </span>
+        )}
+        {elsewhere !== null && <Sub>{elsewhere}</Sub>}
         {rule.instanceCount > 0 && (
           <Sub>
             {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
@@ -674,7 +849,9 @@ function RuleRow({
             still says "producing dates" — correctly, because it governs its own
             periods — so without this line a partner would read it as live for
             periods it no longer covers, and go looking for a bug. */}
-        {rule.effectiveTo !== null && <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>}
+        {rule.effectiveTo !== null && !handoverSaid && (
+          <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>
+        )}
         {rule.effectiveFrom !== null && <Sub>governs periods from {longDay(rule.effectiveFrom)}</Sub>}
       </Td>
       <Td>
@@ -784,10 +961,33 @@ function RuleRow({
   );
 }
 
+/**
+ * What a row that does NOT govern today says instead: which side of it today's
+ * rule lies, and what that rule is due on. Both rows of a chain read "producing
+ * dates", correctly, since each governs its own periods, so only this says
+ * which one September's return follows. The comparison is of two period
+ * starts as `YYYY-MM-DD` strings; which row governs today is the API's answer
+ * (`inForceToday`), never worked out here.
+ */
+function otherRowToday(
+  rule: ObligationRule,
+  todayFrom: string | null,
+  todayDue: ObligationRule["dueRule"],
+): string {
+  const due = describeDue({ recurrence: rule.recurrence, dueRule: todayDue });
+  // A row with no start governs from the beginning, so it is never the later.
+  const later = rule.effectiveFrom !== null && (todayFrom === null || rule.effectiveFrom > todayFrom);
+  const lead = later
+    ? "Not in force yet. Today's filings follow the earlier rule"
+    : "No longer in force. Today's filings follow the later rule";
+  return due === null ? `${lead}, which cannot work out a date yet.` : `${lead}: ${due}.`;
+}
+
 const LABEL: Record<RuleCoverage, string> = {
   generating: "producing dates",
   needs_formula: "waiting on a fact",
   event_driven: "event-driven",
+  unlinked: "not used by any service",
   unconfirmed: "not yet confirmed",
   retired: "retired",
 };
@@ -799,52 +999,13 @@ const TONE: Record<RuleCoverage, PillTone> = {
   generating: "neutral",
   needs_formula: "ok",
   event_driven: "neutral",
+  // NOT toned, although it is most of the shipped pack's formulas. Whether a
+  // service uses a filing is the firm's choice, not a job: a firm that does no
+  // payroll rightly never adds the PF return to anything, and a tone would nag
+  // it about work nobody should do (the same argument as the 47 above).
+  unlinked: "neutral",
   // The other list worth clearing: a formula this system can run and nobody
   // has checked. It puts nothing on the calendar until somebody does.
   unconfirmed: "ok",
   retired: "danger",
-};
-
-/**
- * The formula, in words.
- *
- * A partner has to be able to check this against the statute without knowing
- * what `dueMonthOffset` means. The first version of this function was written
- * blind and produced "Once a year, day 15 3 months after" and "When it happens,
- * 30 days after the period ends" — both grammatical nonsense, and the second
- * one factually wrong as well, because an event-driven rule has no period to
- * count from. Reading the page is what found them; the types were happy.
- *
- * The editor shows the same sentence live, from the DRAFT — `describeDraft` in
- * `rule-editor.tsx` — so a partner reads what they are about to save before
- * saving it rather than after. Two copies, deliberately: one describes a saved
- * rule and one an unsaved draft, and merging them would mean building a fake
- * rule out of form state to render a sentence.
- */
-function describe(rule: ObligationRule): string {
-  const every = EVERY[rule.recurrence] ?? rule.recurrence;
-  if (rule.dueRule === null) return every;
-
-  // An EVENT rule counts from the event, never from a period — it does not have
-  // one. Saying "after the period ends" there would describe a mechanism that
-  // does not exist.
-  const from = rule.recurrence === "event" ? "the event" : "the period ends";
-
-  if (rule.dueRule.kind === "days_after") {
-    return `${every} · ${String(rule.dueRule.dueDaysAfter ?? 0)} days after ${from}`;
-  }
-
-  const offset = rule.dueRule.dueMonthOffset ?? 0;
-  const day = ordinal(rule.dueRule.dueDayOfMonth ?? 1);
-  if (offset === 0) return `${every} · the ${day} of the month the period ends in`;
-  if (offset === 1) return `${every} · the ${day} of the following month`;
-  return `${every} · the ${day}, ${String(offset)} months after ${from}`;
-}
-
-const EVERY: Record<string, string> = {
-  monthly: "Every month",
-  quarterly: "Every quarter",
-  half_yearly: "Twice a year",
-  annual: "Once a year",
-  event: "When it happens",
 };

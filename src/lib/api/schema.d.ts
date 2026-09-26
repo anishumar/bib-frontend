@@ -2518,7 +2518,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The named catalogue service does not exist at this firm */
+                /** @description One of the catalogue services it is written for does not exist at this firm */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -2588,6 +2588,263 @@ export interface paths {
                 };
                 /** @description The session has not selected an org, or the role may not administer the firm */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/obligation-filings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every compliance filing at this firm, once each, and where it is used
+         * @description One row per filing: the rule IN FORCE of each chain, retired ones included, each with the services that carry it. The catalogue reads this once for the whole page: its picker offers the active ones grouped by module, and each service finds its own filings here by usedIn, so twenty services cost one request rather than twenty.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The filings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            filings: components["schemas"]["ObligationRule"][];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/services/{serviceEntryId}/filings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The compliance filings one catalogue service carries */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    serviceEntryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The service's filings, as the rule in force of each */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            filings: components["schemas"]["ObligationRule"][];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read clients */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No catalogue service with that id at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a compliance filing to a service
+         * @description The service's live clients get the filing on the calendar straight away, one filing per period however many of their services carry it. Adding an unconfirmed rule confirms it in the same act. Adding a filing that is already on the service changes nothing and answers linked: false.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    serviceEntryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LinkObligationFilingRequest"];
+                };
+            };
+            responses: {
+                /** @description The filing as the service now shows it, and what adding it did */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rule: components["schemas"]["ObligationRule"];
+                            effect: components["schemas"]["ObligationLinkEffect"];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule, or no catalogue service with that id, at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/services/{serviceEntryId}/filings/{ruleId}/unlink": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a compliance filing from a service
+         * @description Nothing is deleted. The link is marked removed, and the service's upcoming filings nobody has started are taken off the calendar for the clients no other service still covers. Started, filed, decided and past-due filings stay and are counted. Adding the filing back brings the removed ones back.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    serviceEntryId: string;
+                    ruleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The filing, and what removing it did */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            rule: components["schemas"]["ObligationRule"];
+                            effect: components["schemas"]["ObligationUnlinkEffect"];
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such rule, or no catalogue service with that id, at this firm */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8958,6 +9215,189 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{jobId}/steps/{stepKey}/sub-steps/{itemKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick one of a step's sub-steps, mark it not applicable, or take the tick back
+         * @description Only while the step is waiting for a person and is not waiting to be checked: submitted work is locked until the checker decides, and a finished step is settled. The same desk and grade rules as marking the step done, and the marker is the SESSION's user. Marking it not applicable needs a reason. No ledger event per tick: the row says who and when, and the counts ride on the step's own transition.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                    stepKey: string;
+                    itemKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MarkCheckLineRequest"];
+                };
+            };
+            responses: {
+                /** @description The step, with its sub-steps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobStep"];
+                    };
+                };
+                /** @description Not applicable with no reason, or a reason over 500 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job, step or sub-step in the process this job follows */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The step is not waiting for a person, is waiting to be checked, is on somebody else's desk, or is outside the person's grade band */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checks/{approvalId}/review-points/{itemKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick one of a check's review points, mark it not applicable, or take the tick back
+         * @description Only by somebody the firm's rule lets check this work, which by the rule that can never be switched off is never the person who did it. Only while the check is undecided. The ticks belong to THIS check: after a send-back the next check starts with every point open. Marking it not applicable needs a reason.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approvalId: string;
+                    itemKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MarkCheckLineRequest"];
+                };
+            };
+            responses: {
+                /** @description The check, with its review points */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StepCheck"];
+                    };
+                };
+                /** @description Not applicable with no reason, or a reason over 500 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description You did this work, or the firm's rule does not put this check in your hands */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such check, or no such review point on its step */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Somebody already decided it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -16107,6 +16547,19 @@ export interface components {
         SetTimeZoneRequest: {
             timeZone: string;
         };
+        ObligationRuleUsedIn: {
+            /**
+             * Format: uuid
+             * @description The catalogue service's entry id: what the link and unlink routes take.
+             */
+            serviceEntryId: string;
+            /** @description The service's catalogue key. The catalogue screen anchors each service on it, so a library row can link straight to the service that uses it. */
+            serviceKey: string;
+            /** @description The published version's name, else the newest version's. Null only for a service with no version at all; show the key then. */
+            serviceName: string | null;
+            /** @description When the filing was added to this service, as an ISO instant. Links moved in by migration 0309 carry the moment it ran. */
+            linkedAt: string;
+        };
         ObligationDueRule: {
             /**
              * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
@@ -16131,15 +16584,65 @@ export interface components {
             /** @description Why this period is different, in the firm's own words. Mandatory: a partner checking the calendar against the statute cannot otherwise tell a real carve-out from a typo. */
             note: string;
         };
+        /** @description The row of this rule's CHAIN whose window governs the period containing the firm's today (the firm's own time zone): the rule today's filings are due under, which is what a screen shows as the due date. The same on every row of one chain. Differs from this row after a law change that takes effect later, when this row is the successor. Null when no row governs today yet, for a chain written to start later. */
+        ObligationRuleInForceToday: {
+            /**
+             * Format: uuid
+             * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
+             */
+            ruleId: string;
+            /** @description The day this row stops, as recorded, or null when nothing replaces it. A period that STARTS on or after it is not this row's; one that started before it still is, so a quarter already running when the law changes stays with this row. */
+            effectiveTo: string | null;
+            dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            /** @description Present exactly when this row has no due formula: what it is still waiting for, in the firm's own words, shown in place of a date. */
+            unresolvedReason: string | null;
+            /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
+            exceptions: components["schemas"]["ObligationException"][];
+            /**
+             * @description What THIS row is doing, judged as the rule's own coverage is, with the chain's services: 'generating' when the calendar dates the periods it governs, 'retired' when it dates none of them, and so on. After a law change it can differ from the rule's own coverage, which is the newest row's, so a screen saying what today's filings are doing reads this.
+             * @enum {string}
+             */
+            coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
+            /** @description The day this row starts, as recorded; null means from the beginning. It governs the periods that START on or after it. */
+            effectiveFrom: string | null;
+        } | null;
+        /** @description The row that takes over after today's period, when a law change has been recorded for a later day. Null when nothing changes. */
+        ObligationRuleNextChange: {
+            /**
+             * Format: uuid
+             * @description The rule row this is. Any rule id of the chain is accepted by the link, unlink and library routes.
+             */
+            ruleId: string;
+            /** @description The day this row stops, as recorded, or null when nothing replaces it. A period that STARTS on or after it is not this row's; one that started before it still is, so a quarter already running when the law changes stays with this row. */
+            effectiveTo: string | null;
+            dueRule: components["schemas"]["ObligationDueRule"] & unknown;
+            /** @description Present exactly when this row has no due formula: what it is still waiting for, in the firm's own words, shown in place of a date. */
+            unresolvedReason: string | null;
+            /** @description This row's own exceptions, such as March's TDS. A successor does not inherit them. */
+            exceptions: components["schemas"]["ObligationException"][];
+            /**
+             * @description What THIS row is doing, judged as the rule's own coverage is, with the chain's services: 'generating' when the calendar dates the periods it governs, 'retired' when it dates none of them, and so on. After a law change it can differ from the rule's own coverage, which is the newest row's, so a screen saying what today's filings are doing reads this.
+             * @enum {string}
+             */
+            coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
+            /** @description The day the change was recorded to take effect from, as YYYY-MM-DD. It can fall inside a period the old row still governs; firstPeriodStart is when the new row takes over. */
+            effectiveFrom: string;
+            /** @description The start of the first period the new row governs, as YYYY-MM-DD, found the way the calendar dates periods: the day to name in 'From April 2027: the 22nd of the following month'. For a quarterly rule changed on 1 August it is 1 October, because the July to September quarter is still the old rule's. */
+            firstPeriodStart: string;
+        } | null;
         ObligationRule: {
             /** Format: uuid */
             id: string;
             jurisdiction: string;
+            /**
+             * Format: uuid
+             * @description The rule's chain: the first rule's id, shared by every rule that later replaced it when the law changed. A catalogue service carries the CHAIN, so every row of one chain shows the same usedIn, and the catalogue's filings list has one row per chain.
+             */
+            lineageId: string;
             /** @description Null means every entity type — the common case: GST does not care what shape the company is. */
             entityType: string | null;
-            /** Format: uuid */
-            serviceEntryId: string | null;
-            serviceName: string | null;
+            /** @description The catalogue services that carry this filing, named. Empty means no service does, so the rule adds nothing to the calendar. Services are added and removed in the Catalogue, the one place a filing is linked to a service. */
+            usedIn: components["schemas"]["ObligationRuleUsedIn"][];
             /** @description The STATUTE's grouping — 'GST', 'TDS', 'MCA'. Not the firm's revenue Dept, which is a different axis: a client can buy FRC work that produces GST obligations. */
             module: string | null;
             name: string;
@@ -16170,12 +16673,14 @@ export interface components {
             /** @description The first period start this rule does NOT govern — the day its successor takes over. Half-open, so a rule ending on the 1st and its successor starting on the 1st govern one period each and never the same one. Null means forever, which is every rule nobody has had to amend. */
             effectiveTo: string | null;
             /**
-             * @description What this rule is actually doing, derived rather than stored. 'needs_formula' is NOT an error and is the ordinary state of most of the shipped pack — it means the obligation is real and its timing depends on a fact this system does not hold (an AGM date, a State, a turnover). The reason is on the rule.
+             * @description What this rule is actually doing, derived rather than stored. 'needs_formula' is NOT an error and is the ordinary state of most of the shipped pack: the obligation is real and its timing depends on a fact this system does not hold (an AGM date, a State, a turnover), and the reason is on the rule. 'unlinked' means no service in the catalogue carries it, so it adds nothing to the calendar; adding it to a service there puts it on the calendar for that service's clients, and confirms it if it was unconfirmed.
              * @enum {string}
              */
-            coverage: "generating" | "needs_formula" | "event_driven" | "unconfirmed" | "retired";
+            coverage: "generating" | "needs_formula" | "event_driven" | "unlinked" | "unconfirmed" | "retired";
             exceptions: components["schemas"]["ObligationException"][];
-            /** @description How many calendar rows this rule has produced, ever. */
+            inForceToday: components["schemas"]["ObligationRuleInForceToday"];
+            nextChange: components["schemas"]["ObligationRuleNextChange"];
+            /** @description How many calendar rows this rule has produced, ever, including any taken off the calendar when a service stopped including them. It is what decides whether the period shape can still change. */
             instanceCount: number;
         };
         ObligationRuleEffect: {
@@ -16189,8 +16694,8 @@ export interface components {
         CreateObligationRuleRequest: {
             jurisdiction: string;
             entityType?: string | null;
-            /** Format: uuid */
-            serviceEntryId?: string | null;
+            /** @description The catalogue services this new filing is added to, in the same act: the catalogue's 'Write a new filing' sends the service it was written on, and that service's live clients get the filings on the calendar straight away. Absent or empty is the library writing a rule on no service, which adds nothing to the calendar until a service carries it. */
+            serviceEntryIds?: string[];
             module?: string | null;
             name: string;
             authority?: string | null;
@@ -16209,10 +16714,41 @@ export interface components {
             /** Format: uuid */
             supersedesId?: string | null;
         };
+        ObligationLinkEffect: {
+            /** @description False when the filing was already on this service: nothing was written and nothing recorded, so pressing Add twice is harmless. */
+            linked: boolean;
+            /** @description Adding it also CONFIRMED a rule nobody at the firm had checked. The screen showed its dates in words before the person pressed Add, which is what confirming is. */
+            confirmed: boolean;
+            /** @description Filings this put on the calendar for the service's live clients, now. */
+            spawned: number;
+            /** @description Filings taken off the calendar when this filing was earlier removed from a service, and brought back by adding it again. */
+            restored: number;
+            /** @description How many companies those filings are for. */
+            companies: number;
+        };
+        LinkObligationFilingRequest: {
+            /**
+             * Format: uuid
+             * @description Any rule of the filing's chain; the chain is what is added, and its rule in force is what is judged. An unconfirmed rule with a formula is confirmed by adding it.
+             */
+            ruleId: string;
+        };
+        ObligationUnlinkEffect: {
+            /** @description False when the filing was not on this service: nothing changed. */
+            unlinked: boolean;
+            /** @description Upcoming filings nobody had started, taken off the calendar for the clients no other service still covers. Kept and marked, never deleted. */
+            withdrawn: number;
+            /** @description Filings of this service that stayed on the calendar: the three counts below added up. */
+            kept: number;
+            /** @description Kept because work on them has started: a task, a filing, or a decision. */
+            keptStarted: number;
+            /** @description Kept because their date has passed or a partner's decision is waiting on them. Removing them would hide a deadline the client may have missed. */
+            keptPastDue: number;
+            /** @description Kept because another service the same client holds still includes this filing. */
+            keptCoveredElsewhere: number;
+        };
         UpdateObligationRuleRequest: {
             entityType?: string | null;
-            /** Format: uuid */
-            serviceEntryId?: string | null;
             module?: string | null;
             authority?: string | null;
             /**
@@ -16242,8 +16778,6 @@ export interface components {
             authority?: string | null;
             module?: string | null;
             entityType?: string | null;
-            /** Format: uuid */
-            serviceEntryId?: string | null;
         };
         AddObligationExceptionRequest: {
             periodEndMonth: number;
@@ -16304,11 +16838,11 @@ export interface components {
             serviceName: string | null;
             jurisdiction: string | null;
             /**
-             * @description Why the calendar produced nothing for this engagement. NONE of these is an error: 'no_rule_names_this_service' is the ordinary state of advisory work. Each names something a partner can do next, which is the point — an empty calendar with no explanation is indistinguishable from broken software.
+             * @description Why the calendar produced nothing for this engagement. NONE of these is an error: 'no_rule_names_this_service' means no compliance filing is linked to this service in the catalogue, which is the ordinary state of advisory work. Each names something a partner can do next, which is the point: an empty calendar with no explanation is indistinguishable from broken software.
              * @enum {string}
              */
             reason: "entity_not_registered" | "no_rule_names_this_service" | "no_rule_for_jurisdiction" | "rules_need_a_formula" | "rules_retired" | "rules_unconfirmed" | "nothing_due_yet";
-            /** @description Rules that name this service but could not be used, so the screen can link straight to them. */
+            /** @description Rules linked to this service that could not be used, so the screen can link straight to them. */
             blockedRuleIds: string[];
         };
         DecisionRow: {
@@ -17476,6 +18010,30 @@ export interface components {
             /** @description What the firm calls the highest grade, likewise. */
             maxGradeName: string | null;
         } | null;
+        CheckLine: {
+            /** @description The line's own key in the process, stable across edits of its wording. What a mark is stored against, and what the PUT routes take in their path. */
+            key: string;
+            /** @description What the line says, from the version of the process this job follows. */
+            label: string;
+            /**
+             * @description `done`: ticked. `not_applicable`: it did not apply here, and `note` says why. Null: open, whether nobody has touched it or somebody ticked it and took the tick back.
+             * @enum {string|null}
+             */
+            outcome: "done" | "not_applicable" | null;
+            /** @description Why it did not apply. Present on `not_applicable` and on nothing else. */
+            note: string | null;
+            /** @description Who settled it, by the name the account carries now. Null while the line is open. */
+            markedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string;
+            } | null;
+            /**
+             * Format: date-time
+             * @description When it was settled, as an instant. Null while the line is open.
+             */
+            markedAt: string | null;
+        };
         JobStep: {
             /** Format: uuid */
             id: string;
@@ -17517,6 +18075,10 @@ export interface components {
                 /** @enum {string|null} */
                 reason: "ON_ANOTHER_DESK" | "OUTSIDE_BAND" | null;
             };
+            /** @description The step's sub-steps, in the process's own order (T6.15). Ticked, or marked not applicable with a reason, by whoever does the step, and all of them before it can be marked done. Locked while the step waits to be checked and once it is done. Empty when the process names none, which is every job pinned to an earlier version. */
+            subSteps: components["schemas"]["CheckLine"][];
+            /** @description How many sub-steps are still open: the same count the complete route refuses on, so the Done button can be disabled from the data the 409 uses. `viewer.mayComplete` says WHO may tick the step; this says whether it is READY to be ticked. */
+            subStepsOpen: number;
         };
         JobStepsResponse: {
             steps: components["schemas"]["JobStep"][];
@@ -17598,6 +18160,10 @@ export interface components {
             /** Format: date-time */
             decidedAt: string | null;
             viewer: components["schemas"]["CheckEligibility"];
+            /** @description THIS check's review points, in the process's own order (T6.15): ticked, or marked not applicable with a reason, by whoever may check the step, and all of them before it can be approved. Sending it back is never held up by them. A second check after a send-back starts with every point open; a decided check shows what its checker ticked. Empty when the step names none. */
+            reviewPoints: components["schemas"]["CheckLine"][];
+            /** @description How many review points are still open: the same count the decide route refuses Approve on. */
+            reviewPointsOpen: number;
         };
         StepChecksResponse: {
             checks: components["schemas"]["StepCheck"][];
@@ -17616,6 +18182,15 @@ export interface components {
         };
         PossibleCheckersResponse: {
             checkers: components["schemas"]["PossibleChecker"][];
+        };
+        MarkCheckLineRequest: {
+            /**
+             * @description `done` ticks it, `not_applicable` says it did not apply (and needs `note`), and null takes a tick back. Sending what the line already says changes nothing, including who marked it and when.
+             * @enum {string|null}
+             */
+            outcome: "done" | "not_applicable" | null;
+            /** @description The reason, for `not_applicable`: required, trimmed, at most 500 characters. Ignored on `done` and on null. */
+            note?: string | null;
         };
         DecideCheckRequest: {
             /** @enum {string} */

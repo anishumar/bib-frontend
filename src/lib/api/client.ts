@@ -122,6 +122,19 @@ export type JobStep =
 export type AgentProposal = NonNullable<JobStep["proposal"]>;
 
 /**
+ * One line of a step's two lists (T6.15): a SUB-STEP, ticked by whoever does
+ * the step, or a REVIEW POINT, ticked by whoever checks it. The same shape for
+ * both on purpose, because a line reads the same way wherever it sits: what it
+ * says, whether it is settled, and who settled it when.
+ *
+ * `outcome` null is OPEN, and that includes a line somebody ticked and then
+ * took the tick back. `not_applicable` is settled as surely as `done` and is
+ * never drawn as ticked: "it did not apply here" is a different fact from "I
+ * did it", and `note` says why.
+ */
+export type CheckLine = JobStep["subSteps"][number];
+
+/**
  * One check on one step — work waiting for somebody else to look at it (T2.9).
  *
  * `viewer` is the SIGNED-IN person's own verdict on this row, computed by the
@@ -352,6 +365,29 @@ export type ObligationRule =
 
 export type ObligationException = ObligationRule["exceptions"][number];
 export type RuleCoverage = ObligationRule["coverage"];
+
+/** The row of a rule's CHAIN that today's filings are due under, read on the
+ *  firm's own day, and the row that takes over after it when the law changed
+ *  from a later date (T6.16 follow-up). A row's own `dueRule` is the chain's
+ *  newest row, which after "from April 2027 it is the 22nd" is the successor,
+ *  so a screen saying when a filing is due reads these two instead. */
+export type RuleInForceToday = NonNullable<ObligationRule["inForceToday"]>;
+export type RuleNextChange = NonNullable<ObligationRule["nextChange"]>;
+
+/** One catalogue service a rule's chain is on (T6.16), named. The catalogue is
+ *  the one place a filing meets a service; the library reads this to say
+ *  where each rule is used, and the catalogue's picker reads its length. */
+export type RuleUse = ObligationRule["usedIn"][number];
+
+/** What adding a filing to a service did: whether it was already there,
+ *  whether it confirmed an unconfirmed rule, and what reached the calendar. */
+export type FilingLinkEffect =
+  paths["/api/v1/services/{serviceEntryId}/filings"]["post"]["responses"][200]["content"]["application/json"]["effect"];
+
+/** What removing a filing from a service did: what came off the calendar, and
+ *  what stayed and why. `kept` is the sum of the three reasons. */
+export type FilingUnlinkEffect =
+  paths["/api/v1/services/{serviceEntryId}/filings/{ruleId}/unlink"]["post"]["responses"][200]["content"]["application/json"]["effect"];
 
 export type ConfigEntry =
   paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];

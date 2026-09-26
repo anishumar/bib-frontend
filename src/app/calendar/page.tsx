@@ -28,7 +28,20 @@ import { browserDay, longDay } from "@/lib/day";
  * could type a row in, the calendar could drift from the statute — and then it
  * is the Excel this product replaces, only now inside Postgres.
  *
- * What a person changes is the RULES, at /admin/obligation-rules.
+ * What a person changes is the RULES, and since T6.16 in two places: what a
+ * filing says (its formula, its exceptions) in the library at
+ * /admin/obligation-rules, and which services owe it in /catalogue, the one
+ * place a filing meets a service. A rule no service uses puts nothing here.
+ *
+ * ── A FILING TAKEN OFF IS NOT SHOWN, AND THE API IS WHAT HIDES IT ───────────
+ *
+ * Removing a filing from a service in the catalogue WITHDRAWS its upcoming
+ * rows nobody had started. They are kept and marked, never deleted, and every
+ * read this screen makes (the list, coverage, the decisions) leaves them out on
+ * the server. Nothing here filters them, deliberately: a second filter in the
+ * browser is a second answer to "what is on the calendar", and the two drift.
+ * A count of what was taken off is not shown here; the catalogue says it at
+ * the moment it happens, which is when somebody can do something about it.
  *
  * ── TWO DATES, AND THE ONE THAT IS ACTIONABLE IS NOT THE LEGAL ONE ──────────
  *
@@ -211,7 +224,7 @@ export default function CalendarPage() {
               <Empty title="Nothing is on the calendar" icon="calendar">
                 {gaps.length > 0
                   ? `${String(gaps.length)} live ${gaps.length === 1 ? "engagement" : "engagements"} produced no filings.`
-                  : "No live engagement is covered by a rule that can work out a date yet. Most of the built-in India rules are waiting for a fact your firm has not confirmed."}
+                  : "No live engagement has a filing that can work out a date yet. A filing reaches a client once it is added, in the Catalogue, to a service that client bought."}
               </Empty>
               <Cluster align="end">
                 {gaps.length > 0 ? (
@@ -223,8 +236,11 @@ export default function CalendarPage() {
                     See why
                   </Button>
                 ) : (
-                  <LinkButton size="sm" href="/admin/obligation-rules">
-                    Open the rules
+                  /* The CATALOGUE, not the rules (T6.16). With no gaps and
+                     nothing on the calendar, what is missing is a filing on a
+                     service, and that is added in one place only. */
+                  <LinkButton size="sm" href="/catalogue">
+                    Open the Catalogue
                   </LinkButton>
                 )}
               </Cluster>
@@ -366,8 +382,8 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
     return (
       <Card>
         <Empty title="Everything is covered" icon="check">
-          Every live engagement produces filings. Every service your firm delivers is named by
-          a rule that can work out a date.
+          Every live engagement produces filings. Every service your firm delivers carries a
+          filing that can work out a date.
         </Empty>
       </Card>
     );
@@ -505,10 +521,20 @@ interface ReasonCopy {
   /** What to do next, or null when there is genuinely nothing to do. */
   fix: string | null;
   /** Where to do it. Not always the rules screen. Typed routes, so a screen
-   *  that gets renamed is a compile error here rather than a dead link. */
-  where: { href: "/clients" | "/admin/obligation-rules"; label: string } | null;
+   *  that gets renamed is a compile error here rather than a dead link.
+   *  `/catalogue` joined the list with T6.16: which services owe a filing is
+   *  set there and only there, so two of these fixes live in the catalogue
+   *  and pointing them at the library would send a partner to a screen that
+   *  no longer has the control. */
+  where: { href: "/clients" | "/admin/obligation-rules" | "/catalogue"; label: string } | null;
 }
 
+/**
+ * The reasons in words. The CODES predate T6.16 and keep their names, so
+ * `no_rule_names_this_service` now means "no filing is on this service in the
+ * catalogue": a rule reaches an engagement only through a filing linked to the
+ * service it bought, and "names" was the old single-service picker's word.
+ */
 const REASONS: Record<CoverageReason, ReasonCopy> = {
   entity_not_registered: {
     title: "This company has no registered country",
@@ -519,55 +545,66 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     where: { href: "/clients", label: "Open the book" },
   },
   rules_need_a_formula: {
-    title: "A rule exists and cannot work out a date yet",
+    title: "A filing on this service cannot work out a date yet",
     what:
       "The rule describes its timing in words the system cannot turn into a date, such as " +
       "\"within a statutory period after the AGM\" or \"7 working days\". " +
       "Each rule says exactly what it is waiting for.",
-    fix: "Clear these first. Each needs one fact, and then the filings start appearing.",
+    // "and confirm it": answering a shipped rule leaves it unconfirmed, and an
+    // unconfirmed rule still puts nothing on the calendar.
+    fix: "Clear these first. Each needs one fact: answer it and confirm it, and the filings start appearing.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_unconfirmed: {
-    title: "A rule could work out the dates, but nobody has confirmed it",
+    title: "A filing could work out the dates, but nobody has confirmed it",
     what:
-      "A built-in rule reaches this engagement and can work out its dates, but nobody at your " +
-      "firm has checked it against the law yet. Until somebody does, it puts nothing on the " +
-      "calendar.",
-    fix: "Confirm the rule, and say which service owes the filing so it reaches only the clients who bought it.",
+      "A filing on this service can work out its dates, but it is marked as not yet checked " +
+      "against the law. Until somebody confirms it, it puts nothing on the calendar.",
+    // The LIBRARY, not the catalogue. Adding a filing to a service confirms
+    // it, so this state means somebody unticked it afterwards, and the tick is
+    // on the library's row.
+    fix: "Tick it as confirmed in the library once somebody has checked it.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_retired: {
-    title: "Every matching rule has been retired",
+    title: "Every filing on this service has been retired",
     what:
       "Somebody switched these rules off. Filings they already produced still stand, but " +
       "nothing new is generated.",
-    fix: "Reactivate one, or add its replacement under a new rule pack.",
+    fix: "Reactivate one in the library, or add its replacement to the service in the Catalogue.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   no_rule_for_jurisdiction: {
-    title: "A rule names this service, but not this country",
+    title: "A filing is on this service, but not for this country",
     what:
-      "The rule is written for a different country from the one this company is registered " +
-      "in.",
-    fix: "Add the rule for this country, or widen the existing one.",
-    where: { href: "/admin/obligation-rules", label: "Open the rules" },
+      "The filings on this service are written for a different country from the one this " +
+      "company is registered in.",
+    // A rule's country is part of what it IS and cannot be edited, so the old
+    // "or widen the existing one" offered something no screen can do.
+    fix: "Write the filing for this country on the service in the Catalogue.",
+    where: { href: "/catalogue", label: "Open the Catalogue" },
   },
   nothing_due_yet: {
     title: "Covered, with nothing due in the window yet",
     what:
-      "Rules match and can work out dates, but every period so far ended before the " +
-      "engagement began. A filing due before your firm was appointed is not your firm's. " +
-      "This clears itself next period.",
+      "Filings on this service match and can work out dates, but every period so far ended " +
+      "before the engagement began. A filing due before your firm was appointed is not your " +
+      "firm's. This clears itself next period.",
     fix: null,
     where: null,
   },
   no_rule_names_this_service: {
-    title: "No compliance rule names this service",
+    title: "No filing is on this service",
     what:
       "The usual case for advisory work, an incorporation or a one-off report. Nothing " +
       "recurring is owed to an authority, so there is nothing to generate.",
-    fix: null,
-    where: null,
+    // A fix now, and a conditional one. Before T6.16 a rule on no service
+    // reached every service, so this list really was only advisory work. Now
+    // it is ALSO every service the firm has not yet given its filings, and the
+    // sentence has to say where that is done without calling advisory work a
+    // fault.
+    fix: "If this service does owe a filing, add it to the service in the Catalogue.",
+    where: { href: "/catalogue", label: "Open the Catalogue" },
   },
 };
 

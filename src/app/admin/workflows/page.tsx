@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
-import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select } from "@/components/ui";
+import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select, Textarea } from "@/components/ui";
 import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader } from "@/components/tw";
 
 /**
@@ -56,6 +56,99 @@ interface StepDraft {
    *  Both "" means anybody, which is null on the wire. */
   performerMin: string;
   performerMax: string;
+  /** The step's SUB-STEPS (T6.15) as the box holds them, one per line. Turned
+   *  into `{ key, label }` only on the way out; see `toLines`. */
+  checklistText: string;
+  /** The sub-steps the version being edited already had, so a line whose
+   *  words did not change keeps its key. Empty on a step being written. */
+  checklistBefore: readonly ChecklistLine[];
+  /** The step's REVIEW POINTS, likewise: the checker's list, not the doer's. */
+  reviewText: string;
+  reviewBefore: readonly ChecklistLine[];
+}
+
+/**
+ * One line of a step's sub-steps or review points, as the API stores it.
+ *
+ * The KEY is what a tick is stored against, so it must outlive the editor. A
+ * job pins the version it started on and reads its lines from that version,
+ * which is why a key never has to be stable across versions for the ticks to
+ * stay right; it is kept stable anyway wherever the words did not change,
+ * because "s3 is the payroll line" is what somebody comparing two versions of
+ * the process, or reading the audit trail, relies on.
+ */
+interface ChecklistLine {
+  readonly key: string;
+  readonly label: string;
+}
+
+/**
+ * The box's text as lines: trimmed, blanks dropped, and a leading bullet taken
+ * off.
+ *
+ * The bullet is not a nicety. The firm's first process arrived as a document
+ * with "• bank statements" under every step, and pasting it is the obvious way
+ * to write one. Left on, every label would start with a dot nobody typed on
+ * purpose. Only a bullet followed by a space goes, so "-5% variance" is safe.
+ */
+function splitLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim().replace(/^[•·*-]\s+/, "").trim())
+    .filter((line) => line !== "");
+}
+
+/**
+ * The box's lines as `{ key, label }`, keeping keys wherever it can.
+ *
+ * MATCHED BY THE WORDS. A line whose label is unchanged keeps its key even if
+ * it moved, which is what a reorder is; a line whose words changed is a new
+ * line with a new key, because a key that silently changed meaning under a
+ * rewording would say two different things in two versions. Two identical
+ * lines each claim their own old key, in order.
+ *
+ * A new line takes the next `s1, s2, …` (or `r1, r2, …`) that is not taken,
+ * counting the keys the version being edited had as taken even when their line
+ * was deleted. A key that meant "payroll" in v3 is never recycled as "fixed
+ * assets" in v4.
+ */
+function toLines(text: string, before: readonly ChecklistLine[], prefix: "s" | "r"): ChecklistLine[] {
+  const labels = splitLines(text);
+  const unclaimed = [...before];
+  const kept = labels.map((label) => {
+    const at = unclaimed.findIndex((b) => b.label === label);
+    return at === -1 ? null : (unclaimed.splice(at, 1)[0] ?? null);
+  });
+  const taken = new Set([...before.map((b) => b.key), ...kept.flatMap((k) => (k === null ? [] : [k.key]))]);
+  let n = 0;
+  return labels.map((label, i) => {
+    const old = kept[i];
+    if (old !== null && old !== undefined) return { key: old.key, label };
+    do {
+      n += 1;
+    } while (taken.has(`${prefix}${String(n)}`));
+    const key = `${prefix}${String(n)}`;
+    taken.add(key);
+    return { key, label };
+  });
+}
+
+/** A stored list read back. ABSENT IS EMPTY: every process published before
+ *  T6.15 has neither list, and those versions are frozen. */
+function readLines(raw: unknown): ChecklistLine[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((l: unknown) => {
+    if (typeof l !== "object" || l === null) return [];
+    const line = l as Record<string, unknown>;
+    return typeof line["key"] === "string" && typeof line["label"] === "string"
+      ? [{ key: line["key"], label: line["label"].trim() }]
+      : [];
+  });
+}
+
+/** A box tall enough for what is in it, within reason. */
+function rowsFor(text: string): number {
+  return Math.min(12, Math.max(3, text.split("\n").length + 1));
 }
 
 /** The firm's ladder, fetched once for every step editor on the page. */
@@ -220,6 +313,13 @@ function toBody(
       // string, which the API would refuse as not being a config key.
       verificationPolicyKey: s.verificationPolicyKey === "" ? null : s.verificationPolicyKey,
       performer: toPerformer(s, grades),
+      // ALWAYS arrays, never left out, so a version written here says "none"
+      // in so many words. Review points on a step that names no check are
+      // SENT as typed: the API refuses them with a sentence naming the step,
+      // and the editor already says so beside the box. Dropping them here
+      // would lose a list somebody wrote without telling them.
+      checklist: toLines(s.checklistText, s.checklistBefore, "s"),
+      reviewPoints: toLines(s.reviewText, s.reviewBefore, "r"),
     })),
   };
 }
@@ -270,6 +370,10 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
           typeof s["verificationPolicyKey"] === "string" ? s["verificationPolicyKey"] : "",
         performerMin: readCode(s["performer"], "minGradeCode"),
         performerMax: readCode(s["performer"], "maxGradeCode"),
+        checklistText: readLines(s["checklist"]).map((l) => l.label).join("\n"),
+        checklistBefore: readLines(s["checklist"]),
+        reviewText: readLines(s["reviewPoints"]).map((l) => l.label).join("\n"),
+        reviewBefore: readLines(s["reviewPoints"]),
       };
     }),
   };
@@ -514,9 +618,58 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
               </>
             )}
           </span>
+          <StepLines step={s} />
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * A step's two lists in the read-only summary (T6.15), folded.
+ *
+ * FOLDED, because the firm's own process runs to eight lines under most of its
+ * ten steps, and eighty lines open at once turn "what are our steps" into a
+ * scroll. The fold's own line says how many of each, so "does step 8 have
+ * review points" is answered without opening anything. Nothing at all for a
+ * step with neither, which is every step written before this existed.
+ */
+function StepLines({ step }: { step: StepDraft }) {
+  const subSteps = splitLines(step.checklistText);
+  const reviewPoints = splitLines(step.reviewText);
+  if (subSteps.length === 0 && reviewPoints.length === 0) return null;
+  const counts = [
+    subSteps.length === 0 ? null : `${String(subSteps.length)} sub-step${subSteps.length === 1 ? "" : "s"}`,
+    reviewPoints.length === 0
+      ? null
+      : `${String(reviewPoints.length)} review point${reviewPoints.length === 1 ? "" : "s"}`,
+  ].filter((c) => c !== null);
+  return (
+    <details className="disclosure mt-1">
+      <summary>{counts.join(" and ")}</summary>
+      <div className="text-sm">
+        {subSteps.length > 0 && (
+          <>
+            <p className="text-muted">Ticked by whoever does it, before it can be marked done:</p>
+            <ul className="mb-2 ml-5 mt-1 list-disc">
+              {subSteps.map((line, i) => (
+                <li key={`s-${String(i)}`}>{line}</li>
+              ))}
+            </ul>
+          </>
+        )}
+        {reviewPoints.length > 0 && (
+          <>
+            <p className="text-muted">Ticked by whoever checks it, before it can be approved:</p>
+            <ul className="ml-5 mt-1 list-disc">
+              {reviewPoints.map((line, i) => (
+                <li key={`r-${String(i)}`}>{line}</li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -560,7 +713,12 @@ function NewTemplate({
             conditionValue: "",
             verificationPolicyKey: "",
             performerMin: "",
-            performerMax: "",          },
+            performerMax: "",
+            checklistText: "",
+            checklistBefore: [],
+            reviewText: "",
+            reviewBefore: [],
+          },
         ]}
         note="Saved as a draft. Nothing follows it until you put it in force."
         onDone={() => {
@@ -649,7 +807,12 @@ function StepEditor({
         conditionValue: "",
         verificationPolicyKey: "",
         performerMin: "",
-        performerMax: "",      },
+        performerMax: "",
+        checklistText: "",
+        checklistBefore: [],
+        reviewText: "",
+        reviewBefore: [],
+      },
     ]);
   }
 
@@ -991,6 +1154,42 @@ function StepFields({
         </p>
       )}
 
+      {/* THE DOER'S LIST (T6.15). A text box, one line per sub-step, rather
+          than a row of inputs with an Add button: the firm's process arrives as
+          a document with bullets under every step, and pasting eight lines at
+          once is how it actually gets written. Keys are kept by `toLines` on
+          the way out, so nobody ever sees or types one. */}
+      <div className="mt-2 max-w-[64ch]">
+        <Field
+          id={`${id}-substeps`}
+          label="Sub-steps"
+          optional
+          hint="One per line. Whoever does this step ticks each one, or marks it not applicable with a reason, before the step can be marked done."
+        >
+          <Textarea
+            rows={rowsFor(step.checklistText)}
+            value={step.checklistText}
+            placeholder={"Bank statements\nSales data\nPurchase data"}
+            onChange={(e) => {
+              onChange({ checklistText: e.target.value });
+            }}
+          />
+        </Field>
+        {/* Said BEFORE the save, not left to the API's refusal: a machine
+            acting alone never ticks anything, so the step would finish with its
+            list open. The API refuses it regardless; this is so the sentence is
+            met while the fix is one select away. */}
+        {step.executor === "agent" && splitLines(step.checklistText).length > 0 && (
+          <div className="mt-2">
+            <Notice tone="warn">
+              Sub-steps are ticked by a person, and this step is done by a machine on its own.
+              Choose &ldquo;A person&rdquo; or &ldquo;Automatically, then a person approves&rdquo;
+              under Who does it, or remove the sub-steps.
+            </Notice>
+          </div>
+        )}
+      </div>
+
       <div className="mt-2 max-w-[360px]">
         <Field
           id={`${id}-check`}
@@ -1028,6 +1227,78 @@ function StepFields({
           </Select>
         </Field>
       </div>
+
+      {/* THE CHECKER'S LIST (T6.15), offered only once somebody checks the
+          step: review points are ticked by the checker, and a step nobody
+          checks has nobody to tick them. Kept on screen, though, when the
+          checker is set back to nobody while points are written. Hiding the
+          box would leave a list the API then refuses sitting where nobody can
+          see it, and dropping it quietly would lose what somebody wrote. So the
+          step says so and offers the two honest ways out. */}
+      {(step.verificationPolicyKey !== "" || step.reviewText.trim() !== "") && (
+        <div className="mt-2 max-w-[64ch]">
+          <Field
+            id={`${id}-review`}
+            label="Review points"
+            optional
+            hint="One per line. Whoever checks this step ticks each one before they can approve it. Sending it back is always allowed."
+          >
+            <Textarea
+              rows={rowsFor(step.reviewText)}
+              value={step.reviewText}
+              placeholder={"P&L movements\nBalance sheet movements\nUnusual variances"}
+              onChange={(e) => {
+                onChange({ reviewText: e.target.value });
+              }}
+            />
+          </Field>
+          {step.verificationPolicyKey === "" && (
+            <div className="mt-2">
+              <Notice
+                tone="warn"
+                actions={
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Move the review points to the sub-steps: ${groupName}`}
+                      onClick={() => {
+                        onChange({
+                          checklistText: [step.checklistText.trimEnd(), step.reviewText.trim()]
+                            .filter((t) => t !== "")
+                            .join("\n"),
+                          reviewText: "",
+                        });
+                        // This notice and its buttons go with the points, so
+                        // focus is put where the lines went rather than left
+                        // to fall to the top of the page.
+                        document.getElementById(`${id}-substeps`)?.focus();
+                      }}
+                    >
+                      Move them to the sub-steps
+                    </Button>
+                    <Button
+                      variant="destructive-quiet"
+                      size="sm"
+                      aria-label={`Remove the review points: ${groupName}`}
+                      onClick={() => {
+                        onChange({ reviewText: "" });
+                        document.getElementById(`${id}-check`)?.focus();
+                      }}
+                    >
+                      Remove them
+                    </Button>
+                  </>
+                }
+              >
+                Nobody checks this step now, so nobody would tick these review points, and the
+                process cannot be saved with them. Choose who checks it above, move them to the
+                sub-steps, or remove them.
+              </Notice>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Named separately: a group's name is announced when you enter the
           group, and it is not prepended to a BUTTON the way a field's label
