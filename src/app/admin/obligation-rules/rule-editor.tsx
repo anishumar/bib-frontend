@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { ConfigEntry, ObligationRule } from "@/lib/api/client";
+import type { ObligationRule } from "@/lib/api/client";
 import { Cluster, Row, Stack } from "@/components/layout";
 import {
   Button,
@@ -53,6 +53,20 @@ import {
  *   is the key every generated filing is deduplicated on. The API refuses it
  *   (`PERIOD_SHAPE_LOCKED`); this disables it and says why, so a partner meets
  *   a sentence rather than a rejection.
+ * · WHICH SERVICE OWES IT (T6.16). This form had an "Owed by clients who
+ *   bought" picker whose blank answer was "Any service", and that blank is how
+ *   98 GST filings reached a bookkeeping-only client on 2026-09-18. A filing is
+ *   now added to a service in the CATALOGUE and nowhere else, as many services
+ *   as want it, and a rule on no service adds nothing to the calendar. Two
+ *   places to say "which service" is how the two answers drift apart, so the
+ *   picker went rather than being kept beside the new one.
+ *
+ * ── THE CATALOGUE WRITES WITH THIS FORM TOO ─────────────────────────────────
+ *
+ * `/catalogue`'s "Write a new filing" renders this editor `bare` inside the
+ * service's own card and sends `createBodyOf(draft)` plus the service it was
+ * written on, so a filing written there and one written in the library are the
+ * same shape by construction rather than by two forms agreeing.
  */
 
 export type DueRuleKind = "day_of_month" | "days_after";
@@ -69,7 +83,6 @@ export interface RuleDraft {
   readonly module: string;
   readonly authority: string;
   readonly entityType: string;
-  readonly serviceEntryId: string;
   /** Create only — the three identity fields, absent from an edit. */
   readonly name: string;
   readonly jurisdiction: string;
@@ -106,7 +119,6 @@ export function draftOf(rule: ObligationRule | null): RuleDraft {
     module: rule?.module ?? "",
     authority: rule?.authority ?? "",
     entityType: rule?.entityType ?? "",
-    serviceEntryId: rule?.serviceEntryId ?? "",
     name: "",
     jurisdiction: "IN",
     rulePack: firmRulePack(),
@@ -138,7 +150,27 @@ export function bodyOf(d: RuleDraft): Record<string, unknown> {
     module: d.module.trim() || null,
     authority: d.authority.trim() || null,
     entityType: d.entityType.trim() || null,
-    serviceEntryId: d.serviceEntryId || null,
+  };
+}
+
+/**
+ * A NEW rule's body: the draft plus its three identity fields.
+ *
+ * One function for both writers, the library's "Write a rule" and the
+ * catalogue's "Write a new filing", so the two cannot send different shapes.
+ * The catalogue adds `serviceEntryIds` beside it; the library sends none, and
+ * a rule on no service adds nothing to the calendar until a service carries it.
+ *
+ * `leadTimeDays: 0` is the shipped pack's own default and not a guess at the
+ * firm's practice: T–X is set on the library's row once the rule is in use.
+ */
+export function createBodyOf(d: RuleDraft): Record<string, unknown> {
+  return {
+    ...bodyOf(d),
+    name: d.name.trim(),
+    jurisdiction: d.jurisdiction.trim().toUpperCase(),
+    rulePack: d.rulePack.trim(),
+    leadTimeDays: 0,
   };
 }
 
@@ -163,6 +195,43 @@ export function describeDraft(d: RuleDraft): string {
   if (d.dueMonthOffset === 0) return `${every} · the ${day} of the month the period ends in`;
   if (d.dueMonthOffset === 1) return `${every} · the ${day} of the following month`;
   return `${every} · the ${day}, ${String(d.dueMonthOffset)} months after ${from}`;
+}
+
+/**
+ * A SAVED rule's formula, in words.
+ *
+ * A partner has to be able to check this against the statute without knowing
+ * what `dueMonthOffset` means. The first version of this function was written
+ * blind and produced "Once a year, day 15 3 months after" and "When it happens,
+ * 30 days after the period ends": both grammatical nonsense, and the second one
+ * factually wrong as well, because an event-driven rule has no period to count
+ * from. Reading the page is what found them; the types were happy.
+ *
+ * Two functions, deliberately: `describeDraft` describes an unsaved draft and
+ * this a saved rule, and merging them would mean building a fake rule out of
+ * form state to render a sentence. It lives HERE rather than in the library's
+ * page since T6.16, because the catalogue needs the same sentence three times
+ * (the picker's options, a service's filings, the confirmation before adding
+ * an unconfirmed one) and a third copy is how the wording drifts.
+ */
+export function describeRule(rule: ObligationRule): string {
+  const every = EVERY[rule.recurrence] ?? rule.recurrence;
+  if (rule.dueRule === null) return every;
+
+  // An EVENT rule counts from the event, never from a period: it does not have
+  // one. Saying "after the period ends" there would describe a mechanism that
+  // does not exist.
+  const from = rule.recurrence === "event" ? "the event" : "the period ends";
+
+  if (rule.dueRule.kind === "days_after") {
+    return `${every} · ${String(rule.dueRule.dueDaysAfter ?? 0)} days after ${from}`;
+  }
+
+  const offset = rule.dueRule.dueMonthOffset ?? 0;
+  const day = ordinal(rule.dueRule.dueDayOfMonth ?? 1);
+  if (offset === 0) return `${every} · the ${day} of the month the period ends in`;
+  if (offset === 1) return `${every} · the ${day} of the following month`;
+  return `${every} · the ${day}, ${String(offset)} months after ${from}`;
 }
 
 const EVERY: Record<string, string> = {
@@ -196,22 +265,32 @@ function intOf(raw: string, min: number): number {
 export function RuleEditor({
   draft,
   onChange,
-  services,
   /** Null while creating: there is no rule yet, so nothing is locked. */
   rule,
   creating,
   busy,
   onSave,
   onCancel,
+  bare = false,
+  saveLabel,
+  cancelLabel,
 }: {
   draft: RuleDraft;
   onChange: (next: RuleDraft) => void;
-  services: ConfigEntry[];
   rule: ObligationRule | null;
   creating: boolean;
   busy: boolean;
   onSave: () => void;
   onCancel: () => void;
+  /** No card of its own. The catalogue renders this inside a service's card,
+   *  and a card inside a card draws two borders around one form. */
+  bare?: boolean;
+  /** What the save button says. The catalogue's reads "Write it and add it to
+   *  this service", because that press does both. */
+  saveLabel?: string;
+  /** The Cancel button's accessible name, when the page around it has more
+   *  than one: every service card in the catalogue can hold one of these. */
+  cancelLabel?: string;
 }) {
   const set = <K extends keyof RuleDraft>(key: K, value: RuleDraft[K]): void => {
     onChange({ ...draft, [key]: value });
@@ -220,7 +299,6 @@ export function RuleEditor({
   // which is the state of every rule a partner actually has to answer.
   const produced = rule?.instanceCount ?? 0;
   const shapeLocked = produced > 0;
-  const group = `formula-${rule?.id ?? "new"}`;
   // Two paragraphs on this form sit BELOW a `.field-row` rather than inside a
   // column of it — deliberately, because a hint inside one column makes that
   // field taller and leaves four inputs at four heights. Sitting outside, they
@@ -229,249 +307,243 @@ export function RuleEditor({
   const noteId = useId();
   const periodNoteId = `${noteId}-period`;
   const groupingNoteId = `${noteId}-grouping`;
+  // The radio group's NAME, and "new" is not unique any more: the catalogue can
+  // hold a new-filing form on every service card at once, and two radio groups
+  // sharing a name in one document are ONE group, so answering the formula on
+  // one card would untick it on the other.
+  const group = `formula-${rule?.id ?? noteId}`;
 
-  return (
-    <Card>
-      <Stack>
-        {creating && (
-          <>
-            <FieldRow>
-              <Field label="Filing">
-                <Input
-                  value={draft.name}
-                  placeholder="PF monthly return"
-                  onChange={(e) => { set("name", e.target.value); }}
-                />
-              </Field>
-              <Field label="Country">
-                <Input
-                  value={draft.jurisdiction}
-                  maxLength={2}
-                  placeholder="IN"
-                  onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
-                />
-              </Field>
-              <Field label="Rule pack">
-                <Input
-                  value={draft.rulePack}
-                  onChange={(e) => { set("rulePack", e.target.value); }}
-                />
-              </Field>
-            </FieldRow>
-            <Notice eyebrow="CANNOT BE CHANGED LATER">
-              The filing, the country and the pack <strong>identify</strong> this rule. Every
-              filing it generates points back to this row, so these three cannot change later.
-              The pack is prefilled with your firm&rsquo;s own name, kept separate from the
-              shipped <code>gst-in@…</code> pack, so reloading a shipped pack never overwrites a
-              rule you wrote.
-            </Notice>
-          </>
-        )}
-
-        <FieldRow>
-          <Field label="How often">
-            <Select
-              value={draft.recurrence}
-              disabled={shapeLocked}
-              {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
-              onChange={(e) => { set("recurrence", e.target.value); }}
-            >
-              <option value="monthly">Every month</option>
-              <option value="quarterly">Every quarter</option>
-              <option value="half_yearly">Twice a year</option>
-              <option value="annual">Once a year</option>
-              <option value="event">When something happens</option>
-            </Select>
-          </Field>
-          <Field label="Financial year starts in">
-            <Select
-              value={String(draft.fiscalYearStartMonth)}
-              disabled={shapeLocked}
-              {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
-              onChange={(e) => { set("fiscalYearStartMonth", Number(e.target.value)); }}
-            >
-              {MONTHS.map((m, i) => (
-                <option key={m} value={String(i + 1)}>{m}</option>
-              ))}
-            </Select>
-          </Field>
-        </FieldRow>
-
-        {/* THE HINT SITS BELOW THE ROW, NOT INSIDE A COLUMN OF IT.
-            `.field-row` is `align-items: end`, so a field carrying a hint is
-            taller and its INPUT ends up higher than the ones beside it — four
-            fields at four different heights. `/admin/workflows` learnt this and
-            it is written in CLAUDE.md; this screen re-made it, and looking at
-            the page is what found it again. */}
-        {!shapeLocked && (
-          /* Pointed at by BOTH selects above, and only while it is rendered —
-             a `describedby` naming an element that is not on the page describes
-             nothing, and this paragraph is replaced by a Notice once the shape
-             is locked. */
-          <p id={periodNoteId} className="field-hint">
-            April for India: a quarter then runs April to June. Leaving the year at January would
-            put every quarterly filing in the wrong period.
-          </p>
-        )}
-
-        {/* DISABLED WITH THE SENTENCE, never silently. A partner meets an
-            explanation rather than the API's 409. */}
-        {shapeLocked && (
-          <Notice tone="warn" eyebrow="THE PERIOD SHAPE IS FIXED NOW">
-            These two decide where a period <strong>begins</strong>, and this rule has already
-            produced {produced} filing{produced === 1 ? "" : "s"} based on those periods.
-            Changing them now would leave every one of them without a matching period. Retire
-            this rule and write a new one instead. The retired rule still explains the filings
-            it made.
+  const form = (
+    <Stack>
+      {creating && (
+        <>
+          <FieldRow>
+            <Field label="Filing">
+              <Input
+                value={draft.name}
+                placeholder="PF monthly return"
+                onChange={(e) => { set("name", e.target.value); }}
+              />
+            </Field>
+            <Field label="Country">
+              <Input
+                value={draft.jurisdiction}
+                maxLength={2}
+                placeholder="IN"
+                onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
+              />
+            </Field>
+            <Field label="Rule pack">
+              <Input
+                value={draft.rulePack}
+                onChange={(e) => { set("rulePack", e.target.value); }}
+              />
+            </Field>
+          </FieldRow>
+          <Notice eyebrow="CANNOT BE CHANGED LATER">
+            The filing, the country and the pack <strong>identify</strong> this rule. Every
+            filing it generates points back to this row, so these three cannot change later.
+            The pack is prefilled with your firm&rsquo;s own name, kept separate from the
+            shipped <code>gst-in@…</code> pack, so reloading a shipped pack never overwrites a
+            rule you wrote.
           </Notice>
-        )}
+        </>
+      )}
 
-        {/* ── THE ONE DECISION, AS ONE CONTROL ──────────────────────────── */}
-        <Fieldset legend="When it is due">
-          <Stack>
-            <Radio
-              name={group}
-              checked={draft.hasFormula}
-              label="This rule computes a date"
-              onChange={() => { set("hasFormula", true); }}
-            />
-            {draft.hasFormula && (
-              <FieldRow>
-                <Field label="Counted as">
-                  <Select
-                    value={draft.kind}
-                    onChange={(e) => { set("kind", e.target.value as DueRuleKind); }}
-                  >
-                    <option value="day_of_month">A day of a month</option>
-                    <option value="days_after">A number of days</option>
-                  </Select>
-                </Field>
-                {draft.kind === "day_of_month" ? (
-                  <>
-                    <Field label="Day of the month">
-                      <Input
-                        inputMode="numeric"
-                        value={String(draft.dueDayOfMonth)}
-                        onChange={(e) => { set("dueDayOfMonth", intOf(e.target.value, 1)); }}
-                      />
-                    </Field>
-                    <Field label="Months after the period ends">
-                      <Input
-                        inputMode="numeric"
-                        value={String(draft.dueMonthOffset)}
-                        onChange={(e) => { set("dueMonthOffset", intOf(e.target.value, 0)); }}
-                      />
-                    </Field>
-                  </>
-                ) : (
-                  <Field label="Days after the period ends">
+      <FieldRow>
+        <Field label="How often">
+          <Select
+            value={draft.recurrence}
+            disabled={shapeLocked}
+            {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
+            onChange={(e) => { set("recurrence", e.target.value); }}
+          >
+            <option value="monthly">Every month</option>
+            <option value="quarterly">Every quarter</option>
+            <option value="half_yearly">Twice a year</option>
+            <option value="annual">Once a year</option>
+            <option value="event">When something happens</option>
+          </Select>
+        </Field>
+        <Field label="Financial year starts in">
+          <Select
+            value={String(draft.fiscalYearStartMonth)}
+            disabled={shapeLocked}
+            {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
+            onChange={(e) => { set("fiscalYearStartMonth", Number(e.target.value)); }}
+          >
+            {MONTHS.map((m, i) => (
+              <option key={m} value={String(i + 1)}>{m}</option>
+            ))}
+          </Select>
+        </Field>
+      </FieldRow>
+
+      {/* THE HINT SITS BELOW THE ROW, NOT INSIDE A COLUMN OF IT.
+          `.field-row` is `align-items: end`, so a field carrying a hint is
+          taller and its INPUT ends up higher than the ones beside it — four
+          fields at four different heights. `/admin/workflows` learnt this and
+          it is written in CLAUDE.md; this screen re-made it, and looking at
+          the page is what found it again. */}
+      {!shapeLocked && (
+        /* Pointed at by BOTH selects above, and only while it is rendered —
+           a `describedby` naming an element that is not on the page describes
+           nothing, and this paragraph is replaced by a Notice once the shape
+           is locked. */
+        <p id={periodNoteId} className="field-hint">
+          April for India: a quarter then runs April to June. Leaving the year at January would
+          put every quarterly filing in the wrong period.
+        </p>
+      )}
+
+      {/* DISABLED WITH THE SENTENCE, never silently. A partner meets an
+          explanation rather than the API's 409. */}
+      {shapeLocked && (
+        <Notice tone="warn" eyebrow="THE PERIOD SHAPE IS FIXED NOW">
+          These two decide where a period <strong>begins</strong>, and this rule has already
+          produced {produced} filing{produced === 1 ? "" : "s"} based on those periods.
+          Changing them now would leave every one of them without a matching period. Retire
+          this rule and write a new one instead. The retired rule still explains the filings
+          it made.
+        </Notice>
+      )}
+
+      {/* ── THE ONE DECISION, AS ONE CONTROL ──────────────────────────── */}
+      <Fieldset legend="When it is due">
+        <Stack>
+          <Radio
+            name={group}
+            checked={draft.hasFormula}
+            label="This rule computes a date"
+            onChange={() => { set("hasFormula", true); }}
+          />
+          {draft.hasFormula && (
+            <FieldRow>
+              <Field label="Counted as">
+                <Select
+                  value={draft.kind}
+                  onChange={(e) => { set("kind", e.target.value as DueRuleKind); }}
+                >
+                  <option value="day_of_month">A day of a month</option>
+                  <option value="days_after">A number of days</option>
+                </Select>
+              </Field>
+              {draft.kind === "day_of_month" ? (
+                <>
+                  <Field label="Day of the month">
                     <Input
                       inputMode="numeric"
-                      value={String(draft.dueDaysAfter)}
-                      onChange={(e) => { set("dueDaysAfter", intOf(e.target.value, 0)); }}
+                      value={String(draft.dueDayOfMonth)}
+                      onChange={(e) => { set("dueDayOfMonth", intOf(e.target.value, 1)); }}
                     />
                   </Field>
-                )}
-              </FieldRow>
-            )}
+                  <Field label="Months after the period ends">
+                    <Input
+                      inputMode="numeric"
+                      value={String(draft.dueMonthOffset)}
+                      onChange={(e) => { set("dueMonthOffset", intOf(e.target.value, 0)); }}
+                    />
+                  </Field>
+                </>
+              ) : (
+                <Field label="Days after the period ends">
+                  <Input
+                    inputMode="numeric"
+                    value={String(draft.dueDaysAfter)}
+                    onChange={(e) => { set("dueDaysAfter", intOf(e.target.value, 0)); }}
+                  />
+                </Field>
+              )}
+            </FieldRow>
+          )}
 
-            <Radio
-              name={group}
-              checked={!draft.hasFormula}
-              label="It depends on something this system does not hold"
-              note="Say what, and the calendar shows that in place of a deadline."
-              onChange={() => { set("hasFormula", false); }}
-            />
-            {!draft.hasFormula && (
-              <Field label="What it is waiting for">
-                <Input
-                  value={draft.unresolvedReason}
-                  placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
-                  onChange={(e) => { set("unresolvedReason", e.target.value); }}
-                />
-              </Field>
-            )}
-          </Stack>
-        </Fieldset>
+          <Radio
+            name={group}
+            checked={!draft.hasFormula}
+            label="It depends on something this system does not hold"
+            note="Say what, and the calendar shows that in place of a deadline."
+            onChange={() => { set("hasFormula", false); }}
+          />
+          {!draft.hasFormula && (
+            <Field label="What it is waiting for">
+              <Input
+                value={draft.unresolvedReason}
+                placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
+                onChange={(e) => { set("unresolvedReason", e.target.value); }}
+              />
+            </Field>
+          )}
+        </Stack>
+      </Fieldset>
 
-        <FieldRow>
-          <Field label="Filed with">
-            <Input
-              value={draft.authority}
-              placeholder="GST"
-              onChange={(e) => { set("authority", e.target.value); }}
-            />
-          </Field>
-          <Field label="Statute grouping">
-            <Input
-              value={draft.module}
-              placeholder="TDS"
-              aria-describedby={groupingNoteId}
-              onChange={(e) => { set("module", e.target.value); }}
-            />
-          </Field>
-          <Field label="Only for entity type" optional>
-            <Input
-              value={draft.entityType}
-              placeholder="private_limited"
-              aria-describedby={groupingNoteId}
-              onChange={(e) => { set("entityType", e.target.value); }}
-            />
-          </Field>
-          <Field
-            label="Owed by clients who bought"
-            optional
-            hint="Any service means every client with a live engagement in this country owes this filing. If only clients who bought one particular service owe it, choose that service here. Otherwise a bookkeeping client could see a filing on their portal that does not apply to them."
-          >
-            <Select
-              value={draft.serviceEntryId}
-              onChange={(e) => { set("serviceEntryId", e.target.value); }}
-            >
-              <option value="">Any service</option>
-              {services.map((s) => (
-                <option key={s.entry.id} value={s.entry.id}>{s.entry.key}</option>
-              ))}
-            </Select>
-          </Field>
-        </FieldRow>
-        {/* One paragraph, TWO fields — which is exactly why it cannot be a
-            `<Field hint>` and had to be wired by hand. */}
-        <p id={groupingNoteId} className="field-hint">
-          <strong>Statute grouping</strong> is the law&rsquo;s grouping, such as GST, TDS or MCA.
-          It is not your firm&rsquo;s Dept. Leaving <strong>entity type</strong> blank means
-          every kind of company, which is the usual case: GST applies whatever shape a client
-          is.
-        </p>
+      <FieldRow>
+        <Field label="Filed with">
+          <Input
+            value={draft.authority}
+            placeholder="GST"
+            onChange={(e) => { set("authority", e.target.value); }}
+          />
+        </Field>
+        <Field label="Statute grouping">
+          <Input
+            value={draft.module}
+            placeholder="TDS"
+            aria-describedby={groupingNoteId}
+            onChange={(e) => { set("module", e.target.value); }}
+          />
+        </Field>
+        <Field label="Only for entity type" optional>
+          <Input
+            value={draft.entityType}
+            placeholder="private_limited"
+            aria-describedby={groupingNoteId}
+            onChange={(e) => { set("entityType", e.target.value); }}
+          />
+        </Field>
+        {/* No "which service" field. See WHAT IS NOT OFFERED above: the
+            catalogue is the one place a filing meets a service. */}
+      </FieldRow>
+      {/* One paragraph, TWO fields — which is exactly why it cannot be a
+          `<Field hint>` and had to be wired by hand. */}
+      <p id={groupingNoteId} className="field-hint">
+        <strong>Statute grouping</strong> is the law&rsquo;s grouping, such as GST, TDS or MCA.
+        It is not your firm&rsquo;s Dept. Leaving <strong>entity type</strong> blank means
+        every kind of company, which is the usual case: GST applies whatever shape a client
+        is.
+      </p>
 
-        {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
-            rather than after. `dueMonthOffset: 1` is not proofreadable. */}
-        <p className="mono">{describeDraft(draft)}</p>
+      {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
+          rather than after. `dueMonthOffset: 1` is not proofreadable. */}
+      <p className="mono">{describeDraft(draft)}</p>
 
-        <Cluster>
-          <Button onClick={onSave} loading={busy}>
-            {creating ? "Write the rule" : "Save the formula"}
-          </Button>
-          <Button
-            variant="ghost"
-            /* SAYS WHICH CANCEL. Open a rule and then "The law changed" and
-               there are two buttons on screen saying only "Cancel" — this one
-               abandons an edit to the formula, the other abandons an
-               AMENDMENT, which is a new rule taking over from a date. Named by
-               `rule.name`, which is the saved name and does not move while the
-               name box is being typed in; `draft.name` would rename the button
-               on every keystroke. The visible word is unchanged. */
-            {...(rule === null
+      <Cluster>
+        <Button onClick={onSave} loading={busy}>
+          {saveLabel ?? (creating ? "Write the rule" : "Save the formula")}
+        </Button>
+        <Button
+          variant="ghost"
+          /* SAYS WHICH CANCEL. Open a rule and then "The law changed" and
+             there are two buttons on screen saying only "Cancel" — this one
+             abandons an edit to the formula, the other abandons an
+             AMENDMENT, which is a new rule taking over from a date. Named by
+             `rule.name`, which is the saved name and does not move while the
+             name box is being typed in; `draft.name` would rename the button
+             on every keystroke. The visible word is unchanged. */
+          {...(cancelLabel !== undefined
+            ? { "aria-label": cancelLabel }
+            : rule === null
               ? {}
               : { "aria-label": `Cancel the edit to ${rule.name}` })}
-            onClick={onCancel}
-            disabled={busy}
-          >
-            Cancel
-          </Button>
-        </Cluster>
-      </Stack>
-    </Card>
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel
+        </Button>
+      </Cluster>
+    </Stack>
   );
+
+  return bare ? form : <Card>{form}</Card>;
 }
 
 /**

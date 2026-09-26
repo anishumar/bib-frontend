@@ -87,6 +87,14 @@ export function Supersede({
             dates. One that somebody has already started stays as it is, and you are told how
             many.
           </p>
+          {/* T6.16: a service carries the rule's CHAIN, so the new rule is on
+              every service the old one was on with nothing to copy. Said here
+              because otherwise a partner goes to the catalogue to add it
+              again, and wonders why it is already there. */}
+          <p>
+            The new rule stays on every service the old one is on in the Catalogue. Nothing needs
+            adding again.
+          </p>
           <p>
             If instead the date on this rule was simply <em>wrong</em>, close this and edit the
             formula. Editing corrects the calendar. This form records a change in the law.

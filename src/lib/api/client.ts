@@ -366,6 +366,21 @@ export type ObligationRule =
 export type ObligationException = ObligationRule["exceptions"][number];
 export type RuleCoverage = ObligationRule["coverage"];
 
+/** One catalogue service a rule's chain is on (T6.16), named. The catalogue is
+ *  the one place a filing meets a service; the library reads this to say
+ *  where each rule is used, and the catalogue's picker reads its length. */
+export type RuleUse = ObligationRule["usedIn"][number];
+
+/** What adding a filing to a service did: whether it was already there,
+ *  whether it confirmed an unconfirmed rule, and what reached the calendar. */
+export type FilingLinkEffect =
+  paths["/api/v1/services/{serviceEntryId}/filings"]["post"]["responses"][200]["content"]["application/json"]["effect"];
+
+/** What removing a filing from a service did: what came off the calendar, and
+ *  what stayed and why. `kept` is the sum of the three reasons. */
+export type FilingUnlinkEffect =
+  paths["/api/v1/services/{serviceEntryId}/filings/{ruleId}/unlink"]["post"]["responses"][200]["content"]["application/json"]["effect"];
+
 export type ConfigEntry =
   paths["/api/v1/config/{kind}"]["get"]["responses"][200]["content"]["application/json"]["entries"][number];
 

@@ -140,6 +140,10 @@ const VERB_WORDS: Record<string, string> = {
   "obligation_rule.exception_added": "A carve-out was added to a compliance rule",
   "obligation_rule.exception_removed": "A carve-out was removed from a compliance rule",
   "obligation_rule.superseded": "A compliance rule was replaced by a new version",
+  // T6.16: the catalogue is where a filing meets a service. The record's
+  // object is the rule's CHAIN, so "compliance rule" below still names it.
+  "obligation_rule.linked": "A compliance filing was added to a service",
+  "obligation_rule.unlinked": "A compliance filing was removed from a service",
   "obligation_rules.seeded": "The standard compliance rules were loaded",
   "obligation_state.created": "A filing status was added",
   "obligation_state.updated": "A filing status was changed",
@@ -147,6 +151,7 @@ const VERB_WORDS: Record<string, string> = {
   "obligation_resolution_option.updated": "A way to close a missed filing was changed",
   "obligation_vocabulary.seeded": "The standard filing statuses were loaded",
   "obligation.spawned": "A filing was added to the calendar",
+  "obligation.restored": "A filing taken off the calendar was put back on it",
   "obligation.work_raised": "A task was raised for a filing",
   "obligation.filed": "A filing was marked as filed",
   "obligation.filing_reversed": "A filing's filed mark was undone",
@@ -298,6 +303,20 @@ const KEY_WORDS: Record<string, string> = {
   filedOn: "Filed on",
   occurredOn: "On",
   count: "Count",
+  // What adding or removing a filing did to the calendar (T6.16). Spelled out
+  // they read "Kept started" and "Kept covered elsewhere", which say nothing
+  // to a partner about WHY a filing stayed.
+  spawned: "Filings added",
+  restored: "Filings put back",
+  withdrawn: "Filings taken off",
+  kept: "Filings kept",
+  keptStarted: "Kept, work had started",
+  keptPastDue: "Kept, date passed or a decision waiting",
+  keptCoveredElsewhere: "Kept, another service still includes it",
+  repointed: "Moved to the client's other service",
+  onCreate: "Added when it was written",
+  services: "Services",
+  serviceKey: "Service",
 };
 
 export interface DetailRow {
