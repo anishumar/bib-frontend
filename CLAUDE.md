@@ -1402,7 +1402,8 @@ outside both version blocks:
 
 - **The filings it carries**: name, who it is filed with, the due rule in words (`describeRule`,
   now exported from `rule-editor.tsx` so the picker, the list and the confirmation cannot word one
-  rule three ways), a status pill and SENTENCE (on the calendar for this service's clients
+  rule three ways; since the follow-ups, TODAY's rule and the next change, see below), a status
+  pill and SENTENCE (on the calendar for this service's clients
   registered in India / date not known yet: *the rule's own reason* / event-driven / not confirmed /
   retired), and "Also used in: …" linking to the other service's card.
 - **"Add a filing"** is a searchable picker (Popover + Command, the `month-view.tsx` precedent)
@@ -1487,11 +1488,70 @@ adding a filing confirms it and this state means somebody unticked it there.
 **What walking it found.** "GST · GST" under every GST filing (the pack names both the authority
 and the grouping "GST"), now said once; the stale sentence above; a "Used in" link that landed
 with the card's own name UNDER the sticky top bar, the one thing the reader came to see, so both
-the deep link and the in-page anchors go through `showService`, which measures the bar; and a
+the deep link and the in-page anchors go through `scrollBelowBar` (`@/components/ui` since the
+follow-ups below; it was the catalogue's own `showService`), which measures the bar; and a
 smoke firm whose companies
 were never registered in a country, so every add answered "no new filings" until one was. That
 last one is the coverage tab's `entity_not_registered` reason working as designed, and it is why
 the walk registered a company before measuring the counts.
+
+### The follow-ups (2026-09-26), decided by the user
+
+**A filing's date is TODAY's rule, and a law change is a second line.** The catalogue's row for a
+chain is its newest row, and after "the law changed from April 2027" that is the successor: the
+card said GSTR-3B was due on the 22nd while the calendar, correctly, dated September's return the
+20th. Every rule row now carries `inForceToday` (the chain's row governing the period containing
+the FIRM's today, read by the API) and `nextChange`, and `rule-editor.tsx` words them once:
+`describeToday` ("Every month · the 20th of the following month") and `describeNextChange` ("From
+April 2027: the 22nd of the following month."; a period start that is not the 1st is said as "For
+periods starting from 15 Apr 2027", because it names no month). The service's list, the picker's
+options and the confirmation all use both, so the option and the row it becomes say one date, and
+the confirmation's exceptions are today's row's (a successor inherits none). `monthYear` is in
+`@/lib/day`, split like `longDay`. **The library lists every row of a chain**, each with its own
+formula, which is what Edit edits; the row in force adds the "From April 2027" line (in place of
+the bare "hands over on", which named the same day), and any other row says what today's filings
+follow instead ("Not in force yet. Today's filings follow the earlier rule: the 20th of the
+following month."). Which row governs today is always the API's answer; nothing here computes it.
+
+**"Edit in the library" on every filing** (`LinkedFiling`), a `LinkButton` beside Remove, offered
+on `party:read` (the library's read) and worded "See it in the library" for somebody without
+`tenant:admin`, because "edit" would promise controls the library does not give them. It lands on
+`/admin/obligation-rules#rule-<lineageId>`: **the anchor is the CHAIN**, on its first row as shown,
+because a law change gives the chain a new newest row and a link naming yesterday's row id would
+land nowhere. The library reads the hash on its FIRST answer only (a reload after a write must
+never scroll the page out from under somebody) and on `hashchange` (a fragment-only change is a
+same-page jump the browser makes itself, under the bar: measured 63px under before the listener),
+shows retired rows when the whole chain is retired, scrolls through `scrollBelowBar`, and marks
+every row of the chain `data-arrived` (`.table` in `components.css`: a hover ground and an ink
+edge, never a status colour). Its rows are not collapsed, so there is nothing to expand: the row
+holds the lead time, the tick and Edit.
+
+**A form that would be refused is refused HERE, beside the field, before any call.** An empty name
+on "Write a new filing" went to the API and came back as zod's own sentence ("name: String must
+contain at least 1 character(s)"). `RuleEditor` now checks every field its body requires, in the
+request schema's terms (name and pack non-empty, a two-letter country, a day 1 to 31, a reason when
+there is no formula), and draws the sentence in the field's own `error` ("Give the filing a name,
+for example GSTR-3B."). Nothing shows until a save is pressed, each sentence goes the moment its
+field is fixed, and it is remembered per form (a rule's id, or "new"), because the library keeps
+one editor mounted while a partner moves between rules. **Focus moves to the first refused field,
+below the bar**: the save row is at the bottom of a form about 900px tall and the name box at its
+top, so a sentence beside the name is off screen from the button pressed. `.field-row` is
+`align-items: start` now, so an error inside one column no longer lifts its input above its
+neighbours (the old hint warning above was about `end`). The library's "Write a rule" gets all of
+it for free; what only the API can know (a name already taken in that pack) still arrives in the
+`refusal` slot.
+
+**`/audit` says the service's NAME for a filing added or removed.** `obligation_rule.linked` /
+`unlinked` carry `serviceName` beside `serviceKey` since the same day, fixed at the write.
+`audit-words.ts`'s `NAMED_BY` prints the name on the key's own row ("Service: Payroll Processing",
+never two rows), and an event written before it, or naming a service with no version, prints the
+key as it always did.
+
+**Found by measuring, and none of it visible to the gate:** the same-page hash landing under the
+bar (above), and that `/admin/obligation-rules`' table is wider than a 1440px window, because the
+Filing column's long reasons set its width, so the When column (and its new lines) starts off to
+the right inside the table's own scroller. That was already true before these follow-ups and is
+left for its own change.
 
 ## The Escalated tab, and the ladder behind it (T4.5)
 
