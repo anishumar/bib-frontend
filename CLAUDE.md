@@ -267,14 +267,14 @@ porting a screen; it is invisible in the source.
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
 | `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
-| `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it. No session. |
+| `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it, where they accept or decline it and download its PDF (0085). No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
-| `/engagement-letters/[letterId]` | one letter: its terms, its signature, and the engagements it created |
+| `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms, its signature, and the engagements it created |
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin` |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
-| `/admin/document-blocks` | the firm's standard prose, copied onto every new document |
+| `/admin/document-blocks` | the firm's standard prose, copied onto every new document — including the cover letter and the acceptance every engagement letter opens with |
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
@@ -1458,11 +1458,62 @@ render an em dash and show everything else.
 `/p/[token]` is public. The person opening it has no login and will not get one — that is
 what a proposal is. The token is in the URL because a link has to be sendable, and the page
 immediately moves it into a request **body**, so it does not travel onward into the API's
-access logs or a Referer header. The page cannot accept the proposal; the firm records the
-client's answer, and the page says so rather than showing a button that does not exist.
+access logs or a Referer header. Since 0085 it is also where the client ANSWERS — see below.
 
 The share link is shown **once**, on the send response. Only its fingerprint is stored, so
-there is nothing to re-fetch — sending again issues a new one.
+there is nothing to re-fetch — "Send again" issues a new one, and the old one stops working.
+
+### Sending by email, and the client's answer (0085, 2026-09-26)
+
+**Send is a form now** (`delivery.tsx`): "Email it to" — the person the proposal is prepared
+for, when the firm holds their email, IN the box before anybody presses — an optional note, and
+two buttons, "Send by email" and "Send without email" (the old behaviour: the link comes back and
+the firm sends it however it likes). bib emails the PDF of record with Accept and Decline
+buttons; replies go to the preparer. The card after sending says which happened: "Emailed to …",
+or — the proposal IS sent either way — the email's failure in the mail server's own words beside
+the link. A sent proposal has **Send again** (a new link, emailed or not, and the old one dies;
+the form says so), an **Emailed** history, and "Client accepted / declined" kept for answers
+given by phone or in a meeting.
+
+**The email's buttons open `/p/<token>?answer=accept|decline` and answer NOTHING.** Mail
+filters open every link in a message, so the answer is a form on the page: a name for either
+answer, and for an acceptance a tick against `acceptanceStatement` — the API's own sentence,
+shown WORD FOR WORD, because the API records the same words. Arriving from a button scrolls to
+and focuses the answer card with that answer ready. The API's refusals are shown verbatim; they
+are written to the client ("Type your full name.", "already accepted, and that answer stands").
+**Download PDF** is a `fetch` of `POST /proposals/shared/pdf` saved as a blob — the token stays
+in a body, never an `href`.
+
+**The staff page's "Accepted by the client" card is the evidence** (`ClientAnswer`): the name
+typed, when (with the time and the reader's zone — `longInstantTime`, the one place a minute
+matters), which email's link, the statement ticked, the PDF's SHA-256, the address and the
+browser. A colleague's recorded answer has no such card; the History names them.
+
+**`<Documents key={sentPdf.versionId}>`** on the proposal page: sending files the PDF of record,
+and the panel reads its list only on mount, so without the key it said "Nothing attached yet"
+beside the email that attached it. Found by walking the send.
+
+### The proposal PDF — "Proposal For Services" (0084, 2026-09-26)
+
+A proposal prints now, in the firm's own format: a COVER (the issuing company's artwork, brand
+asset `proposal_cover`, with "Prepared for" and "Prepared by" drawn over it), then Background,
+the in-scope services, the work in sections by the firm's Dept with each service under its
+catalogue code, the Summary of Fees and the Notes. `/proposals/[proposalId]` carries two things
+for it:
+
+- **"Cover and Background"** (`cover.tsx`) — who it is prepared for (a PERSON from the client's
+  own `structure`, the list the API checks, or the company alone), who prepared it (a colleague
+  from `/tenancy/colleagues`; drafting names the drafter), the validity date and the Background
+  paragraph. Editable on a DRAFT through `PATCH /proposals/{id}`, which answers with the whole
+  record, so the card re-reads nothing. The save sends all five fields every time — absent means
+  "leave it" to the API, and the form shows all five.
+- **"Proposal PDF"** — the ordinary `<Documents renderable="proposal">` panel. Not shared with
+  the client's portal by default: a quote may never be sent.
+
+`/admin/brand` has a fourth slot per company, **Proposal cover**, PNG or JPG, whose hint says
+where the two names land so the artwork leaves room for them. The screen's banner used to say
+nothing printed these marks at all, which stopped being true when the renderer shipped; it now
+says what prints where, and that the letterhead is still only stored.
 
 ## Screens are how API gaps get found
 
@@ -1498,6 +1549,35 @@ The signature form says out loud that it records a colleague's **attestation**, 
 cryptographic signature. The audit trail says the same thing (`signatureMethod: attested`), and
 a screen that implied more than the data supports would be the interface lying about the
 record.
+
+### The Annexure letter, and one fee for several services (0083, 2026-09-26)
+
+Every letter drafted now prints in the firm's own format — a cover letter, Annexure 1 (scope,
+deliverables and a Summary of Fees by SECTION) and Annexure 2 (numbered terms). A letter issued
+before it re-renders in the classic layout it went out in; the header's pill says which, from
+`letter.layout`, and the screen never offers to change it.
+
+- **"Sections and fees" is a fee group per section** (`fee-groups.tsx`). One fee for the services
+  in it — "B. Ongoing recurring services, USD 5,000 per month" for twelve lines across four
+  companies — and its services carry no price of their own. The section's LETTER is the API's
+  `code`, never computed here. Striking out a section that still prices a service is DISABLED
+  with the sentence in its title, because the API refuses it and a vanished button reads as a
+  missing feature.
+- **A service is put in a section when it is added** ("Its fee" — the price boxes disappear, since
+  the API refuses a grouped line with a price) **or later from its row** (`LineFee`). Moving one
+  OUT opens the two boxes that say what it costs now, rather than sending the request the API
+  would refuse.
+- **The four scope blocks are writable at last**: "Tailor the wording for this letter" on the
+  add form, each box's placeholder the catalogue's words it would replace; an empty box sends
+  nothing, which is "print the catalogue's". Each row's "What it covers" shows the words the PDF
+  prints, marked where this letter wrote its own.
+- **Cover letter and Acceptance are two more kinds of the letter's own prose**, drawn as
+  paragraphs and written in a paragraph-sized box. They are a LETTER's only: every document
+  screen passes `DocumentBlocks` the kinds its document carries (`LETTER_BLOCK_KINDS`,
+  `PROPOSAL_BLOCK_KINDS`), and the public quote page lists only a proposal's.
+- **The invoice picker names a section's fee and does not prefill it.** A grouped engagement's
+  `unitAmount` is null because the price is the whole section's; four services of a 5,000
+  retainer are billed 5,000, not 20,000, and the hint says so.
 
 ### Who a letter or an invoice may name (F-10-1, 2026-09-25)
 

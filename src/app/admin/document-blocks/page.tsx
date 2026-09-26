@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BLOCK_KINDS, BLOCK_KIND_LABELS, api, apiError } from "@/lib/api/client";
+import {
+  BLOCK_KINDS,
+  BLOCK_KIND_LABELS,
+  PARAGRAPH_BLOCK_KINDS,
+  PROPOSAL_BLOCK_KINDS,
+  api,
+  apiError,
+} from "@/lib/api/client";
 import type { BlockKind, StandardBlock } from "@/lib/api/client";
 import {
   Button,
@@ -15,6 +22,7 @@ import {
   FieldStack,
   Input,
   Table,
+  Textarea,
   TableWrap,
   Td,
   Th,
@@ -94,7 +102,7 @@ export default function DocumentBlocksPage() {
         title="Standard prose"
         lede="The standard wording copied onto every new proposal and engagement letter. Editing a
         line here changes the next document only. Documents already issued keep the wording they
-        were written with."
+        were written with. The cover letter and the acceptance print on engagement letters only."
       />
       <ErrorNotice error={error} />
 
@@ -103,6 +111,16 @@ export default function DocumentBlocksPage() {
         return (
           <Card key={kind}>
             <CardTitle level={2}>{BLOCK_KIND_LABELS[kind]}</CardTitle>
+            {/* WHERE IT PRINTS, said on the card (0083). A partner writing a
+                cover paragraph has to know it will never reach a quote, and the
+                API refuses one written onto a quote by hand. */}
+            {!(PROPOSAL_BLOCK_KINDS as readonly BlockKind[]).includes(kind) && (
+              <p className="muted text-md">
+                {kind === "cover"
+                  ? "The paragraphs an engagement letter opens with, after the salutation and before the firm's signature. Engagement letters only. This is legal text, so nothing is written here for you."
+                  : "What the client accepts under, just above their signature on page one. Engagement letters only."}
+              </p>
+            )}
             {mine.length === 0 ? (
               <p className="muted">
                 No standard lines yet, so new documents carry no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
@@ -213,8 +231,12 @@ export default function DocumentBlocksPage() {
               <fieldset className="fieldset" aria-label={BLOCK_KIND_LABELS[kind]}>
                 <FieldStack>
                   <FieldRow>
-                    <Field label="New line">
-                      <Input name={`${kind}-body`} required />
+                    <Field label={PARAGRAPH_BLOCK_KINDS.includes(kind) ? "New paragraph" : "New line"}>
+                      {PARAGRAPH_BLOCK_KINDS.includes(kind) ? (
+                        <Textarea name={`${kind}-body`} rows={3} required />
+                      ) : (
+                        <Input name={`${kind}-body`} required />
+                      )}
                     </Field>
                     <Field label="Order">
                       <Input

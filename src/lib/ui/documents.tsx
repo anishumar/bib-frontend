@@ -101,11 +101,11 @@ export interface DocumentsProps {
   /**
    * Offer a "Generate PDF" button for this kind of document (T3.8).
    *
-   * Only where the API can actually render one — an engagement letter and an
-   * invoice today. Absent means no button, which is right for a client's file
-   * and a job's working papers: there is nothing to generate.
+   * Only where the API can actually render one — an engagement letter, an
+   * invoice and, since 0084, a proposal. Absent means no button, which is right
+   * for a client's file and a job's working papers: there is nothing to generate.
    */
-  readonly renderable?: "engagement_letter" | "invoice" | undefined;
+  readonly renderable?: "engagement_letter" | "invoice" | "proposal" | undefined;
 }
 
 export function Documents({

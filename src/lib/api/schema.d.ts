@@ -11180,7 +11180,81 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a draft proposal's head
+         * @description Its title, how long it is valid, its Background, and the two names its cover prints — who it is prepared for and who prepared it (0084). A draft only: once sent, the client holds what it said. Answers with the whole proposal, names resolved.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReviseProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Revised */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Nothing to change, a value that failed validation, a company named where a person belongs, or a colleague who does not work here */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or the person named has no recorded role at this client */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/proposals/{proposalId}/lines": {
@@ -11437,7 +11511,7 @@ export interface paths {
         put?: never;
         /**
          * Send the proposal
-         * @description The gate: a discount past the firm's published limit blocks here until somebody holding `proposal:approve` has signed it off.
+         * @description The gate: a discount past the firm's published limit blocks here until somebody holding `proposal:approve` has signed it off. With `email`, bib also emails it — the PDF of record attached, with Accept and Decline buttons that open its link (0085); the address is checked before anything moves, and a mail server that will not take the letter comes back as `email.status = "failed"` beside a proposal that IS sent.
          */
         post: {
             parameters: {
@@ -11448,7 +11522,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SendProposalRequest"];
+                };
+            };
             responses: {
                 /** @description Sent, with the share link — returned once and never again */
                 200: {
@@ -11457,6 +11535,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SentProposal"];
+                    };
+                };
+                /** @description The email address is not one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -11487,6 +11574,96 @@ export interface paths {
                     };
                 };
                 /** @description Not a draft, empty, or an unapproved over-limit discount */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/reissue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a sent proposal a new link — and, with `email`, email it again
+         * @description The link is readable once. A firm that lost it, or a client who lost the email, gets a new one here, and THE OLD ONE STOPS WORKING — a proposal has one live link. Only while the proposal is out: answered and expired proposals refuse (0085).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SendProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description A new link — returned once and never again */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SentProposal"];
+                    };
+                };
+                /** @description The email address is not one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not out for an answer — a draft, answered, or expired */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -11545,6 +11722,155 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a link we recognise — malformed, unknown and withdrawn are one answer */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal has expired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Too many attempts from this address */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/shared/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept or decline a proposal from its share link
+         * @description PUBLIC — no session, like the view (0085). The client answers the proposal the firm sent them: a name for either answer, and for an acceptance the tick against `acceptanceStatement`. Once, while the offer stands — a second answer is refused and the first stands. The name, the statement, the address and the browser are kept as the firm's evidence; the colleague who prepared it is emailed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AnswerSharedProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Answered — the proposal as its recipient now reads it */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SharedProposal"];
+                    };
+                };
+                /** @description No name typed, or an acceptance with the statement unticked */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a link we recognise — malformed, unknown and withdrawn are one answer */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already answered, or expired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Too many attempts from this address */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/shared/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download the proposal's PDF from its share link
+         * @description PUBLIC — no session (0085). The PDF of record: the file bib emailed, or — for a proposal nothing has asked for a PDF of yet — rendered and pinned now, so every later download is the same file. The token rides in the BODY, so the page fetches this and saves the bytes itself.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ViewSharedProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description The PDF */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": unknown;
                     };
                 };
                 /** @description Not a link we recognise — malformed, unknown and withdrawn are one answer */
@@ -12135,6 +12461,332 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/lines/{lineId}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Price a service by a fee group, or on its own */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LinePricingRequest"];
+                };
+            };
+            responses: {
+                /** @description Repriced */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterLine"];
+                    };
+                };
+                /** @description A grouped line sent with a price, or a line on its own sent with none */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter, line or fee group at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/fee-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a fee group — one fee for several services
+         * @description A section of the letter's Annexure 1 and the ONE fee it charges (0083): "B. Ongoing recurring services — USD 5,000 per month" for accounting, tax and payroll across four companies. Services are put in it when they are added (`feeGroupId`) or afterwards (`PUT …/lines/{lineId}/pricing`), and then carry no price of their own. In the letter's currency, always. Draft only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FeeGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterFeeGroup"];
+                    };
+                };
+                /** @description No title, an amount that is not one, or an unknown billing frequency */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/fee-groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Strike a fee group off a draft
+         * @description Refused while the group still prices a service: struck off, it would leave that service with no price and no reason. Move the services out first.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Struck off */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or fee group at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is not a draft, or the group still covers services */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Change a fee group's terms while the letter is a draft */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditFeeGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterFeeGroup"];
+                    };
+                };
+                /** @description A blank title, an amount that is not one, or an unknown frequency */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or fee group at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
@@ -15114,7 +15766,7 @@ export interface paths {
         put?: never;
         /**
          * Produce a PDF of one of the firm's own documents
-         * @description Renders an engagement letter or an invoice, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob.
+         * @description Renders an engagement letter, an invoice or a proposal, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob.
          */
         post: {
             parameters: {
@@ -15554,7 +16206,7 @@ export interface paths {
                 header?: never;
                 path: {
                     entityPartyId: string;
-                    kind: "logo" | "signature" | "letterhead";
+                    kind: "logo" | "signature" | "letterhead" | "proposal_cover";
                 };
                 cookie?: never;
             };
@@ -18062,6 +18714,11 @@ export interface components {
             firstViewedAt: string | null;
             viewCount: number;
             declinedReason: string | null;
+            background: string | null;
+            /** Format: uuid */
+            addressedToPartyId: string | null;
+            /** Format: uuid */
+            preparedByUserId: string | null;
         };
         DraftProposalRequest: {
             /** Format: uuid */
@@ -18076,6 +18733,11 @@ export interface components {
             fxRate: string;
             fxRateDate: string;
             validUntil?: string;
+            background?: string;
+            /** Format: uuid */
+            addressedToPartyId?: string;
+            /** Format: uuid */
+            preparedByUserId?: string;
         };
         ProposalTotals: {
             gross: string | null;
@@ -18169,7 +18831,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading: boolean;
             sortOrder: number;
@@ -18178,6 +18840,40 @@ export interface components {
             /** @description Whether this line has been CHANGED since it landed on the document. `sourceId` survives an edit, so a house line somebody reworded for this client goes on pointing at the standard row — 0025's own comment asks for a screen that says 'standard' beside an untouched line and 'edited' beside a changed one, and `sourceId` alone can only say the first half. Derived from `updated_at > created_at`; the only UPDATE this table takes is an edit. */
             isEdited: boolean;
         };
+        ProposalPdf: {
+            /** Format: uuid */
+            documentId: string;
+            /** Format: uuid */
+            versionId: string;
+            contentHash: string;
+            filename: string;
+        } | null;
+        ProposalEmail: {
+            /** Format: uuid */
+            id: string;
+            to: string;
+            note: string | null;
+            sentAt: string;
+            sentBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            pdfContentHash: string;
+        };
+        ProposalClientDecision: {
+            /** @enum {string} */
+            decision: "accepted" | "rejected";
+            signerName: string;
+            statement: string | null;
+            decidedAt: string;
+            ipAddress: string | null;
+            userAgent: string | null;
+            emailedTo: string | null;
+            pdf: components["schemas"]["ProposalPdf"];
+        } | null;
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
             party: {
@@ -18200,6 +18896,31 @@ export interface components {
                 /** Format: email */
                 email: string;
             } | null;
+            addressee: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+                email: string | null;
+            } | null;
+            preparedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            sentPdf: components["schemas"]["ProposalPdf"];
+            emails: components["schemas"]["ProposalEmail"][];
+            clientDecision: components["schemas"]["ProposalClientDecision"];
+        };
+        ReviseProposalRequest: {
+            title?: string;
+            validUntil?: string | null;
+            background?: string | null;
+            /** Format: uuid */
+            addressedToPartyId?: string | null;
+            /** Format: uuid */
+            preparedByUserId?: string | null;
         };
         AddProposalLineRequest: {
             /** Format: uuid */
@@ -18222,13 +18943,30 @@ export interface components {
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string;
         };
+        ProposalEmailOutcome: {
+            /** @enum {string} */
+            status: "sent" | "failed";
+            to: string;
+            /** Format: uuid */
+            emailId: string | null;
+            sentAt: string | null;
+            reason: string | null;
+        } | null;
         SentProposal: {
             proposal: components["schemas"]["Proposal"];
             shareToken: string;
+            email: components["schemas"]["ProposalEmailOutcome"];
+        };
+        SendProposalRequest: {
+            email?: {
+                to: string;
+                /** @description The colleague's own words, printed above the standard letter. Blank is none. */
+                note?: string;
+            };
         };
         SharedProposalBlock: {
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading: boolean;
             sortOrder: number;
@@ -18265,9 +19003,27 @@ export interface components {
                 unpricedLineCount: number;
             };
             blocks: components["schemas"]["SharedProposalBlock"][];
+            answer: {
+                /** @enum {string} */
+                decision: "accepted" | "rejected";
+                signerName: string;
+                decidedAt: string;
+            } | null;
+            acceptanceStatement: string;
         };
         ViewSharedProposalRequest: {
             token: string;
+        };
+        AnswerSharedProposalRequest: {
+            token: string;
+            /** @enum {string} */
+            decision: "accepted" | "rejected";
+            /** @description The client's full name, as they typed it. Required for either answer. */
+            signerName: string;
+            /** @description The tick against `acceptanceStatement`. An acceptance without it is refused (`ACCEPTANCE_NOT_CONFIRMED`); a decline ignores it. */
+            confirmed?: boolean;
+            /** @description Why, on a decline, in the client's words. Optional; ignored on an acceptance. */
+            declinedReason?: string;
         };
         ProposalDecisionRequest: {
             /** @enum {string} */
@@ -18289,6 +19045,8 @@ export interface components {
             title: string;
             /** @enum {string} */
             status: "draft" | "sent" | "signed" | "withdrawn";
+            /** @enum {string} */
+            layout: "classic" | "annexure";
             currency: string;
             fxRate: string | null;
             fxRateDate: string;
@@ -18417,6 +19175,16 @@ export interface components {
             status: string;
             effectiveFrom: string;
             endsOn: string | null;
+            /** @description The fee group that prices this engagement (0083), or null. When set, `unitAmount` is null because the price is the GROUP's — one fee for every engagement in it — and a screen must not prefill that fee per engagement: four engagements of a USD 5,000 retainer are billed 5,000, not 20,000. */
+            feeGroup: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                title: string;
+                amount: string | null;
+                billingFrequency: string;
+                lineCount: number;
+            } | null;
         };
         BillableEngagementsResponse: {
             engagements: components["schemas"]["BillableEngagement"][];
@@ -18509,6 +19277,25 @@ export interface components {
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
+            /** Format: uuid */
+            feeGroupId: string | null;
+        };
+        EngagementLetterFeeGroup: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            position: number;
+            title: string;
+            /** @enum {string} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            amount: string | null;
+            currency: string;
+            paymentTerms: string | null;
+            feeDescription: string | null;
+            intro: string | null;
+            deliverables: string | null;
+            clientObligations: string | null;
+            lineIds: string[];
         };
         JurisdictionalTerm: {
             jurisdiction: string;
@@ -18531,7 +19318,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading: boolean;
             sortOrder: number;
@@ -18609,6 +19396,7 @@ export interface components {
                 ref: string;
             } | null;
             lines: components["schemas"]["EngagementLetterLine"][];
+            feeGroups: components["schemas"]["EngagementLetterFeeGroup"][];
             clauses: components["schemas"]["EngagementLetterClause"][];
             blocks: components["schemas"]["EngagementLetterBlock"][];
             totals: components["schemas"]["EngagementLetterTotals"];
@@ -18637,6 +19425,43 @@ export interface components {
             exclusionsOverride?: string;
             oopEstimate?: components["schemas"]["LetterOutOfPocketEstimate"];
             pricingNote?: string;
+            /**
+             * Format: uuid
+             * @description The FEE GROUP that prices this service (0083). The line then carries no price of its own: omit `unitAmount` and leave the discount at 0 — the group's fee already pays for it, and a price on both would charge twice.
+             */
+            feeGroupId?: string;
+        };
+        LinePricingRequest: {
+            /**
+             * Format: uuid
+             * @description The fee group to price this service, or null to price it on its own. Into a group, the line GIVES UP its price, discount and pricing note. On its own, it needs `unitAmount` or a `pricingNote` saying why it has none.
+             */
+            feeGroupId: string | null;
+            unitAmount?: string;
+            discountPercent?: string;
+            pricingNote?: string;
+        };
+        FeeGroupRequest: {
+            title: string;
+            /** @enum {string} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            amount: string;
+            paymentTerms?: string;
+            feeDescription?: string;
+            intro?: string;
+            deliverables?: string;
+            clientObligations?: string;
+        };
+        EditFeeGroupRequest: {
+            title?: string;
+            /** @enum {string} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            amount?: string;
+            paymentTerms?: string;
+            feeDescription?: string;
+            intro?: string;
+            deliverables?: string;
+            clientObligations?: string;
         };
         AddEngagementLetterClauseRequest: {
             /** Format: uuid */
@@ -18684,7 +19509,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading: boolean;
             sortOrder: number;
@@ -18696,7 +19521,7 @@ export interface components {
         };
         AddStandardDocumentBlockRequest: {
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading?: boolean;
             sortOrder: number;
@@ -18713,7 +19538,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading: boolean;
             sortOrder: number;
@@ -18728,7 +19553,7 @@ export interface components {
             /** Format: uuid */
             engagementLetterId?: string;
             /** @enum {string} */
-            kind: "exclusion" | "commercial" | "team";
+            kind: "exclusion" | "commercial" | "team" | "cover" | "acceptance";
             body: string;
             isHeading?: boolean;
             sortOrder: number;
@@ -19028,7 +19853,7 @@ export interface components {
              * @description What to render. Deliberately narrow — the API says what it can do.
              * @enum {string}
              */
-            kind: "engagement_letter" | "invoice";
+            kind: "engagement_letter" | "invoice" | "proposal";
             /** Format: uuid */
             subjectRef: string;
         };
@@ -19072,7 +19897,7 @@ export interface components {
             entityPartyId: string;
             entityName: string;
             /** @enum {string} */
-            kind: "logo" | "signature" | "letterhead";
+            kind: "logo" | "signature" | "letterhead" | "proposal_cover";
             /** Format: uuid */
             documentVersionId: string;
             version: components["schemas"]["DocumentVersion"];

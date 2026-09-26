@@ -13,6 +13,7 @@ import {
   apiError,
   formatCount,
   formatMoney,
+  perPeriod,
 } from "@/lib/api/client";
 import type {
   BillableEngagement,
@@ -414,7 +415,11 @@ export default function InvoicePage() {
                         disabled={b.status !== "active"}
                       >
                         {b.entityName}: {b.description}
-                        {b.unitAmount === null ? " (no price agreed)" : ""}
+                        {b.feeGroup !== null
+                          ? ` (in section ${b.feeGroup.code}, ${b.feeGroup.title})`
+                          : b.unitAmount === null
+                            ? " (no price agreed)"
+                            : ""}
                         {b.status === "active" ? "" : " (waiting on the advance)"}
                       </option>
                     ))}
@@ -424,8 +429,18 @@ export default function InvoicePage() {
               {chosen !== null && (
                 <p className="field-hint">
                   From <span className="mono">{chosen.letterRef}</span>
-                  {chosen.pricingNote === null ? "" : ` · ${chosen.pricingNote}`}
-                  {chosen.unitAmount === null
+                  {/* ONE FEE FOR SEVERAL SERVICES (0083). Its figure is the
+                      whole section's, so it is named and never prefilled: four
+                      services of a 5,000 retainer are billed 5,000, not 20,000. */}
+                  {chosen.feeGroup !== null
+                    ? `. It is one of ${String(chosen.feeGroup.lineCount)} services in section ${chosen.feeGroup.code}, ${chosen.feeGroup.title}, priced together at ${
+                        chosen.feeGroup.amount === null
+                          ? "a fee hidden from you"
+                          : `${formatMoney(chosen.feeGroup.amount, chosen.currency)}${perPeriod(chosen.feeGroup.billingFrequency)}`
+                      }. Bill the section once for the period, not once per service.`
+                    : ""}
+                  {chosen.feeGroup === null && chosen.pricingNote !== null ? ` · ${chosen.pricingNote}` : ""}
+                  {chosen.feeGroup === null && chosen.unitAmount === null
                     ? ". This line was agreed with no price, so type the figure you are billing."
                     : ""}
                 </p>

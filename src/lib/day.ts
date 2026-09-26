@@ -86,6 +86,23 @@ export function longInstant(iso: string): string {
 }
 
 /**
+ * An INSTANT with its time of day, where the reader is, and the zone NAMED —
+ * for the one kind of record where the minute matters: evidence, like a
+ * client's answer to a proposal (0085). The day part is `longInstant`'s, so it
+ * reads like every other date; the zone is the reader's own, said out loud,
+ * because "17:02" alone means something different in every office.
+ */
+export function longInstantTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const zone = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" })
+    .formatToParts(at)
+    .find((part) => part.type === "timeZoneName")?.value;
+  const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  return `${longInstant(iso)}, ${time}${zone === undefined ? "" : ` ${zone}`}`;
+}
+
+/**
  * A stored calendar day as a LOCAL Date, for arithmetic only — laying out a
  * month grid, stepping a week. `new Date(y, m - 1, d)` is local midnight and
  * reads its own fields back unchanged.

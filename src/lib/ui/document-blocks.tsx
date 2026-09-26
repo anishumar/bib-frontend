@@ -41,6 +41,16 @@
  * rule is stated where a reader meets it rather than being a control that
  * quietly is not there.
  *
+ * ## Which kinds, and why the caller says
+ *
+ * A letter carries two kinds a proposal does not — its COVER LETTER and its
+ * ACCEPTANCE (0083), the paragraphs page one of the Annexure letter prints —
+ * so each screen passes the kinds its document carries, in the order its PDF
+ * prints them. Offering a proposal a cover letter would be offering a control
+ * whose only outcome is the API's refusal. Those two are PARAGRAPHS of a letter
+ * rather than items of a list, so they are drawn without bullets and written in
+ * a box a paragraph fits in.
+ *
  * ## One edit open at a time
  *
  * Not a limitation — it is what keeps the names distinct. Every line's editor
@@ -50,8 +60,8 @@
  */
 
 import { useState } from "react";
-import { api, apiError, BLOCK_KINDS, BLOCK_KIND_LABELS } from "@/lib/api/client";
-import type { DocumentBlock } from "@/lib/api/client";
+import { api, apiError, BLOCK_KIND_LABELS, PARAGRAPH_BLOCK_KINDS } from "@/lib/api/client";
+import type { BlockKind, DocumentBlock } from "@/lib/api/client";
 import {
   Button,
   Checkbox,
@@ -72,6 +82,7 @@ export type BlockOwner = { proposalId: string } | { engagementLetterId: string }
 export function DocumentBlocks({
   blocks,
   owner,
+  kinds,
   canWrite,
   editable,
   frozenNote,
@@ -79,6 +90,8 @@ export function DocumentBlocks({
 }: {
   blocks: readonly DocumentBlock[];
   owner: BlockOwner;
+  /** The kinds this document carries, in the order its PDF prints them. */
+  kinds: readonly BlockKind[];
   /** `party:write`, the permission all three routes take. */
   canWrite: boolean;
   /** Whether this document's prose may still be changed. The caller decides,
@@ -115,22 +128,32 @@ export function DocumentBlocks({
   // worth drawing.
   if (blocks.length === 0 && !may) return null;
 
+  const named = kinds.map((k) => BLOCK_KIND_LABELS[k].toLowerCase());
+  const listed =
+    named.length <= 1
+      ? named.join("")
+      : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1] ?? ""}`;
+
   return (
     <Card>
-      <CardTitle level={2}>Exclusions, notes and team</CardTitle>
+      <CardTitle level={2}>
+        {kinds.some((k) => PARAGRAPH_BLOCK_KINDS.includes(k))
+          ? "The letter's own wording"
+          : "Exclusions, notes and team"}
+      </CardTitle>
       <p className="muted text-md">
-        These are this document&rsquo;s own exclusions, commercial notes and team block. They
-        were copied from your firm&rsquo;s standard text when the document was drafted, and
-        belong to this document from then on. Changing the standard text on Standard prose
-        affects the next document, never this one. The terms themselves are the clauses, which
-        come from the clause library.
+        These are this document&rsquo;s own {listed}. They were copied from your firm&rsquo;s
+        standard text when the document was drafted, and belong to this document from then on.
+        Changing the standard text on Standard prose affects the next document, never this one.
+        The terms themselves are the clauses, which come from the clause library.
       </p>
       {!editable && <p className="muted text-md">{frozenNote}</p>}
 
       <ErrorNotice error={error} />
 
-      {BLOCK_KINDS.map((kind) => {
+      {kinds.map((kind) => {
         const mine = blocks.filter((b) => b.kind === kind);
+        const prose = PARAGRAPH_BLOCK_KINDS.includes(kind);
         // A kind with nothing on it and nothing to add is not drawn — the same
         // rule the read-only version of this card has always used.
         if (mine.length === 0 && !may) return null;
@@ -142,7 +165,7 @@ export function DocumentBlocks({
                 Nothing. This document carries no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
               </p>
             ) : (
-              <ul className="mt-1 list-disc pl-[18px]">
+              <ul className={cx("mt-1 pl-[18px]", prose ? "list-none" : "list-disc")}>
                 {mine.map((b) =>
                   editing === b.id ? (
                     <li key={b.id} className="list-none -ml-[18px]">
@@ -221,7 +244,11 @@ export function DocumentBlocks({
                   ) : (
                     <li
                       key={b.id}
-                      className={cx("text-md", b.isHeading && "-ml-[18px] list-none")}
+                      className={cx(
+                        "text-md",
+                        (b.isHeading || prose) && "-ml-[18px] list-none",
+                        prose && "mb-2 whitespace-pre-wrap",
+                      )}
                     >
                       {b.isHeading ? <strong>{b.body}</strong> : b.body}
                       {/* THREE STATES, AND THE THIRD ONE ONLY EXISTS BECAUSE
@@ -311,8 +338,12 @@ export function DocumentBlocks({
                 >
                   <FieldStack>
                     <FieldRow>
-                      <Field label="A new line">
-                        <Input name={`${kind}-body`} required />
+                      <Field label={prose ? "A new paragraph" : "A new line"}>
+                        {prose ? (
+                          <Textarea name={`${kind}-body`} rows={3} required />
+                        ) : (
+                          <Input name={`${kind}-body`} required />
+                        )}
                       </Field>
                       <Field label="Order">
                         <Input

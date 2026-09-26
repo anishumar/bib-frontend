@@ -1,14 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { api, apiError, BLOCK_KINDS, BLOCK_KIND_LABELS, formatCount, formatMoney } from "@/lib/api/client";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { api, apiError, BLOCK_KIND_LABELS, PROPOSAL_BLOCK_KINDS, formatCount, formatMoney } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { ErrorState, Loading } from "@/components/states";
-import { Stat, Strip, Table, TableWrap, Td, Th } from "@/components/ui";
+import {
+  Button,
+  Checkbox,
+  ErrorNotice,
+  Field,
+  FieldStack,
+  Input,
+  Stat,
+  Strip,
+  Table,
+  TableWrap,
+  Td,
+  Textarea,
+  Th,
+} from "@/components/ui";
 import { Card, CardTitle } from "@/components/tw";
 import type { SharedProposal } from "@/lib/api/client";
-import { longDay } from "@/lib/day";
+import { longDay, longInstantTime } from "@/lib/day";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -20,10 +34,12 @@ import { longDay } from "@/lib/day";
  * and this page immediately puts it in a request BODY rather than a path, so it
  * does not travel onward into the API's access logs or a Referer header.
  *
- * What it deliberately cannot do: accept. Binding a firm to a click on an
- * unauthenticated link is a bigger decision than this feature, so the firm
- * records the client's answer. The page says so rather than showing a button
- * that does not exist.
+ * SINCE 0085 IT IS ALSO WHERE THE CLIENT ANSWERS. bib emails the proposal with
+ * Accept and Decline buttons, and each opens THIS page with that answer ready
+ * (`?answer=accept|decline`) — never given. Mail filters open every link in a
+ * message to scan it, so the answer is a separate step here: a name typed for
+ * either answer, and for an acceptance the API's own sentence ticked, word for
+ * word, so what the page showed is what the firm records.
  *
  * It shows the API's `SharedProposal`, which is a DIFFERENT shape from the one
  * staff read — not the same one with fields blanked. A field added for
@@ -43,6 +59,21 @@ export default function SharedProposalPage() {
   const [shared, setShared] = useState<SharedProposal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  /**
+   * WHICH ANSWER IS READY — from the email's button, or picked here. Ready is
+   * all it is: nothing is sent until the form below is submitted, which is the
+   * point of the buttons opening a page rather than answering.
+   */
+  const initial = useSearchParams().get("answer");
+  const [choice, setChoice] = useState<"accept" | "decline" | null>(
+    initial === "accept" || initial === "decline" ? initial : null,
+  );
+  const [answering, setAnswering] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const answerCard = useRef<HTMLDivElement>(null);
+  const lastUrl = useRef<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -64,6 +95,69 @@ export default function SharedProposalPage() {
       live = false;
     };
   }, [token]);
+
+  // Arriving from the email's button: bring the answer into view, and move
+  // focus there so a keyboard or screen reader lands where the reader meant to.
+  useEffect(() => {
+    if (shared?.status === "sent" && initial !== null) {
+      answerCard.current?.scrollIntoView({ block: "start" });
+      answerCard.current?.focus({ preventScroll: true });
+    }
+  }, [shared?.status, initial]);
+
+  // An object URL holds its bytes until it is revoked; one per page is enough.
+  useEffect(() => {
+    return () => {
+      if (lastUrl.current !== null) URL.revokeObjectURL(lastUrl.current);
+    };
+  }, []);
+
+  async function answer(form: FormData, decision: "accepted" | "rejected"): Promise<void> {
+    setAnswering(true);
+    setAnswerError(null);
+    const reason = String(form.get("declinedReason") ?? "").trim();
+    const result = await api.POST("/api/v1/proposals/shared/answer", {
+      body: {
+        token,
+        decision,
+        signerName: String(form.get("signerName") ?? "").trim(),
+        confirmed: form.get("confirmed") !== null,
+        ...(decision === "rejected" && reason !== "" ? { declinedReason: reason } : {}),
+      },
+    });
+    setAnswering(false);
+    if (result.error) {
+      // Verbatim: the API's refusals here are written to the CLIENT — "type
+      // your full name", "already accepted, and that answer stands".
+      setAnswerError(apiError(result.error).message);
+      return;
+    }
+    setShared(result.data);
+  }
+
+  async function download(filename: string): Promise<void> {
+    setDownloading(true);
+    setDownloadError(null);
+    // POST with the token in the BODY, like the page's own read — so the link
+    // does not land in a log — and the bytes saved here rather than by a plain
+    // link that would have to carry the token in its address.
+    const result = await api.POST("/api/v1/proposals/shared/pdf", {
+      body: { token },
+      parseAs: "blob",
+    });
+    setDownloading(false);
+    if (result.error) {
+      setDownloadError(apiError(result.error).message);
+      return;
+    }
+    const url = URL.createObjectURL(result.data as unknown as Blob);
+    if (lastUrl.current !== null) URL.revokeObjectURL(lastUrl.current);
+    lastUrl.current = url;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+  }
 
   if (!loaded) return <Loading />;
 
@@ -94,7 +188,21 @@ export default function SharedProposalPage() {
             {shared.validUntil !== null && ` · valid until ${longDay(shared.validUntil)}`}
           </>
         }
+        aside={
+          shared.status === "expired" ? undefined : (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={downloading}
+              disabled={downloading}
+              onClick={() => void download(`${shared.ref}.pdf`)}
+            >
+              Download PDF
+            </Button>
+          )
+        }
       />
+      <ErrorNotice error={downloadError} />
 
       <TableWrap>
         <Table>
@@ -150,7 +258,7 @@ export default function SharedProposalPage() {
       {shared.blocks.length > 0 && (
         <Card>
           <CardTitle level={2}>What this quote covers</CardTitle>
-          {BLOCK_KINDS.map((kind) => {
+          {PROPOSAL_BLOCK_KINDS.map((kind) => {
             const mine = shared.blocks.filter((b) => b.kind === kind);
             // A kind the document carries nothing of is not drawn: an empty
             // "Exclusions" heading reads as the firm asserting there are none.
@@ -176,13 +284,119 @@ export default function SharedProposalPage() {
         </Card>
       )}
 
-      <p className="muted">
-        {shared.status === "accepted"
-          ? "You have accepted this proposal."
-          : shared.status === "rejected"
-            ? "This proposal was declined."
-            : `To accept or discuss this proposal, reply to ${shared.firmName}.`}
-      </p>
+      {shared.status === "sent" ? (
+        <div ref={answerCard} tabIndex={-1}>
+          <Card>
+            <CardTitle level={2}>Your answer</CardTitle>
+            <p className="muted text-md mb-3">
+              Accept or decline this proposal. Your name is recorded with your answer, and{" "}
+              {shared.firmName} is told at once.
+            </p>
+            {/* Toggle buttons, not tabs: two answers, one ready at a time. */}
+            <div className="cluster mb-4" role="group" aria-label="Your answer">
+              <Button
+                variant={choice === "accept" ? "primary" : "secondary"}
+                aria-pressed={choice === "accept"}
+                disabled={answering}
+                onClick={() => {
+                  setChoice("accept");
+                  setAnswerError(null);
+                }}
+              >
+                Accept
+              </Button>
+              <Button
+                variant={choice === "decline" ? "destructive" : "secondary"}
+                aria-pressed={choice === "decline"}
+                disabled={answering}
+                onClick={() => {
+                  setChoice("decline");
+                  setAnswerError(null);
+                }}
+              >
+                Decline
+              </Button>
+            </div>
+            <ErrorNotice error={answerError} />
+
+            {choice === "accept" && (
+              <form action={(form) => void answer(form, "accepted")}>
+                <FieldStack>
+                  <Field label="Your full name">
+                    <Input name="signerName" required maxLength={200} autoComplete="name" />
+                  </Field>
+                  {/* The API's sentence, WORD FOR WORD — the record keeps
+                      exactly what this box said. */}
+                  <Checkbox name="confirmed" required label={shared.acceptanceStatement} />
+                  <div className="cluster">
+                    <Button type="submit" loading={answering} disabled={answering}>
+                      Accept proposal
+                    </Button>
+                  </div>
+                </FieldStack>
+              </form>
+            )}
+
+            {choice === "decline" && (
+              <form action={(form) => void answer(form, "rejected")}>
+                <FieldStack>
+                  <Field label="Your full name">
+                    <Input name="signerName" required maxLength={200} autoComplete="name" />
+                  </Field>
+                  <Field
+                    label="Why not?"
+                    optional
+                    hint={`In your own words. It helps ${shared.firmName} understand.`}
+                  >
+                    <Textarea name="declinedReason" rows={3} maxLength={2000} />
+                  </Field>
+                  <div className="cluster">
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      loading={answering}
+                      disabled={answering}
+                    >
+                      Decline proposal
+                    </Button>
+                  </div>
+                </FieldStack>
+              </form>
+            )}
+
+            <p className="muted text-sm mt-4">
+              {/* A firm's legal name often ends in its own full stop ("10X
+                  Global Inc."), and the sentence must not add a second one. */}
+              Questions first? Reply to the email from {shared.firmName}
+              {shared.firmName.endsWith(".") ? "" : "."}
+            </p>
+          </Card>
+        </div>
+      ) : (
+        <p className="muted">{closing(shared)}</p>
+      )}
     </Page>
   );
+}
+
+/**
+ * The sentence under an answered, or closed, proposal. The answer given on
+ * this page names who gave it; one the firm recorded does not, because that
+ * record names a colleague, and a colleague is the firm's business.
+ */
+function closing(shared: SharedProposal): string {
+  const by =
+    shared.answer === null
+      ? ""
+      : ` by ${shared.answer.signerName} on ${longInstantTime(shared.answer.decidedAt)}`;
+  switch (shared.status) {
+    case "accepted":
+      return `This proposal was accepted${by}.`;
+    case "rejected":
+      return `This proposal was declined${by}.`;
+    case "expired":
+      return `This proposal is no longer open. If you would still like the work, contact ${shared.firmName}${shared.firmName.endsWith(".") ? "" : "."}`;
+    default:
+      return "";
+  }
 }

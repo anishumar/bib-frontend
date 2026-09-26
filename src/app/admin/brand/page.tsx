@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The marks the firm prints on what it sends — logo, signature, letterhead.
+ * The marks the firm prints on what it sends — logo, signature, letterhead and
+ * proposal cover.
  *
  * PER ENTITY, NEVER PER FIRM, and that is the whole reason this screen is not
  * three upload boxes. A firm with an Indian company and a US company signs on
@@ -213,23 +214,21 @@ export default function BrandPage() {
       <PageHeader
         eyebrow="Documents"
         title="Brand"
-        lede="The logo, signature and letterhead each of your companies prints on its letters and invoices, and how its invoices are numbered."
+        lede="The logo, signature, letterhead and proposal cover each of your companies prints on what it sends, and how its invoices are numbered."
       />
 
-      {/* THE HONEST BANNER, AND IT IS ABOUT THE TOP HALF OF THE PAGE ONLY.
-          It used to say "nothing renders these yet" over a page that had grown
-          a second, LIVE section under it — the invoice number series, which is
-          on every invoice the firm has ever issued. A caveat that has quietly
-          widened to cover something it is not true of is worse than no caveat:
-          it teaches a partner to disbelieve the working half. The first
-          sentence names what it is about; the last names what it is not.
-          The mark half comes out when T3.8 lands. */}
+      {/* THE HONEST BANNER, and it had gone stale in the other direction: it
+          still said nothing printed these long after the renderer (T3.8) drew
+          the logo on every letter and invoice and 0081 the signature on a sent
+          letter. A caveat that is no longer true teaches a partner to
+          disbelieve the screen. What is still true is said: the letterhead is
+          stored and not drawn. */}
       <p className="field-hint">
-        <strong>Logos, signatures and letterheads are not printed on documents yet.</strong> They
-        are stored safely today, and printing them on letters and invoices is still to come.
-        Uploading one now means it is ready when that arrives. It does not change any document
-        the firm sends today. <strong>Invoice numbers are different:</strong> that section on
-        each company is live, and what it shows is how the next invoice will be numbered.
+        <strong>What prints where:</strong> the logo heads every letter, invoice and proposal this
+        company issues; the signature signs its engagement letters once they are sent; the
+        proposal cover is the first page of its proposals. The letterhead is stored and is not
+        printed on anything yet. <strong>Invoice numbers</strong> are live too: that section on
+        each company shows how the next invoice will be numbered.
       </p>
 
       <ErrorNotice error={error} />
