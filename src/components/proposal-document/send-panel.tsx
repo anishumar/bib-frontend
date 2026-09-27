@@ -45,7 +45,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { useSession } from "@/components/layout";
-import { longDay, longInstant, longInstantTime } from "@/lib/day";
+import { browserDay, longDay, longInstant, longInstantTime } from "@/lib/day";
 import { reloadProposal, useProposal } from "./store";
 import { whatsAppMessage, whatsAppUrl } from "./words";
 
@@ -69,7 +69,8 @@ export function ProposalSendPanel({
   const [issued, setIssued] = useState<Issued | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const phone = useAddresseePhone(record?.addressee?.id ?? null);
+  const reach = useReach(record?.addressee?.id ?? null, record?.party.id ?? null);
+  const phone = reach.phone;
 
   if (!loaded && record === null) {
     return (
@@ -215,7 +216,8 @@ export function ProposalSendPanel({
             </p>
           )}
           <EmailForm
-            defaultTo={record.addressee?.email ?? ""}
+            key={reach.email ?? "no-email"}
+            defaultTo={record.addressee?.email ?? reach.email ?? ""}
             replyTo={record.preparedBy?.email ?? null}
             busy={busy}
             submitLabel="Send by email"
@@ -256,8 +258,10 @@ export function ProposalSendPanel({
             WhatsApp and the link both send it: the proposal is marked sent, and you get a link
             the client opens to read it and accept or decline.
             {phone === null
-              ? " No phone number is on record for the person it is prepared for, so WhatsApp opens and you pick the chat."
-              : ` WhatsApp opens a chat with ${phone}.`}
+              ? " No phone number is on record for the client, so WhatsApp opens and you pick the chat."
+              : reach.phoneOf === "person"
+                ? ` WhatsApp opens a chat with ${phone}.`
+                : ` The person it is prepared for has no phone on record, so WhatsApp opens a chat with the company's number, ${phone}.`}
           </p>
         </div>
       )}
@@ -281,7 +285,7 @@ export function ProposalSendPanel({
         <>
           <Decision busy={busy} onDecide={decide} />
           <SendAgain
-            defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? ""}
+            defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? reach.email ?? ""}
             replyTo={record.preparedBy?.email ?? null}
             busy={busy}
             hasLink={issued !== null}
@@ -293,30 +297,58 @@ export function ProposalSendPanel({
   );
 }
 
+/** Where the proposal can reach the client: an email for the send, a phone
+ *  for WhatsApp, and whose each is. */
+interface Reach {
+  readonly email: string | null;
+  readonly phone: string | null;
+  /** "person": the addressee's own; "company": the client company's. */
+  readonly phoneOf: "person" | "company" | null;
+}
+
 /**
- * The addressee's phone, for the WhatsApp link: their primary `phone`
- * identifier in force today, from the person's own record. Null when none is
- * on record, which is an ordinary state.
+ * The addressee's own email and phone (their primary identifiers in force
+ * today), and where they have none, the CLIENT COMPANY's. The company fallback
+ * is not a guess: a prospect typed into the builder keeps its email and phone
+ * on the company, because the same address on the contact too would make every
+ * later capture ambiguous (lead dedupe), so for them the company's is the only
+ * one on record.
  */
-function useAddresseePhone(addresseeId: string | null): string | null {
-  const [phone, setPhone] = useState<{ id: string; value: string | null } | null>(null);
+function useReach(addresseeId: string | null, clientId: string | null): Reach {
+  const [reach, setReach] = useState<{ key: string; value: Reach } | null>(null);
+  const key = `${addresseeId ?? ""}|${clientId ?? ""}`;
   useEffect(() => {
-    if (addresseeId === null) return;
+    if (clientId === null) return;
     let live = true;
-    void api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId: addresseeId } } }).then((r) => {
+    const read = (partyId: string | null) =>
+      partyId === null
+        ? Promise.resolve(null)
+        : api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } }).then((r) => r.data ?? null);
+    void Promise.all([read(addresseeId), read(clientId)]).then(([person, company]) => {
       if (!live) return;
-      const today = new Date().toLocaleDateString("en-CA");
-      const phones = (r.data?.identifiers ?? []).filter(
-        (i) => i.type === "phone" && i.validFrom <= today && (i.validTo === null || i.validTo > today),
-      );
-      const best = phones.find((i) => i.isPrimary) ?? phones[0];
-      setPhone({ id: addresseeId, value: best?.value ?? null });
+      const today = browserDay();
+      const pick = (party: typeof person, type: "email" | "phone"): string | null => {
+        const inForce = (party?.identifiers ?? []).filter(
+          (i) => i.type === type && i.validFrom <= today && (i.validTo === null || i.validTo > today),
+        );
+        return (inForce.find((i) => i.isPrimary) ?? inForce[0])?.value ?? null;
+      };
+      const personPhone = pick(person, "phone");
+      const companyPhone = pick(company, "phone");
+      setReach({
+        key: `${addresseeId ?? ""}|${clientId}`,
+        value: {
+          email: pick(person, "email") ?? pick(company, "email"),
+          phone: personPhone ?? companyPhone,
+          phoneOf: personPhone !== null ? "person" : companyPhone !== null ? "company" : null,
+        },
+      });
     });
     return () => {
       live = false;
     };
-  }, [addresseeId]);
-  return addresseeId !== null && phone?.id === addresseeId ? phone.value : null;
+  }, [addresseeId, clientId]);
+  return reach?.key === key ? reach.value : { email: null, phone: null, phoneOf: null };
 }
 
 /** What has happened since it went out: when, how often it was opened, every

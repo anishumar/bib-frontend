@@ -79,7 +79,11 @@ export function ProposalDocument({
 }) {
   const { record, error, loaded, reload } = useProposal(proposalId);
   const session = useSession();
-  const [depts, setDepts] = useState<readonly ServiceAxis[]>([]);
+  /** Null until read. The sections are not drawn before it arrives: drawn
+   *  without it they read "A. FRC" and could be lettered in another order
+   *  for a moment, which is exactly the disagreement with the PDF this
+   *  document exists to rule out. */
+  const [depts, setDepts] = useState<readonly ServiceAxis[] | null>(null);
   const [people, setPeople] = useState<readonly Choice[]>([]);
   const [colleagues, setColleagues] = useState<readonly Choice[]>([]);
 
@@ -91,9 +95,17 @@ export function ProposalDocument({
 
   // The firm's Depts, for the section titles and their order.
   useEffect(() => {
-    void api.GET("/api/v1/tenancy/axes", {}).then((r) => {
-      if (r.data) setDepts(r.data.axes.filter((a) => a.axis === "dept"));
-    });
+    // A refusal, or no answer at all, letters by code alone, as the renderer
+    // does for a Dept it keeps no row for: better than a document that never
+    // appears.
+    void api
+      .GET("/api/v1/tenancy/axes", {})
+      .then((r) => {
+        setDepts(r.data ? r.data.axes.filter((a) => a.axis === "dept") : []);
+      })
+      .catch(() => {
+        setDepts([]);
+      });
   }, []);
 
   // Whom the cover may name, read only when it can be changed: the client's
@@ -114,14 +126,14 @@ export function ProposalDocument({
     });
   }, [mayEdit, clientId]);
 
-  if (!loaded && record === null) return <DocumentSkeleton />;
+  if ((!loaded && record === null) || (record !== null && depts === null)) return <DocumentSkeleton />;
   if (record === null) {
     return <Notice tone="danger">{error ?? "This proposal could not be read."}</Notice>;
   }
 
   const { proposal } = record;
   const currency = proposal.currency;
-  const sections = planSections(record.lines, depts);
+  const sections = planSections(record.lines, depts ?? []);
   const blocksOf = (kind: NoteKind): Block[] =>
     record.blocks.filter((b) => b.kind === kind).sort((a, b) => a.sortOrder - b.sortOrder);
   const hasNotes = NOTES.some((n) => blocksOf(n.kind).length > 0);
@@ -195,6 +207,11 @@ export function ProposalDocument({
   const addresseeChoices: Choice[] = [
     { value: "", label: `${record.party.displayName} (no individual)` },
     ...people,
+    // The person named now is always a choice, even before the list has
+    // arrived or after they left it, so the box never opens on somebody else.
+    ...(record.addressee !== null && !people.some((p) => p.value === record.addressee?.id)
+      ? [{ value: record.addressee.id, label: record.addressee.displayName }]
+      : []),
   ];
   const preparerChoices: Choice[] = [
     { value: "", label: "Nobody named" },
@@ -213,24 +230,24 @@ export function ProposalDocument({
       className="w-full max-w-[900px] rounded-md border border-line bg-surface text-ink shadow-md"
     >
       {!isDraft && !deleted && (
-        <p className="rounded-t-md border-b border-line bg-surface-sunk px-12 py-3 text-sm text-muted">
+        <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
           This proposal was sent, so it reads exactly as the client was shown it. A different offer
           is a new proposal.
         </p>
       )}
       {deleted && (
-        <p className="rounded-t-md border-b border-line bg-surface-sunk px-12 py-3 text-sm text-muted">
+        <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
           This draft was deleted as made by mistake, so its wording no longer changes.
         </p>
       )}
       {mayEdit && (
-        <p className="rounded-t-md border-b border-line bg-surface-sunk px-12 py-3 text-sm text-muted">
+        <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
           Click any part with a pencil to change it for this proposal only. The catalogue and your
           standard prose stay as they are.
         </p>
       )}
 
-      <div className="flex flex-col gap-8 px-12 py-12">
+      <div className="flex flex-col gap-8 px-6 py-8 sm:px-12 sm:py-12">
         {/* ── The cover ───────────────────────────────────────────────── */}
         <header className="flex flex-col gap-6 border-b border-line pb-8">
           <div className="flex flex-col gap-2">
