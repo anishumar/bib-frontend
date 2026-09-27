@@ -90,6 +90,9 @@ export default function WorkItemPage() {
   const [me, setMe] = useState<Principal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // How many of the job's steps went with the task on the last Save, so the
+  // person handing it out sees the job moved, not only the card.
+  const [stepsHandedOver, setStepsHandedOver] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
@@ -257,9 +260,10 @@ export default function WorkItemPage() {
           <MetaItem label="Client can see this">{item.isClientVisible ? "Yes" : "No"}</MetaItem>
         </Meta>
 
-        {item.assignee === null && item.assignmentNote !== null && (
-          <Notice>{item.assignmentNote}</Notice>
-        )}
+        {/* On an unassigned task it says why nobody has it; on a Key Manager's
+            or the signing partner's desk it says the task came to them to hand
+            out, and why (the owner rule, 2026-09-27). A hand move clears it. */}
+        {item.assignmentNote !== null && <Notice>{item.assignmentNote}</Notice>}
         {/* `warn`, not `danger`: held up is not the same as wrong, and this
             product's rule is that a block is warn. */}
         {item.state.isBlocked && item.blockedReason !== null && (
@@ -311,13 +315,20 @@ export default function WorkItemPage() {
           roster={roster}
           currentUserId={item.assignee?.userId ?? null}
           busy={busy === "assign"}
+          stepsHandedOver={stepsHandedOver}
           onAssign={(assigneeUserId) => {
-            void act("assign", () =>
-              api.POST("/api/v1/work-items/{workItemId}/assignee", {
+            setStepsHandedOver(null);
+            let handed = 0;
+            void act("assign", async () => {
+              const result = await api.POST("/api/v1/work-items/{workItemId}/assignee", {
                 params: { path: { workItemId } },
                 body: { assigneeUserId },
-              }),
-            );
+              });
+              handed = result.data?.stepsHandedOver ?? 0;
+              return result;
+            }).then((ok) => {
+              if (ok && handed > 0) setStepsHandedOver(handed);
+            });
           }}
         />
       )}
@@ -610,11 +621,13 @@ function Assign({
   roster,
   currentUserId,
   busy,
+  stepsHandedOver,
   onAssign,
 }: {
   roster: Colleague[];
   currentUserId: string | null;
   busy: boolean;
+  stepsHandedOver: number | null;
   onAssign: (userId: string | null) => void;
 }) {
   const [userId, setUserId] = useState(currentUserId ?? "");
@@ -657,8 +670,18 @@ function Assign({
           `hint`. */}
       <p className="field-hint" id="assign-hint">
         A task created from an engagement goes to the client&rsquo;s SPOC for that Dept on its
-        own. Changing it here overrides that, and the change is recorded.
+        own. With no SPOC it goes to the client&rsquo;s Key Manager, and with no Key Manager to
+        the person who signs for the firm, to hand out. Giving it to somebody here also gives
+        them the job&rsquo;s steps nobody has taken, where their grade allows. The change is
+        recorded.
       </p>
+      {stepsHandedOver !== null && (
+        <p className="muted text-sm" role="status">
+          {stepsHandedOver === 1
+            ? "1 step of this job went with it."
+            : `${stepsHandedOver} steps of this job went with it.`}
+        </p>
+      )}
     </Card>
   );
 }

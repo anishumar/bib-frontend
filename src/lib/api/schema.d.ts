@@ -4070,13 +4070,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Assigned */
+                /** @description Assigned, with what that moved of the client's waiting work */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ClientAssignment"];
+                        "application/json": components["schemas"]["AssignedClient"];
                     };
                 };
                 /** @description Not a valid role or date, a SPOC with no Dept, or a Key Manager given one */
@@ -7100,6 +7100,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagement-letters/{letterId}/routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whose desk an engagement letter's work will land on
+         * @description The owner rule asked for each Dept the letter's lines are filed under, as it will be asked when the signed letter becomes work: the client's SPOC for the Dept, else the client's Key Manager, else the person who signs for the firm, to hand out. For the warning above Send (T6.17): a WARNING, never a refusal, so the sender can name a SPOC on the client's page while it still changes where the work goes.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The routing, one row per Dept */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterRouting"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read parties */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-items": {
         parameters: {
             query?: never;
@@ -7505,7 +7573,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["WorkItem"];
+                        "application/json": components["schemas"]["AssignedWorkItem"];
                     };
                 };
                 /** @description No authenticated session */
@@ -17729,6 +17797,22 @@ export interface components {
             /** @description Every assignment this client has ever had, live and historic, newest first. This is what makes 'who was the SPOC in March' answerable — nothing is deleted and nobody is edited over. */
             all: components["schemas"]["ClientAssignment"][];
         };
+        /** @description The client's work that naming this person MOVED (T6.17): tasks the engine created before the account team existed, still unstarted and still on the Key Manager's or the signing partner's desk to hand out, or on nobody's. Only work nobody has decided about moves; a task a person handed on, took off a desk or started stays. Empty `moves` when nothing was waiting. NULL when moving it failed: the assignment stands and the waiting work is still where it was, for somebody to hand out. */
+        CaughtUpWork: {
+            moves: {
+                /**
+                 * Format: uuid
+                 * @description Whose desk the work moved to. Named from the firm's roster by the screen.
+                 */
+                userId: string;
+                tasks: number;
+                /** @description The tasks' job steps that went with them, as they do when a task is handed on. */
+                steps: number;
+            }[];
+        } | null;
+        AssignedClient: components["schemas"]["ClientAssignment"] & {
+            caughtUp: components["schemas"]["CaughtUpWork"];
+        };
         AssignClientRequest: {
             /**
              * @description 'key_manager' owns the client relationship — pricing, renewals, escalation — and there is one at a time. 'spoc' is the day-to-day contact for ONE of the firm's Depts or delivery teams; a client commonly has several, because the firm's own practice is a SPOC per Dept.
@@ -18450,6 +18534,41 @@ export interface components {
             /** @description The day chasing resumes, in the CALLER's calendar. Defaults to TODAY, so pressing resume means the next sweep chases — not midnight. The row then understates the freeze by part of a day and nothing is lost, because the ledger carries the instant. */
             on?: string;
         };
+        LetterRouting: {
+            /** Format: uuid */
+            letterId: string;
+            /**
+             * Format: uuid
+             * @description The letter's client: whose account team decides the answer.
+             */
+            clientPartyId: string;
+            /** @description The firm's day the owner rule was asked on. A forecast: the work is routed again, on its own day, when the signed letter becomes work. */
+            onDate: string;
+            depts: {
+                /** @description The Dept the lines' services are filed under; null for none. */
+                deptCode: string | null;
+                /** @description The firm's name for it; null when the code is not one of its Depts. */
+                deptName: string | null;
+                lines: {
+                    /** Format: uuid */
+                    lineId: string;
+                    name: string;
+                }[];
+                /**
+                 * @description Which rung of the owner rule takes the work: the client's SPOC for the Dept, else the client's Key Manager, else the person who signs for the firm, to hand out. Null when nobody could be named.
+                 * @enum {string|null}
+                 */
+                how: "spoc" | "key_manager" | "partner" | null;
+                /** Format: uuid */
+                userId: string | null;
+                ownerName: string | null;
+                /**
+                 * @description Why the SPOC rung was passed: no SPOC for the Dept on this client, the service is filed under no Dept, or it names a Dept the firm does not have. Null when a SPOC takes it.
+                 * @enum {string|null}
+                 */
+                reason: "no_spoc" | "no_dept" | "unknown_dept" | null;
+            }[];
+        };
         WorkItemState: {
             /** Format: uuid */
             id: string;
@@ -18623,6 +18742,10 @@ export interface components {
             stateId: string;
             /** @description Required when the target state is one the firm has marked as BLOCKED, and refused otherwise. 'Blocked' on its own records that work is stuck and never why — and a year later 'are our delays ours or the client's' has no query that can answer it. */
             blockedReason?: string | null;
+        };
+        AssignedWorkItem: components["schemas"]["WorkItem"] & {
+            /** @description How many of the job's steps moved to the new owner with the task: the steps nobody held, or that the task's previous owner held, which the process lets the new owner do. Zero when the task has no job, when it was taken off a desk, or when another open task of the same job is on somebody else's desk. */
+            stepsHandedOver: number;
         };
         AssignWorkItemRequest: {
             /** Format: uuid */

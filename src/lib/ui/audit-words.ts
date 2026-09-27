@@ -318,6 +318,7 @@ const KEY_WORDS: Record<string, string> = {
   services: "Services",
   serviceKey: "Service",
   serviceName: "Service",
+  how: "How",
 };
 
 /**
@@ -334,6 +335,34 @@ const KEY_WORDS: Record<string, string> = {
  */
 const NAMED_BY: Record<string, string> = {
   serviceKey: "serviceName",
+};
+
+/**
+ * How a task or a step got to a desk (`work_item.assigned`, `job.step_assigned`).
+ * The machine tokens read as "key manager" and "with task" once the underscore
+ * goes, which says nothing about WHY. The first three are the rungs of the owner
+ * rule (2026-09-27): the router chose, and which person it could find.
+ */
+const HOW_WORDS: Record<string, string> = {
+  spoc: "Sent to the client's SPOC for that Dept",
+  key_manager: "No SPOC, so sent to the client's Key Manager to hand out",
+  partner: "No SPOC or Key Manager, so sent to the person who signs for the firm to hand out",
+  manual: "Moved by hand",
+  taken: "Taken by the person who does it",
+  handover: "Handed over by a colleague",
+  released: "Taken off the desk",
+  with_task: "Went with the job's task when that was handed on",
+};
+
+/**
+ * The same rungs when the router decided AGAIN because the account team was
+ * named after the work was created (`catchUp: true`, T6.17): the task was
+ * waiting on a fallback desk, or on nobody's, and moved.
+ */
+const CAUGHT_UP_WORDS: Record<string, string> = {
+  spoc: "Moved to the client's SPOC for that Dept once one was named",
+  key_manager: "Moved to the client's Key Manager to hand out once the account team was set",
+  partner: "Moved to the person who signs for the firm to hand out",
 };
 const HANDLE_OF: Record<string, string> = Object.fromEntries(
   Object.entries(NAMED_BY).map(([handle, name]) => [name, handle]),
@@ -375,14 +404,20 @@ export function detailRows(payload: Record<string, unknown>): DetailRow[] {
   const rows: DetailRow[] = [];
   for (const [key, value] of Object.entries(payload)) {
     if (/Ids?$/.test(key) || key === "id") continue;
+    // Said by the `how` row below, in words, rather than as "Catch up: yes".
+    if (key === "catchUp") continue;
     // A name is printed on its handle's row (`NAMED_BY`), and on its own only
     // in a payload that has no handle for it to sit on.
     const handle = HANDLE_OF[key];
     if (handle !== undefined && handle in payload) continue;
     const nameKey = NAMED_BY[key];
     const name = nameKey === undefined ? undefined : payload[nameKey];
+    const said =
+      key === "how" && typeof value === "string"
+        ? ((payload["catchUp"] === true ? CAUGHT_UP_WORDS[value] : undefined) ?? HOW_WORDS[value])
+        : undefined;
     const shown =
-      typeof name === "string" && name.trim() !== "" ? name : plainValue(value);
+      said ?? (typeof name === "string" && name.trim() !== "" ? name : plainValue(value));
     if (shown === null) continue;
     rows.push({ label: KEY_WORDS[key] ?? capitalise(words(key)), value: shown });
   }

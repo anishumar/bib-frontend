@@ -277,7 +277,9 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
       {/* THE SENTENCE. Without it an unassigned card is a card with a gap: "two
           SPOCs for FRC, pick one" and "nobody has got to it" look identical, and
           only one of them is somebody's to fix. */}
-      {item.assignee === null && item.assignmentNote !== null && (
+      {/* And on a Key Manager's or the signing partner's card, the sentence
+          saying it came to them to hand out (the owner rule, 2026-09-27). */}
+      {item.assignmentNote !== null && (
         <p className="wcard-note">{item.assignmentNote}</p>
       )}
 

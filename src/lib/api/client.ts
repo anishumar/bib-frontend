@@ -514,6 +514,15 @@ export type ClientAssignment = AccountTeam["all"][number];
 export type AssignmentRole = ClientAssignment["role"];
 
 /**
+ * What naming somebody on the account team MOVED (T6.17's catch-up): the
+ * client's work that was waiting on the Key Manager's or the signing partner's
+ * desk to be handed out, or on nobody's. Null when moving it failed; the
+ * assignment stands either way.
+ */
+export type CaughtUpWork =
+  paths["/api/v1/parties/{partyId}/assignments"]["post"]["responses"][201]["content"]["application/json"]["caughtUp"];
+
+/**
  * One person at a client who can see that client's records — gate 4's grant,
  * with the contact and the granter resolved (G3.4).
  *
@@ -739,6 +748,14 @@ export type LetterSummary =
  *  created at signature. */
 export type LetterRecord =
   paths["/api/v1/engagement-letters/{letterId}"]["get"]["responses"][200]["content"]["application/json"];
+
+/**
+ * Whose desk an unsigned letter's work will land on, one row per Dept (T6.17).
+ * The warning above Send reads it; it never refuses anything.
+ */
+export type LetterRouting =
+  paths["/api/v1/engagement-letters/{letterId}/routing"]["get"]["responses"][200]["content"]["application/json"];
+export type LetterDeptRouting = LetterRouting["depts"][number];
 
 export type LetterClause = LetterRecord["clauses"][number];
 export type LetterLine = LetterRecord["lines"][number];
