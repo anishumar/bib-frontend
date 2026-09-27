@@ -84,8 +84,9 @@ type Who = "existing" | "prospect";
  *
  * `draft` is the proposal when this step is reopened on one. The client of a
  * draft is fixed: a quote re-pointed at a different company would carry the
- * first one's wording. Changing the issuer or the currency of a draft is the
- * backend's item 3 of T6.18 and is offered here once it exists.
+ * first one's wording. Its issuer can change, which replaces its prose with the
+ * new company's standard set after asking when any of it was written for this
+ * client (D9), and its currency can change while nothing on it is priced.
  */
 export function ClientStep({
   draft,

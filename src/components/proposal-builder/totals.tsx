@@ -1,36 +1,28 @@
 "use client";
 
-import { formatMoney } from "@/lib/api/client";
 import type { ProposalRecord } from "@/lib/api/client";
-import { PER } from "./data";
+import { totalWords } from "@/components/proposal-document";
 
 /**
- * What the proposal adds up to, PER FREQUENCY (D8): "INR 50,000 / month +
- * INR 1,25,000 / year + INR 15,000 one-time". Never one mixed figure: a monthly
- * fee and a one-time fee added together is a number no client is ever billed.
+ * What the proposal adds up to, PER FREQUENCY (D8), in the sticky footer:
+ * "3 services · AED 4,000 Monthly + AED 2,500 Quarterly + AED 3,500 One-time".
+ * Never one mixed figure: a monthly fee and a one-time fee added together is a
+ * number no client is ever billed.
  *
- * Every figure is the API's, summed by the database. This only lays them out.
- * A line with no fixed fee is counted rather than added, and a reader without
- * fee visibility (net null) sees the count of services and nothing else.
+ * The sentence is `totalWords`, the one the document's Summary of Fees ends
+ * with and the PDF prints, so the footer and the paper cannot disagree. Every
+ * figure in it was summed by the database. A reader without fee visibility
+ * sees the count of services and nothing else.
  */
 export function FrequencyTotals({ record }: { record: ProposalRecord }) {
-  const { totalsByFrequency, proposal } = record;
   const count = record.lines.length;
-  const money: string[] = [];
-  let unpriced = 0;
-  for (const t of totalsByFrequency) {
-    unpriced += t.unpricedLineCount;
-    if (t.net === null || t.lineCount === t.unpricedLineCount) continue;
-    const per = t.frequency === null ? "(how often not stated)" : PER[t.frequency];
-    money.push(`${formatMoney(t.net, proposal.currency)}${per === "" ? "" : ` ${per}`}`);
-  }
-  if (unpriced > 0) money.push(`${String(unpriced)} with no fixed fee`);
+  const { sentence } = totalWords(record.totalsByFrequency, record.proposal.currency);
   return (
     <span>
       <strong>
         {count} {count === 1 ? "service" : "services"}
       </strong>
-      {money.length > 0 && <span className="mono text-muted"> · {money.join(" + ")}</span>}
+      {sentence !== null && <span className="mono text-muted"> · {sentence}</span>}
     </span>
   );
 }

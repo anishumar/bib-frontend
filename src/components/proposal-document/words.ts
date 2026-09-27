@@ -4,9 +4,14 @@
  * Each of these restates one of `render-source.ts`'s own helpers (0084) and
  * names it. The preview is a promise about the PDF; a fee that reads
  * "₹50,000.00" on screen and "INR 50,000" on paper is two documents.
+ *
+ * THE BUILDER SAYS MONEY THIS WAY TOO. Its service rows, its Details form and
+ * its sticky footer read `pdfMoney`, `FREQUENCY_WORDS` and `totalWords` from
+ * here, so "AED 4,000 Monthly" on step 2 is the same words on step 3 and on
+ * paper. There is no second copy to drift.
  */
 
-import type { ProposalLine } from "@/lib/api/client";
+import type { ProposalLine, ProposalRecord } from "@/lib/api/client";
 
 export type BillingFrequency = NonNullable<ProposalLine["billingFrequency"]>;
 
@@ -49,6 +54,43 @@ export function feeWords(
   const often = frequency === null ? "" : ` ${FREQUENCY_WORDS[frequency]}`;
   const note = pricingNote === null ? "" : ` (${pricingNote})`;
   return `${pdfMoney(net, currency)}${often}${note}`;
+}
+
+/**
+ * THE TOTAL, PER FREQUENCY (D8), as `proposalTotalsFlow` ends the Summary of
+ * Fees: "INR 25,000 Monthly + INR 62,500 Yearly, plus 1 service as mutually
+ * agreed". Never one mixed figure: a month's fee and a year's fee added
+ * together is a number nobody is ever billed. The database adds each group up
+ * (`totalsByFrequency`); nothing here adds money.
+ *
+ * `withheld` is a session without fee visibility: a priced figure exists and
+ * is not shown to them, which is not the same as there being none. `sentence`
+ * is null when no line has a fixed fee, and the PDF then prints no Total.
+ *
+ * A group whose every line has no fixed fee is left out of the figures: the
+ * staff read carries its sum as "0" where the PDF's own read has NULL and
+ * skips it, and "AED 0 One-time" is not something the paper says.
+ */
+export function totalWords(
+  totals: ProposalRecord["totalsByFrequency"],
+  currency: string,
+): { readonly withheld: boolean; readonly sentence: string | null } {
+  const withheld = totals.some((t) => t.net === null && t.lineCount > t.unpricedLineCount);
+  if (withheld) return { withheld, sentence: null };
+  // A count of services, not money.
+  const unpriced = totals.reduce((n, t) => n + t.unpricedLineCount, 0);
+  const figures = totals
+    .filter((t) => t.net !== null && t.lineCount > t.unpricedLineCount)
+    .map((t) => {
+      const amount = pdfMoney(t.net ?? "0", currency);
+      return t.frequency === null
+        ? `${amount} (frequency not stated)`
+        : `${amount} ${FREQUENCY_WORDS[t.frequency]}`;
+    });
+  if (figures.length === 0) return { withheld, sentence: null };
+  const tail =
+    unpriced === 0 ? "" : `, plus ${String(unpriced)} service${unpriced === 1 ? "" : "s"} as mutually agreed`;
+  return { withheld, sentence: `${figures.join(" + ")}${tail}` };
 }
 
 /** The Summary of Fees' own column: the fee alone, the frequency has a column

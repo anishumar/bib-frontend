@@ -7,8 +7,6 @@ import { api, apiError, formatCount, formatMoney, readServiceBody } from "@/lib/
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
 import { Documents } from "@/lib/ui/documents";
 import type { GroupCompany } from "@/lib/group";
-import type { Contact } from "./cover";
-import { ClientAnswer } from "./delivery";
 import {
   Button,
   Card,
@@ -32,7 +30,18 @@ import { Loading } from "@/components/states";
 import { longDay } from "@/lib/day";
 import { Page, PageHeader, useSession } from "@/components/layout";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
-import { ProposalDocument, ProposalSendPanel, useProposal } from "@/components/proposal-document";
+import {
+  ClientAnswer,
+  ProposalDocument,
+  ProposalSendPanel,
+  useProposal,
+} from "@/components/proposal-document";
+
+/** Somebody at the client a letter may be addressed to. */
+interface Contact {
+  readonly id: string;
+  readonly name: string;
+}
 
 /**
  * One proposal: the document the client will read, and sending it (T6.18).
@@ -200,9 +209,15 @@ export default function ProposalPage() {
         /* There is no history table: the ledger IS this proposal's timeline,
            scoped to this document, which is why it cannot live in the sidebar.
            "Send" jumps to the panel under the document, which on a long
-           proposal is a screen or two down. */
+           proposal is a screen or two down. A draft also opens in the builder
+           (T6.18), on its services: the catalogue by country, ticked. */
         aside={
           <div className="cluster">
+            {isDraft && canWrite && (
+              <LinkButton size="sm" href={`/proposals/${proposalId}/build?step=services`}>
+                Edit in the builder
+              </LinkButton>
+            )}
             {!deleted && (
               <Button
                 size="sm"

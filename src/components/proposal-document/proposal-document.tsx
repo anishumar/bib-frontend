@@ -44,7 +44,7 @@ import type { SaveOutcome } from "./editable";
 import { planSections } from "./plan";
 import type { PlannedItem, PlannedSection } from "./plan";
 import { putProposal, useProposal } from "./store";
-import { FREQUENCY_WORDS, feeWords, namedService, pdfDate, pdfMoney, summaryFee } from "./words";
+import { FREQUENCY_WORDS, feeWords, namedService, pdfDate, pdfMoney, summaryFee, totalWords } from "./words";
 
 type Block = ProposalRecord["blocks"][number];
 /** What changing one line of the proposal may send. */
@@ -647,12 +647,10 @@ function FeesSummary({
 }
 
 /**
- * THE TOTAL, PER FREQUENCY (D8), in the PDF's own sentence
- * (`proposalTotalsFlow`): "Total INR 25,000 Monthly + INR 62,500 Yearly, plus
- * 1 service as mutually agreed". Never one mixed figure: a month's fee and a
- * year's fee added together is a number nobody is ever billed. The database
- * adds them up (`totalsByFrequency`, the same grouping the PDF prints);
- * nothing here adds money. With no priced line there is no total, as on paper.
+ * THE TOTAL, PER FREQUENCY (D8), in the PDF's own sentence: "Total INR 25,000
+ * Monthly + INR 62,500 Yearly, plus 1 service as mutually agreed". The words
+ * are `totalWords`, which the builder's footer reads too. With no priced line
+ * there is no total, as on paper.
  */
 function FrequencyTotals({
   totals,
@@ -661,29 +659,20 @@ function FrequencyTotals({
   totals: ProposalRecord["totalsByFrequency"];
   currency: string;
 }) {
+  const { withheld, sentence } = totalWords(totals, currency);
   // A priced line whose amount this session may not see: the figure is
   // withheld by the fee axis, not missing, so the total says that instead.
-  if (totals.some((t) => t.net === null && t.lineCount > t.unpricedLineCount)) {
+  if (withheld) {
     return (
       <p>
         <span className="font-semibold">Total</span> <span className="text-muted">not shown to you</span>
       </p>
     );
   }
-  const priced = totals.filter((t) => t.net !== null);
-  if (priced.length === 0) return null;
-  // A count of services, not money.
-  const unpriced = totals.reduce((n, t) => n + t.unpricedLineCount, 0);
-  const figures = priced.map((t) => {
-    const amount = pdfMoney(t.net ?? "0", currency);
-    return t.frequency === null ? `${amount} (frequency not stated)` : `${amount} ${FREQUENCY_WORDS[t.frequency]}`;
-  });
-  const tail =
-    unpriced === 0 ? "" : `, plus ${String(unpriced)} service${unpriced === 1 ? "" : "s"} as mutually agreed`;
+  if (sentence === null) return null;
   return (
     <p>
-      <span className="font-semibold">Total</span> {figures.join(" + ")}
-      {tail}
+      <span className="font-semibold">Total</span> {sentence}
     </p>
   );
 }

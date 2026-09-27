@@ -13797,6 +13797,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagement-letters/{letterId}/clauses/standard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put every standard term that fits on the letter
+         * @description T6.18 (D6): every published clause that applies to the letter's country and whose governing law and courts are the issuing company's, by the same rules as adding one by hand; clauses already on the letter are skipped. A draft only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description What was added and what was skipped, and why */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StandardClausesAdded"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft, or was deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/send": {
         parameters: {
             query?: never;
@@ -14553,11 +14630,13 @@ export interface paths {
         };
         /**
          * The firm's standard prose — exclusions, commercial notes, the team block
-         * @description The set COPIED onto each new proposal and engagement letter. Editing it changes the next document and never one already issued. Retired lines are included: a document issued while one was live copied it, and 'where did this line come from' has to resolve.
+         * @description The set COPIED onto each new proposal and engagement letter. Editing it changes the next document and never one already issued. Retired lines are included: a document issued while one was live copied it, and 'where did this line come from' has to resolve. With `issuingEntityPartyId`, that company's own lines only (T6.18).
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    issuingEntityPartyId?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -14644,6 +14723,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description The company named is not one of the firm's own */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -14720,7 +14808,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No such standard block at this firm */
+                /** @description No such standard block at this firm, or the company named is not one of the firm's own */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -20860,6 +20948,18 @@ export interface components {
             /** Format: uuid */
             clauseVersionId: string;
         };
+        StandardClausesAdded: {
+            added: {
+                clauseKey: string;
+                /** Format: uuid */
+                clauseVersionId: string;
+                title: string;
+            }[];
+            skipped: {
+                clauseKey: string;
+                reason: string;
+            }[];
+        };
         SendEngagementLetterRequest: {
             signer?: {
                 name: string;
@@ -20938,6 +21038,8 @@ export interface components {
             isHeading: boolean;
             sortOrder: number;
             jurisdiction: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId: string | null;
             isActive: boolean;
         };
         StandardDocumentBlocksResponse: {
@@ -20950,12 +21052,16 @@ export interface components {
             isHeading?: boolean;
             sortOrder: number;
             jurisdiction?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string | null;
         };
         EditStandardDocumentBlockRequest: {
             body?: string;
             isHeading?: boolean;
             sortOrder?: number;
             jurisdiction?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string | null;
             isActive?: boolean;
         };
         DocumentBlock: {

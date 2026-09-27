@@ -213,24 +213,9 @@ export function groupByDept(
 }
 
 // ── Words ───────────────────────────────────────────────────────────────────
-
-/** How often a fee falls due, after the amount: "INR 50,000 / month". */
-export const PER: Readonly<Record<Recurrence, string>> = {
-  one_time: "one-time",
-  monthly: "/ month",
-  quarterly: "/ quarter",
-  annually: "/ year",
-  custom: "",
-};
-
-/** The frequency as a reader picks it. */
-export const FREQUENCY_LABELS: Readonly<Record<Recurrence, string>> = {
-  one_time: "One-time",
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  annually: "Yearly",
-  custom: "Custom",
-};
+// How money and frequency READ ("AED 4,000 Monthly") is the proposal PDF's,
+// imported from `@/components/proposal-document`: the builder, the preview and
+// the paper say one thing. Only the order a picker lists them in is here.
 
 export const FREQUENCIES: readonly Recurrence[] = RECURRENCES;
 

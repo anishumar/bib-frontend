@@ -1,12 +1,13 @@
 "use client";
 
 import { useId, useState } from "react";
-import { formatCount, formatMoney } from "@/lib/api/client";
+import { formatCount } from "@/lib/api/client";
 import type { ProposalLine } from "@/lib/api/client";
 import { Button, Field, FieldRow, FieldStack, Input, Select, Textarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { cleanAmount } from "@/lib/money";
-import { FREQUENCIES, FREQUENCY_LABELS, PER } from "./data";
+import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
+import { FREQUENCIES } from "./data";
 import type { CatalogueService, Recurrence } from "./data";
 
 /** The four scope blocks, as the catalogue screen names them. */
@@ -169,7 +170,7 @@ export function ServiceRow({
               hint={
                 service.listPrice === null
                   ? `No list price in the catalogue. ${service.pricingNote ?? ""}`.trim()
-                  : `The catalogue lists ${formatMoney(service.listPrice.amount, service.listPrice.currency)}. Press Enter to add.`
+                  : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}. Press Enter to add.`
               }
             >
               <Input
@@ -278,11 +279,11 @@ function PriceLabel({
 }) {
   if (line !== null) {
     if (line.unitAmount === null) return <span className="text-muted">No fixed fee</span>;
-    const per = line.billingFrequency === null ? "" : ` ${PER[line.billingFrequency]}`;
+    const per = line.billingFrequency === null ? "" : ` ${FREQUENCY_WORDS[line.billingFrequency]}`;
     const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : ` × ${formatCount(line.quantity)}`;
     return (
       <span className="mono">
-        {formatMoney(line.unitAmount, line.currency)}
+        {pdfMoney(line.unitAmount, line.currency)}
         {per}
         {qty}
       </span>
@@ -291,8 +292,8 @@ function PriceLabel({
   if (service.listPrice !== null && service.listPrice.currency === currency) {
     return (
       <span className="mono">
-        {formatMoney(service.listPrice.amount, service.listPrice.currency)}
-        {service.recurrence === null ? "" : ` ${PER[service.recurrence]}`}
+        {pdfMoney(service.listPrice.amount, service.listPrice.currency)}
+        {service.recurrence === null ? "" : ` ${FREQUENCY_WORDS[service.recurrence]}`}
       </span>
     );
   }
@@ -385,8 +386,8 @@ function Details({
                 service.listPrice === null
                   ? "No list price in the catalogue. Leave it empty for no fixed fee, and say why below."
                   : service.listPrice.currency === currency
-                    ? `The catalogue lists ${formatMoney(service.listPrice.amount, service.listPrice.currency)}.`
-                    : `The catalogue lists ${formatMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
+                    ? `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}.`
+                    : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
               }
             >
               <Input
@@ -408,11 +409,11 @@ function Details({
                 <option value="">
                   {service.recurrence === null
                     ? "Not stated"
-                    : `As the catalogue says (${FREQUENCY_LABELS[service.recurrence]})`}
+                    : `As the catalogue says (${FREQUENCY_WORDS[service.recurrence]})`}
                 </option>
                 {FREQUENCIES.map((f) => (
                   <option key={f} value={f}>
-                    {FREQUENCY_LABELS[f]}
+                    {FREQUENCY_WORDS[f]}
                   </option>
                 ))}
               </Select>

@@ -381,6 +381,12 @@ function Standing({ record }: { record: ProposalRecord }) {
               <li key={e.id} className="text-md">
                 To <strong>{e.to}</strong> · {longInstantTime(e.sentAt)}
                 {e.sentBy !== null && ` · by ${e.sentBy.displayName ?? e.sentBy.email}`}
+                {/* Which PDF went, so a later dispute can be settled against
+                    the file of record. */}
+                <span className="muted text-sm">
+                  {" "}
+                  · PDF <span className="mono" title={e.pdfContentHash}>{e.pdfContentHash.slice(0, 12)}</span>
+                </span>
               </li>
             ))}
           </ul>
