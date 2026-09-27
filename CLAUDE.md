@@ -1836,6 +1836,14 @@ before it re-renders in the classic layout it went out in; the header's pill say
   add form, each box's placeholder the catalogue's words it would replace; an empty box sends
   nothing, which is "print the catalogue's". Each row's "What it covers" shows the words the PDF
   prints, marked where this letter wrote its own.
+- **A letter written up from a quote carries page one's four facts (2026-09-27).** The quote's
+  "Write it up as an engagement letter" form holds Title (the subject line, starting as
+  "Engagement Letter for <client>", the firm's own wording), Addressed to (the quote's Prepared
+  for, from the same `structure` people), Background (the quote's paragraph) and Work begins
+  (blank = the signature day), each filled BEFORE anybody presses. The route took all four since
+  0083 and the form sent none, so every such letter opened "Dear Sir or Madam," over no
+  Background while the quote named the person and held the paragraph. An emptied box is omitted,
+  never sent as "".
 - **Cover letter and Acceptance are two more kinds of the letter's own prose**, drawn as
   paragraphs and written in a paragraph-sized box. They are a LETTER's only: every document
   screen passes `DocumentBlocks` the kinds its document carries (`LETTER_BLOCK_KINDS`,
