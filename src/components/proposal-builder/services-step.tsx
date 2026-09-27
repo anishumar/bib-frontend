@@ -11,8 +11,9 @@ import { Button, LinkButton, TabPanel, Tabs } from "@/components/ui";
 import { countryName } from "@/lib/country";
 import { StickyFooter } from "./frame";
 import { catalogueCountries, groupByDept, offeredIn } from "./data";
-import type { CatalogueService, FirmEntities } from "./data";
+import type { CatalogueService } from "./data";
 import { ServiceRow } from "./service-row";
+import { FrequencyTotals } from "./totals";
 import type { LineTerms } from "./service-row";
 
 /** The proposal's own prose shown under the list: what is excluded, and the
@@ -33,14 +34,12 @@ export function ServicesStep({
   record,
   catalogue,
   axes,
-  firm,
   canWrite,
   onChanged,
 }: {
   record: ProposalRecord;
   catalogue: readonly CatalogueService[];
   axes: readonly ServiceAxis[];
-  firm: FirmEntities | null;
   canWrite: boolean;
   onChanged: () => Promise<void>;
 }) {
@@ -56,8 +55,7 @@ export function ServicesStep({
   const editable = proposal.status === "draft" && proposal.deletedAt === null && canWrite;
 
   // The issuer's country first, then every other country the catalogue offers.
-  const issuerCountry =
-    firm?.entities.find((e) => e.partyId === proposal.issuingEntityPartyId)?.jurisdiction ?? null;
+  const issuerCountry = record.issuer.jurisdiction;
   const offered = catalogueCountries(catalogue);
   const countries = [
     ...(issuerCountry === null ? [] : [issuerCountry]),
@@ -255,16 +253,7 @@ export function ServicesStep({
       />
 
       <StickyFooter
-        summary={
-          <span>
-            <strong>
-              {count} {count === 1 ? "service" : "services"}
-            </strong>
-            {count > 0 && (
-              <span className="text-muted"> · {proposal.currency}</span>
-            )}
-          </span>
-        }
+        summary={<FrequencyTotals record={record} />}
       >
         <LinkButton
           variant="ghost"

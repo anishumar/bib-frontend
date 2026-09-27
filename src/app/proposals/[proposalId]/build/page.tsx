@@ -13,8 +13,8 @@ import { Stepper } from "@/components/proposal-builder/frame";
 import { ClientStep } from "@/components/proposal-builder/client-step";
 import { ServicesStep } from "@/components/proposal-builder/services-step";
 import { PreviewStep } from "@/components/proposal-builder/preview-step";
-import { loadFirmEntities, readCatalogue, readStep } from "@/components/proposal-builder/data";
-import type { CatalogueService, FirmEntities } from "@/components/proposal-builder/data";
+import { readCatalogue, readStep } from "@/components/proposal-builder/data";
+import type { CatalogueService } from "@/components/proposal-builder/data";
 
 /**
  * One draft in the builder: `?step=client|services|preview` (D14).
@@ -42,7 +42,6 @@ function Builder() {
   const [record, setRecord] = useState<ProposalRecord | null>(null);
   const [catalogue, setCatalogue] = useState<CatalogueService[]>([]);
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
-  const [firm, setFirm] = useState<FirmEntities | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -64,15 +63,13 @@ function Builder() {
 
   useEffect(() => {
     void (async () => {
-      const [, services, structure, entities] = await Promise.all([
+      const [, services, structure] = await Promise.all([
         reload(),
         api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
         api.GET("/api/v1/tenancy/axes", {}),
-        loadFirmEntities(),
       ]);
       if (services.data) setCatalogue(readCatalogue(services.data.entries));
       if (structure.data) setAxes(structure.data.axes);
-      if (!("error" in entities)) setFirm(entities);
       setLoaded(true);
     })();
   }, [reload]);
@@ -126,7 +123,6 @@ function Builder() {
           record={record}
           catalogue={catalogue}
           axes={axes}
-          firm={firm}
           canWrite={canWrite}
           onChanged={reload}
         />

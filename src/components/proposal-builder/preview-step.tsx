@@ -12,6 +12,7 @@ import { Card, CardTitle } from "@/components/tw";
 import { Button, ErrorNotice, LinkButton, Notice } from "@/components/ui";
 import { StickyFooter } from "./frame";
 import { PER } from "./data";
+import { FrequencyTotals } from "./totals";
 
 /**
  * STEP 3, for now: what is on the proposal, the PDF, and Send.
@@ -217,14 +218,7 @@ export function PreviewStep({
       />
 
       <StickyFooter
-        summary={
-          <span>
-            <strong>
-              {lines.length} {lines.length === 1 ? "service" : "services"}
-            </strong>
-            <span className="text-muted"> · {proposal.ref}</span>
-          </span>
-        }
+        summary={<FrequencyTotals record={record} />}
       >
         <LinkButton variant="ghost" href={`/proposals/${proposalId}/build?step=services` as Route}>
           Back

@@ -352,8 +352,10 @@ function Details({
   const [note, setNote] = useState(initial.pricingNote ?? "");
   const [overrides, setOverrides] = useState<Overrides>(initial.overrides);
 
+  // For an added line the API says what "standard" is: the words of the
+  // catalogue version the line is pinned to, which may be older than today's.
   const standardText = (key: ScopeKey): string | null =>
-    line?.service?.[key] ?? service[key];
+    line === null ? service[key] : line.terms[key].standard;
 
   return (
     <form
