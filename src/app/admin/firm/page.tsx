@@ -294,6 +294,13 @@ function IssuingEntity({
   return (
     <Card>
       <CardTitle level={2}>Which company issues your letters?</CardTitle>
+      {/* This card is the FALLBACK company only. The firm's other companies,
+          and which one quotes which country, live on their own screen. */}
+      <p className="muted" style={{ maxWidth: "62ch" }}>
+        The company below issues for every country that has no company of its own. Your
+        firm&rsquo;s other companies, and which one quotes clients from which country, are on{" "}
+        <Link href="/admin/companies">Our companies</Link>.
+      </p>
       {entity === null ? (
         <p className="muted">
           No issuing company is on file. Every firm gets one when its account is created, so
@@ -385,9 +392,9 @@ function IssuingEntity({
               <span className="mono">AE</span> or <span className="mono">US</span>. The kind of
               company is in your own words: <span className="mono">llp</span>,{" "}
               <span className="mono">private_limited</span>, <span className="mono">partnership</span>.
-              A firm with companies in two countries registers each one. Which company issues
-              which client&rsquo;s letters is set under{" "}
-              <Link href="/admin/brand">Brand</Link>.
+              A firm with companies in more than one country adds each of the others on{" "}
+              <Link href="/admin/companies">Our companies</Link>, which is also where you choose
+              which company quotes clients from which country.
             </p>
             <div className="cluster">
               <Button type="submit" loading={busy}>

@@ -36,7 +36,7 @@ import {
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
 import type { BrandAsset, BrandAssetKind, InvoiceSeries } from "@/lib/api/client";
-import { Button, Field, FieldRow, Input } from "@/components/ui";
+import { Button, Field, FieldRow, Input, scrollBelowBar } from "@/components/ui";
 import {
   Card,
   CardTitle,
@@ -89,24 +89,18 @@ export default function BrandPage() {
     // is what gets shown if one arrives anyway.
     setCanWrite(me.data?.permissions.includes("tenant:admin") ?? false);
 
-    // The firm's own companies, derived from the ISSUING PREFERENCES — the same
-    // source `/invoices` uses, so the two screens cannot disagree about which
-    // companies the firm has.
-    //
-    // Its limit, stated because the empty state depends on it: an entity the
-    // firm has not assigned to any country does not appear here. That is not a
-    // bug to work around with a second endpoint; it is the same list the rest
-    // of the product already works from, and the fix is to give the entity a
-    // country on the issuing table.
-    const firm = await api.GET("/api/v1/firm-entities/preferences");
+    // The firm's own companies, from `GET /firm-entities` (T6.18): the firm
+    // itself and every company the issuing rule names, which is the same set
+    // the brand-asset routes accept and the same list Our companies, the
+    // proposal builder and the Standard prose tabs read. One list, so no two
+    // screens can disagree about which companies the firm has.
+    const firm = await api.GET("/api/v1/firm-entities", {});
     if (firm.error) {
       setError(apiError(firm.error).message);
       setLoaded(true);
       return;
     }
-    const seen = new Map<string, string>();
-    for (const p of firm.data.preferences) seen.set(p.firmEntity.id, p.firmEntity.displayName);
-    const list = [...seen].map(([id, displayName]) => ({ id, displayName }));
+    const list = firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name }));
     setEntities(list);
 
     const perEntity = await Promise.all(
@@ -127,6 +121,16 @@ export default function BrandPage() {
       await load();
     })();
   }, [load]);
+
+  // Our companies links here as `#brand-entity-<id>`. The browser looks for
+  // that anchor on arrival, before the list has loaded, and finds nothing; so
+  // once the companies are drawn, go to the one the link named.
+  useEffect(() => {
+    if (!loaded) return;
+    const hash = window.location.hash.slice(1);
+    if (hash === "") return;
+    scrollBelowBar(hash);
+  }, [loaded]);
 
   /**
    * Rename what one company's invoice numbers READ as.
@@ -237,9 +241,9 @@ export default function BrandPage() {
         <Card>
           <p className="muted">
             Your firm has no issuing companies yet, so there is nothing to give a logo to. A
-            company appears here once it is named on{" "}
-            <Link href="/invoices">the issuing table</Link> as the company that serves clients
-            in a country. The same list decides which company issues an engagement letter.
+            company appears here once it is added on{" "}
+            <Link href="/admin/companies">Our companies</Link>. The same list decides which
+            company issues a proposal or an engagement letter.
           </p>
         </Card>
       ) : (

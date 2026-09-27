@@ -253,6 +253,7 @@ porting a screen; it is invisible in the source.
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
 | `/admin/firm` | **the firm itself** — which company issues its letters and where it is registered, who signs for it and as what, and from which day its deadlines count + when its financial year starts. Four facts every firm sets once; all four were API-only until 2026-09-18 |
+| `/admin/companies` | **the firm's own companies** (T6.18): each one's country, the countries it quotes, the Fallback, the currency its documents start in; **Add a company** (one form, one call), Change, and the country-to-company table. Links to each company's brand marks and standard wording |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
@@ -276,7 +277,7 @@ porting a screen; it is invisible in the source.
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
-| `/admin/document-blocks` | the firm's standard prose, copied onto every new document — including the cover letter and the acceptance every engagement letter opens with |
+| `/admin/document-blocks` | the firm's standard prose, copied onto every new document — including the cover letter and the acceptance every engagement letter opens with. Tabs **Default · <each company>** (T6.18): per kind, a company uses the Default until it writes its own (`?company=<partyId>` picks the tab) |
 | `/admin/brand` | the logo, signature and letterhead each of the firm's own companies issues under |
 | `/dashboard` | the firm's own numbers — MRR, what it is owed, how long it waits, and what the figures could NOT count |
 | `/admin/territories` | whose desk covers which country |
@@ -915,6 +916,40 @@ because the module had 939 passing tests and every one of them was happy:
   bytes are fetched at `/documents/{documentId}/...` and there was no way to build the URL. A
   write with no read, found the moment a screen tried to show a logo.
 
+## `/admin/companies` and per-company prose — the firm is several companies (T6.18, 2026-09-28)
+
+10x Global quotes from four companies of its own. **`/admin/companies`** lists them from
+`GET /firm-entities` — the ONE list, which `/admin/brand`, the Standard prose tabs and the
+builder's "Issued by" also read, so no two screens disagree about which companies the firm has.
+**Add a company** is one form and one call (`POST /firm-entities`: the organization, its country
+and the row making it the company for that country, in one transaction). A country another
+company already quotes is said under the picker and the button is not offered
+(`COUNTRY_ALREADY_SERVED`). **Change** sends only what changed; a company's country is offered
+only while it has none (`JURISDICTION_FIXED`). The country table is the preferences route, one
+Save per row, "Everywhere else" is the `*` row; there is no delete behind it, so none is offered.
+
+**A company is "the firm's" only while a row names it** (`crm.is_firm_entity`). Walking it:
+Singapore given to the Gulf company, and EPB Asia vanished from every list, with no way back from
+the screen, because the picker no longer offered it. So a move that leaves a company with NO
+country is not offered, and a warning says why before any press; the Gulf company can still
+quote a Singapore client by being picked on that proposal (D4). The durable fix (membership that
+does not depend on a routing row) is backend work with a migration, and is open.
+
+**`/admin/document-blocks` got tabs, Default · each company.** The rule (D5) is per KIND: a
+company with any active line of a kind prints only its own lines of that kind, otherwise the
+Default ones; "Only in" applies inside either set. It is drawn above the tabs as a company-by-kind
+table (Own / Default / none), and said on the Default tab ("every company uses these lines except
+…"). A company tab shows, per kind, either **Using the default wording** (the inherited lines,
+read-only) with **Write this company's own**, which COPIES the Default lines (order, heading,
+country) and opens them as text boxes, or its own lines with **Go back to the default**, which
+RETIRES them. Retired lines sit behind a "Retired lines of …" disclosure with Restore.
+**The text boxes edit where a line prints too:** the Default GST line is India-only, and a Gulf
+company that rewrites it as VAT without changing that would never see it on a UAE proposal.
+
+**Measure the table, not only the page.** `.tablewrap` scrolls its table inside itself, so the
+first company list hid its currency and its buttons at 1280 while the page reported 0 overflow.
+`bib/demo-assets/tools/epb-s5-walk.mjs` measures every `.tablewrap` too (61 checks).
+
 ## `/admin/brand` — the marks, per COMPANY
 
 Not three upload boxes. A firm with an Indian company and a US company signs on two
@@ -930,9 +965,9 @@ today; the renderer is T3.8. A control that looks live and is inert is the "feat
 finished" this product has been caught by before, and this screen is the only place a partner
 would find out. That paragraph comes out when T3.8 lands.
 
-The entity list is derived from the ISSUING PREFERENCES, the same source `/invoices` uses, so
-the two cannot disagree about which companies the firm has. Its limit is stated in the empty
-state rather than hidden: a company with no country on the issuing table does not appear.
+The company list is `GET /firm-entities` (T6.18), the same list Our companies, the prose tabs and
+the builder read. A company appears once it is added on `/admin/companies`; its link there lands
+on its card here (`#brand-entity-<partyId>`, scrolled to once the list has loaded).
 
 Setting a mark is **two calls** — the bytes become an ordinary document first, then that
 version is put in force. If the second fails the screen says the file was stored and is not in

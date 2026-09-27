@@ -213,6 +213,10 @@ const GROUPS: NavGroup[] = [
          which day its deadlines count. Four facts every firm sets once, and
          until this screen existed all four were reachable only by API. */
       { href: "/admin/firm", label: "The firm itself", icon: "structure", needs: "tenant:admin" },
+      /* The firm's own companies and which one quotes clients from which
+         country (T6.18). Beside the firm itself because it IS the firm on
+         paper, only plural. */
+      { href: "/admin/companies", label: "Our companies", icon: "clients", needs: "tenant:admin" },
       { href: "/admin/people", label: "People", icon: "people", needs: "tenant:admin" },
       { href: "/admin/roles", label: "Roles", icon: "roles", needs: "tenant:admin" },
       { href: "/admin/grades", label: "Grades", icon: "grades", needs: "tenant:admin" },
