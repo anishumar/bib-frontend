@@ -12,13 +12,19 @@ import { countryOptions } from "@/lib/country";
  * against territory rules), so every typed answer but one was a refusal.
  *
  * "Not known" is the first option and the empty value, because it is the
- * ordinary answer at capture and the API treats it as a real one.
+ * ordinary answer at capture and the API treats it as a real one. Where a
+ * country is required (one of the firm's own companies is always registered
+ * somewhere), `blankLabel` says "Choose a country" instead, and `required`
+ * refuses the empty value.
  */
-export function CountrySelect(props: Omit<SelectProps, "children">) {
+export function CountrySelect({
+  blankLabel = "Not known",
+  ...props
+}: Omit<SelectProps, "children"> & { blankLabel?: string }) {
   const { usual, rest } = countryOptions();
   return (
     <Select {...props}>
-      <option value="">Not known</option>
+      <option value="">{blankLabel}</option>
       <optgroup label="Usual">
         {usual.map((c) => (
           <option key={c.code} value={c.code}>

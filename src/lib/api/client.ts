@@ -962,6 +962,18 @@ export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
   other: "Other",
 };
 
+/** One of the firm's OWN companies (T6.18): the firm itself, and each company
+ *  it has said issues documents for a country. With where it is registered, the
+ *  client countries the firm's rule sends to it, and the currency a document it
+ *  issues starts in. */
+export type FirmEntity =
+  paths["/api/v1/firm-entities"]["get"]["responses"][200]["content"]["application/json"]["entities"][number];
+
+/** One row of the firm's rule: clients in this country (or `*`, everywhere
+ *  else) are quoted by that company. */
+export type FirmEntityPreference =
+  paths["/api/v1/firm-entities/preferences"]["get"]["responses"][200]["content"]["application/json"]["preferences"][number];
+
 /** The firm's standard prose — the exclusions, commercial notes and team block
  *  COPIED onto each new document. */
 export type StandardBlock =

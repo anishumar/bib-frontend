@@ -11893,7 +11893,7 @@ export interface paths {
         head?: never;
         /**
          * Change a draft proposal's head
-         * @description Its title, how long it is valid, its Background, and the two names its cover prints — who it is prepared for and who prepared it (0084). A draft only: once sent, the client holds what it said. Answers with the whole proposal, names resolved.
+         * @description Its title, how long it is valid, its Background, and the two names its cover prints — who it is prepared for and who prepared it (0084). Since T6.18 also which of the firm's companies issues it (its prose is replaced with that company's standard set, in the same transaction) and its currency and rate (the currency only while no line is quoted). A draft only: once sent, the client holds what it said. Answers with the whole proposal, names resolved.
          */
         patch: {
             parameters: {
@@ -11955,7 +11955,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not a draft, or the person named has no recorded role at this client */
+                /** @description Not a draft, the person named has no recorded role at this client, a new currency under live lines (CURRENCY_LOCKED_BY_LINES), or an issuer change that would replace prose edited for this client (PROSE_EDITED, naming the count) */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -12131,7 +12131,82 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a line on a draft
+         * @description Its fee, quantity, discount, billing frequency, pricing note, country, out-of-pocket range and its four scope blocks — judged by the rules for adding one, on the line as it will be (T6.18). A null override puts back the catalogue's words. A discount raised past the firm's limit after a sign-off lapses the sign-off, so the draft needs approving again. Answers with the whole proposal, so a screen gets the new totals in the same round trip.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateProposalLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Nothing to change, an amount or discount that is not one, no price and no reason, a discount on an unpriced line, or a country code that is not one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal, or no such live line on it */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft, or was deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/proposals/{proposalId}/discount-approval": {
@@ -13722,6 +13797,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagement-letters/{letterId}/clauses/standard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put every standard term that fits on the letter
+         * @description T6.18 (D6): every published clause that applies to the letter's country and whose governing law and courts are the issuing company's, by the same rules as adding one by hand; clauses already on the letter are skipped. A draft only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description What was added and what was skipped, and why */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StandardClausesAdded"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft, or was deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/send": {
         parameters: {
             query?: never;
@@ -14139,6 +14291,216 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/firm-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's own companies
+         * @description Every company that can issue the firm's documents: the firm itself and each company the firm's rule names for a country. With where each is registered, which client countries it issues for, and the currency its documents start in.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The firm's companies */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntitiesResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add one of the firm's own companies
+         * @description Creates the organization, registers it in its country and makes it the company that issues to clients there — in one transaction, with the usual events (party.created, legal_entity.registered, firm_entity_preference.set). Refused while another of the firm's companies already issues for that country.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateFirmEntityRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntity"];
+                    };
+                };
+                /** @description A blank name or type, a country code that is not one, or an address too long */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Another of the firm's companies already issues for that country */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change one of the firm's own companies
+         * @description Its name, entity type and registered address — and, for a company with no country recorded yet, where it is registered.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditFirmEntityRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntity"];
+                    };
+                };
+                /** @description Nothing to change, or a value that cannot be stored */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not one of the firm's own companies */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A company already registered in a country does not move */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/firm-entities/preferences": {
         parameters: {
             query?: never;
@@ -14268,11 +14630,13 @@ export interface paths {
         };
         /**
          * The firm's standard prose — exclusions, commercial notes, the team block
-         * @description The set COPIED onto each new proposal and engagement letter. Editing it changes the next document and never one already issued. Retired lines are included: a document issued while one was live copied it, and 'where did this line come from' has to resolve.
+         * @description The set COPIED onto each new proposal and engagement letter. Editing it changes the next document and never one already issued. Retired lines are included: a document issued while one was live copied it, and 'where did this line come from' has to resolve. With `issuingEntityPartyId`, that company's own lines only (T6.18).
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    issuingEntityPartyId?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -14359,6 +14723,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description The company named is not one of the firm's own */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -14435,7 +14808,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No such standard block at this firm */
+                /** @description No such standard block at this firm, or the company named is not one of the firm's own */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -19784,6 +20157,26 @@ export interface components {
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
+        ProposalFrequencyTotal: {
+            /** @enum {string|null} */
+            frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            net: string | null;
+            lineCount: number;
+            unpricedLineCount: number;
+        };
+        ProposalPlan: {
+            sections: {
+                code: string;
+                title: string;
+                items: {
+                    /** Format: uuid */
+                    lineId: string;
+                    code: string;
+                    description: string;
+                    subject: string | null;
+                }[];
+            }[];
+        };
         PinnedService: {
             key: string;
             version: number;
@@ -19791,6 +20184,7 @@ export interface components {
             name: string;
             module: string | null;
             group: string | null;
+            jurisdictions: string[];
             billingBasis: string | null;
             recurrence: string | null;
             slaDays: number | null;
@@ -19804,9 +20198,14 @@ export interface components {
             volumeLimits: string | null;
             exclusions: string | null;
         } | null;
+        ServiceAxisRef: {
+            code: string;
+            name: string | null;
+        } | null;
         ResolvedTerm: {
             text: string | null;
             tailored: boolean;
+            standard: string | null;
         };
         DocumentTerms: {
             scope: components["schemas"]["ResolvedTerm"];
@@ -19832,6 +20231,8 @@ export interface components {
             /** Format: uuid */
             serviceVersionId: string;
             service: components["schemas"]["PinnedService"];
+            dept: components["schemas"]["ServiceAxisRef"];
+            team: components["schemas"]["ServiceAxisRef"];
             terms: components["schemas"]["DocumentTerms"];
             description: string;
             position: number;
@@ -19906,6 +20307,15 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuer: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                jurisdiction: string | null;
+            };
+            issuedOn: string;
+            totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
+            document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
             totals: components["schemas"]["ProposalTotals"];
@@ -19921,6 +20331,7 @@ export interface components {
                 id: string;
                 displayName: string;
                 email: string | null;
+                phone: string | null;
             } | null;
             preparedBy: {
                 /** Format: uuid */
@@ -19953,6 +20364,13 @@ export interface components {
             addressedToPartyId?: string | null;
             /** Format: uuid */
             preparedByUserId?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string;
+            replaceEditedProse?: boolean;
+            clientJurisdiction?: string;
+            currency?: string;
+            fxRate?: string;
+            fxRateDate?: string;
         };
         AddProposalLineRequest: {
             /** Format: uuid */
@@ -19974,6 +20392,21 @@ export interface components {
             exclusionsOverride?: string;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string;
+        };
+        UpdateProposalLineRequest: {
+            description?: string;
+            quantity?: string;
+            unitAmount?: string | null;
+            discountPercent?: string;
+            jurisdiction?: string | null;
+            /** @enum {string|null} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            scopeOverride?: string | null;
+            clientObligationsOverride?: string | null;
+            volumeLimitsOverride?: string | null;
+            exclusionsOverride?: string | null;
+            oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
+            pricingNote?: string | null;
         };
         ProposalEmailOutcome: {
             /** @enum {string} */
@@ -20515,6 +20948,18 @@ export interface components {
             /** Format: uuid */
             clauseVersionId: string;
         };
+        StandardClausesAdded: {
+            added: {
+                clauseKey: string;
+                /** Format: uuid */
+                clauseVersionId: string;
+                title: string;
+            }[];
+            skipped: {
+                clauseKey: string;
+                reason: string;
+            }[];
+        };
         SendEngagementLetterRequest: {
             signer?: {
                 name: string;
@@ -20529,6 +20974,37 @@ export interface components {
             signedByName: string;
             signedByTitle?: string;
             reference?: string;
+        };
+        RegisteredAddress: {
+            lines: string[];
+        } | null;
+        FirmEntity: {
+            /** Format: uuid */
+            partyId: string;
+            name: string;
+            jurisdiction: string | null;
+            entityType: string | null;
+            registeredAddress: components["schemas"]["RegisteredAddress"];
+            isFirmSelf: boolean;
+            routedCountries: string[];
+            isFallback: boolean;
+            defaultCurrency: string;
+        };
+        FirmEntitiesResponse: {
+            reportingCurrency: string;
+            entities: components["schemas"]["FirmEntity"][];
+        };
+        CreateFirmEntityRequest: {
+            name: string;
+            jurisdiction: string;
+            entityType: string;
+            registeredAddress?: components["schemas"]["RegisteredAddress"];
+        };
+        EditFirmEntityRequest: {
+            name?: string;
+            entityType?: string;
+            registeredAddress?: components["schemas"]["RegisteredAddress"];
+            jurisdiction?: string;
         };
         FirmEntityPreference: {
             /** Format: uuid */
@@ -20562,6 +21038,8 @@ export interface components {
             isHeading: boolean;
             sortOrder: number;
             jurisdiction: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId: string | null;
             isActive: boolean;
         };
         StandardDocumentBlocksResponse: {
@@ -20574,12 +21052,16 @@ export interface components {
             isHeading?: boolean;
             sortOrder: number;
             jurisdiction?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string | null;
         };
         EditStandardDocumentBlockRequest: {
             body?: string;
             isHeading?: boolean;
             sortOrder?: number;
             jurisdiction?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string | null;
             isActive?: boolean;
         };
         DocumentBlock: {
