@@ -1795,10 +1795,10 @@ mounts the same two:
   its line (a local copy of the rules read "A. FRC" until the Dept list arrived and could letter
   differently). The cover's date is the read's `issuedOn`, the PDF's running-header day.
   `words.ts` restates the renderer's money and frequency wording ("INR 50,000 Yearly", en-US
-  grouping, ISO code) so screen and paper say the same thing. Two deliberate differences: the PDF
-  joins a service and its company with a dash, the screen says "for"; and under the Summary of
-  Fees the screen shows the total PER FREQUENCY (D8, `totalsByFrequency`, added by the database),
-  which the PDF does not print.
+  grouping, ISO code) so screen and paper say the same thing, down to the "Total INR 25,000
+  Monthly + INR 62,500 Yearly, plus 1 service as mutually agreed" line under the Summary of Fees
+  (D8, `totalsByFrequency`, added by the database, the grouping the PDF prints). One deliberate
+  difference: the PDF joins a service and its company with a dash, the screen says "for".
 - **Editing in place (D10)**, on a live draft, with `editable`, to a session holding
   `party:write`: a pencil on hover, on its own keyboard focus and always without hover; the piece
   becomes a box that saves on blur or Ctrl/Cmd+Enter (Enter for one line), and Escape keeps what

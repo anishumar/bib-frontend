@@ -44,7 +44,7 @@ import type { SaveOutcome } from "./editable";
 import { planSections } from "./plan";
 import type { PlannedItem, PlannedSection } from "./plan";
 import { putProposal, useProposal } from "./store";
-import { FREQUENCY_WORDS, PER_FREQUENCY, feeWords, namedService, pdfDate, pdfMoney, summaryFee } from "./words";
+import { FREQUENCY_WORDS, feeWords, namedService, pdfDate, pdfMoney, summaryFee } from "./words";
 
 type Block = ProposalRecord["blocks"][number];
 /** What changing one line of the proposal may send. */
@@ -647,11 +647,12 @@ function FeesSummary({
 }
 
 /**
- * THE TOTAL, PER FREQUENCY (D8), and never one mixed figure: a month's fee
- * and a year's fee added together is a number nobody is ever billed. The
- * database adds them up (`totalsByFrequency`); nothing here adds money.
- * Shown on this screen only, under the table: the PDF's Summary of Fees has
- * no total row.
+ * THE TOTAL, PER FREQUENCY (D8), in the PDF's own sentence
+ * (`proposalTotalsFlow`): "Total INR 25,000 Monthly + INR 62,500 Yearly, plus
+ * 1 service as mutually agreed". Never one mixed figure: a month's fee and a
+ * year's fee added together is a number nobody is ever billed. The database
+ * adds them up (`totalsByFrequency`, the same grouping the PDF prints);
+ * nothing here adds money. With no priced line there is no total, as on paper.
  */
 function FrequencyTotals({
   totals,
@@ -660,39 +661,30 @@ function FrequencyTotals({
   totals: ProposalRecord["totalsByFrequency"];
   currency: string;
 }) {
-  if (totals.length === 0) return null;
+  // A priced line whose amount this session may not see: the figure is
+  // withheld by the fee axis, not missing, so the total says that instead.
+  if (totals.some((t) => t.net === null && t.lineCount > t.unpricedLineCount)) {
+    return (
+      <p>
+        <span className="font-semibold">Total</span> <span className="text-muted">not shown to you</span>
+      </p>
+    );
+  }
+  const priced = totals.filter((t) => t.net !== null);
+  if (priced.length === 0) return null;
+  // A count of services, not money.
+  const unpriced = totals.reduce((n, t) => n + t.unpricedLineCount, 0);
+  const figures = priced.map((t) => {
+    const amount = pdfMoney(t.net ?? "0", currency);
+    return t.frequency === null ? `${amount} (frequency not stated)` : `${amount} ${FREQUENCY_WORDS[t.frequency]}`;
+  });
+  const tail =
+    unpriced === 0 ? "" : `, plus ${String(unpriced)} service${unpriced === 1 ? "" : "s"} as mutually agreed`;
   return (
-    <div className="flex flex-col gap-1 border-t border-line pt-3">
-      <p className="text-sm font-semibold text-ink-2">Total fees</p>
-      <ul className="flex flex-col gap-1">
-        {totals.map((t) => {
-          const often = t.frequency === null ? "Frequency not stated" : FREQUENCY_WORDS[t.frequency];
-          const unpriced =
-            t.unpricedLineCount === 0
-              ? ""
-              : `, plus ${String(t.unpricedLineCount)} ${t.unpricedLineCount === 1 ? "service" : "services"} to be agreed`;
-          return (
-            <li key={t.frequency ?? "none"} className="flex flex-wrap justify-between gap-x-6">
-              <span>
-                {often}
-                <span className="text-sm text-muted">
-                  {" "}
-                  ({String(t.lineCount)} {t.lineCount === 1 ? "service" : "services"}
-                  {unpriced})
-                </span>
-              </span>
-              <span className="mono">
-                {t.net === null
-                  ? t.lineCount === t.unpricedLineCount
-                    ? "To be agreed"
-                    : "Not shown to you"
-                  : `${pdfMoney(t.net, currency)}${t.frequency === null ? "" : ` ${PER_FREQUENCY[t.frequency]}`}`}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <p>
+      <span className="font-semibold">Total</span> {figures.join(" + ")}
+      {tail}
+    </p>
   );
 }
 

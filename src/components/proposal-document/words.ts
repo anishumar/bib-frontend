@@ -20,15 +20,6 @@ export const FREQUENCY_WORDS: Readonly<Record<BillingFrequency, string>> = {
   custom: "Custom",
 };
 
-/** How a total per frequency reads in a sentence: "INR 50,000 a month". */
-export const PER_FREQUENCY: Readonly<Record<BillingFrequency, string>> = {
-  one_time: "one-time",
-  monthly: "a month",
-  quarterly: "a quarter",
-  annually: "a year",
-  custom: "on a custom basis",
-};
-
 type NumericLiteral = `${number}`;
 
 /**
