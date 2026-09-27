@@ -17,6 +17,7 @@ import {
   readServiceBody,
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterDeptRouting, LetterRecord, LetterRouting } from "@/lib/api/client";
+import type { components } from "@/lib/api/schema";
 import { Button, Field, Input, LinkButton, Meta, MetaItem, Select, Textarea } from "@/components/ui";
 import { FeeGroups, LineFee, groupFee } from "./fee-groups";
 import {
@@ -54,6 +55,8 @@ import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
  * the addressee, each line's entity, the letter this one replaces — so nothing
  * here has to render a uuid at a person.
  */
+type StandardClausesAdded = components["schemas"]["StandardClausesAdded"];
+
 export default function LetterPage() {
   const router = useRouter();
   const params = useParams<{ letterId: string }>();
@@ -87,6 +90,9 @@ export default function LetterPage() {
   const [routing, setRouting] = useState<LetterRouting | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** What "Add all standard terms" did last: the API's own list of what went
+   *  on and what was left off, with each refusal's sentence (T6.18, D6). */
+  const [standardTerms, setStandardTerms] = useState<StandardClausesAdded | null>(null);
   /**
    * WHICH CATALOGUE VERSION the add-a-line form is pointed at.
    *
@@ -775,6 +781,67 @@ export default function LetterPage() {
               )}
             </div>
           ))
+        )}
+
+        {/* EVERY STANDARD TERM IN ONE PRESS (T6.18, D6): the API runs each
+            published clause through the same rules as adding one by hand, so
+            a term naming another country's law or courts than the issuer's is
+            left off, with the refusal's own sentence. Ten terms were ten
+            presses of Add. */}
+        {isDraft && (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="cluster">
+              <Button
+                variant="secondary"
+                loading={busy === "standard-terms"}
+                disabled={busy !== null}
+                onClick={() => {
+                  setStandardTerms(null);
+                  void act("standard-terms", async () => {
+                    const result = await api.POST("/api/v1/engagement-letters/{letterId}/clauses/standard", {
+                      params: { path: { letterId } },
+                    });
+                    if (result.data) setStandardTerms(result.data);
+                    return result;
+                  });
+                }}
+              >
+                Add all standard terms for {record.issuingEntity.displayName}
+              </Button>
+            </div>
+            <p className="text-sm text-muted">
+              Every published term for {letter.jurisdiction} whose law and courts are{" "}
+              {record.issuingEntity.displayName}&apos;s. A term naming another country&apos;s law is
+              left off, and the list below says why.
+            </p>
+            {standardTerms !== null && (
+              <Notice tone={standardTerms.added.length > 0 ? "ok" : "info"} role="status">
+                <div>
+                  <p>
+                    {standardTerms.added.length === 0
+                      ? "No term was added."
+                      : `Added ${String(standardTerms.added.length)}: ${standardTerms.added.map((a) => a.title).join(", ")}.`}
+                  </p>
+                  {standardTerms.skipped.length > 0 && (
+                    <ul className="mt-1 text-sm">
+                      {standardTerms.skipped.map((s) => {
+                        const entry = clauses.find((c) => c.entry.key === s.clauseKey);
+                        const title =
+                          entry?.published === null || entry === undefined
+                            ? s.clauseKey
+                            : readClauseBody(entry.published.body).title || s.clauseKey;
+                        return (
+                          <li key={s.clauseKey}>
+                            Left off {title}: {s.reason}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </Notice>
+            )}
+          </div>
         )}
 
         {isDraft && (
