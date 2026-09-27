@@ -142,7 +142,7 @@ export function ClientStep({
       ? null
       : trimRate(draft.proposal.fxRate),
   );
-  const [fxRateDate, setFxRateDate] = useState<string>(draft?.proposal.fxRateDate ?? browserDay());
+  const [datePick, setDatePick] = useState<string | null>(draft?.proposal.fxRateDate ?? null);
   const [titlePick, setTitlePick] = useState<string | null>(draft?.proposal.title ?? null);
   const [addresseeId, setAddresseeId] = useState<string>(draft?.proposal.addressedToPartyId ?? "");
   const [validUntil, setValidUntil] = useState<string>(draft?.proposal.validUntil ?? "");
@@ -274,6 +274,10 @@ export function ClientStep({
   const foreign = currency !== "" && currency !== reporting;
   const known = rates.get(currency);
   const fxRate = foreign ? (ratePick ?? known?.rate ?? "") : "1";
+  // A rate carried over from an earlier proposal is as of THAT proposal's day;
+  // a rate somebody types now is as of today.
+  const fxRateDate =
+    datePick ?? (foreign && ratePick === null && known !== undefined ? known.on : browserDay());
 
   const currencies = useMemo(() => {
     const set = new Set<string>();
@@ -683,6 +687,7 @@ export function ClientStep({
                     // D1: choosing the company chooses its currency.
                     setCurrencyPick(null);
                     setRatePick(null);
+                    setDatePick(null);
                   }}
                 >
                   {(firm?.entities ?? []).map((e) => (
@@ -711,6 +716,7 @@ export function ClientStep({
                   onChange={(e) => {
                     setCurrencyPick(e.target.value);
                     setRatePick(null);
+                    setDatePick(null);
                   }}
                 >
                   {currencies.map((c) => (
@@ -752,7 +758,7 @@ export function ClientStep({
                     required
                     disabled={draft !== null}
                     onChange={(e) => {
-                      setFxRateDate(e.target.value);
+                      setDatePick(e.target.value);
                     }}
                   />
                 </Field>
