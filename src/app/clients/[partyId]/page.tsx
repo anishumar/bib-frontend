@@ -26,6 +26,7 @@ import {
   FieldRow,
   FieldStack,
   Input,
+  LinkButton,
   Notice,
   Pill,
   Select,
@@ -374,6 +375,13 @@ export default function PartyPage() {
             {/* The state, where the action to change it is. The book already
                 rendered this pill and could not set it. */}
             {profile.party.archivedAt !== null && <Pill tone="danger">archived</Pill>}
+            {/* An archived client is refused a proposal by the API (0305), so
+                it is not offered one. */}
+            {canWrite && profile.party.archivedAt === null && (
+              <LinkButton size="sm" href={`/proposals/new?clientPartyId=${partyId}`}>
+                New proposal
+              </LinkButton>
+            )}
             {canWrite && (
               <Button
                 size="sm"

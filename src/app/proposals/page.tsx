@@ -4,19 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
-import type { PartySummary, ProposalSummary } from "@/lib/api/client";
+import type { ProposalSummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import {
-  Button,
   Card,
-  CardHead,
   ErrorNotice,
-  Field,
-  FieldRow,
-  Input,
+  LinkButton,
   Pill,
-  Select,
   Sub,
   Table,
   TableWrap,
@@ -24,7 +19,6 @@ import {
   Th,
   type PillTone,
 } from "@/components/ui";
-import { browserDay } from "@/lib/day";
 
 /**
  * What the firm has quoted, and to whom.
@@ -41,16 +35,11 @@ import { browserDay } from "@/lib/day";
 export default function ProposalsPage() {
   const router = useRouter();
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-  const [parties, setParties] = useState<PartySummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book] = await Promise.all([
-      api.GET("/api/v1/proposals", {}),
-      api.GET("/api/v1/parties", {}),
-    ]);
+    const list = await api.GET("/api/v1/proposals", {});
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
     if (list.response.status === 401) {
@@ -63,7 +52,6 @@ export default function ProposalsPage() {
       return;
     }
     setProposals(list.data.proposals);
-    if (book.data) setParties(book.data.parties);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -74,45 +62,20 @@ export default function ProposalsPage() {
     })();
   }, [load]);
 
-  async function draft(form: FormData): Promise<void> {
-    setBusy(true);
-    setError(null);
-    const validUntil = String(form.get("validUntil") ?? "");
-    const result = await api.POST("/api/v1/proposals", {
-      body: {
-        partyId: String(form.get("partyId")),
-        title: String(form.get("title")),
-        currency: String(form.get("currency")).toUpperCase(),
-        // The rate back to the firm's own reporting currency. "1" when quoting
-        // in it — sent rather than omitted, so "did we convert this?" is never
-        // a question about a missing value.
-        fxRate: String(form.get("fxRate")),
-        fxRateDate: String(form.get("fxRateDate")),
-        ...(validUntil === "" ? {} : { validUntil }),
-      },
-    });
-    setBusy(false);
-    if (result.error) {
-      setError(apiError(result.error).message);
-      return;
-    }
-    router.push(`/proposals/${result.data.id}`);
-  }
-
   if (!loaded) return <Loading label="Loading proposals" />;
-
-  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
-  // is yesterday in India until 05:30 every morning — so something due
-  // yesterday would not read as overdue for those five and a half hours.
-  const today = browserDay();
 
   return (
     <Page>
       <PageHeader
         eyebrow="Commercial"
         title="Proposals"
-        lede="Every quote the firm is drafting or has sent, and whether the client has opened it. Draft a new one at the bottom of the page."
-        aside={<Pill tone="quiet">{proposals.length}</Pill>}
+        lede="Every quote the firm is drafting or has sent, and whether the client has opened it."
+        aside={
+          <>
+            <Pill tone="quiet">{proposals.length}</Pill>
+            <LinkButton href="/proposals/new">New proposal</LinkButton>
+          </>
+        }
       />
 
       <ErrorNotice error={error} />
@@ -120,7 +83,8 @@ export default function ProposalsPage() {
       {proposals.length === 0 ? (
         <Card>
           <Empty title="Nothing quoted yet" icon="proposals">
-            A proposal is the priced document a prospect receives. Draft the first one below.
+            A proposal is the priced document a prospect receives. Start the first one with New
+            proposal.
           </Empty>
         </Card>
       ) : (
@@ -176,60 +140,6 @@ export default function ProposalsPage() {
         </TableWrap>
       )}
 
-      <Card>
-        <CardHead title="New proposal" level={2} />
-        <form
-          action={(form) => {
-            void draft(form);
-          }}
-        >
-          <div className="stack">
-            <FieldRow>
-              <Field label="Title">
-                <Input name="title" required />
-              </Field>
-              <Field label="Client">
-                {/* AN UNCHOSEN PLACEHOLDER, because a party select that opens
-                    on its first option opens on the FIRM. The list is
-                    alphabetical and "10x Global" sorts above every client, so
-                    filling the rest of this form and pressing the button quoted
-                    or billed the firm to itself — a valid write the API has no
-                    reason to refuse. `required` plus an empty value makes the
-                    browser stop it instead. Found by walking the product. */}
-                <Select name="partyId" required>
-                  <option value="">Choose a client…</option>
-                  {parties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </FieldRow>
-
-            <FieldRow>
-              <Field label="Currency">
-                <Input name="currency" defaultValue="INR" maxLength={3} required />
-              </Field>
-              <Field label="Exchange rate to the firm&apos;s currency">
-                <Input name="fxRate" defaultValue="1" required />
-              </Field>
-              <Field label="Rate as of">
-                <Input name="fxRateDate" type="date" defaultValue={today} required />
-              </Field>
-              <Field label="Valid until" optional>
-                <Input name="validUntil" type="date" />
-              </Field>
-            </FieldRow>
-
-            <div>
-              <Button type="submit" loading={busy}>
-                Draft proposal
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Card>
     </Page>
   );
 }

@@ -272,6 +272,8 @@ export default function LeadPage() {
   // Deleted as a mistake (0086): out of the pipeline, and final — so none of
   // the forms below is offered, because every one of them would be refused.
   const deleted = lead.deletedAt !== null;
+  const canPropose =
+    !closed && !deleted && (session?.permissions.includes("party:write") ?? false);
 
   return (
     <Page>
@@ -286,7 +288,17 @@ export default function LeadPage() {
               : " Move it along the stages below, and draft a proposal from it when you are ready."}
           </>
         }
-        aside={<LinkButton variant="ghost" href="/leads">The pipeline</LinkButton>}
+        aside={
+          <>
+            <LinkButton variant="ghost" href="/leads">The pipeline</LinkButton>
+            {/* THE PROPOSAL CARRIES THIS LEAD. The old way in was the form on
+                /proposals, which never sent a lead, so "Proposals from this
+                opportunity" below stayed empty whatever was quoted. */}
+            {canPropose && (
+              <LinkButton href={`/proposals/new?leadId=${lead.id}`}>New proposal</LinkButton>
+            )}
+          </>
+        }
       />
 
       <ErrorNotice error={error} />
@@ -549,8 +561,9 @@ export default function LeadPage() {
         <CardTitle level={2}>Proposals from this opportunity</CardTitle>
         {proposals.length === 0 ? (
           <Empty title="No proposal has been drafted from this opportunity" icon="proposals">
-            Draft a proposal from this opportunity on <Link href="/proposals">Proposals</Link>
-            and it will appear here.
+            {canPropose
+              ? "Start one with New proposal at the top of this page and it will appear here."
+              : "A proposal started from an open opportunity appears here."}
           </Empty>
         ) : (
           <TableWrap>
