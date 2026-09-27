@@ -564,6 +564,11 @@ export type OwnedClient =
 export type LeadRecord =
   paths["/api/v1/leads"]["get"]["responses"][200]["content"]["application/json"]["leads"][number];
 
+/** One lead as its own page reads it: the row, who deleted it, and whether
+ *  Delete would work now — the API's own refusal, or null (0086). */
+export type LeadView =
+  paths["/api/v1/leads/{leadId}"]["get"]["responses"][200]["content"]["application/json"];
+
 export type LeadStage = LeadRecord["lead"]["stage"];
 export type LeadSource = LeadRecord["lead"]["source"];
 

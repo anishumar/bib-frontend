@@ -33,6 +33,7 @@ import {
   Th,
 } from "@/components/tw";
 import { instantDay, longDay, longInstant } from "@/lib/day";
+import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -144,7 +145,11 @@ export default function LetterPage() {
     if (library.data) setClauses(library.data.entries.filter((e) => e.published !== null));
     // After the letter, because it is the LETTER's client whose companies these
     // are. One more request, and only the page's first paint waits for it.
-    const unsigned = one.data.letter.status === "draft" || one.data.letter.status === "sent";
+    // A draft deleted as a mistake (0086) will never be signed, so it has no
+    // work to route and nothing to warn about.
+    const unsigned =
+      (one.data.letter.status === "draft" || one.data.letter.status === "sent") &&
+      one.data.letter.deletedAt === null;
     const [structure, routed] = await Promise.all([
       api.GET("/api/v1/parties/{partyId}/structure", {
         params: { path: { partyId: one.data.party.id } },
@@ -208,7 +213,10 @@ export default function LetterPage() {
     const entry = services.find((e) => e.published?.id === picked) ?? services[0];
     return entry === undefined ? null : readServiceBody(entry.published?.body);
   })();
-  const isDraft = letter.status === "draft";
+  // A draft deleted as a mistake (0086) is still a draft by status, and FINAL:
+  // nothing on this page may be offered for it, so it is not a draft here.
+  const deleted = letter.deletedAt !== null;
+  const isDraft = letter.status === "draft" && !deleted;
   const isSigned = letter.status === "signed";
   // HOW THIS LETTER IS SIGNED (0080). `sends` is the deployment's answer:
   // true means sending raises a DocuSign envelope, so the send form asks whom
@@ -285,8 +293,8 @@ export default function LetterPage() {
           <>
             {record.party.displayName} · issued by {record.issuingEntity.displayName} · country{" "}
             {letter.jurisdiction} ·{" "}
-            <Pill tone={letter.status === "withdrawn" ? "danger" : "neutral"}>
-              {letter.status}
+            <Pill tone={letter.status === "withdrawn" || deleted ? "danger" : "neutral"}>
+              {deleted ? "deleted" : letter.status}
             </Pill>{" "}
             {/* WHICH DOCUMENT THE PDF IS (0083). Every letter drafted now is
                 the firm's Annexure format; one issued before it re-renders in
@@ -306,6 +314,13 @@ export default function LetterPage() {
       />
 
       <ErrorNotice error={error} />
+
+      {letter.deletedAt !== null && (
+        <DeletedNotice what="This draft" deletedAt={letter.deletedAt} deletedBy={record.deletedBy}>
+          It never went out for signature. It is not on the list of letters, its number{" "}
+          {letter.ref} is not used again, and nothing about it changes.
+        </DeletedNotice>
+      )}
 
       {/* WHAT DID NOT COME ACROSS, said on the page you land on.
           The quote screen warns before it carries, which is where the decision
@@ -704,8 +719,14 @@ export default function LetterPage() {
           (k) => letter.layout === "annexure" || !PARAGRAPH_BLOCK_KINDS.includes(k),
         )}
         canWrite={permissions.includes("party:write")}
-        editable={!isSigned}
-        frozenNote="This letter is signed, so its wording can no longer be changed. Different wording means a new letter."
+        /* And a draft deleted as a mistake is as final as a signed letter
+           (0086, 0087) — the database refuses its prose too, by name. */
+        editable={!isSigned && !deleted}
+        frozenNote={
+          deleted
+            ? "This draft was deleted as made by mistake, so its wording no longer changes."
+            : "This letter is signed, so its wording can no longer be changed. Different wording means a new letter."
+        }
         onChanged={load}
       />
 
@@ -1076,229 +1097,235 @@ export default function LetterPage() {
         </Card>
       )}
 
-      <Card>
-        <CardTitle level={2}>
-          {isDraft ? "Send it" : "Where it stands"}
-        </CardTitle>
+      {/* Nothing stands, and nothing is sent, for a draft deleted as a mistake. */}
+      {!deleted && (
+        <Card>
+          <CardTitle level={2}>
+            {isDraft ? "Send it" : "Where it stands"}
+          </CardTitle>
 
-        {isDraft && (
-          // Whose name will be under "Yours sincerely" — read from the firm's
-          // standing signatory, because the letter has none until it is sent.
-          <p className="text-md text-muted">
-            {standing === null
-              ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one under The firm itself."
-              : `When sent, this letter carries the firm's signature block as it is now: ${
-                  standing.displayName ?? "the named account"
-                }, ${standing.title}. Changing the signatory later does not change this letter.`}
-          </p>
-        )}
-
-        {(isDraft || letter.status === "sent") && routing !== null && (
-          <RoutingWarning routing={routing} client={record.party} />
-        )}
-
-        {isDraft && signing.sends && (
-          // WHOM DOCUSIGN SHOULD ASK. The client's signatory, by name and
-          // address; DocuSign emails them the letter and they sign there. The
-          // name starts as the addressee's because that is usually who signs,
-          // and it stays editable because it often is not.
-          <form
-            className="mt-2"
-            action={(form) => {
-              void act("send", () =>
-                api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                  params: { path: { letterId } },
-                  body: {
-                    signer: {
-                      name: String(form.get("signerName") ?? "").trim(),
-                      email: String(form.get("signerEmail") ?? "").trim(),
-                    },
-                  },
-                }),
-              );
-            }}
-          >
+          {isDraft && (
+            // Whose name will be under "Yours sincerely" — read from the firm's
+            // standing signatory, because the letter has none until it is sent.
             <p className="text-md text-muted">
-              {providerName} will email the letter to the person below, and they sign it there. It
-              is recorded here as signed a few minutes after they finish.
+              {standing === null
+                ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one under The firm itself."
+                : `When sent, this letter carries the firm's signature block as it is now: ${
+                    standing.displayName ?? "the named account"
+                  }, ${standing.title}. Changing the signatory later does not change this letter.`}
             </p>
-            <div className="field-row">
-              <Field label="Who signs for the client">
-                <Input
-                  name="signerName"
-                  required
-                  defaultValue={record.addressedTo?.displayName ?? ""}
-                  autoComplete="off"
-                />
-              </Field>
-              <Field label="Their email address">
-                <Input name="signerEmail" type="email" required autoComplete="off" />
-              </Field>
-              {/* `self-end` puts the button on the inputs' line rather than
-                  the labels': neither field carries a hint, so the bottoms of
-                  the three cells are the same line. */}
-              <div className="self-end">
-                <Button type="submit" className="justify-self-start" disabled={busy !== null}>
-                  Send for signature
-                </Button>
-              </div>
-            </div>
-          </form>
-        )}
+          )}
 
-        {letter.status === "sent" && signing.sends && signatureRequest !== null && (
-          signatureRequest.envelopeId === null ? (
-            // THE SEND HAPPENED AND THE ENVELOPE DID NOT. The terms are frozen
-            // and the letter is dated either way; what failed is DocuSign, in
-            // its own words, and trying again is one button.
-            <Notice
-              tone="warn"
-              role="alert"
-              actions={
-                <Button
-                  size="sm"
-                  disabled={busy !== null}
-                  onClick={() => {
-                    void act("retry", () =>
-                      api.POST("/api/v1/engagement-letters/{letterId}/signature-request", {
-                        params: { path: { letterId } },
-                      }),
-                    );
-                  }}
-                >
-                  Try again
-                </Button>
-              }
-            >
-              {providerName} has not sent this letter to {signatureRequest.signerName} (
-              {signatureRequest.signerEmail}) yet.
-              {signatureRequest.lastFailure !== null && (
-                <> {providerName} said: {signatureRequest.lastFailure}</>
-              )}
-            </Notice>
-          ) : (
-            <Notice tone="info" role="status">
-              Out for signature with {providerName}. Sent to {signatureRequest.signerName} (
-              {signatureRequest.signerEmail})
-              {signatureRequest.raisedAt !== null && <> on {longInstant(signatureRequest.raisedAt)}</>}
-              . This page shows it as signed within a few minutes of them finishing. Withdrawing
-              also cancels the envelope.{" "}
-              <span className="mono text-xs">{signatureRequest.envelopeId}</span>
-            </Notice>
-          )
-        )}
+          {(isDraft || letter.status === "sent") && routing !== null && (
+            <RoutingWarning routing={routing} client={record.party} />
+          )}
 
-        {/* Both of the inline styles that used to be here were no-ops:
-            `.cluster` already sets `flex-wrap: wrap` and no margin at all —
-            which is why `mt-3` is here: under DocuSign a form or a notice
-            now sits directly above this row. */}
-        <div className="cluster mt-3">
-          {isDraft && !signing.sends && (
-            <Button
-              disabled={busy !== null}
-              onClick={() => {
+          {isDraft && signing.sends && (
+            // WHOM DOCUSIGN SHOULD ASK. The client's signatory, by name and
+            // address; DocuSign emails them the letter and they sign there. The
+            // name starts as the addressee's because that is usually who signs,
+            // and it stays editable because it often is not.
+            <form
+              className="mt-2"
+              action={(form) => {
                 void act("send", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/send", {
                     params: { path: { letterId } },
+                    body: {
+                      signer: {
+                        name: String(form.get("signerName") ?? "").trim(),
+                        email: String(form.get("signerEmail") ?? "").trim(),
+                      },
+                    },
                   }),
                 );
               }}
             >
-              Send for signature
-            </Button>
-          )}
-          {(isDraft || letter.status === "sent") && (
-            <Button
-              variant="destructive-quiet"
-              size="sm"
-              disabled={busy !== null}
-              onClick={() => {
-                void act("withdraw", () =>
-                  api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
-                    params: { path: { letterId } },
-                  }),
-                );
-              }}
-            >
-              Withdraw
-            </Button>
-          )}
-          {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
-            <Button
-              disabled={busy !== null}
-              onClick={() => {
-                void act("advance", () =>
-                  api.POST("/api/v1/engagement-letters/{letterId}/advance", {
-                    params: { path: { letterId } },
-                  }),
-                );
-              }}
-            >
-              Record the advance
-            </Button>
-          )}
-        </div>
-
-        {letter.status === "sent" && recordsByHand && (
-          <form
-            className="mt-4"
-            action={(form) => {
-              const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
-              void act("sign", () =>
-                api.POST("/api/v1/engagement-letters/{letterId}/signature", {
-                  params: { path: { letterId } },
-                  body: {
-                    signedByName: String(form.get("signedByName")),
-                    reference: String(form.get("reference") ?? ""),
-                    // The capacity they signed in — optional, because it is not
-                    // always known when a wet signature is attested afterwards,
-                    // and a letter recorded without it is still verifiable.
-                    ...(signedByTitle === "" ? {} : { signedByTitle }),
-                  },
-                }),
-              );
-            }}
-          >
-            <p className="text-md text-muted">
-              {/* Said plainly, because the audit trail will say it too: this
-                  records an attestation by somebody at the firm, not a
-                  cryptographic signature. */}
-              Record here that the client has signed, on paper or through an e-signing provider
-              the firm already uses. The audit trail records who confirmed it.
-            </p>
-            <div className="field-row">
-              <Field label="Who signed">
-                <Input name="signedByName" required />
-              </Field>
-              <Field label="In what capacity" optional>
-                <Input name="signedByTitle" placeholder="Director" />
-              </Field>
-              <Field label="Reference" hint="The firm’s own note of where the paper is.">
-                <Input name="reference" placeholder="paper-001" />
-              </Field>
-              <div>
-                {/* `justify-self`, and it is the grid property that matters:
-                    `.field-row` is a `minmax(12rem, 1fr)` GRID, so a bare
-                    button in a cell stretches the whole column. `.btn` never
-                    declares `justify-self`, so the utility beside it lands. */}
-                <Button type="submit" className="justify-self-start" disabled={busy !== null}>
-                  Record the signature
-                </Button>
+              <p className="text-md text-muted">
+                {providerName} will email the letter to the person below, and they sign it there. It
+                is recorded here as signed a few minutes after they finish.
+              </p>
+              <div className="field-row">
+                <Field label="Who signs for the client">
+                  <Input
+                    name="signerName"
+                    required
+                    defaultValue={record.addressedTo?.displayName ?? ""}
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Their email address">
+                  <Input name="signerEmail" type="email" required autoComplete="off" />
+                </Field>
+                {/* `self-end` puts the button on the inputs' line rather than
+                    the labels': neither field carries a hint, so the bottoms of
+                    the three cells are the same line. */}
+                <div className="self-end">
+                  <Button type="submit" className="justify-self-start" disabled={busy !== null}>
+                    Send for signature
+                  </Button>
+                </div>
               </div>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
 
-        {letter.status === "withdrawn" && (
-          <p className="text-md text-muted">
-            This letter was withdrawn on{" "}
-            {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}
-            {signatureRequest?.outcome === "declined" &&
-              `, because ${signatureRequest.signerName} declined to sign it in ${providerName}`}
-            . It stays on record as withdrawn.
-          </p>
-        )}
-      </Card>
+          {letter.status === "sent" && signing.sends && signatureRequest !== null && (
+            signatureRequest.envelopeId === null ? (
+              // THE SEND HAPPENED AND THE ENVELOPE DID NOT. The terms are frozen
+              // and the letter is dated either way; what failed is DocuSign, in
+              // its own words, and trying again is one button.
+              <Notice
+                tone="warn"
+                role="alert"
+                actions={
+                  <Button
+                    size="sm"
+                    disabled={busy !== null}
+                    onClick={() => {
+                      void act("retry", () =>
+                        api.POST("/api/v1/engagement-letters/{letterId}/signature-request", {
+                          params: { path: { letterId } },
+                        }),
+                      );
+                    }}
+                  >
+                    Try again
+                  </Button>
+                }
+              >
+                {providerName} has not sent this letter to {signatureRequest.signerName} (
+                {signatureRequest.signerEmail}) yet.
+                {signatureRequest.lastFailure !== null && (
+                  <> {providerName} said: {signatureRequest.lastFailure}</>
+                )}
+              </Notice>
+            ) : (
+              <Notice tone="info" role="status">
+                Out for signature with {providerName}. Sent to {signatureRequest.signerName} (
+                {signatureRequest.signerEmail})
+                {signatureRequest.raisedAt !== null && <> on {longInstant(signatureRequest.raisedAt)}</>}
+                . This page shows it as signed within a few minutes of them finishing. Withdrawing
+                also cancels the envelope.{" "}
+                <span className="mono text-xs">{signatureRequest.envelopeId}</span>
+              </Notice>
+            )
+          )}
+
+          {/* Both of the inline styles that used to be here were no-ops:
+              `.cluster` already sets `flex-wrap: wrap` and no margin at all —
+              which is why `mt-3` is here: under DocuSign a form or a notice
+              now sits directly above this row. */}
+          <div className="cluster mt-3">
+            {isDraft && !signing.sends && (
+              <Button
+                disabled={busy !== null}
+                onClick={() => {
+                  void act("send", () =>
+                    api.POST("/api/v1/engagement-letters/{letterId}/send", {
+                      params: { path: { letterId } },
+                    }),
+                  );
+                }}
+              >
+                Send for signature
+              </Button>
+            )}
+            {/* A letter the client has SEEN is withdrawn, which keeps the record
+                that it was offered. A draft nobody has seen is deleted instead,
+                at the foot of the page (0086) — so Withdraw is for `sent` only. */}
+            {letter.status === "sent" && (
+              <Button
+                variant="destructive-quiet"
+                size="sm"
+                disabled={busy !== null}
+                onClick={() => {
+                  void act("withdraw", () =>
+                    api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
+                      params: { path: { letterId } },
+                    }),
+                  );
+                }}
+              >
+                Withdraw
+              </Button>
+            )}
+            {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
+              <Button
+                disabled={busy !== null}
+                onClick={() => {
+                  void act("advance", () =>
+                    api.POST("/api/v1/engagement-letters/{letterId}/advance", {
+                      params: { path: { letterId } },
+                    }),
+                  );
+                }}
+              >
+                Record the advance
+              </Button>
+            )}
+          </div>
+
+          {letter.status === "sent" && recordsByHand && (
+            <form
+              className="mt-4"
+              action={(form) => {
+                const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
+                void act("sign", () =>
+                  api.POST("/api/v1/engagement-letters/{letterId}/signature", {
+                    params: { path: { letterId } },
+                    body: {
+                      signedByName: String(form.get("signedByName")),
+                      reference: String(form.get("reference") ?? ""),
+                      // The capacity they signed in — optional, because it is not
+                      // always known when a wet signature is attested afterwards,
+                      // and a letter recorded without it is still verifiable.
+                      ...(signedByTitle === "" ? {} : { signedByTitle }),
+                    },
+                  }),
+                );
+              }}
+            >
+              <p className="text-md text-muted">
+                {/* Said plainly, because the audit trail will say it too: this
+                    records an attestation by somebody at the firm, not a
+                    cryptographic signature. */}
+                Record here that the client has signed, on paper or through an e-signing provider
+                the firm already uses. The audit trail records who confirmed it.
+              </p>
+              <div className="field-row">
+                <Field label="Who signed">
+                  <Input name="signedByName" required />
+                </Field>
+                <Field label="In what capacity" optional>
+                  <Input name="signedByTitle" placeholder="Director" />
+                </Field>
+                <Field label="Reference" hint="The firm’s own note of where the paper is.">
+                  <Input name="reference" placeholder="paper-001" />
+                </Field>
+                <div>
+                  {/* `justify-self`, and it is the grid property that matters:
+                      `.field-row` is a `minmax(12rem, 1fr)` GRID, so a bare
+                      button in a cell stretches the whole column. `.btn` never
+                      declares `justify-self`, so the utility beside it lands. */}
+                  <Button type="submit" className="justify-self-start" disabled={busy !== null}>
+                    Record the signature
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
+
+          {letter.status === "withdrawn" && (
+            <p className="text-md text-muted">
+              This letter was withdrawn on{" "}
+              {letter.withdrawnAt === null ? "an unrecorded date" : longInstant(letter.withdrawnAt)}
+              {signatureRequest?.outcome === "declined" &&
+                `, because ${signatureRequest.signerName} declined to sign it in ${providerName}`}
+              . It stays on record as withdrawn.
+            </p>
+          )}
+        </Card>
+      )}
       {/* The letter's own paperwork. THE signed copy belongs here: the API
           stores a content hash per version, and `crm.engagement_letter` carries
           one too — which is what makes "is the PDF the client holds the one we
@@ -1306,9 +1333,49 @@ export default function LetterPage() {
       <Documents
         subjectKind="engagement_letter"
         subjectRef={letterId}
-        canWrite={permissions.includes("party:write")}
+        // A deleted draft gains nothing (0086): its files stay readable.
+        canWrite={permissions.includes("party:write") && !deleted}
         renderable="engagement_letter"
         emptyHint="Nothing attached yet. Upload the signed copy of this letter here."
+      />
+
+      <DeleteMistake
+        title="Made by mistake?"
+        intro={
+          <p className="muted">
+            A draft that should never have been started can be deleted. Nobody outside the firm has
+            seen it. A letter that has gone to the client is withdrawn instead.
+          </p>
+        }
+        label="Delete this draft"
+        consequence={
+          <>
+            <p>
+              {letter.ref} leaves the list of letters, and its number is not used again. Its files
+              stay where they are.
+            </p>
+            <p>
+              The page stays readable from its link, and the audit trail records that you deleted
+              it. This cannot be undone.
+            </p>
+          </>
+        }
+        name={letter.ref}
+        refusal={record.deleteRefusal}
+        explained={[]}
+        canWrite={permissions.includes("party:write")}
+        onDelete={async () => {
+          setError(null);
+          const result = await api.DELETE("/api/v1/engagement-letters/{letterId}", {
+            params: { path: { letterId } },
+          });
+          if (result.error) {
+            setError(apiError(result.error).message);
+            return false;
+          }
+          await load();
+          return true;
+        }}
       />
     </Page>
   );
