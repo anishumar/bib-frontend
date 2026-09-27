@@ -278,7 +278,8 @@ export function ClientStep({
   const issuer = firm?.entities.find((e) => e.partyId === issuerId) ?? null;
   const currency = currencyPick ?? issuer?.defaultCurrency ?? "";
   const title = titlePick ?? (clientName === "" ? "" : `Proposal for ${clientName}`);
-  const reporting = firm?.reportingCurrency ?? "INR";
+  // Until the firm's companies have been read there is no rate to ask for.
+  const reporting = firm?.reportingCurrency ?? currency;
   const foreign = currency !== "" && currency !== reporting;
   const known = rates.get(currency);
   const fxRate = foreign ? (ratePick ?? known?.rate ?? "") : "1";

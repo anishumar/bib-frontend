@@ -32,52 +32,29 @@ export interface FirmEntities {
 }
 
 /**
- * THE CURRENCY A COMPANY QUOTES IN, BY DEFAULT (D1).
- *
- * Interim: the API's own copy of this rule arrives with `GET /firm-entities`
- * (T6.18 backend, item 4) as `defaultCurrency`, and this map goes the day that
- * route is in the generated client. Until then it is the four countries the
- * decision names, and the firm's reporting currency for everything else.
- */
-const COUNTRY_CURRENCY: Readonly<Record<string, string>> = {
-  IN: "INR",
-  AE: "AED",
-  SG: "SGD",
-  US: "USD",
-};
-
-/** Interim, like the map above: the reporting currency is not on any staff
- *  route yet. Every firm on BiB today keeps its books in rupees. */
-const REPORTING_CURRENCY = "INR";
-
-export function currencyFor(jurisdiction: string | null, reporting: string): string {
-  return (jurisdiction === null ? undefined : COUNTRY_CURRENCY[jurisdiction]) ?? reporting;
-}
-
-/**
- * The firm's companies, read off its preference rows: every company named by a
- * row is one of the firm's own (that is what `crm.is_firm_entity` says), and
- * the rows themselves are the routing rule.
+ * The firm's own companies, as the API lists them (T6.18 item 4): each with
+ * the currency it quotes in by default (D1, decided by ONE function in the
+ * API and not repeated here), the countries routed to it, and whether it is
+ * the fallback for every other country. The firm itself comes first.
  */
 export async function loadFirmEntities(): Promise<FirmEntities | { error: unknown }> {
-  const result = await api.GET("/api/v1/firm-entities/preferences", {});
+  const result = await api.GET("/api/v1/firm-entities", {});
   if (result.error) return { error: result.error };
-  const reportingCurrency = REPORTING_CURRENCY;
-  const byId = new Map<string, FirmEntity>();
   const routes = new Map<string, string>();
-  for (const p of result.data.preferences) {
-    routes.set(p.clientJurisdiction, p.firmEntityPartyId);
-    if (!byId.has(p.firmEntity.id)) {
-      byId.set(p.firmEntity.id, {
-        partyId: p.firmEntity.id,
-        name: p.firmEntity.displayName,
-        jurisdiction: p.firmEntity.jurisdiction,
-        defaultCurrency: currencyFor(p.firmEntity.jurisdiction, reportingCurrency),
-      });
-    }
+  for (const e of result.data.entities) {
+    for (const c of e.routedCountries) routes.set(c, e.partyId);
+    if (e.isFallback) routes.set("*", e.partyId);
   }
-  const entities = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-  return { entities, routes, reportingCurrency };
+  return {
+    entities: result.data.entities.map((e) => ({
+      partyId: e.partyId,
+      name: e.name,
+      jurisdiction: e.jurisdiction,
+      defaultCurrency: e.defaultCurrency,
+    })),
+    routes,
+    reportingCurrency: result.data.reportingCurrency,
+  };
 }
 
 /**

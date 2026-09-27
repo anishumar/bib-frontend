@@ -14214,6 +14214,216 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/firm-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's own companies
+         * @description Every company that can issue the firm's documents: the firm itself and each company the firm's rule names for a country. With where each is registered, which client countries it issues for, and the currency its documents start in.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The firm's companies */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntitiesResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add one of the firm's own companies
+         * @description Creates the organization, registers it in its country and makes it the company that issues to clients there — in one transaction, with the usual events (party.created, legal_entity.registered, firm_entity_preference.set). Refused while another of the firm's companies already issues for that country.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateFirmEntityRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntity"];
+                    };
+                };
+                /** @description A blank name or type, a country code that is not one, or an address too long */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Another of the firm's companies already issues for that country */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change one of the firm's own companies
+         * @description Its name, entity type and registered address — and, for a company with no country recorded yet, where it is registered.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditFirmEntityRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FirmEntity"];
+                    };
+                };
+                /** @description Nothing to change, or a value that cannot be stored */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not one of the firm's own companies */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A company already registered in a country does not move */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/firm-entities/preferences": {
         parameters: {
             query?: never;
@@ -20664,6 +20874,37 @@ export interface components {
             signedByName: string;
             signedByTitle?: string;
             reference?: string;
+        };
+        RegisteredAddress: {
+            lines: string[];
+        } | null;
+        FirmEntity: {
+            /** Format: uuid */
+            partyId: string;
+            name: string;
+            jurisdiction: string | null;
+            entityType: string | null;
+            registeredAddress: components["schemas"]["RegisteredAddress"];
+            isFirmSelf: boolean;
+            routedCountries: string[];
+            isFallback: boolean;
+            defaultCurrency: string;
+        };
+        FirmEntitiesResponse: {
+            reportingCurrency: string;
+            entities: components["schemas"]["FirmEntity"][];
+        };
+        CreateFirmEntityRequest: {
+            name: string;
+            jurisdiction: string;
+            entityType: string;
+            registeredAddress?: components["schemas"]["RegisteredAddress"];
+        };
+        EditFirmEntityRequest: {
+            name?: string;
+            entityType?: string;
+            registeredAddress?: components["schemas"]["RegisteredAddress"];
+            jurisdiction?: string;
         };
         FirmEntityPreference: {
             /** Format: uuid */
