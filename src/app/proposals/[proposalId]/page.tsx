@@ -743,6 +743,7 @@ export default function ProposalPage() {
           proposalId={proposalId}
           record={record}
           entityChoices={entityChoices}
+          contacts={contacts}
           busy={busy}
           onDraft={(body) => {
             void act("letter", async () => {
@@ -896,11 +897,23 @@ export default function ProposalPage() {
  * agree there is nothing to ask; when they disagree the field appears with the
  * reason, because that value settles governing law and the courts. Asking for
  * it every time would be a form field whose answer is already on the page.
+ *
+ * ## The cover letter's four facts come across too, and can be changed
+ *
+ * Title, addressee, Background and the day work begins are what page one of the
+ * firm's letter is made of ("Sub: Engagement Letter for …", "Dear …", the
+ * Background heading, "period commencing …"). The route has taken all four
+ * since 0083 and this form sent none, so every letter drafted from a quote said
+ * "Dear Sir or Madam," over no Background — while the quote it came from named
+ * the person and held the paragraph. They are FILLED from the quote here, in the
+ * boxes, before anybody presses: the letter may say something else, but a
+ * reader should see what it will say rather than find out on the next page.
  */
 function WriteItUp({
   proposalId,
   record,
   entityChoices,
+  contacts,
   busy,
   onDraft,
 }: {
@@ -910,6 +923,9 @@ function WriteItUp({
    *  filed against. Empty means the screen offers nothing and reports the
    *  skips, which is exactly what it did before this existed. */
   entityChoices: readonly GroupCompany[];
+  /** Who the letter may be addressed to — the client's people, the same list
+   *  "Prepared for" offers and the API checks the choice against. */
+  contacts: readonly Contact[];
   busy: string | null;
   onDraft: (body: {
     advanceRequired: boolean;
@@ -917,6 +933,9 @@ function WriteItUp({
     jurisdiction?: string;
     title?: string;
     defaultEntityPartyId?: string;
+    addressedToPartyId?: string;
+    background?: string;
+    effectiveFrom?: string;
   }) => void;
 }) {
   const [advanceRequired, setAdvanceRequired] = useState(false);
@@ -1007,9 +1026,14 @@ function WriteItUp({
               screen, in a new costume. */}
           <form
             action={(form) => {
-              const j = String(form.get("jurisdiction") ?? "").trim();
-              const amount = String(form.get("advanceAmount") ?? "").trim();
-              const entity = String(form.get("defaultEntityPartyId") ?? "").trim();
+              const text = (name: string): string => String(form.get(name) ?? "").trim();
+              const j = text("jurisdiction");
+              const amount = text("advanceAmount");
+              const entity = text("defaultEntityPartyId");
+              const title = text("title");
+              const addressee = text("addressedToPartyId");
+              const background = text("background");
+              const begins = text("effectiveFrom");
               onDraft({
                 advanceRequired,
                 ...(advanceRequired && amount !== "" ? { advanceAmount: amount } : {}),
@@ -1018,6 +1042,13 @@ function WriteItUp({
                 // nothing against a company nobody chose", which is the API's
                 // own default and the safe one on a document somebody signs.
                 ...(entity === "" ? {} : { defaultEntityPartyId: entity }),
+                // The same rule for the cover's four: an emptied box is "not
+                // this", and the API's own default (the quote's title, the
+                // company, no Background, the signature date) is what applies.
+                ...(title === "" ? {} : { title }),
+                ...(addressee === "" ? {} : { addressedToPartyId: addressee }),
+                ...(background === "" ? {} : { background }),
+                ...(begins === "" ? {} : { effectiveFrom: begins }),
               });
             }}
           >
@@ -1062,6 +1093,60 @@ function WriteItUp({
                 </Select>
               </Field>
             )}
+
+            {/* PAGE ONE OF THE LETTER, filled from the quote. The title is the
+                letter's subject line, so it starts as the firm's own wording
+                for one rather than the quote's name for its services. */}
+            <FieldRow>
+              <Field label="Title" hint="Prints as the letter's subject line.">
+                <Input
+                  name="title"
+                  defaultValue={`Engagement Letter for ${record.party.displayName}`}
+                />
+              </Field>
+              <Field
+                label="Addressed to"
+                hint={
+                  contacts.length === 0
+                    ? "Nobody is recorded at this client yet, so the letter opens \"Dear Sir or Madam,\". Add a director, signatory or employee on the client's page to name them here."
+                    : "The letter opens \"Dear …\" with this name. Filled from the quote's Prepared for."
+                }
+              >
+                {/* Only a person the client's page records: the API checks the
+                    choice against the same list and refuses anybody else. A
+                    quote prepared for somebody no longer on it starts blank. */}
+                <Select
+                  name="addressedToPartyId"
+                  defaultValue={
+                    contacts.some((c) => c.id === record.proposal.addressedToPartyId)
+                      ? (record.proposal.addressedToPartyId ?? "")
+                      : ""
+                  }
+                >
+                  <option value="">nobody named (addressed to the company)</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            <Field
+              label="Background"
+              hint="The paragraph Annexure 1 opens with. Filled from the quote; empty it and the letter opens straight with the services."
+            >
+              <Textarea name="background" rows={4} defaultValue={record.proposal.background ?? ""} />
+            </Field>
+
+            <Field
+              label="Work begins"
+              optional
+              hint="Blank means the day the client signs. A date here prints in the subject as “period commencing …”, and monthly work is owed from that date's month."
+            >
+              <Input name="effectiveFrom" type="date" />
+            </Field>
 
             {/* THE ADVANCE IS THE FIRM'S DECISION AND NOT THE QUOTE'S — a
                 proposal has no advance, so there is nothing here to inherit
