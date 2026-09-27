@@ -19859,6 +19859,26 @@ export interface components {
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
+        ProposalFrequencyTotal: {
+            /** @enum {string|null} */
+            frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            net: string | null;
+            lineCount: number;
+            unpricedLineCount: number;
+        };
+        ProposalPlan: {
+            sections: {
+                code: string;
+                title: string;
+                items: {
+                    /** Format: uuid */
+                    lineId: string;
+                    code: string;
+                    description: string;
+                    subject: string | null;
+                }[];
+            }[];
+        };
         PinnedService: {
             key: string;
             version: number;
@@ -19866,6 +19886,7 @@ export interface components {
             name: string;
             module: string | null;
             group: string | null;
+            jurisdictions: string[];
             billingBasis: string | null;
             recurrence: string | null;
             slaDays: number | null;
@@ -19879,9 +19900,14 @@ export interface components {
             volumeLimits: string | null;
             exclusions: string | null;
         } | null;
+        ServiceAxisRef: {
+            code: string;
+            name: string | null;
+        } | null;
         ResolvedTerm: {
             text: string | null;
             tailored: boolean;
+            standard: string | null;
         };
         DocumentTerms: {
             scope: components["schemas"]["ResolvedTerm"];
@@ -19907,6 +19933,8 @@ export interface components {
             /** Format: uuid */
             serviceVersionId: string;
             service: components["schemas"]["PinnedService"];
+            dept: components["schemas"]["ServiceAxisRef"];
+            team: components["schemas"]["ServiceAxisRef"];
             terms: components["schemas"]["DocumentTerms"];
             description: string;
             position: number;
@@ -19981,6 +20009,15 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuer: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                jurisdiction: string | null;
+            };
+            issuedOn: string;
+            totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
+            document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
             totals: components["schemas"]["ProposalTotals"];
@@ -19996,6 +20033,7 @@ export interface components {
                 id: string;
                 displayName: string;
                 email: string | null;
+                phone: string | null;
             } | null;
             preparedBy: {
                 /** Format: uuid */

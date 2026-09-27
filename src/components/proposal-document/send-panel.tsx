@@ -69,7 +69,7 @@ export function ProposalSendPanel({
   const [issued, setIssued] = useState<Issued | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reach = useReach(record?.addressee?.id ?? null, record?.party.id ?? null);
+  const reach = useReach(record);
   const phone = reach.phone;
 
   if (!loaded && record === null) {
@@ -307,48 +307,44 @@ interface Reach {
 }
 
 /**
- * The addressee's own email and phone (their primary identifiers in force
- * today), and where they have none, the CLIENT COMPANY's. The company fallback
- * is not a guess: a prospect typed into the builder keeps its email and phone
- * on the company, because the same address on the contact too would make every
- * later capture ambiguous (lead dedupe), so for them the company's is the only
- * one on record.
+ * The addressee's own email and phone, as the proposal read carries them, and
+ * where they have none, the CLIENT COMPANY's. The company fallback is not a
+ * guess: a prospect typed into the builder keeps its email and phone on the
+ * company, because the same address on the contact too would make every later
+ * capture ambiguous (lead dedupe), so for them the company's is the only one on
+ * record. The company is read only when it is needed.
  */
-function useReach(addresseeId: string | null, clientId: string | null): Reach {
-  const [reach, setReach] = useState<{ key: string; value: Reach } | null>(null);
-  const key = `${addresseeId ?? ""}|${clientId ?? ""}`;
+function useReach(record: ProposalRecord | null): Reach {
+  const personEmail = record?.addressee?.email ?? null;
+  const personPhone = record?.addressee?.phone ?? null;
+  const needCompany = record !== null && (personEmail === null || personPhone === null);
+  const clientId = needCompany ? record.party.id : null;
+  const [company, setCompany] = useState<{ id: string; email: string | null; phone: string | null } | null>(null);
   useEffect(() => {
     if (clientId === null) return;
     let live = true;
-    const read = (partyId: string | null) =>
-      partyId === null
-        ? Promise.resolve(null)
-        : api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } }).then((r) => r.data ?? null);
-    void Promise.all([read(addresseeId), read(clientId)]).then(([person, company]) => {
+    void api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId: clientId } } }).then((r) => {
       if (!live) return;
       const today = browserDay();
-      const pick = (party: typeof person, type: "email" | "phone"): string | null => {
-        const inForce = (party?.identifiers ?? []).filter(
+      const pick = (type: "email" | "phone"): string | null => {
+        const inForce = (r.data?.identifiers ?? []).filter(
           (i) => i.type === type && i.validFrom <= today && (i.validTo === null || i.validTo > today),
         );
         return (inForce.find((i) => i.isPrimary) ?? inForce[0])?.value ?? null;
       };
-      const personPhone = pick(person, "phone");
-      const companyPhone = pick(company, "phone");
-      setReach({
-        key: `${addresseeId ?? ""}|${clientId}`,
-        value: {
-          email: pick(person, "email") ?? pick(company, "email"),
-          phone: personPhone ?? companyPhone,
-          phoneOf: personPhone !== null ? "person" : companyPhone !== null ? "company" : null,
-        },
-      });
+      setCompany({ id: clientId, email: pick("email"), phone: pick("phone") });
     });
     return () => {
       live = false;
     };
-  }, [addresseeId, clientId]);
-  return reach?.key === key ? reach.value : { email: null, phone: null, phoneOf: null };
+  }, [clientId]);
+  const theirs = company !== null && company.id === clientId ? company : null;
+  const phone = personPhone ?? theirs?.phone ?? null;
+  return {
+    email: personEmail ?? theirs?.email ?? null,
+    phone,
+    phoneOf: personPhone !== null ? "person" : phone !== null ? "company" : null,
+  };
 }
 
 /** What has happened since it went out: when, how often it was opened, every

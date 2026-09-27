@@ -1790,11 +1790,15 @@ mounts the same two:
 - **`<ProposalDocument proposalId editable onChanged?>`** draws the PDF's own structure in the
   PDF's own order: cover, Background, in-scope services, a section per Dept lettered by RANK with
   each service under its catalogue code, the Summary of Fees, "valid until", and the Notes (team,
-  general exclusions, commercials). The lettering is `planProposal`'s (the backend's `domain/
-  proposal/document.ts`); `plan.ts` restates it until the read carries the API's own plan, and
+  general exclusions, commercials). The lettering is the API's: the read carries `document`, built
+  by the same `planProposal` call the renderer makes, and `plan.ts` only joins each item back to
+  its line (a local copy of the rules read "A. FRC" until the Dept list arrived and could letter
+  differently). The cover's date is the read's `issuedOn`, the PDF's running-header day.
   `words.ts` restates the renderer's money and frequency wording ("INR 50,000 Yearly", en-US
-  grouping, ISO code) so screen and paper say the same thing. The one deliberate difference: the
-  PDF joins a service and its company with a dash, the screen says "for".
+  grouping, ISO code) so screen and paper say the same thing. Two deliberate differences: the PDF
+  joins a service and its company with a dash, the screen says "for"; and under the Summary of
+  Fees the screen shows the total PER FREQUENCY (D8, `totalsByFrequency`, added by the database),
+  which the PDF does not print.
 - **Editing in place (D10)**, on a live draft, with `editable`, to a session holding
   `party:write`: a pencil on hover, on its own keyboard focus and always without hover; the piece
   becomes a box that saves on blur or Ctrl/Cmd+Enter (Enter for one line), and Escape keeps what

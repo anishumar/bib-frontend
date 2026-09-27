@@ -34,7 +34,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { api, apiError } from "@/lib/api/client";
-import type { ProposalLine, ProposalRecord, ServiceAxis } from "@/lib/api/client";
+import type { ProposalLine, ProposalRecord } from "@/lib/api/client";
 import { Icon, Notice, Skeleton, SkeletonText, cx } from "@/components/ui";
 import { useSession } from "@/components/layout";
 import type { paths } from "@/lib/api/schema";
@@ -44,7 +44,7 @@ import type { SaveOutcome } from "./editable";
 import { planSections } from "./plan";
 import type { PlannedItem, PlannedSection } from "./plan";
 import { putProposal, useProposal } from "./store";
-import { FREQUENCY_WORDS, feeWords, namedService, pdfDate, pdfMoney, summaryFee } from "./words";
+import { FREQUENCY_WORDS, PER_FREQUENCY, feeWords, namedService, pdfDate, pdfMoney, summaryFee } from "./words";
 
 type Block = ProposalRecord["blocks"][number];
 /** What changing one line of the proposal may send. */
@@ -79,11 +79,6 @@ export function ProposalDocument({
 }) {
   const { record, error, loaded, reload } = useProposal(proposalId);
   const session = useSession();
-  /** Null until read. The sections are not drawn before it arrives: drawn
-   *  without it they read "A. FRC" and could be lettered in another order
-   *  for a moment, which is exactly the disagreement with the PDF this
-   *  document exists to rule out. */
-  const [depts, setDepts] = useState<readonly ServiceAxis[] | null>(null);
   const [people, setPeople] = useState<readonly Choice[]>([]);
   const [colleagues, setColleagues] = useState<readonly Choice[]>([]);
 
@@ -92,21 +87,6 @@ export function ProposalDocument({
   const mayEdit =
     editable && isDraft && (session?.permissions.includes("party:write") ?? false);
   const clientId = record?.proposal.partyId ?? null;
-
-  // The firm's Depts, for the section titles and their order.
-  useEffect(() => {
-    // A refusal, or no answer at all, letters by code alone, as the renderer
-    // does for a Dept it keeps no row for: better than a document that never
-    // appears.
-    void api
-      .GET("/api/v1/tenancy/axes", {})
-      .then((r) => {
-        setDepts(r.data ? r.data.axes.filter((a) => a.axis === "dept") : []);
-      })
-      .catch(() => {
-        setDepts([]);
-      });
-  }, []);
 
   // Whom the cover may name, read only when it can be changed: the client's
   // people (the list the API checks "Prepared for" against, F-10-1) and the
@@ -126,14 +106,14 @@ export function ProposalDocument({
     });
   }, [mayEdit, clientId]);
 
-  if ((!loaded && record === null) || (record !== null && depts === null)) return <DocumentSkeleton />;
+  if (!loaded && record === null) return <DocumentSkeleton />;
   if (record === null) {
     return <Notice tone="danger">{error ?? "This proposal could not be read."}</Notice>;
   }
 
   const { proposal } = record;
   const currency = proposal.currency;
-  const sections = planSections(record.lines, depts ?? []);
+  const sections = planSections(record);
   const blocksOf = (kind: NoteKind): Block[] =>
     record.blocks.filter((b) => b.kind === kind).sort((a, b) => a.sortOrder - b.sortOrder);
   const hasNotes = NOTES.some((n) => blocksOf(n.kind).length > 0);
@@ -252,8 +232,7 @@ export function ProposalDocument({
         <header className="flex flex-col gap-6 border-b border-line pb-8">
           <div className="flex flex-col gap-2">
             <p className="text-xs uppercase tracking-[0.11em] text-faint">
-              <span className="mono">{proposal.ref}</span>
-              {proposal.sentAt !== null && ` · ${pdfDate(utcDay(proposal.sentAt))}`}
+              <span className="mono">{proposal.ref}</span> · {pdfDate(record.issuedOn)}
             </p>
             <h2 className="text-2xl font-semibold text-brand-ink">Proposal for Services</h2>
             <EditableText
@@ -348,7 +327,7 @@ export function ProposalDocument({
         ))}
 
         {/* ── Summary of Fees ─────────────────────────────────────────── */}
-        <FeesSummary sections={sections} currency={currency} />
+        <FeesSummary sections={sections} currency={currency} totals={record.totalsByFrequency} />
 
         {/* ── Valid until ─────────────────────────────────────────────── */}
         {(proposal.validUntil !== null || mayEdit) && (
@@ -394,12 +373,6 @@ export function ProposalDocument({
       </div>
     </article>
   );
-}
-
-/** The UTC day of an instant: the day the PDF's running header prints
- *  (`utcDayOf` in the renderer), which is why it is not the reader's day. */
-function utcDay(instant: string): string {
-  return new Date(instant).toISOString().slice(0, 10);
 }
 
 function DocSection({ title, children }: { title: string; children: ReactNode }) {
@@ -518,6 +491,7 @@ function ServiceItem({
               <BackToStandard
                 noun={t.noun}
                 service={name}
+                standard={term.standard}
                 onRestore={() => onRevise(line.id, { [t.override]: null })}
               />
             )}
@@ -568,10 +542,14 @@ function ServiceItem({
 function BackToStandard({
   noun,
   service,
+  standard,
   onRestore,
 }: {
   noun: string;
   service: string;
+  /** The catalogue's words, or null when it has none (putting it back then
+   *  takes the text off this proposal). */
+  standard: string | null;
   onRestore: () => Promise<SaveOutcome>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -584,6 +562,7 @@ function BackToStandard({
         disabled={busy}
         className="text-xs text-brand underline"
         aria-label={`Put back the catalogue's ${noun} for ${service}`}
+        title={standard === null ? "The catalogue has none, so this takes it off the proposal." : `The catalogue says: ${standard}`}
         onClick={() => {
           setBusy(true);
           setRefusal(null);
@@ -593,7 +572,7 @@ function BackToStandard({
           });
         }}
       >
-        {busy ? "Putting it back…" : "Back to standard"}
+        {busy ? "Putting it back…" : standard === null ? "Back to standard (none)" : "Back to standard"}
       </button>
       {refusal !== null && (
         <span role="alert" className="text-sm text-danger">
@@ -611,7 +590,15 @@ function fee(line: ProposalLine, currency: string): string {
   return feeWords(line.net, line.billingFrequency, line.pricingNote, currency);
 }
 
-function FeesSummary({ sections, currency }: { sections: readonly PlannedSection[]; currency: string }) {
+function FeesSummary({
+  sections,
+  currency,
+  totals,
+}: {
+  sections: readonly PlannedSection[];
+  currency: string;
+  totals: ProposalRecord["totalsByFrequency"];
+}) {
   const rows = sections.flatMap((s) => s.items.map((i) => ({ section: s.code, item: i })));
   return (
     <DocSection title="Summary of Fees">
@@ -644,7 +631,7 @@ function FeesSummary({ sections, currency }: { sections: readonly PlannedSection
                 <td className="break-words px-2 py-2">
                   {item.line.billingFrequency === null ? "Not stated" : FREQUENCY_WORDS[item.line.billingFrequency]}
                 </td>
-                <td className="mono break-words px-2 py-2">
+                <td className={cx("break-words px-2 py-2", item.line.net !== null && "mono")}>
                   {item.line.priced && item.line.net === null
                     ? "Not shown to you"
                     : summaryFee(item.line.net, item.line.pricingNote, currency)}
@@ -654,7 +641,58 @@ function FeesSummary({ sections, currency }: { sections: readonly PlannedSection
           </tbody>
         </table>
       )}
+      {rows.length > 0 && <FrequencyTotals totals={totals} currency={currency} />}
     </DocSection>
+  );
+}
+
+/**
+ * THE TOTAL, PER FREQUENCY (D8), and never one mixed figure: a month's fee
+ * and a year's fee added together is a number nobody is ever billed. The
+ * database adds them up (`totalsByFrequency`); nothing here adds money.
+ * Shown on this screen only, under the table: the PDF's Summary of Fees has
+ * no total row.
+ */
+function FrequencyTotals({
+  totals,
+  currency,
+}: {
+  totals: ProposalRecord["totalsByFrequency"];
+  currency: string;
+}) {
+  if (totals.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 border-t border-line pt-3">
+      <p className="text-sm font-semibold text-ink-2">Total fees</p>
+      <ul className="flex flex-col gap-1">
+        {totals.map((t) => {
+          const often = t.frequency === null ? "Frequency not stated" : FREQUENCY_WORDS[t.frequency];
+          const unpriced =
+            t.unpricedLineCount === 0
+              ? ""
+              : `, plus ${String(t.unpricedLineCount)} ${t.unpricedLineCount === 1 ? "service" : "services"} to be agreed`;
+          return (
+            <li key={t.frequency ?? "none"} className="flex flex-wrap justify-between gap-x-6">
+              <span>
+                {often}
+                <span className="text-sm text-muted">
+                  {" "}
+                  ({String(t.lineCount)} {t.lineCount === 1 ? "service" : "services"}
+                  {unpriced})
+                </span>
+              </span>
+              <span className="mono">
+                {t.net === null
+                  ? t.lineCount === t.unpricedLineCount
+                    ? "To be agreed"
+                    : "Not shown to you"
+                  : `${pdfMoney(t.net, currency)}${t.frequency === null ? "" : ` ${PER_FREQUENCY[t.frequency]}`}`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
