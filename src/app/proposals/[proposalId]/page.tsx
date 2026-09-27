@@ -43,6 +43,7 @@ import {
 import { Loading } from "@/components/states";
 import { longDay, longInstant } from "@/lib/day";
 import { Page, PageHeader } from "@/components/layout";
+import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 
 /**
  * One proposal: what was quoted, from which catalogue version, at what price.
@@ -281,7 +282,10 @@ export default function ProposalPage() {
   }
 
   const { proposal, totals, lines } = record;
-  const isDraft = proposal.status === "draft";
+  // A draft deleted as a mistake (0086) is still a draft by status, and FINAL:
+  // nothing on this page may be offered for it, so it is not a draft here.
+  const deleted = proposal.deletedAt !== null;
+  const isDraft = proposal.status === "draft" && !deleted;
   // The API decides whether an approval is needed; this only decides whether to
   // OFFER the button, from what /auth/me says the session holds. Somebody
   // without it still gets an accurate refusal — but not offering it is not the
@@ -309,7 +313,8 @@ export default function ProposalPage() {
         title={<>{proposal.title}</>}
         lede={
           <>
-            {record.party.displayName} · <Pill>{proposal.status}</Pill>
+            {record.party.displayName} ·{" "}
+            <Pill tone={deleted ? "danger" : "neutral"}>{deleted ? "deleted" : proposal.status}</Pill>
             {/* `valid_until` is a `date` column, so it is SPLIT and never
                 parsed. It read `2026-10-31` here and on the client's own share
                 page, which are the last two places on the product that still
@@ -332,6 +337,13 @@ export default function ProposalPage() {
       />
 
       <ErrorNotice error={error} />
+
+      {proposal.deletedAt !== null && (
+        <DeletedNotice what="This draft" deletedAt={proposal.deletedAt} deletedBy={record.deletedBy}>
+          It never went out. It is not on the list of proposals, its number {proposal.ref} is not
+          used again, and nothing about it changes.
+        </DeletedNotice>
+      )}
 
       <ProposalCover
         record={record}
@@ -529,7 +541,11 @@ export default function ProposalPage() {
         kinds={PROPOSAL_BLOCK_KINDS}
         canWrite={canWrite}
         editable={isDraft}
-        frozenNote={`This quote is ${proposal.status}, so its wording is the record of what the client was shown. A different offer is a new quote.`}
+        frozenNote={
+          deleted
+            ? "This draft was deleted as made by mistake, so its wording no longer changes."
+            : `This quote is ${proposal.status}, so its wording is the record of what the client was shown. A different offer is a new quote.`
+        }
         onChanged={load}
       />
 
@@ -627,109 +643,112 @@ export default function ProposalPage() {
         </Card>
       )}
 
-      <Card>
-        <CardTitle level={2}>{isDraft ? "Send it" : "Where it stands"}</CardTitle>
+      {/* Nothing stands, and nothing is sent, for a draft deleted as a mistake. */}
+      {!deleted && (
+        <Card>
+          <CardTitle level={2}>{isDraft ? "Send it" : "Where it stands"}</CardTitle>
 
-        {proposal.discountApprovedAt !== null && (
-          <p className="muted text-md">
-            Discount signed off by{" "}
-            {record.approvedBy?.displayName ?? record.approvedBy?.email ?? "a colleague"} on{" "}
-            {longInstant(proposal.discountApprovedAt)}.
-          </p>
-        )}
-        {proposal.firstViewedAt !== null && (
-          <p className="muted text-md">
-            First opened {longInstant(proposal.firstViewedAt)} · {proposal.viewCount}{" "}
-            {proposal.viewCount === 1 ? "view" : "views"}.
-          </p>
-        )}
-
-        <div className="cluster">
-          {isDraft && canApprove && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={busy !== null}
-              onClick={() => {
-                void act("approve", () =>
-                  api.POST("/api/v1/proposals/{proposalId}/discount-approval", {
-                    params: { path: { proposalId } },
-                  }),
-                );
-              }}
-            >
-              Approve the discount
-            </Button>
+          {proposal.discountApprovedAt !== null && (
+            <p className="muted text-md">
+              Discount signed off by{" "}
+              {record.approvedBy?.displayName ?? record.approvedBy?.email ?? "a colleague"} on{" "}
+              {longInstant(proposal.discountApprovedAt)}.
+            </p>
           )}
-          {proposal.status === "sent" && !declining && (
-            <>
+          {proposal.firstViewedAt !== null && (
+            <p className="muted text-md">
+              First opened {longInstant(proposal.firstViewedAt)} · {proposal.viewCount}{" "}
+              {proposal.viewCount === 1 ? "view" : "views"}.
+            </p>
+          )}
+
+          <div className="cluster">
+            {isDraft && canApprove && (
               <Button
+                variant="secondary"
+                size="sm"
                 disabled={busy !== null}
                 onClick={() => {
-                  void act("accepted", () =>
-                    api.POST("/api/v1/proposals/{proposalId}/decision", {
+                  void act("approve", () =>
+                    api.POST("/api/v1/proposals/{proposalId}/discount-approval", {
                       params: { path: { proposalId } },
-                      body: { decision: "accepted" },
                     }),
                   );
                 }}
               >
-                Client accepted
+                Approve the discount
               </Button>
-              <Button
-                ref={declineTrigger}
-                variant="destructive-quiet"
-                size="sm"
-                disabled={busy !== null}
-                onClick={() => {
-                  setDeclining(true);
-                }}
-              >
-                Client declined
-              </Button>
-            </>
-          )}
-          {!isDraft && proposal.status !== "sent" && (
-            <p className="muted text-md">
-              This proposal is {proposal.status} and can no longer be changed. If the client comes
-              back, draft a new proposal.
+            )}
+            {proposal.status === "sent" && !declining && (
+              <>
+                <Button
+                  disabled={busy !== null}
+                  onClick={() => {
+                    void act("accepted", () =>
+                      api.POST("/api/v1/proposals/{proposalId}/decision", {
+                        params: { path: { proposalId } },
+                        body: { decision: "accepted" },
+                      }),
+                    );
+                  }}
+                >
+                  Client accepted
+                </Button>
+                <Button
+                  ref={declineTrigger}
+                  variant="destructive-quiet"
+                  size="sm"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setDeclining(true);
+                  }}
+                >
+                  Client declined
+                </Button>
+              </>
+            )}
+            {!isDraft && proposal.status !== "sent" && (
+              <p className="muted text-md">
+                This proposal is {proposal.status} and can no longer be changed. If the client comes
+                back, draft a new proposal.
+              </p>
+            )}
+          </div>
+          {proposal.status === "sent" && !declining && (
+            <p className="muted text-sm mt-2">
+              The client can accept or decline on the proposal&apos;s own page. If they answered
+              another way — a call, a meeting — record it with the buttons above.
             </p>
           )}
-        </div>
-        {proposal.status === "sent" && !declining && (
-          <p className="muted text-sm mt-2">
-            The client can accept or decline on the proposal&apos;s own page. If they answered
-            another way — a call, a meeting — record it with the buttons above.
-          </p>
-        )}
 
-        {/* SEND, BY EMAIL OR NOT (0085). The address is the person it was
-            prepared for, when the firm holds theirs — in the box, visible,
-            before anybody presses. */}
-        {isDraft && canWrite && (
-          <div className="mt-4">
-            <SendByEmail
-              mode="send"
-              defaultTo={record.addressee?.email ?? ""}
+          {/* SEND, BY EMAIL OR NOT (0085). The address is the person it was
+              prepared for, when the firm holds theirs — in the box, visible,
+              before anybody presses. */}
+          {isDraft && canWrite && (
+            <div className="mt-4">
+              <SendByEmail
+                mode="send"
+                defaultTo={record.addressee?.email ?? ""}
+                replyTo={record.preparedBy?.email ?? null}
+                busy={busy === "send"}
+                onSend={(ask) => {
+                  void send(ask);
+                }}
+              />
+            </div>
+          )}
+
+          {!isDraft && <EmailHistory emails={record.emails} />}
+          {proposal.status === "sent" && canWrite && !declining && (
+            <SendAgain
+              defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? ""}
               replyTo={record.preparedBy?.email ?? null}
               busy={busy === "send"}
-              onSend={(ask) => {
-                void send(ask);
-              }}
+              onSend={(ask) => send(ask, true)}
             />
-          </div>
-        )}
-
-        {!isDraft && <EmailHistory emails={record.emails} />}
-        {proposal.status === "sent" && canWrite && !declining && (
-          <SendAgain
-            defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? ""}
-            replyTo={record.preparedBy?.email ?? null}
-            busy={busy === "send"}
-            onSend={(ask) => send(ask, true)}
-          />
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
 
       {record.clientDecision !== null && <ClientAnswer answer={record.clientDecision} />}
 
@@ -861,10 +880,50 @@ export default function ProposalPage() {
         key={record.sentPdf?.versionId ?? "no-pdf-of-record"}
         subjectKind="proposal"
         subjectRef={proposalId}
-        canWrite={canWrite}
+        // A deleted draft gains nothing (0086): its files stay readable.
+        canWrite={canWrite && !deleted}
         title="Proposal PDF"
         renderable="proposal"
         emptyHint="No PDF yet. Generate one to read the proposal as the client will, or to send it with the link."
+      />
+
+      <DeleteMistake
+        title="Made by mistake?"
+        intro={
+          <p className="muted">
+            A draft that should never have been started can be deleted. Nobody outside the firm has
+            seen it.
+          </p>
+        }
+        label="Delete this draft"
+        consequence={
+          <>
+            <p>
+              {proposal.ref} leaves the list of proposals, and its number is not used again. Its
+              files stay where they are.
+            </p>
+            <p>
+              The page stays readable from its link, and the audit trail records that you deleted
+              it. This cannot be undone.
+            </p>
+          </>
+        }
+        name={proposal.ref}
+        refusal={record.deleteRefusal}
+        explained={["PROPOSAL_CITED_BY_LETTER"]}
+        canWrite={canWrite}
+        onDelete={async () => {
+          setError(null);
+          const result = await api.DELETE("/api/v1/proposals/{proposalId}", {
+            params: { path: { proposalId } },
+          });
+          if (result.error) {
+            setError(apiError(result.error).message);
+            return false;
+          }
+          await load();
+          return true;
+        }}
       />
     </Page>
   );

@@ -15,8 +15,8 @@ import {
 import type {
   Colleague,
   EventRecord,
-  LeadRecord,
   LeadStage,
+  LeadView,
   ProposalSummary,
 } from "@/lib/api/client";
 import {
@@ -42,7 +42,8 @@ import {
   Th,
 } from "@/components/ui";
 import { Empty, Loading } from "@/components/states";
-import { Page, PageHeader } from "@/components/layout";
+import { Page, PageHeader, useSession } from "@/components/layout";
+import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { longInstant, longMoment } from "@/lib/day";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
@@ -136,6 +137,8 @@ function sentenceFor(event: EventRecord["event"]): string {
       // and resolving it to a name here would mean a second read per row for a
       // fact the actor column already answers most of the time.
       return p["ownerUserId"] === null ? "Owner removed" : "Owner assigned";
+    case "lead.deleted":
+      return "Deleted as entered by mistake";
     default:
       return event.verb;
   }
@@ -145,8 +148,9 @@ export default function LeadPage() {
   const router = useRouter();
   const params = useParams<{ leadId: string }>();
   const leadId = params.leadId;
+  const session = useSession();
 
-  const [record, setRecord] = useState<LeadRecord | null>(null);
+  const [record, setRecord] = useState<LeadView | null>(null);
   const [staff, setStaff] = useState<Colleague[]>([]);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
@@ -265,6 +269,9 @@ export default function LeadPage() {
 
   const { lead, party, owner } = record;
   const closed = TERMINAL_STAGES.includes(lead.stage);
+  // Deleted as a mistake (0086): out of the pipeline, and final — so none of
+  // the forms below is offered, because every one of them would be refused.
+  const deleted = lead.deletedAt !== null;
 
   return (
     <Page>
@@ -274,7 +281,9 @@ export default function LeadPage() {
         lede={
           <>
             An opportunity with <Link href={`/clients/${party.id}`}>{party.displayName}</Link>.
-            Move it along the stages below, and draft a proposal from it when you are ready.
+            {deleted
+              ? " Deleted as entered by mistake, so there is nothing more to do with it."
+              : " Move it along the stages below, and draft a proposal from it when you are ready."}
           </>
         }
         aside={<LinkButton variant="ghost" href="/leads">The pipeline</LinkButton>}
@@ -288,6 +297,13 @@ export default function LeadPage() {
       <p className="muted" role="status" aria-live="polite">
         {note ?? ""}
       </p>
+
+      {lead.deletedAt !== null && (
+        <DeletedNotice what="This lead" deletedAt={lead.deletedAt} deletedBy={record.deletedBy}>
+          It was not marked lost: it is not in the pipeline or any of its numbers, and nothing
+          about it changes again. If the prospect turns out to be real, capture a new lead.
+        </DeletedNotice>
+      )}
 
       <Card>
         <CardTitle level={2}>The opportunity</CardTitle>
@@ -361,56 +377,58 @@ export default function LeadPage() {
       {/* Open AND closed: what a deal was worth is worth correcting after it
           closes, and the API allows it for that reason. The key remounts the
           form on a save, so its boxes start from what was just stored. */}
-      <Card>
-        <CardTitle level={2}>Country and value</CardTitle>
-        <form
-          key={`${lead.jurisdiction ?? ""}|${lead.estimatedValue?.amount ?? ""}`}
-          action={(form) => {
-            saveDetails(form);
-          }}
-        >
-          <FieldStack>
-            <FieldRow>
-              <Field
-                label="Country"
-                hint="Where the prospect is. Changing it does not move the opportunity to another desk."
-              >
-                <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
-              </Field>
-              <Field
-                label="Could be worth"
-                hint={
-                  previewAmount(
-                    cleanAmount(
-                      typedValue ??
-                        (lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)),
-                    ),
-                  ) ?? "Your best estimate in the firm's currency. Numbers only. Leave it blank if nobody knows."
-                }
-              >
-                <Input
-                  name="estimatedValue"
-                  inputMode="decimal"
-                  placeholder="500000"
-                  defaultValue={
-                    lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)
+      {!deleted && (
+        <Card>
+          <CardTitle level={2}>Country and value</CardTitle>
+          <form
+            key={`${lead.jurisdiction ?? ""}|${lead.estimatedValue?.amount ?? ""}`}
+            action={(form) => {
+              saveDetails(form);
+            }}
+          >
+            <FieldStack>
+              <FieldRow>
+                <Field
+                  label="Country"
+                  hint="Where the prospect is. Changing it does not move the opportunity to another desk."
+                >
+                  <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
+                </Field>
+                <Field
+                  label="Could be worth"
+                  hint={
+                    previewAmount(
+                      cleanAmount(
+                        typedValue ??
+                          (lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)),
+                      ),
+                    ) ?? "Your best estimate in the firm's currency. Numbers only. Leave it blank if nobody knows."
                   }
-                  onChange={(e) => {
-                    setTypedValue(e.target.value);
-                  }}
-                />
-              </Field>
-            </FieldRow>
-            <div className="cluster">
-              <Button type="submit" disabled={busy}>
-                Save
-              </Button>
-            </div>
-          </FieldStack>
-        </form>
-      </Card>
+                >
+                  <Input
+                    name="estimatedValue"
+                    inputMode="decimal"
+                    placeholder="500000"
+                    defaultValue={
+                      lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)
+                    }
+                    onChange={(e) => {
+                      setTypedValue(e.target.value);
+                    }}
+                  />
+                </Field>
+              </FieldRow>
+              <div className="cluster">
+                <Button type="submit" disabled={busy}>
+                  Save
+                </Button>
+              </div>
+            </FieldStack>
+          </form>
+        </Card>
+      )}
 
-      {closed ? (
+      {deleted ? null : closed ? (
         <Card>
           <CardTitle level={2}>This opportunity is closed</CardTitle>
           <p className="muted">
@@ -627,6 +645,49 @@ export default function LeadPage() {
           </TableWrap>
         )}
       </Card>
+
+      {/* Last, below the history: it is the one act on this page that is not
+          about working the opportunity. */}
+      <DeleteMistake
+        title="Entered by mistake?"
+        intro={
+          <p className="muted">
+            A duplicate, a test, or the wrong company can be deleted. It leaves the pipeline
+            without being counted as a lost deal. An opportunity that was real, but did not work
+            out, should be closed as lost or abandoned instead.
+          </p>
+        }
+        label="Delete this lead"
+        consequence={
+          <>
+            <p>
+              It leaves the pipeline and every number taken from it. It is not recorded as lost.
+            </p>
+            <p>
+              The page stays readable from its link, and the audit trail records that you deleted
+              it. This cannot be undone.
+            </p>
+          </>
+        }
+        name={lead.title}
+        refusal={record.deleteRefusal}
+        explained={["LEAD_HAS_PROPOSALS", "CLOSED_LEAD_NEEDS_ADMIN"]}
+        canWrite={session?.permissions.includes("party:write") ?? false}
+        onDelete={async () => {
+          setError(null);
+          setNote(null);
+          const result = await api.DELETE("/api/v1/leads/{leadId}", {
+            params: { path: { leadId } },
+          });
+          if (result.error) {
+            setError(apiError(result.error).message);
+            return false;
+          }
+          await load();
+          setNote("Deleted. It is no longer in the pipeline.");
+          return true;
+        }}
+      />
     </Page>
   );
 }

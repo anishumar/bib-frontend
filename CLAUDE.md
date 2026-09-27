@@ -266,10 +266,10 @@ porting a screen; it is invisible in the source.
 | `/clients/import` | **bring in the book** — the firm's existing clients, people and engagements from spreadsheets: templates, upload, the report (blocking / warnings), confirm, and what each row became. `tenant:admin`; offered from `/clients` |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
-| `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending |
+| `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending — and deleting a draft made by mistake (0086) |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it, where they accept or decline it and download its PDF (0085). No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
-| `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms, its signature, and the engagements it created |
+| `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms, its signature, and the engagements it created — and deleting a draft made by mistake (0086) |
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16). The "Add a service" form lists them too (`NewServiceFilings`), sent once the service exists |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
@@ -1866,6 +1866,46 @@ bug.** `groupCompanies` reads the group BOTH ways round, for portal access; a le
 only the client and what it HOLDS — subsidiaries at any depth, and companies it is a shareholder
 or director of (Shrestha's decision). The quote panel read `groupCompanies` until this, and so
 offered the client's parent and its shareholders: companies the letter then refused.
+
+## Deleting a mistake — a lead, a draft proposal, a draft letter (0086, 2026-09-27)
+
+Until 0086 a mistake had nowhere to go: a lead could only be closed as LOST (a lost deal that
+never existed, counted in the pipeline), a draft proposal could only be SENT, and a draft letter
+could only be WITHDRAWN (on the list for ever, marked withdrawn). The user decided: delete what
+was made by mistake while nothing depends on it and it has not left the firm, and **hide it rather
+than erase it** — the backend's CLAUDE.md has the whole rule.
+
+**One component, `DeleteMistake` (`src/components/delete-mistake.tsx`), for the three pages**,
+because it is one act and three hand-written versions would disagree on the two sentences that
+matter: a deletion is not an outcome, and it cannot be undone.
+
+- **The API says in advance whether it would work.** Each page's read carries `deleteRefusal` —
+  the code and sentence the DELETE would be refused with, or null. The card appears only when it
+  will work, or — for the refusals worth reading, which each page names in `explained` — shows the
+  API's sentence where the button would be ("Proposal PR-2026-0005 was drafted from this lead…",
+  "only a firm administrator can…"). A refusal about what the thing IS (sent, signed, converted,
+  deleted) draws no card at all: the page already says that, and a disabled button nobody can
+  use is noise. `party:write` comes from `useSession()`, as on `/clients`.
+- **Confirmed IN PLACE**, the catalogue's "Remove from this service" shape: the quiet button is
+  replaced by a warning saying what happens, with "Delete it" (destructive) beside "Keep it".
+- **After it works the page reloads and says so.** `DeletedNotice` — `warn`, not `danger`,
+  because nothing went wrong — names when (`longInstant`) and who, and every control that would be
+  refused is gone: a proposal's and a letter's `isDraft` is false once deleted, the lead page hides
+  its forms, the Documents panel stops offering to attach, and **the letter's own wording is
+  `editable={!isSigned && !deleted}`** — that panel was gated on "not signed" alone, so the walk
+  found Add and "Strike it off" on a deleted draft (the API refuses them too since 0087). The lists
+  need no change: the API leaves a deleted item out of them.
+- **A draft letter has no Withdraw any more.** Withdraw is for a letter the client has SEEN; a
+  draft nobody has seen is deleted, at the foot of its page.
+
+**What walking it found, and no gate could have: a double-click deleted without the warning ever
+being read.** The two states of the card had the same shape — a `div` holding a `div.cluster`
+holding a `<Button>` — so React REUSED the one `<button>`, relabelled it "Delete it", and focus
+stayed on it: a second click, or a second Enter, on "Delete this draft" pressed "Delete it". Both
+branches are KEYED now (`"ask"` / `"confirm"`), so the quiet button unmounts and `useSwapFocus`
+puts focus on the warning; measured with Playwright for mouse, keyboard and a real `dblclick`.
+**Any confirm-in-place built from the same parts needs the same keys** — the catalogue's is safe
+only because its two branches happen to differ in shape.
 
 ## The billing screens, and the two numbers that behave differently
 

@@ -11113,13 +11113,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The lead, with the prospect and the owner */
+                /** @description The lead, with the prospect and the owner — deleted or not, because a link must still open — and whether it could be deleted now */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["LeadRecord"];
+                        "application/json": components["schemas"]["LeadView"];
                     };
                 };
                 /** @description No authenticated session */
@@ -11153,7 +11153,68 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a lead entered by mistake
+         * @description Takes the lead out of the pipeline and every count; it still opens by id, says it was deleted, and never changes again (0086). NOT a stage: lost and abandoned are what happened to a real prospect, and this says there was none. Refused once converted, while a live proposal was drafted from it, and — for anybody who does not administer the firm — once it has been closed as lost or abandoned, because that changes the pipeline's numbers. GET /api/v1/leads/{leadId} says in advance whether this would work.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    leadId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Lead"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The role may not write parties, or the lead is closed and the caller does not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such lead in this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The lead was converted, a live proposal was drafted from it, or it was already deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -11698,7 +11759,68 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a draft made by mistake
+         * @description Takes a DRAFT off the list of quotes; it still opens by id, says it was deleted, and never changes again (0086). Its reference is not reused. Refused once sent — the client holds the document — and while a live engagement letter cites it. GET /api/v1/proposals/{proposalId} says in advance whether this would work.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is not a draft, a live engagement letter cites it, or it was already deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         /**
@@ -12891,7 +13013,68 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a draft made by mistake
+         * @description Takes a DRAFT off the list of letters; it still opens by id, says it was deleted, and never changes again (0086). Its reference is not reused. A letter the client has seen is WITHDRAWN instead, which keeps the record that it was offered, and a signed one is never deleted. GET /api/v1/engagement-letters/{letterId} says in advance whether this would work.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetter"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is not a draft, or it was already deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -19267,6 +19450,10 @@ export interface components {
             } | null;
             capturedAt: string;
             closedAt: string | null;
+            /** @description When this lead was DELETED as entered by mistake (0086), or null. Not an outcome — lost and abandoned are what happened to a real prospect; this says there was none. A deleted lead is in no list and no count, still opens by id, and never changes again. */
+            deletedAt: string | null;
+            /** Format: uuid */
+            deletedByUserId: string | null;
         };
         LeadCaptureResult: {
             lead: components["schemas"]["Lead"];
@@ -19328,6 +19515,36 @@ export interface components {
         };
         LeadList: {
             leads: components["schemas"]["LeadRecord"][];
+        };
+        LeadView: {
+            lead: components["schemas"]["Lead"];
+            party: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "organization" | "person";
+                displayName: string;
+            };
+            owner: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            /** @description Who deleted it, when it was deleted and the account still resolves. */
+            deletedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            /** @description Why DELETE /api/v1/leads/{leadId} would be refused right now, in its own words — or null when it would work. Says nothing about `party:write`, which /auth/me already does. */
+            deleteRefusal: {
+                code: string;
+                message: string;
+            } | null;
         };
         MoveLeadStageRequest: {
             /** @enum {string} */
@@ -19395,6 +19612,10 @@ export interface components {
             addressedToPartyId: string | null;
             /** Format: uuid */
             preparedByUserId: string | null;
+            /** @description When this DRAFT was deleted as made by mistake (0086), or null. A deleted proposal is in no list, still opens by id, and never changes again; its reference is not reused. */
+            deletedAt: string | null;
+            /** Format: uuid */
+            deletedByUserId: string | null;
         };
         DraftProposalRequest: {
             /** Format: uuid */
@@ -19588,6 +19809,18 @@ export interface components {
             sentPdf: components["schemas"]["ProposalPdf"];
             emails: components["schemas"]["ProposalEmail"][];
             clientDecision: components["schemas"]["ProposalClientDecision"];
+            deletedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            /** @description Why DELETE /api/v1/proposals/{proposalId} would be refused right now, in its own words — or null when it would work (0086). Says nothing about `party:write`, which /auth/me already does. */
+            deleteRefusal: {
+                code: string;
+                message: string;
+            } | null;
         };
         ReviseProposalRequest: {
             title?: string;
@@ -19748,6 +19981,10 @@ export interface components {
             firmSignatoryUserId: string | null;
             firmSignatoryTitle: string | null;
             firmSignedAt: string | null;
+            /** @description When this DRAFT was deleted as made by mistake (0086), or null. Not withdrawn, which is a letter the client has seen: a deleted letter is in no list, still opens by id, and never changes again. */
+            deletedAt: string | null;
+            /** Format: uuid */
+            deletedByUserId: string | null;
         };
         DraftEngagementLetterRequest: {
             /** Format: uuid */
@@ -20078,6 +20315,18 @@ export interface components {
             totals: components["schemas"]["EngagementLetterTotals"];
             engagements: components["schemas"]["Engagement"][];
             signing: components["schemas"]["EngagementLetterSigning"];
+            deletedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                /** Format: email */
+                email: string;
+            } | null;
+            /** @description Why DELETE /api/v1/engagement-letters/{letterId} would be refused right now, in its own words — or null when it would work (0086), which means a live draft. Says nothing about `party:write`, which /auth/me already does. */
+            deleteRefusal: {
+                code: string;
+                message: string;
+            } | null;
         };
         AddEngagementLetterLineRequest: {
             /** Format: uuid */
