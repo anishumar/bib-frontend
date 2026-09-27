@@ -12131,7 +12131,82 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a line on a draft
+         * @description Its fee, quantity, discount, billing frequency, pricing note, country, out-of-pocket range and its four scope blocks — judged by the rules for adding one, on the line as it will be (T6.18). A null override puts back the catalogue's words. A discount raised past the firm's limit after a sign-off lapses the sign-off, so the draft needs approving again. Answers with the whole proposal, so a screen gets the new totals in the same round trip.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateProposalLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Nothing to change, an amount or discount that is not one, no price and no reason, a discount on an unpriced line, or a country code that is not one */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal, or no such live line on it */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft, or was deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/proposals/{proposalId}/discount-approval": {
@@ -19974,6 +20049,21 @@ export interface components {
             exclusionsOverride?: string;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string;
+        };
+        UpdateProposalLineRequest: {
+            description?: string;
+            quantity?: string;
+            unitAmount?: string | null;
+            discountPercent?: string;
+            jurisdiction?: string | null;
+            /** @enum {string|null} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            scopeOverride?: string | null;
+            clientObligationsOverride?: string | null;
+            volumeLimitsOverride?: string | null;
+            exclusionsOverride?: string | null;
+            oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
+            pricingNote?: string | null;
         };
         ProposalEmailOutcome: {
             /** @enum {string} */

@@ -204,6 +204,14 @@ const PATHS = {
   ),
   download: <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 19h16" />,
   upload: <path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 19h16" />,
+  /* Edit in place: the proposal document's pencil (T6.18). A pencil and the
+     line it has drawn, so it reads as "write here" rather than as a tool. */
+  pencil: (
+    <>
+      <path d="M15.5 4.5 19.5 8.5 9 19H5v-4L15.5 4.5Z" />
+      <path d="M13 7l4 4M13 20h7" />
+    </>
+  ),
   external: (
     <>
       <path d="M14 4h6v6" />
