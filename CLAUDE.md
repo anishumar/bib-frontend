@@ -266,7 +266,7 @@ porting a screen; it is invisible in the source.
 | `/clients/import` | **bring in the book** — the firm's existing clients, people and engagements from spreadsheets: templates, upload, the report (blocking / warnings), confirm, and what each row became. `tenant:admin`; offered from `/clients` |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
 | `/proposals` | what the firm has quoted, and drafting a new one |
-| `/proposals/[proposalId]` | one proposal: its lines, the catalogue version each was pinned to, the discount gate, sending — and deleting a draft made by mistake (0086) |
+| `/proposals/[proposalId]` | one proposal AS A DOCUMENT, editable in place on a draft (T6.18), and the Send panel under it (email, WhatsApp, PDF, the client's answer); below them its services with the catalogue version and list price each was pinned to, its files, and deleting a draft made by mistake (0086) |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it, where they accept or decline it and download its PDF (0085). No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
 | `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms, its signature, and the engagements it created — and deleting a draft made by mistake (0086) |
@@ -1766,12 +1766,12 @@ the in-scope services, the work in sections by the firm's Dept with each service
 catalogue code, the Summary of Fees and the Notes. `/proposals/[proposalId]` carries two things
 for it:
 
-- **"Cover and Background"** (`cover.tsx`) — who it is prepared for (a PERSON from the client's
-  own `structure`, the list the API checks, or the company alone), who prepared it (a colleague
-  from `/tenancy/colleagues`; drafting names the drafter), the validity date and the Background
-  paragraph. Editable on a DRAFT through `PATCH /proposals/{id}`, which answers with the whole
-  record, so the card re-reads nothing. The save sends all five fields every time — absent means
-  "leave it" to the API, and the form shows all five.
+- **The cover and the Background** — who it is prepared for (a PERSON from the client's own
+  `structure`, the list the API checks, or the company alone), who prepared it (a colleague from
+  `/tenancy/colleagues`; drafting names the drafter), the validity date and the Background
+  paragraph. Since T6.18 these are edited IN PLACE on the document (below); the old "Cover and
+  Background" card (`cover.tsx`) is no longer mounted on the page. `PATCH /proposals/{id}` answers
+  with the whole record, and absent means "leave it", so each in-place save sends only its field.
 - **"Proposal PDF"** — the ordinary `<Documents renderable="proposal">` panel. Not shared with
   the client's portal by default: a quote may never be sent.
 
@@ -1779,6 +1779,50 @@ for it:
 where the two names land so the artwork leaves room for them. The screen's banner used to say
 nothing printed these marks at all, which stopped being true when the renderer shipped; it now
 says what prints where, and that the letterhead is still only stored.
+
+### The proposal as a document, and the Send panel (T6.18, 2026-09-28)
+
+`/proposals/[proposalId]` now leads with **the proposal as the client will read it**, and every
+card it had before sits below, in one 900px column. Two components in
+`src/components/proposal-document/`, each taking only a `proposalId`, because the builder's step 3
+mounts the same two:
+
+- **`<ProposalDocument proposalId editable onChanged?>`** draws the PDF's own structure in the
+  PDF's own order: cover, Background, in-scope services, a section per Dept lettered by RANK with
+  each service under its catalogue code, the Summary of Fees, "valid until", and the Notes (team,
+  general exclusions, commercials). The lettering is the API's: the read carries `document`, built
+  by the same `planProposal` call the renderer makes, and `plan.ts` only joins each item back to
+  its line (a local copy of the rules read "A. FRC" until the Dept list arrived and could letter
+  differently). The cover's date is the read's `issuedOn`, the PDF's running-header day.
+  `words.ts` restates the renderer's money and frequency wording ("INR 50,000 Yearly", en-US
+  grouping, ISO code) so screen and paper say the same thing, down to the "Total INR 25,000
+  Monthly + INR 62,500 Yearly, plus 1 service as mutually agreed" line under the Summary of Fees
+  (D8, `totalsByFrequency`, added by the database, the grouping the PDF prints). One deliberate
+  difference: the PDF joins a service and its company with a dash, the screen says "for".
+- **Editing in place (D10)**, on a live draft, with `editable`, to a session holding
+  `party:write`: a pencil on hover, on its own keyboard focus and always without hover; the piece
+  becomes a box that saves on blur or Ctrl/Cmd+Enter (Enter for one line), and Escape keeps what
+  it said. The refusal is a plain `role="alert"` beside the box and NOT an `ErrorNotice`: that
+  takes focus, which blurs the box, which saves again. Focus goes back to the pencil only after a
+  keyboard exit, and only if focus was lost (a person already in the next piece keeps it; the walk
+  found the pencil effect stealing focus from the next box). Title, the two names, Background and
+  validity go to `PATCH /proposals/{id}`; a Notes line to the document-block routes (edit, strike
+  off, add); a service's name, its four scope texts ("Back to standard" = a null override) and its
+  fee to `PATCH /proposals/{id}/lines/{lineId}`. An empty scope text is not drawn, as the PDF does
+  not draw it; a row under the service offers to add one. A sent proposal draws no controls and
+  says why in one line.
+- **`<ProposalSendPanel proposalId onChanged?>`**: Send by email (the addressee in the box),
+  **Send on WhatsApp** (the same send with no email, then an `Open WhatsApp` link to
+  `wa.me/<digits>?text=` with the one-time share link, or `wa.me/?text=` when no phone is on
+  record, again after Send again), "Just give me the link", and Download PDF (a draft renders one,
+  a sent proposal downloads the PDF OF RECORD). After sending: Client accepted / declined with the
+  decline reason, the Emailed history, Send again. The issued-link card shows only while the
+  proposal is `sent`.
+- **One read for both**: `store.ts` keeps the record per id; a write that answers with the whole
+  record puts it in (`putProposal`), every other write re-reads. A read requested while one is out
+  waits and reads again rather than sharing (the one out may predate the write), and a read that
+  left before a `putProposal` is dropped. The page reads it too (`useProposal`), so sending turns
+  the document read-only and the page's cards follow in the same render.
 
 ## Screens are how API gaps get found
 
