@@ -265,11 +265,13 @@ porting a screen; it is invisible in the source.
 | `/clients/[partyId]` | party 360: the account team, identifiers, registrations, relationships |
 | `/clients/import` | **bring in the book** — the firm's existing clients, people and engagements from spreadsheets: templates, upload, the report (blocking / warnings), confirm, and what each row became. `tenant:admin`; offered from `/clients` |
 | `/leads` | the pipeline — capture with dedup, stage, ownership |
-| `/proposals` | what the firm has quoted, and drafting a new one |
-| `/proposals/[proposalId]` | one proposal AS A DOCUMENT, editable in place on a draft (T6.18), and the Send panel under it (email, WhatsApp, PDF, the client's answer); below them its services with the catalogue version and list price each was pinned to, its files, and deleting a draft made by mistake (0086) |
+| `/proposals` | what the firm has quoted; **New proposal** opens the builder |
+| `/proposals/new` | the builder's step 1 for a proposal not yet drafted (T6.18): the client (or a new prospect, who becomes a lead), which of the firm's companies issues it, the currency, the cover. `?clientPartyId=` / `?leadId=` arrive with the client chosen |
+| `/proposals/[proposalId]/build` | the builder on a draft, `?step=client\|services\|preview` (T6.18): the catalogue by country with prices in the document's currency, then the document itself editable in place with the Send panel under it. A sent proposal opens on the preview |
+| `/proposals/[proposalId]` | one proposal AS A DOCUMENT, editable in place on a draft (T6.18), and the Send panel under it (email, WhatsApp, PDF, the client's answer); below them its services with the catalogue version and list price each was pinned to, its files, and deleting a draft made by mistake (0086). A draft's header offers **Edit in the builder** |
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it, where they accept or decline it and download its PDF (0085). No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
-| `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms, its signature, and the engagements it created — and deleting a draft made by mistake (0086) |
+| `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms (and **Add all standard terms for <issuer>**, T6.18 D6), its signature, and the engagements it created — and deleting a draft made by mistake (0086) |
 | `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16). The "Add a service" form lists them too (`NewServiceFilings`), sent once the service exists |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
@@ -1730,7 +1732,7 @@ there is nothing to re-fetch — "Send again" issues a new one, and the old one 
 
 ### Sending by email, and the client's answer (0085, 2026-09-26)
 
-**Send is a form now** (`delivery.tsx`): "Email it to" — the person the proposal is prepared
+**Send is a form now** (since T6.18 in `<ProposalSendPanel>`, below; `delivery.tsx` is gone): "Email it to" — the person the proposal is prepared
 for, when the firm holds their email, IN the box before anybody presses — an optional note, and
 two buttons, "Send by email" and "Send without email" (the old behaviour: the link comes back and
 the firm sends it however it likes). bib emails the PDF of record with Accept and Decline
@@ -1770,7 +1772,7 @@ for it:
   `structure`, the list the API checks, or the company alone), who prepared it (a colleague from
   `/tenancy/colleagues`; drafting names the drafter), the validity date and the Background
   paragraph. Since T6.18 these are edited IN PLACE on the document (below); the old "Cover and
-  Background" card (`cover.tsx`) is no longer mounted on the page. `PATCH /proposals/{id}` answers
+  Background" card (`cover.tsx`) was deleted in T6.18's integration. `PATCH /proposals/{id}` answers
   with the whole record, and absent means "leave it", so each in-place save sends only its field.
 - **"Proposal PDF"** — the ordinary `<Documents renderable="proposal">` panel. Not shared with
   the client's portal by default: a quote may never be sent.
@@ -1823,6 +1825,54 @@ mounts the same two:
   waits and reads again rather than sharing (the one out may predate the write), and a read that
   left before a `putProposal` is dropped. The page reads it too (`useProposal`), so sending turns
   the document read-only and the page's cards follow in the same render.
+
+### The builder: three steps, one record, one way of saying money (T6.18, 2026-09-28)
+
+`/proposals/new` → `/proposals/{id}/build?step=client|services|preview`, a full page (D14), in
+`src/components/proposal-builder/`. **Step 1** is who it is for (an existing client picked by
+typing, or a new prospect: lead capture, so the pipeline's dedup keeps working, D12), which of the
+firm's companies issues it (the firm's country rule, D4, from `GET /firm-entities`) and the
+currency that company quotes in (D1). **Step 2** is the catalogue one country at a time, the
+issuer's country first, grouped by Dept then delivery team; ticking adds the line at its list
+price when that price is in the document's currency and otherwise asks "Set fee" with the box
+focused (D3); Details changes the fee, the frequency and the four scope texts for this proposal
+only (D7). **Step 3** is `<ProposalDocument editable>` and `<ProposalSendPanel>`, the very two the
+proposal page mounts. The step is in the URL, so a reload or a colleague's link lands on it.
+
+- **ONE READ FOR ALL THREE STEPS.** The builder page reads the proposal through `useProposal`,
+  the store the document and the Send panel share. A fee changed in the step 3 document moves the
+  sticky footer's total in the same render, because the line PATCH answers with the whole record
+  and `putProposal` hands it to every reader. Before the join the builder held its own copy, and
+  the footer would have gone on showing the old figure until a reload.
+- **Step 1 is keyed on the proposal's head** (`key={JSON.stringify(proposal)}`). It copies the
+  draft into its boxes once, at mount; a cached record older than this visit, or a colleague's
+  change, would otherwise sit in the boxes and be saved back over the newer one.
+- **One way of saying money.** `pdfMoney`, `FREQUENCY_WORDS` and `totalWords` in
+  `proposal-document/words.ts` are the PDF renderer's own wording, and the builder's rows, its
+  Details form and its footer import them from there: "AED 4,000 Monthly" on step 2 is the same
+  words on step 3 and on paper. The builder had its own ("AED 4,000.00 / month", from
+  `formatMoney`) and it is gone. `totalWords` also drops a frequency whose every line has no fixed
+  fee: the staff read sums it as "0" where the PDF's read has NULL and skips it, and the screen
+  must not print "AED 0 One-time" that the paper does not.
+- **The footer's Send does not send.** It scrolls to the panel and focuses the address box: the
+  address, the note and the channel are the panel's to decide, and a button that decided all
+  three would be a send nobody saw coming. It is still the step's one committing action, so it
+  is the brand button.
+- **"Add all standard terms for <issuer>"** sits on the letter page's Terms card (the route is
+  T6.18 item 7): every published clause through the add-one rules, and what did not fit is listed
+  with the API's own sentence ("…names IN as its governing law, and this letter is issued by an
+  entity registered in AE…"). The one-at-a-time picker below it still offers every clause for the
+  letter's country, including a foreign-law one the API will refuse; filtering it needs the
+  issuer's country on the letter read, which is the letter builder's (S6) to add.
+
+**Measured on a fresh fixture** (`bib/demo-assets/tools/epb-s4-walk.mjs`, 71 checks, screenshots
+in `bib/demo-assets/notes/epb-s4-walk/`): **8 clicks** from "New proposal" on `/proposals` to
+Sent for one company and three services (client typed + Enter; Next; three ticks; Next; the
+footer's Send; Send by email), from about 20. A prospect in the UAE is issued by the Gulf company
+in AED, an India service shows "Set fee", a scope edited in step 2 and an exclusion and a fee
+edited in the preview are all in the PDF of record, the email reaches Mailpit with the PDF and a
+`/p/<token>` link that accepts, the letter written up carries the edited exclusion (D11), and a
+second draft moved to another company is asked first and gets that company's prose (D9).
 
 ## Screens are how API gaps get found
 
