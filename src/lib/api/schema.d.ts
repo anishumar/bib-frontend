@@ -11893,7 +11893,7 @@ export interface paths {
         head?: never;
         /**
          * Change a draft proposal's head
-         * @description Its title, how long it is valid, its Background, and the two names its cover prints — who it is prepared for and who prepared it (0084). A draft only: once sent, the client holds what it said. Answers with the whole proposal, names resolved.
+         * @description Its title, how long it is valid, its Background, and the two names its cover prints — who it is prepared for and who prepared it (0084). Since T6.18 also which of the firm's companies issues it (its prose is replaced with that company's standard set, in the same transaction) and its currency and rate (the currency only while no line is quoted). A draft only: once sent, the client holds what it said. Answers with the whole proposal, names resolved.
          */
         patch: {
             parameters: {
@@ -11955,7 +11955,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not a draft, or the person named has no recorded role at this client */
+                /** @description Not a draft, the person named has no recorded role at this client, a new currency under live lines (CURRENCY_LOCKED_BY_LINES), or an issuer change that would replace prose edited for this client (PROSE_EDITED, naming the count) */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -20066,6 +20066,13 @@ export interface components {
             addressedToPartyId?: string | null;
             /** Format: uuid */
             preparedByUserId?: string | null;
+            /** Format: uuid */
+            issuingEntityPartyId?: string;
+            replaceEditedProse?: boolean;
+            clientJurisdiction?: string;
+            currency?: string;
+            fxRate?: string;
+            fxRateDate?: string;
         };
         AddProposalLineRequest: {
             /** Format: uuid */

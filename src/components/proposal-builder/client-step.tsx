@@ -91,10 +91,15 @@ export function ClientStep({
   draft,
   prefillClientId,
   prefillLeadId,
+  onSaved,
 }: {
   draft: ProposalRecord | null;
   prefillClientId: string | null;
   prefillLeadId: string | null;
+  /** A draft saved here: the builder holds the record the API answered with,
+   *  so step 2 opens on the new issuer and currency. The page does not reload
+   *  between steps, so without it step 2 drew the proposal as it was. */
+  onSaved?: (record: ProposalRecord) => void;
 }) {
   const router = useRouter();
   const session = useSession();
@@ -146,6 +151,9 @@ export function ClientStep({
   const [titlePick, setTitlePick] = useState<string | null>(draft?.proposal.title ?? null);
   const [addresseeId, setAddresseeId] = useState<string>(draft?.proposal.addressedToPartyId ?? "");
   const [validUntil, setValidUntil] = useState<string>(draft?.proposal.validUntil ?? "");
+  /** A draft's issuer is changing and its prose was written or edited for this
+   *  client: the reader is asked before it is replaced (D9). */
+  const [askReplace, setAskReplace] = useState(false);
 
   // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -279,6 +287,22 @@ export function ClientStep({
   const fxRateDate =
     datePick ?? (foreign && ratePick === null && known !== undefined ? known.on : browserDay());
 
+  // ── On a draft (T6.18 item 3) ────────────────────────────────────────────
+  // The issuer can change, and its standard prose replaces the draft's. The
+  // currency can change only while no service is on it: every line is priced
+  // in it. A rate or its date can always be corrected.
+  const lineCount = draft?.lines.length ?? 0;
+  const currencyLocked = draft !== null && lineCount > 0;
+  const issuerChanged = draft !== null && issuerId !== draft.proposal.issuingEntityPartyId;
+  const moneyChanged =
+    draft !== null &&
+    (currency !== draft.proposal.currency ||
+      (foreign && fxRate !== trimRate(draft.proposal.fxRate ?? "")) ||
+      fxRateDate !== draft.proposal.fxRateDate);
+  /** Lines this proposal says in its own words: reworded from the standard
+   *  set, or written for this client. All of them go when the issuer changes. */
+  const ownProse = (draft?.blocks ?? []).filter((x) => x.isEdited || x.sourceId === null).length;
+
   const currencies = useMemo(() => {
     const set = new Set<string>();
     for (const e of firm?.entities ?? []) set.add(e.defaultCurrency);
@@ -395,25 +419,57 @@ export function ClientStep({
     return done;
   }
 
+  /** A draft's step 1, saved in one call: the cover, and the issuer and the
+   *  money when they changed. */
+  async function save(replaceEditedProse: boolean): Promise<void> {
+    if (draft === null) return;
+    setBusy(true);
+    setError(null);
+    const where = client?.registeredIn ?? null;
+    const saved = await api.PATCH("/api/v1/proposals/{proposalId}", {
+      params: { path: { proposalId: draft.proposal.id } },
+      body: {
+        title: title.trim(),
+        validUntil: validUntil === "" ? null : validUntil,
+        addressedToPartyId: addresseeId === "" ? null : addresseeId,
+        ...(issuerChanged
+          ? {
+              issuingEntityPartyId: issuerId,
+              // Which country's standard lines the new wording takes: the
+              // client's, as when a proposal is first drafted.
+              ...(where === null ? {} : { clientJurisdiction: where }),
+              ...(replaceEditedProse ? { replaceEditedProse: true } : {}),
+            }
+          : {}),
+        ...(moneyChanged ? { currency, fxRate: foreign ? fxRate.trim() : "1", fxRateDate } : {}),
+      },
+    });
+    setBusy(false);
+    if (saved.error) {
+      // Somebody edited a line since this page was read: ask now.
+      if (apiError(saved.error).reason === "PROSE_EDITED") {
+        setAskReplace(true);
+        return;
+      }
+      setError(apiError(saved.error).message);
+      return;
+    }
+    onSaved?.(saved.data);
+    router.push(`/proposals/${draft.proposal.id}/build?step=services` as Route);
+  }
+
   async function next(e: FormEvent): Promise<void> {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       if (draft !== null) {
-        const saved = await api.PATCH("/api/v1/proposals/{proposalId}", {
-          params: { path: { proposalId: draft.proposal.id } },
-          body: {
-            title: title.trim(),
-            validUntil: validUntil === "" ? null : validUntil,
-            addressedToPartyId: addresseeId === "" ? null : addresseeId,
-          },
-        });
-        if (saved.error) {
-          setError(apiError(saved.error).message);
+        // D9: ask before the wording written for this client is replaced.
+        if (issuerChanged && ownProse > 0) {
+          setAskReplace(true);
           return;
         }
-        router.push(`/proposals/${draft.proposal.id}/build?step=services` as Route);
+        await save(false);
         return;
       }
 
@@ -671,7 +727,9 @@ export function ClientStep({
                 label="Your company"
                 hint={
                   draft !== null
-                    ? "Chosen when this draft was started."
+                    ? issuerChanged
+                      ? "Next replaces this proposal's exclusions, commercials and team with this company's standard set."
+                      : "Changing it gives the proposal that company's standard wording."
                     : issuerPick !== null
                       ? "Chosen by you."
                       : whereKey !== null && firm?.routes.has(whereKey) === true
@@ -681,13 +739,16 @@ export function ClientStep({
               >
                 <Select
                   value={issuerId}
-                  disabled={draft !== null}
                   onChange={(e) => {
                     setIssuerPick(e.target.value);
-                    // D1: choosing the company chooses its currency.
-                    setCurrencyPick(null);
-                    setRatePick(null);
-                    setDatePick(null);
+                    setAskReplace(false);
+                    // D1: choosing the company chooses its currency, while
+                    // nothing on the proposal is priced yet.
+                    if (!currencyLocked) {
+                      setCurrencyPick(null);
+                      setRatePick(null);
+                      setDatePick(null);
+                    }
                   }}
                 >
                   {(firm?.entities ?? []).map((e) => (
@@ -701,8 +762,8 @@ export function ClientStep({
               <Field
                 label="Currency"
                 hint={
-                  draft !== null
-                    ? "Every line on this proposal is priced in it."
+                  currencyLocked
+                    ? `Every service on it is priced in ${currency}. Remove them to quote in another currency.`
                     : issuer === null
                       ? undefined
                       : currency === issuer.defaultCurrency
@@ -712,7 +773,7 @@ export function ClientStep({
               >
                 <Select
                   value={currency}
-                  disabled={draft !== null}
+                  disabled={currencyLocked}
                   onChange={(e) => {
                     setCurrencyPick(e.target.value);
                     setRatePick(null);
@@ -733,8 +794,8 @@ export function ClientStep({
                 <Field
                   label={`1 ${currency} is how many ${reporting}`}
                   hint={
-                    draft !== null
-                      ? undefined
+                    draft !== null && !moneyChanged
+                      ? "The rate this proposal was quoted at. Correct it here if it was wrong."
                       : known === undefined
                         ? `Your books are in ${reporting}, so a ${currency} proposal records the rate it was quoted at.`
                         : `Your last ${currency} rate, from ${known.ref} (${longDay(known.on)}). Change it if it has moved.`
@@ -744,7 +805,6 @@ export function ClientStep({
                     inputMode="decimal"
                     value={fxRate}
                     required
-                    disabled={draft !== null}
                     placeholder="22.75"
                     onChange={(e) => {
                       setRatePick(e.target.value.replace(/[,\s]/g, ""));
@@ -756,13 +816,47 @@ export function ClientStep({
                     type="date"
                     value={fxRateDate}
                     required
-                    disabled={draft !== null}
                     onChange={(e) => {
                       setDatePick(e.target.value);
                     }}
                   />
                 </Field>
               </FieldRow>
+            )}
+
+            {askReplace && issuerChanged && (
+              <Notice tone="warn" eyebrow="Replace this proposal's wording?">
+                <p>
+                  {ownProse} {ownProse === 1 ? "line" : "lines"} of its exclusions, commercials or
+                  team {ownProse === 1 ? "was" : "were"} written or edited for this client. Changing
+                  the issuer replaces all of its wording with the standard set of{" "}
+                  {issuer?.name ?? "the new company"}, and those lines are lost.
+                </p>
+                <div className="cluster mt-2">
+                  <Button
+                    type="button"
+                    variant="destructive-quiet"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => {
+                      void save(true);
+                    }}
+                  >
+                    {ownProse === 1 ? "Replace it and continue" : "Replace them and continue"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setIssuerPick(draft?.proposal.issuingEntityPartyId ?? null);
+                      setAskReplace(false);
+                    }}
+                  >
+                    Keep {draft?.issuingEntity.displayName ?? "the issuer"}
+                  </Button>
+                </div>
+              </Notice>
             )}
           </FieldStack>
         </div>

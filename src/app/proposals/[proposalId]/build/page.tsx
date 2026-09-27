@@ -116,7 +116,7 @@ function Builder() {
       {error !== null && <Notice tone="danger">{error}</Notice>}
 
       {step === "client" && (
-        <ClientStep draft={record} prefillClientId={null} prefillLeadId={null} />
+        <ClientStep draft={record} prefillClientId={null} prefillLeadId={null} onSaved={setRecord} />
       )}
       {step === "services" && (
         <ServicesStep
