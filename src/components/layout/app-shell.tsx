@@ -45,6 +45,22 @@ export function useSession(): Principal | null {
   return useContext(SessionContext);
 }
 
+/* ── Sidebar counts (V2.1) ──────────────────────────────────────────────────
+ * The number beside Work board, Jobs and Client requests: what is on YOUR
+ * desk there. The shell fetches nothing for them: My day already holds every
+ * one of those lists, and the pages themselves hold their own, so whichever
+ * loaded last REPORTS its count here. A count nobody has reported yet is not
+ * drawn, never drawn as 0.
+ */
+type NavCounts = Partial<Record<"/work-items" | "/work" | "/client-requests", number>>;
+
+const NavCountsContext = createContext<(counts: NavCounts) => void>(() => undefined);
+
+/** Report what is on the reader's desk, for the sidebar. */
+export function useNavCounts(): (counts: NavCounts) => void {
+  return useContext(NavCountsContext);
+}
+
 /* ── The map of the product ─────────────────────────────────────────────────
  * ONE definition of what this workspace contains, and the permission each part
  * needs. It sits here because it is a fact about the application, not about
@@ -106,6 +122,13 @@ function initials(who: string | null): string {
 }
 
 const GROUPS: NavGroup[] = [
+  {
+    /* Where staff land (V2.1): everything on their desk, by date. First, and a
+       plain link, because it is the screen a sidebar is most used to reach. */
+    label: "My day",
+    icon: "home",
+    items: [{ href: "/", label: "My day", icon: "home" }],
+  },
   {
     /* The Copilot is where the product is heading (ask the firm a question in
        words) and it cannot answer yet, so it is one link that says so, not the
@@ -393,6 +416,13 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+/** The reported count for a sidebar link, or undefined: nothing reported yet,
+ *  or nothing on the reader's desk there (a 0 is not drawn). */
+function countFor(counts: NavCounts, href: string): number | undefined {
+  const n = counts[href as keyof NavCounts];
+  return n === undefined || n === 0 ? undefined : n;
+}
+
 function visible(item: NavItem, p: Principal): boolean {
   if (item.needs !== undefined && !p.permissions.includes(item.needs)) return false;
   if (item.when !== undefined && !item.when(p)) return false;
@@ -424,6 +454,11 @@ export function AppShell({ children }: { children: ReactNode }) {
    * without being told to, and stops guessing the moment you disagree with it.
    */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  /** What the pages last reported is on the reader's desk (V2.1). */
+  const [counts, setCounts] = useState<NavCounts>({});
+  const reportCounts = useCallback((next: NavCounts) => {
+    setCounts((was) => ({ ...was, ...next }));
+  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const bare = isBare(pathname);
@@ -641,6 +676,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SessionContext.Provider value={principal}>
+      <NavCountsContext.Provider value={reportCounts}>
       <div className="shell">
         {/* TWENTY-ONE TAB STOPS STOOD BETWEEN THE PAGE AND THE KEYBOARD.
             Measured: the sidebar is 14 to 21 stops depending on which
@@ -742,6 +778,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         >
                           <span className="label">{item.label}</span>
                           {item.note !== undefined && <span className="count">{item.note}</span>}
+                          {countFor(counts, item.href) !== undefined && (
+                            <span className="count">{countFor(counts, item.href)}</span>
+                          )}
                         </Link>
                       ))}
                     </div>
@@ -862,6 +901,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      </NavCountsContext.Provider>
     </SessionContext.Provider>
   );
 }

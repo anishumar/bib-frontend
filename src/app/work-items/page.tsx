@@ -13,7 +13,7 @@ import type {
   WorkItemCheckRow,
   WorkItemState,
 } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { Page, PageHeader, useNavCounts } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import {
   Button,
@@ -115,6 +115,7 @@ function WorkBoardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const reportCounts = useNavCounts();
   const [items, setItems] = useState<WorkItem[]>([]);
   const [checks, setChecks] = useState<WorkItemCheckRow[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
@@ -199,6 +200,12 @@ function WorkBoardPage() {
     }
     setItems(board.data.items);
     setMe(principal.error ? null : principal.data);
+    // The sidebar's count is what is on YOUR desk (V2.1), as the Mine tab says.
+    if (!principal.error && !includeDone) {
+      reportCounts({
+        "/work-items": board.data.items.filter((i) => i.assignee?.userId === principal.data.userId).length,
+      });
+    }
     setParties(book.data?.parties ?? []);
     setStaff(roster.data?.colleagues ?? []);
     // A refusal empties a queue tab rather than blanking the page.
@@ -208,7 +215,7 @@ function WorkBoardPage() {
     setLadderPublished(escalated.error ? false : escalated.data.ladderPublished);
     setError(null);
     setLoaded(true);
-  }, [router, includeDone]);
+  }, [router, includeDone, reportCounts]);
 
   useEffect(() => {
     void (async () => {

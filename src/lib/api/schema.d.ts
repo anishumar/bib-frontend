@@ -18552,6 +18552,11 @@ export interface components {
             subjectTitle: string;
             /** @description Who is billed. Null on a filing — an obligation is owed by the ENTITY and carries no client. */
             clientName: string | null;
+            /**
+             * Format: uuid
+             * @description The same client by id, to link it. Null exactly where `clientName` is.
+             */
+            clientPartyId: string | null;
             /** @description WHICH of the client's companies. A group of four files four sets of returns (G0.1), so a row naming only the client is four identical rows. */
             entityName: string | null;
             holder: components["schemas"]["EscalationPerson"] & unknown;
@@ -19592,6 +19597,10 @@ export interface components {
         };
         WorkItemCheckRow: components["schemas"]["WorkItemReview"] & {
             viewer: components["schemas"]["WorkItemCheckViewer"];
+            /** Format: uuid */
+            clientPartyId: string;
+            /** @description The task's own due day, or null when it has none. */
+            dueOn: string | null;
         };
         WorkItemChecksResponse: {
             checks: components["schemas"]["WorkItemCheckRow"][];
@@ -19755,6 +19764,20 @@ export interface components {
                 gradeName: string | null;
             }[];
         };
+        /** @description The job this is part of: its client (by id, to link) and company, period, services and due day. Null when the job is linked to no engagement, so there is nothing to name. */
+        StepJobContext: {
+            /** Format: uuid */
+            clientPartyId: string | null;
+            clientName: string | null;
+            /** Format: uuid */
+            entityPartyId: string | null;
+            entityName: string | null;
+            periodLabel: string | null;
+            /** @description The services the job delivers, by the names the client's letter pinned. */
+            services: string[];
+            /** @description `YYYY-MM-DD`: the earliest due day of the job's unfinished tasks, which is what a step on it is due by. Null when none carries a date. */
+            dueOn: string | null;
+        } | null;
         MyStep: {
             /** Format: uuid */
             id: string;
@@ -19764,6 +19787,7 @@ export interface components {
             label: string;
             /** @enum {string} */
             status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
+            job: components["schemas"]["StepJobContext"];
         };
         MyStepsResponse: {
             steps: components["schemas"]["MyStep"][];
@@ -19821,6 +19845,7 @@ export interface components {
             reviewPoints: components["schemas"]["CheckLine"][];
             /** @description How many review points are still open: the same count the decide route refuses Approve on. */
             reviewPointsOpen: number;
+            job: components["schemas"]["StepJobContext"];
         };
         StepChecksResponse: {
             checks: components["schemas"]["StepCheck"][];

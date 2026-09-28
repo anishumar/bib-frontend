@@ -401,7 +401,7 @@ re-run with `--update`, and one hint on the letter page). Over the merged branch
 | Route | Is |
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
-| `/` | where staff land: redirects to the Work board (V1.1, 2026-09-28). Clients land on `/portal` |
+| `/` | **My day** (V2.1), where staff land: everything on the reader's desk (tasks, steps, checks to decide, client requests, escalations) as ONE list in Overdue / Today / This week / Later. Clients land on `/portal` |
 | `/copilot` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so (the sidebar link reads "Not live yet"). The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
 | `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
 | `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
@@ -799,6 +799,44 @@ Two things they get from the API rather than deciding locally, and both matter:
 returns the permissions the session's role carries, so a link is shown only to somebody who
 can use it — but every screen still shows the API's refusal verbatim when one arrives, because
 the API is the only place the answer actually lives.
+
+## `/` — My day, the one list of everything that is mine (V2.1, 2026-09-28)
+
+A person's work was spread over the Work board, Jobs, two To check queues and Client requests:
+about nine clicks and four screens, and nothing said what was due today. `/` is now **My day**,
+and it is where staff land (`homeFor` sends them to `/`; V1.1 had sent them to the board until
+this existed).
+
+- **Six reads, one list, nothing per row.** `/work-items?mine=true&asOf=`, `/my-steps`,
+  `/work-item-checks`, `/checks`, `/client-requests` (kept to the reader's desk) and
+  `/escalations?mine=true`, in one `Promise.all`. The API grew what the rows needed rather than
+  this screen fetching per row: `MyStep.job` and `StepCheck.job` (client and company by id,
+  period, services, and the job's due day = its earliest UNFINISHED task's), and `clientPartyId`
+  (+ `dueOn`) on `WorkItemCheckRow` and `EscalationRow`. The reader comes from `useSession()`,
+  so the page asks nothing until the shell knows who is signed in. In `next dev` StrictMode runs
+  the effect twice (12 requests, 6 distinct); a production build makes 6.
+- **Buckets by the work's due day against `browserDay()`:** Overdue, Today, This week (the next
+  SEVEN days, so a Friday still shows Monday), Later (closed, a Show button). What waits on the
+  reader NOW (a check to decide, a request to answer, an escalation to chase) is Today unless
+  already late, whatever the work's own date; other undated work is Later. Within a bucket:
+  earliest first, the reader's own turn first, then name.
+- **Every row: what (a whole-row link to where it is worked), the client (a LINK to its page),
+  due, whose turn.** Whose turn is You / A checker / The client / An earlier step. A task with
+  an open review, and a step that is done with a check open on it, is the checker's; a request
+  answered and not yet replied to is the client's; a `pending` step waits on an earlier step.
+  Waiting on the client for a TASK needs the open asks on the board's read and is a P1 task.
+- **One row per thing.** An escalation about the reader's OWN task is the flag "Escalated" on
+  that task's row; about somebody else's work it is its own row ("Escalated to you · with
+  Ananya Nair"), one per piece of work however many rungs fired. A done step waiting for its
+  check is one row, not a step and a check. A task check is listed only when the reader may
+  decide it (their own task waiting for a check is already a task row).
+- **Flags under the title, in tone:** the blocked reason in danger (the kind line already says
+  the firm's word for the state, "Task · Blocked"), "Waiting on <task>" and "Escalated" in warn.
+- **Empty:** "Nothing due. You are up to date." when Overdue, Today and This week are empty.
+- **Sidebar counts (`useNavCounts`).** Work board = open tasks on the reader's desk, Jobs =
+  steps on it, Client requests = requests on it waiting for the firm. The shell fetches NOTHING
+  for them: My day reports all three, and the Work board and Jobs report their own when they
+  load. A count nobody reported, or a 0, is not drawn.
 
 ## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
 

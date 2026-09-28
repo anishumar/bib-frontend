@@ -1,14 +1,497 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
+import { api, apiError } from "@/lib/api/client";
+import type {
+  ClientRequest,
+  Escalation,
+  MyStep,
+  StepCheck,
+  WorkItem,
+  WorkItemCheckRow,
+} from "@/lib/api/client";
+import { Page, PageHeader, Section, useNavCounts, useSession } from "@/components/layout";
+import { Empty, Loading } from "@/components/states";
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  NotSet,
+  Pill,
+  RowChevron,
+  RowLink,
+  Sub,
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  ThChevron,
+  Tr,
+} from "@/components/ui";
+import { browserDay, longDay } from "@/lib/day";
 
 /**
- * `/` sends staff to the Work board (V1.1, 2026-09-28).
+ * My day (V2.1, 2026-09-28): one list of everything that is the reader's.
  *
- * It was the AI Copilot, which cannot answer anything yet, so every partner,
- * manager and associate started the day on a screen saying "Not live yet". The
- * Copilot moved to `/copilot`. A CLIENT never gets here: sign-in sends them to
- * `/portal` (`homeFor`), and the shell sends a portal session there from any
- * staff route.
+ * A person's work was spread over the Work board, Jobs, two To check queues and
+ * Client requests: about nine clicks and four screens, and nothing said what was
+ * due today. This is where staff land now (`homeFor`), and it answers one
+ * question: what is on my desk, by when.
+ *
+ * ── SIX READS, ONE LIST ────────────────────────────────────────────────────
+ *
+ *   /work-items?mine          my tasks (the firm's own states, not finished)
+ *   /my-steps                 process steps on my desk, with their job
+ *   /work-item-checks         task checks: the ones I may decide
+ *   /checks                   step checks: the ones I may decide, and my own
+ *                             steps waiting for a checker
+ *   /client-requests          the live inbox, kept to what is on my desk
+ *   /escalations?mine         what the ladder told me about
+ *
+ * Six calls on load, and nothing per row: every read carries the client BY ID
+ * and the due day, which the API grew for this screen. An escalation about one
+ * of my own tasks is a FLAG on that task's row, not a second row.
+ *
+ * ── THE BUCKETS ────────────────────────────────────────────────────────────
+ *
+ * Overdue, Today, This week and Later, by the work's due day against the
+ * BROWSER's calendar day (`browserDay`). "This week" is the next seven days, so
+ * on a Friday Monday's filings are still in it. What is waiting on me RIGHT NOW
+ * (a check to decide, a client request to answer, an escalation to chase) is
+ * Today unless it is already late, whatever the work's own date: a check due
+ * next week is still a check somebody is waiting on. Other work with no due day
+ * goes to Later. Later starts closed.
+ *
+ * ── WHOSE TURN ─────────────────────────────────────────────────────────────
+ *
+ * Every row says who has to move next: you; a checker (your task or step is
+ * waiting for a check); the client (you replied and they have not come back);
+ * or an earlier step (a step on your desk that cannot start yet). Waiting on the
+ * client for a TASK is not derivable yet (it needs the open asks on the board's
+ * read, a P1 task), so a task is yours or a checker's.
  */
-export default function Home(): never {
-  redirect("/work-items");
+
+type Bucket = "overdue" | "today" | "week" | "later";
+type Turn = "me" | "checker" | "client" | "earlier";
+
+interface Row {
+  readonly key: string;
+  readonly what: string;
+  /** The kind of thing, and where it comes from, in a few words. */
+  readonly kind: string;
+  readonly href: Route;
+  readonly clientId: string | null;
+  readonly clientName: string | null;
+  readonly dueOn: string | null;
+  readonly turn: Turn;
+  /** Held up or escalated: said under the title, in its tone. */
+  readonly flags: readonly { readonly tone: "danger" | "warn"; readonly text: string }[];
+  /** Due on nothing, but waiting on me now: goes under Today. */
+  readonly now: boolean;
+}
+
+const TURN_WORDS: Readonly<Record<Turn, string>> = {
+  me: "You",
+  checker: "A checker",
+  client: "The client",
+  earlier: "An earlier step",
+};
+
+const BUCKETS: readonly { readonly key: Bucket; readonly title: string }[] = [
+  { key: "overdue", title: "Overdue" },
+  { key: "today", title: "Today" },
+  { key: "week", title: "This week" },
+  { key: "later", title: "Later" },
+];
+
+/** `YYYY-MM-DD` plus `days`, on the calendar (no clock, no zone). */
+function addDays(day: string, days: number): string {
+  const [y = 0, m = 1, d = 1] = day.split("-").map(Number);
+  const at = new Date(Date.UTC(y, m - 1, d + days));
+  return at.toISOString().slice(0, 10);
+}
+
+function bucketOf(row: Row, today: string): Bucket {
+  if (row.dueOn !== null && row.dueOn < today) return "overdue";
+  // Waiting on me NOW (a check to decide, a request to answer, an escalation to
+  // chase): today, whatever the work's own date, or it hides under Later.
+  if (row.now) return "today";
+  if (row.dueOn === null) return "later";
+  if (row.dueOn === today) return "today";
+  if (row.dueOn <= addDays(today, 7)) return "week";
+  return "later";
+}
+
+/** Earliest first; undated last; then the reader's own turn first; then name. */
+function byDue(a: Row, b: Row): number {
+  if (a.dueOn !== b.dueOn) {
+    if (a.dueOn === null) return 1;
+    if (b.dueOn === null) return -1;
+    return a.dueOn < b.dueOn ? -1 : 1;
+  }
+  const mine = Number(b.turn === "me") - Number(a.turn === "me");
+  if (mine !== 0) return mine;
+  return a.what.localeCompare(b.what);
+}
+
+/** The job a step belongs to, in words: "Monthly close · Aug 2026". */
+function jobWords(job: MyStep["job"]): string {
+  if (job === null) return "a job";
+  const services = job.services.join(", ");
+  return [services === "" ? null : services, job.periodLabel].filter(Boolean).join(" · ") || "a job";
+}
+
+export default function MyDayPage() {
+  const router = useRouter();
+  const session = useSession();
+  const reportCounts = useNavCounts();
+  const [rows, setRows] = useState<readonly Row[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showLater, setShowLater] = useState(false);
+  const userId = session?.userId ?? null;
+
+  useEffect(() => {
+    // The shell knows who is signed in; until it does there is nothing to ask.
+    if (userId === null) return;
+    let live = true;
+    void (async () => {
+      const today = browserDay();
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated] = await Promise.all([
+        api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
+        api.GET("/api/v1/my-steps", {}),
+        api.GET("/api/v1/work-item-checks", {}),
+        api.GET("/api/v1/checks", {}),
+        api.GET("/api/v1/client-requests", {}),
+        api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
+      ]);
+      if (!live) return;
+      if (tasks.response.status === 401) {
+        router.push("/login");
+        return;
+      }
+      // The board is the one read this screen cannot do without. The others
+      // empty their own rows when refused, rather than blanking the page.
+      if (tasks.error) {
+        setError(apiError(tasks.error).message);
+        setRows([]);
+        return;
+      }
+      const built = buildRows({
+        me: userId,
+        tasks: tasks.data.items,
+        steps: steps.data?.steps ?? [],
+        taskChecks: taskChecks.data?.checks ?? [],
+        stepChecks: stepChecks.data?.checks ?? [],
+        requests: requests.data?.requests ?? [],
+        escalations: escalated.data?.rows ?? [],
+      });
+      setRows(built);
+      setError(null);
+      reportCounts({
+        "/work-items": tasks.data.items.length,
+        "/work": (steps.data?.steps ?? []).length,
+        "/client-requests": (requests.data?.requests ?? []).filter(
+          (r) => r.assignee?.userId === userId && r.awaitingFirm,
+        ).length,
+      });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [userId, router, reportCounts]);
+
+  if (session === null || rows === null) return <Loading label="Loading your day" />;
+
+  const today = browserDay();
+  const grouped = new Map<Bucket, Row[]>(BUCKETS.map((b) => [b.key, []]));
+  for (const row of rows) grouped.get(bucketOf(row, today))?.push(row);
+  for (const list of grouped.values()) list.sort(byDue);
+  const dueSoon =
+    (grouped.get("overdue")?.length ?? 0) +
+    (grouped.get("today")?.length ?? 0) +
+    (grouped.get("week")?.length ?? 0);
+
+  return (
+    <Page>
+      <PageHeader title="My day" aside={<span className="text-ink-2">{longDay(today)}</span>} />
+
+      <ErrorNotice error={error} />
+
+      {dueSoon === 0 && (
+        <Card>
+          <Empty title="Nothing due. You are up to date." icon="check" />
+        </Card>
+      )}
+
+      {BUCKETS.map(({ key, title }) => {
+        const list = grouped.get(key) ?? [];
+        if (list.length === 0) return null;
+        const later = key === "later";
+        return (
+          <Section
+            key={key}
+            level={2}
+            title={
+              <>
+                {title}{" "}
+                <Pill tone={key === "overdue" ? "danger" : key === "today" ? "warn" : "neutral"}>
+                  {list.length}
+                </Pill>
+              </>
+            }
+            aside={
+              later ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={showLater}
+                  aria-controls="my-day-later"
+                  onClick={() => {
+                    setShowLater((v) => !v);
+                  }}
+                >
+                  {showLater ? "Hide" : "Show"}
+                </Button>
+              ) : undefined
+            }
+          >
+            {(!later || showLater) && (
+              <div id={later ? "my-day-later" : undefined}>
+                <DayTable rows={list} today={today} />
+              </div>
+            )}
+          </Section>
+        );
+      })}
+    </Page>
+  );
+}
+
+function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
+  return (
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>What</Th>
+            <Th>Client</Th>
+            <Th>Due</Th>
+            <Th>Whose turn</Th>
+            <ThChevron />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const late = row.dueOn !== null && row.dueOn < today;
+            return (
+              <Tr key={row.key} linked>
+                <Td>
+                  <span className="cell-text">
+                    <RowLink href={row.href}>{row.what}</RowLink>
+                  </span>
+                  <Sub>{row.kind}</Sub>
+                  {row.flags.map((f) => (
+                    <Sub key={f.text}>
+                      <span className={`cell-text tone-${f.tone}`}>{f.text}</span>
+                    </Sub>
+                  ))}
+                </Td>
+                <Td>
+                  {row.clientName === null ? (
+                    <NotSet />
+                  ) : row.clientId === null ? (
+                    <span className="cell-text" data-size="narrow">
+                      {row.clientName}
+                    </span>
+                  ) : (
+                    <span className="cell-text" data-size="narrow">
+                      <Link href={`/clients/${row.clientId}`}>{row.clientName}</Link>
+                    </span>
+                  )}
+                </Td>
+                <Td className="nowrap">
+                  {row.dueOn === null ? (
+                    <NotSet>No due date</NotSet>
+                  ) : (
+                    <span className={late ? "tone-danger" : row.dueOn === today ? "tone-warn" : undefined}>
+                      {longDay(row.dueOn)}
+                    </span>
+                  )}
+                </Td>
+                <Td className="nowrap">
+                  {row.turn === "me" ? <strong>{TURN_WORDS.me}</strong> : TURN_WORDS[row.turn]}
+                </Td>
+                <RowChevron />
+              </Tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    </TableWrap>
+  );
+}
+
+/**
+ * The six reads, as one list of rows.
+ *
+ * Pure, so the rules above are in one place: what counts as mine, whose turn it
+ * is, and the one merge (an escalation about my own task flags that task).
+ */
+function buildRows(input: {
+  me: string;
+  tasks: readonly WorkItem[];
+  steps: readonly MyStep[];
+  taskChecks: readonly WorkItemCheckRow[];
+  stepChecks: readonly StepCheck[];
+  requests: readonly ClientRequest[];
+  escalations: readonly Escalation[];
+}): Row[] {
+  const out: Row[] = [];
+
+  // What the ladder told me, by the task it is about: a flag on my own row.
+  const escalatedTask = new Map<string, Escalation>();
+  for (const e of input.escalations) {
+    if (e.workItemId !== null && !escalatedTask.has(e.workItemId)) escalatedTask.set(e.workItemId, e);
+  }
+  const myTaskIds = new Set(input.tasks.map((t) => t.id));
+
+  for (const t of input.tasks) {
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    // WHY it is stuck, in the danger tone: the kind line above already says the
+    // firm's word for the state ("Task · Blocked"), from the FLAG.
+    if (t.state.isBlocked && t.blockedReason !== null) {
+      flags.push({ tone: "danger", text: t.blockedReason });
+    }
+    if (t.blockedByOpen.length > 0) {
+      flags.push({ tone: "warn", text: `Waiting on ${t.blockedByOpen.map((b) => b.title).join(", ")}` });
+    }
+    // One word: the rung and who was told are on the board's Escalated tab, and
+    // the firm's rung label repeated on every late row drowned the reason above.
+    if (escalatedTask.has(t.id)) flags.push({ tone: "warn", text: "Escalated" });
+    out.push({
+      key: `task-${t.id}`,
+      what: t.title,
+      kind: `Task · ${t.state.name}`,
+      href: `/work-items/${t.id}` as Route,
+      clientId: t.clientPartyId,
+      clientName: t.clientName,
+      dueOn: t.dueOn,
+      turn: t.hasOpenReview ? "checker" : "me",
+      flags,
+      now: false,
+    });
+  }
+
+  // A step I finished that waits for its check is still on my desk to the
+  // engine (`blocked`: waiting on a person), and it is the CHECKER's turn. One
+  // row for it, here, rather than a step and a check saying two things.
+  const stepKey = (jobId: string, key: string): string => `${jobId}|${key}`;
+  const checking = new Set(
+    input.stepChecks.filter((c) => c.decision === "pending").map((c) => stepKey(c.jobId, c.stepKey)),
+  );
+  const mySteps = new Set(input.steps.map((s) => stepKey(s.jobId, s.stepKey)));
+  for (const s of input.steps) {
+    const waitingForCheck = checking.has(stepKey(s.jobId, s.stepKey));
+    out.push({
+      key: `step-${s.id}`,
+      what: s.label,
+      kind: `${waitingForCheck ? "Step, done" : "Step"} · ${jobWords(s.job)}`,
+      href: `/work/${s.jobId}` as Route,
+      clientId: s.job?.clientPartyId ?? null,
+      clientName: s.job?.clientName ?? null,
+      dueOn: s.job?.dueOn ?? null,
+      // `blocked` on a step is the engine waiting on a PERSON: this one, unless
+      // the step is done and a check is open on it.
+      turn: waitingForCheck ? "checker" : s.status === "pending" ? "earlier" : "me",
+      flags: [],
+      now: false,
+    });
+  }
+
+  // Checks I may decide. My OWN task waiting for a check is already a row
+  // above (whose turn: a checker), so the queue adds only the ones I decide.
+  for (const c of input.taskChecks) {
+    if (!c.viewer.eligible || c.decision !== "pending") continue;
+    out.push({
+      key: `task-check-${c.id}`,
+      what: c.workItemTitle,
+      kind: `Check${c.submittedByName === null ? "" : ` · by ${c.submittedByName}`}`,
+      href: `/work-items/${c.workItemId}` as Route,
+      clientId: c.clientPartyId,
+      clientName: c.clientName,
+      dueOn: c.dueOn,
+      turn: "me",
+      flags: [],
+      now: true,
+    });
+  }
+
+  // Step checks: the ones I decide, and my own finished steps waiting for a
+  // checker (a done step leaves /my-steps, so this is the only place it shows).
+  for (const c of input.stepChecks) {
+    if (c.decision !== "pending") continue;
+    const mineToDecide = c.viewer.eligible;
+    // My own step waiting for a checker, unless it is already a row above.
+    const mineWaiting = c.submittedBy === input.me && !mySteps.has(stepKey(c.jobId, c.stepKey));
+    if (!mineToDecide && !mineWaiting) continue;
+    out.push({
+      key: `step-check-${c.id}`,
+      what: c.stepLabel,
+      kind: `${mineToDecide ? "Check" : "Step, done"} · ${jobWords(c.job)}${
+        mineToDecide && c.submittedByName !== null ? ` · by ${c.submittedByName}` : ""
+      }`,
+      href: `/work/${c.jobId}` as Route,
+      clientId: c.job?.clientPartyId ?? null,
+      clientName: c.job?.clientName ?? null,
+      dueOn: c.job?.dueOn ?? null,
+      turn: mineToDecide ? "me" : "checker",
+      flags: [],
+      now: mineToDecide,
+    });
+  }
+
+  // Client requests on my desk: mine to answer, or answered and waiting on them.
+  for (const r of input.requests) {
+    if (r.assignee?.userId !== input.me) continue;
+    out.push({
+      key: `request-${r.requestId}`,
+      what: r.subject,
+      kind: "Client request",
+      href: `/client-requests/${r.requestId}` as Route,
+      clientId: r.clientPartyId,
+      clientName: r.clientName,
+      dueOn: null,
+      turn: r.awaitingFirm ? "me" : "client",
+      flags: [],
+      now: r.awaitingFirm,
+    });
+  }
+
+  // What the ladder told me about work that is NOT mine: mine to chase. One row
+  // per piece of work, however many rungs have fired on it.
+  const seen = new Set<string>();
+  for (const e of input.escalations) {
+    if (e.workItemId !== null && myTaskIds.has(e.workItemId)) continue;
+    const subject = e.workItemId ?? e.obligationInstanceId ?? e.id;
+    if (seen.has(subject)) continue;
+    seen.add(subject);
+    const holder = e.holder === null ? null : (e.holder.displayName ?? e.holder.email);
+    out.push({
+      key: `escalation-${e.id}`,
+      what: e.subjectTitle,
+      kind: `Escalated to you${holder === null ? "" : ` · with ${holder}`}`,
+      href: (e.workItemId !== null ? `/work-items/${e.workItemId}` : "/calendar") as Route,
+      clientId: e.clientPartyId,
+      clientName: e.clientName ?? e.entityName,
+      dueOn: e.dueOn,
+      turn: "me",
+      flags: [],
+      now: true,
+    });
+  }
+
+  return out;
 }

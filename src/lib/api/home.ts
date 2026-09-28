@@ -26,10 +26,11 @@ import type { SignInResponse } from "@/lib/api/client";
  *
  * ── WHERE STAFF LAND ───────────────────────────────────────────────────────
  *
- * The Work board (V1.1, 2026-09-28), not the AI Copilot that `/` used to be:
- * that screen cannot answer anything yet, and every role started the day on it.
+ * My day, at `/` (V2.1, 2026-09-28): everything on their desk, by date. It
+ * was the AI Copilot, which cannot answer anything yet, and every role started
+ * the day on it; V1.1 sent staff to the Work board until My day existed.
  */
-const STAFF_HOME = "/work-items";
+const STAFF_HOME = "/";
 
 export function homeFor(result: SignInResponse | undefined): typeof STAFF_HOME | "/portal" {
   if (result === undefined) return STAFF_HOME;
