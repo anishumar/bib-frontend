@@ -1518,7 +1518,9 @@ that column. The list is sorted overdue first (oldest first), then by due date, 
 last, rank then title breaking ties (`datedOrder`). Being stuck is a FLAG ON THE ROW: the state
 pill in danger tone with its reason under the task in danger, and "Waiting on <task>" in warn.
 **Tab and view are in the URL** (`?tab=mine|unassigned|checks|escalated|all&view=list|board`,
-written with `replace`), so Back from a task lands on the same place. `/client-requests` opens
+kept in state and written with `history.replaceState`), so Back from a task lands on the same
+place. `router.replace` was the first version and is a transition: Everything then Board, pressed
+quickly, wrote `?tab=mine&view=board` because the second press read the tab before the first landed. `/client-requests` opens
 on Mine for the same reason (its tab is still local state).
 
 **THE BOARD VIEW'S COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states

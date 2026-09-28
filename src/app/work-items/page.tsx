@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useId, useState } from "react";
-import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import type {
@@ -119,8 +118,9 @@ function WorkBoardPage() {
   const [items, setItems] = useState<WorkItem[]>([]);
   const [checks, setChecks] = useState<WorkItemCheckRow[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
-  const askedTab = params.get("tab");
-  const tab: BoardTab = TABS.find((t) => t === askedTab) ?? "mine";
+  // The URL is where the place is KEPT (Back returns to it); this state is what
+  // the screen reads, so two quick clicks never read a URL that is mid-update.
+  const [tab, setTab] = useState<BoardTab>(() => TABS.find((t) => t === params.get("tab")) ?? "mine");
   /** T4.5's queue. A different KIND of row from the three tabs beside it — the
    *  record that somebody was TOLD about work, not the work. */
   const [escalations, setEscalations] = useState<Escalation[]>([]);
@@ -139,20 +139,21 @@ function WorkBoardPage() {
    * different QUESTIONS, this is the same question drawn two ways, and a tab
    * would have left "Mine, as a board" nowhere to live. The LIST by default.
    */
-  const view: BoardView = params.get("view") === "board" ? "board" : "list";
-  /** Tab and view live in the URL: `replace`, so switching is not a history
-   *  entry of its own, and Back from a task returns to this exact place. */
-  const place = useCallback(
-    (next: { tab?: BoardTab; view?: BoardView }): void => {
-      const q = new URLSearchParams();
-      q.set("tab", next.tab ?? tab);
-      q.set("view", next.view ?? view);
-      router.replace(`${pathname}?${q.toString()}` as Route, { scroll: false });
-    },
-    [router, pathname, tab, view],
-  );
-  const setTab = useCallback((t: BoardTab) => { place({ tab: t }); }, [place]);
-  const setView = useCallback((v: BoardView) => { place({ view: v }); }, [place]);
+  const [view, setView] = useState<BoardView>(() => (params.get("view") === "board" ? "board" : "list"));
+  /**
+   * Tab and view, written into the URL with `history.replaceState`: not a
+   * history entry of its own, so Back from a task returns to this exact place.
+   * `router.replace` was the first version, and it is a transition: pressing
+   * Everything and then Board quickly wrote `?tab=mine&view=board`, because
+   * the second press read the tab before the first had landed. Found by the walk.
+   */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("tab") === tab && q.get("view") === view) return;
+    q.set("tab", tab);
+    q.set("view", view);
+    window.history.replaceState(null, "", `${pathname}?${q.toString()}`);
+  }, [tab, view, pathname]);
   const [raising, setRaising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
