@@ -42,6 +42,7 @@ import {
   Page,
   PageHeader,
   Pill,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -50,6 +51,7 @@ import {
 import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { ConfirmAction } from "@/components/confirm-action";
+import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 
@@ -1174,38 +1176,53 @@ export default function LetterPage() {
           {/* One per service line, made at signing; work and filings are
               scheduled from them. Each starts on its line's date, else the
               letter's, else the signature day. */}
-          <p className="text-md text-muted">Made at signing, one per service.</p>
+          <p className="text-md text-muted">Made at signing, one per service. End or pause one here.</p>
           <TableWrap>
-        <Table>
-            <tbody>
-              {engagements.map((e) => (
-                <tr key={e.id}>
-                  <Td>
-                    {lines.find((l) => l.id === e.engagementLetterLineId)?.description ??
-                      e.engagementLetterLineId}
-                  </Td>
-                  <Td>
-                    {/* `state`, not `status`: the stored status is the
-                        COMMERCIAL gate, and `pending_start` is the calendar
-                        narrowing it. An engagement that begins in October is
-                        agreed, paid for and not started. */}
-                    <Pill
-                      dot
-                      tone={
-                        e.status === "pending_advance" || e.status === "cancelled"
-                          ? "danger"
-                          : "neutral"
-                      }
-                    >
-                      {codeLabel(e.state)}
-                    </Pill>
-                  </Td>
-                  <Td className="nowrap">From {longDay(e.effectiveFrom)}</Td>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Service</Th>
+                  <Th>Where it stands</Th>
+                  <Th>From</Th>
+                  <Th align="right">
+                    <span className="sr-only">Actions</span>
+                  </Th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableWrap>
+              </thead>
+              <tbody>
+                {engagements.map((e) => {
+                  const line = lines.find((l) => l.id === e.engagementLetterLineId);
+                  const service = line?.description ?? "Service";
+                  const company = line?.entity?.displayName ?? record.party.displayName;
+                  return (
+                    <tr key={e.id}>
+                      <Td>
+                        {service}
+                        <Sub>{company}</Sub>
+                        {/* The reason an engagement ended, in the firm's words. */}
+                        {e.endReason !== null && <Sub>{e.endReason}</Sub>}
+                      </Td>
+                      <Td>
+                        {/* In words: the stored status is the commercial gate,
+                            and an engagement that begins in October is agreed
+                            and not started. */}
+                        <EngagementStatePill e={e} />
+                      </Td>
+                      <Td className="nowrap">{longDay(e.effectiveFrom)}</Td>
+                      <Td align="right">
+                        <EngagementActions
+                          e={e}
+                          name={`${service} for ${company}`}
+                          canWrite={permissions.includes("party:write")}
+                          onChanged={load}
+                        />
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableWrap>
         </Card>
       )}
 

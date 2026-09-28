@@ -16,6 +16,7 @@ import type {
 import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
+import { EngagementsPanel } from "./engagements";
 import {
   Button,
   Card,
@@ -460,6 +461,10 @@ export default function PartyPage() {
           question somebody opening a client page most often has, and until
           G3.2 nothing in this product could answer it. */}
       <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
+
+      {/* What the firm does for this client, and End / Pause / Resume on each
+          (V2.3). A client who leaves is ended here, then archived above. */}
+      <EngagementsPanel partyId={partyId} canWrite={canWrite} />
 
       {/* THE CLIENT'S OWN PEOPLE. Two panels in a row and they are opposite
           halves of the same question: the one above is who at the FIRM owns

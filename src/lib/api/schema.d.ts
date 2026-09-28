@@ -14401,6 +14401,250 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagements/{engagementId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an engagement on its last day of service
+         * @description The status changes at once (completed, or cancelled when the end falls before the work began), so it leaves MRR today. Work up to the last day still spawns; its untouched upcoming filings for later periods are withdrawn in the same transaction. The signed letter is not touched.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndEngagement"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementEnded"];
+                    };
+                };
+                /** @description No reason, or the day is not a calendar day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause running work
+         * @description No new jobs and no new filings until it resumes. Nothing already on the board or the calendar moves. It leaves MRR while paused.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paused */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Engagement"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is not running: waiting for its advance, already paused, or ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused engagement
+         * @description Work spawns again from the firm's today. A period that ended while it was paused gets no job; a filing that fell due meanwhile comes back, as missed if its date has passed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Resumed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Engagement"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is not paused, or it has ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/signature": {
         parameters: {
             query?: never;
@@ -21030,6 +21274,7 @@ export interface components {
             status: string;
             effectiveFrom: string;
             endsOn: string | null;
+            endReason: string | null;
             /** @description The fee group that prices this engagement (0083), or null. When set, `unitAmount` is null because the price is the GROUP's — one fee for every engagement in it — and a screen must not prefill that fee per engagement: four engagements of a USD 5,000 retainer are billed 5,000, not 20,000. */
             feeGroup: {
                 /** Format: uuid */
@@ -21237,6 +21482,10 @@ export interface components {
             activatedAt: string | null;
             effectiveFrom: string;
             endsOn: string | null;
+            endReason: string | null;
+            endedAt: string | null;
+            pausedAt: string | null;
+            resumedOn: string | null;
         };
         EngagementLetterSigning: {
             provider: string;
@@ -21433,6 +21682,35 @@ export interface components {
                 name: string;
                 email: string;
             };
+        };
+        EngagementEnded: {
+            engagement: components["schemas"]["Engagement"];
+            filings: {
+                withdrawn: number;
+                kept: number;
+                keptStarted: number;
+                keptPastDue: number;
+                keptCoveredElsewhere: number;
+                repointed: number;
+            };
+            /** @description Jobs already on the board for periods after the end. Ending leaves them; cancel each on its job page. */
+            openJobsAfterEnd: {
+                /** Format: uuid */
+                jobId: string;
+                periodLabel: string | null;
+            }[];
+        };
+        EndEngagement: {
+            /**
+             * @description The LAST day the firm serves it, YYYY-MM-DD. Periods that begin after it get no job and no filing; its untouched filings for them are withdrawn. A day before its work began ends it as cancelled.
+             * @example 2026-09-30
+             */
+            endsOn: string;
+            /**
+             * @description Why it is ending, in your words. Kept on the engagement, never in the audit log.
+             * @example Client moved their books to another firm.
+             */
+            reason: string;
         };
         SignedEngagementLetter: {
             letter: components["schemas"]["EngagementLetter"];
