@@ -31,12 +31,12 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api, codeLabel } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { Principal } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
-import { ErrorNotice, Meta, MetaItem, NotSet } from "@/components/ui";
+import { Button, ErrorNotice, Field, Input, Meta, MetaItem, NotSet } from "@/components/ui";
 import { longInstantTime } from "@/lib/day";
 
 type Build = { readonly commit: string | null; readonly builtAt: string | null };
@@ -46,6 +46,9 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [build, setBuild] = useState<Build | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
 
   // Its own read rather than the shell's `useSession`, because this screen
   // CHANGES what that answer is: a password change replaces the session and
@@ -62,6 +65,21 @@ export default function AccountPage() {
     setMe(data);
     setLoaded(true);
   }, []);
+
+  /** Your OWN name (V2.5): the account is yours at every firm, so only you change it. */
+  async function rename(form: FormData): Promise<void> {
+    setRenaming(true);
+    setNameError(null);
+    const result = await api.PATCH("/api/v1/tenancy/me", {
+      body: { displayName: String(form.get("displayName") ?? "").trim() },
+    });
+    setRenaming(false);
+    if (result.error) {
+      setNameError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
 
   useEffect(() => {
     void (async () => {
@@ -97,6 +115,26 @@ export default function AccountPage() {
             <MetaItem label="Firm">{me.tenantName ?? "No firm selected"}</MetaItem>
             <MetaItem label="Role">{me.role === null ? <NotSet /> : codeLabel(me.role)}</MetaItem>
           </Meta>
+
+          <details className="disclosure">
+            <summary>Change your name</summary>
+            <form
+              className="stack tight"
+              action={(form) => {
+                void rename(form);
+              }}
+            >
+              <Field label="Your name" hint="Shown to everyone at every firm you belong to.">
+                <Input name="displayName" required defaultValue={me.displayName ?? ""} placeholder="e.g. Asha Verma" />
+              </Field>
+              <ErrorNotice error={nameError} />
+              <div className="cluster">
+                <Button type="submit" variant="secondary" loading={renaming}>
+                  Save
+                </Button>
+              </div>
+            </form>
+          </details>
 
           <ChangePassword
             hasPassword={me.hasPassword}

@@ -17,6 +17,7 @@ import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
+import { CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import {
   Button,
   Card,
@@ -455,6 +456,21 @@ export default function PartyPage() {
         </p>
       </PageHeader>
 
+      {/* Correct the name and company facts in place (V2.5). */}
+      {canWrite && (
+        <EditDetails
+          partyId={partyId}
+          kind={profile.party.kind}
+          current={{
+            displayName: profile.party.displayName,
+            tradeName: profile.organization?.tradeName ?? null,
+            industry: profile.organization?.industry ?? null,
+            website: profile.organization?.website ?? null,
+          }}
+          onSaved={load}
+        />
+      )}
+
       <ErrorNotice error={error} />
 
       {/* First, because "who at the firm looks after this client" is the
@@ -548,6 +564,17 @@ export default function PartyPage() {
           </TableWrap>
           )}
 
+          {canWrite && profile.legalEntities[0] !== undefined && (
+            <CorrectEntity
+              partyId={partyId}
+              current={{
+                jurisdiction: profile.legalEntities[0].jurisdiction,
+                entityType: profile.legalEntities[0].entityType,
+              }}
+              onSaved={load}
+            />
+          )}
+
           {/* The write that had no caller. Offered on `party:write`, the same
               permission the identifier form below takes — registering a company
               is a fact about a client, not an administrative act. OPEN while
@@ -631,6 +658,12 @@ export default function PartyPage() {
                   <Th>Value</Th>
                   <Th>Country</Th>
                   <Th>From</Th>
+                  <Th>Until</Th>
+                  {canWrite && (
+                    <Th align="right">
+                      <span className="sr-only">Actions</span>
+                    </Th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -647,11 +680,35 @@ export default function PartyPage() {
                     </Td>
                     {/* Stored normalised by the API — uppercase, unspaced — which
                         is what makes two captures of one company match. */}
-                    <Td>{i.value}</Td>
+                    <Td>
+                      {/* A voided one stays on the record, struck through (V2.5). */}
+                      {i.voidedAt === null ? i.value : <s>{i.value}</s>}
+                    </Td>
                     <Td>
                       {i.jurisdiction === null ? <NotSet /> : <Pill tone="code">{i.jurisdiction}</Pill>}
                     </Td>
                     <Td className="nowrap">{longDay(i.validFrom)}</Td>
+                    <Td className="nowrap">
+                      {i.voidedAt !== null ? (
+                        <Pill dot tone="danger">
+                          Voided
+                        </Pill>
+                      ) : i.validTo === null ? (
+                        <NotSet>In force</NotSet>
+                      ) : (
+                        longDay(i.validTo)
+                      )}
+                    </Td>
+                    {canWrite && (
+                      <Td align="right">
+                        <IdentifierActions
+                          partyId={partyId}
+                          identifier={i}
+                          word={identifierWord(i.type)}
+                          onDone={load}
+                        />
+                      </Td>
+                    )}
                   </tr>
                 ))}
               </tbody>
