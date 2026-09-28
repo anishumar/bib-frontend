@@ -17,7 +17,12 @@ html {
 
 body {
   margin: 0;
-  background: var(--paper);
+  /* The aurora (Wave 5) over the paper colour. Fixed, so the page scrolls
+     over it and the glass sidebar always has light behind it. */
+  background-color: var(--paper);
+  background-image: var(--aurora);
+  background-size: cover;
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--t-base);

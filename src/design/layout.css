@@ -74,16 +74,25 @@ html {
   min-height: 100vh;
 }
 
+/* FROSTED GLASS, floating a step in from the window's edge (Wave 5): the
+   aurora shows through it, blurred, and its bright rim and top-left sheen are
+   what make it read as glass rather than as a tinted panel. The column stays
+   `--sidebar-w`; the margin comes out of the sidebar, never out of the page. */
 .sidebar {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: var(--s-3);
+  height: calc(100vh - 2 * var(--s-3));
+  margin: var(--s-3) 0 var(--s-3) var(--s-3);
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
   padding: var(--s-5) var(--s-4);
-  background: var(--surface);
-  border-right: 1px solid var(--line);
+  background: var(--glass-sheen), var(--glass-side);
+  border: 1px solid var(--glass-rim);
+  border-radius: var(--r-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
   overflow-y: auto;
 }
 
@@ -160,7 +169,7 @@ html {
   padding: 0 0.625rem;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  background: var(--surface-sunk);
+  background: var(--glass-field);
   color: var(--faint);
   transition: border-color var(--dur-fast) var(--ease);
 }
@@ -210,13 +219,16 @@ html {
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .nav-link:hover {
-  background: var(--surface-hover);
+  background: var(--glass-hover);
   color: var(--ink);
 }
 /* The current page is stated with `aria-current="page"`, so the styling and
    the screen-reader announcement cannot drift apart. */
+/* On glass the current page is a bright pane of its own, not a wash of
+   brand: the words stay brand, as they were. */
 .nav-link[aria-current="page"] {
-  background: var(--brand-wash);
+  background: var(--glass-current);
+  box-shadow: var(--glass-current-shadow);
   color: var(--brand-ink);
   font-weight: 600;
 }
@@ -610,8 +622,8 @@ html {
     gap: var(--s-4);
     overflow-x: auto;
     overflow-y: visible;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
+    /* Folded, the glass is a strip floating under the window's top edge. */
+    margin: var(--s-3) var(--s-3) 0;
     padding: var(--s-3) 1.25rem;
     /*
      * Without this the bar does not scroll — it STRETCHES THE PAGE.

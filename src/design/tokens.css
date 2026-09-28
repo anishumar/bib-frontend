@@ -81,9 +81,12 @@
   --measure: 68ch;
 
   /* ── Shape ───────────────────────────────────────────────────────────────
-     Two radii. A third would be a decision nobody made on purpose. */
+     Two radii. A third would be a decision nobody made on purpose — and
+     `--r-lg` IS that decision, made once (Wave 5): the floating glass sidebar,
+     the one surface the size of the window, where 10px reads as a card. */
   --r: 10px;
   --r-sm: 7px;
+  --r-lg: 18px;
 
   /* ── Controls ────────────────────────────────────────────────────────────
      Every interactive control snaps to one of these, so an input and the
@@ -313,6 +316,39 @@
      turns its black strokes into a smudge. This is the one colour in the
      system that does not follow the theme, and that is the point of it. */
   --logo-plate: #ffffff;
+
+  /* ── The aurora ground and the glass sidebar (Wave 5, 2026-09-29) ─────────
+     The one place colour is ATMOSPHERE rather than meaning: the page ground
+     behind everything, and the frosted glass the sidebar is made of. Both sit
+     BEHIND content: no card, pill, button or line of text takes a colour from
+     them, so the status and brand rules above are untouched. Picked by the
+     user from three looks ("Aurora glass"), for the sidebar and the ground
+     only: the words, the type and the motion stay as they were.
+
+     --aurora         the page ground: soft sky, aqua, apricot and butter light,
+                      a diagonal shine, and a fine grain so it reads as a
+                      surface rather than a gradient
+     --glass-side     the sidebar's fill, lighter at the top
+     --glass-sheen    the light caught in its top-left corner
+     --glass-rim      its bright edge; --glass-shadow lifts it off the ground
+     --glass-hover    a row under the pointer, --glass-current the page you
+                      are on, --glass-field the search box set into it */
+  --aurora:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.15  0 0 0 0 0.3  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    linear-gradient(118deg, transparent 26%, rgb(255 255 255 / 0.5) 41%, transparent 55%),
+    radial-gradient(50% 45% at 0% 0%, #8dbbff 0%, transparent 70%),
+    radial-gradient(45% 45% at 100% 4%, #8ee4cb 0%, transparent 70%),
+    radial-gradient(55% 55% at 100% 100%, #ffb893 0%, transparent 70%),
+    radial-gradient(50% 50% at 0% 100%, #b7cbff 0%, transparent 72%),
+    radial-gradient(34% 34% at 56% 62%, #fff0c4 0%, transparent 70%);
+  --glass-side: linear-gradient(180deg, rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.54));
+  --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.55), transparent 60%);
+  --glass-rim: rgb(255 255 255 / 0.72);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(15 26 32 / 0.05), 0 24px 48px -30px rgb(15 26 32 / 0.42);
+  --glass-hover: rgb(255 255 255 / 0.62);
+  --glass-current: rgb(255 255 255 / 0.94);
+  --glass-current-shadow: inset 0 1px 0 #ffffff, 0 6px 16px -10px rgb(15 26 32 / 0.45);
+  --glass-field: rgb(255 255 255 / 0.6);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -409,6 +445,22 @@
        exactly how the two literals behaved before they were tokens. */
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.6);
     --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+
+    /* The aurora at night: the same four lights, low and cool, on the ink
+       ground, and smoked glass for the sidebar. */
+    --aurora:
+      radial-gradient(50% 45% at 0% 0%, rgb(64 110 210 / 0.26) 0%, transparent 70%),
+      radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
+      radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
+      radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
+    --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
+    --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
+    --glass-rim: rgb(255 255 255 / 0.08);
+    --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
+    --glass-hover: rgb(255 255 255 / 0.06);
+    --glass-current: rgb(255 255 255 / 0.1);
+    --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+    --glass-field: rgb(0 0 0 / 0.2);
   }
 }
 
@@ -479,4 +531,20 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.6);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+
+  /* The aurora at night: the same four lights, low and cool, on the ink
+     ground, and smoked glass for the sidebar. */
+  --aurora:
+    radial-gradient(50% 45% at 0% 0%, rgb(64 110 210 / 0.26) 0%, transparent 70%),
+    radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
+    radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
+    radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
+  --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
+  --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
+  --glass-rim: rgb(255 255 255 / 0.08);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
+  --glass-hover: rgb(255 255 255 / 0.06);
+  --glass-current: rgb(255 255 255 / 0.1);
+  --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);
+  --glass-field: rgb(0 0 0 / 0.2);
 }
