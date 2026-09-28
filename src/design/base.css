@@ -17,18 +17,29 @@ html {
 
 body {
   margin: 0;
-  /* The aurora (Wave 5) over the paper colour. Fixed, so the page scrolls
-     over it and the glass sidebar always has light behind it. */
-  background-color: var(--paper);
-  background-image: var(--aurora);
-  background-size: cover;
-  background-attachment: fixed;
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--t-base);
   line-height: var(--leading);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* THE AURORA (Wave 5), painted ONCE on its own fixed layer behind the page, so
+   the page scrolls over it and the glass sidebar always has light behind it.
+   Not `background-attachment: fixed` on the body: some browsers repaint the
+   whole page on every scroll frame for that, and iPhone Safari ignores it and
+   stretches the gradient down the full length of a long page. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--paper);
+  background-image: var(--aurora);
+  background-size: cover;
 }
 
 /* ── Headings ─────────────────────────────────────────────────────────────
