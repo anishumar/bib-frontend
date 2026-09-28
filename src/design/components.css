@@ -1417,6 +1417,10 @@
   width: min(34rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   overflow: auto;
+  /* The top layer moves where it DRAWS, not what it inherits: a dialog opened
+     from a right-aligned table cell (row actions) read right-aligned. */
+  text-align: start;
+  white-space: normal;
 }
 .dialog::backdrop {
   background: var(--overlay);

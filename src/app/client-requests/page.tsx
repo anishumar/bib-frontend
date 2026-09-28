@@ -104,6 +104,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { longInstant } from "@/lib/day";
+import { ConfirmAction } from "@/components/confirm-action";
 import { ReplyLine, whereItStands } from "./thread";
 
 interface Me {
@@ -120,7 +121,8 @@ export default function ClientRequestsPage() {
   const [routing, setRouting] = useState<string>("none");
   const [roster, setRoster] = useState<readonly Colleague[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const [tab, setTab] = useState<Tab>("all");
+  // Opens on MINE (V1.2): what somebody comes here for first is what is theirs.
+  const [tab, setTab] = useState<Tab>("mine");
   /**
    * THE ARCHIVE, and it is a SECOND read rather than a filter on the first.
    *
@@ -587,9 +589,22 @@ function RequestCard({
             )}
             {/* Closing with NO reply is allowed and is the duplicate case —
                 two requests for the same thing, one of which gets answered. */}
-            <Button variant="ghost" size="sm" onClick={() => void close()} disabled={busy}>
+            <ConfirmAction
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              title="Close without replying?"
+              confirmLabel="Close it"
+              consequence={
+                <p>
+                  The request is closed and the client gets no answer from you here. Use this
+                  for a duplicate that is answered elsewhere.
+                </p>
+              }
+              onConfirm={() => void close()}
+            >
               Close without replying
-            </Button>
+            </ConfirmAction>
           </div>
         )}
 

@@ -38,7 +38,8 @@ export function LetterPreviewStep({ record }: { record: LetterRecord }) {
           canWrite={(session?.permissions.includes("party:write") ?? false) && letter.deletedAt === null}
           title="Letter PDF"
           renderable="engagement_letter"
-          emptyHint="No PDF yet. Generate one to read the letter on paper."
+          wentOut={letter.status !== "draft"}
+          emptyHint="No PDF yet. Make a draft copy to read the letter on paper."
         />
       </div>
 

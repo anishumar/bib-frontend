@@ -51,6 +51,7 @@ import type {
   DocumentSubjectKind,
   StoredDocument,
   StoredDocumentVersion,
+  SubjectFile,
 } from "@/lib/api/client";
 
 /**
@@ -72,6 +73,13 @@ function uploader(doc: StoredDocument): string {
     return doc.createdBy.displayName ?? doc.createdBy.email;
   }
   return doc.origin === "generated" ? "made by BiB" : "uploader no longer on record";
+}
+
+/** What a file made by BiB is to this page, in one pill (2026-09-29). */
+function madeAs(doc: SubjectFile): string | null {
+  if (doc.role === "copy_of_record") return doc.kind === "invoice" ? "Issued copy" : "Copy as sent";
+  if (doc.role === "draft_copy") return "Draft, firm only";
+  return doc.origin === "generated" ? "Generated" : null;
 }
 
 /** The day a version was filed, WHERE THE READER IS, as every other date on
@@ -111,6 +119,13 @@ export interface DocumentsProps {
    * for a client's file and a job's working papers: there is nothing to generate.
    */
   readonly renderable?: "engagement_letter" | "invoice" | "proposal" | undefined;
+  /**
+   * An invoice that was issued, or a letter that was sent (2026-09-29). Its
+   * first copy from then on is the copy of record and the API refuses a
+   * second, so once one is on the list nothing is offered. Before that, the
+   * button makes a DRAFT copy the client never sees.
+   */
+  readonly wentOut?: boolean | undefined;
 }
 
 export function Documents({
@@ -121,8 +136,9 @@ export function Documents({
   title = "Files",
   emptyHint,
   renderable,
+  wentOut = false,
 }: DocumentsProps) {
-  const [documents, setDocuments] = useState<readonly StoredDocument[]>([]);
+  const [documents, setDocuments] = useState<readonly SubjectFile[]>([]);
   const [versions, setVersions] = useState<Record<string, readonly StoredDocumentVersion[]>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +150,21 @@ export function Documents({
   // focused button and focus falls to <body>. This component is on six
   // screens, so that is six screens. See `useSwapFocus`.
   const { panel: addPanel, trigger: addTrigger } = useSwapFocus(adding);
+
+  // WHAT THE BUTTON MAKES (2026-09-29). An invoice or a letter in draft is
+  // printed as the firm's own draft copy. Once it has gone out, its first copy
+  // is the copy of record and there is never a second: the button goes as soon
+  // as one is on the list, and waits for the list so it never flashes.
+  const recordKind = renderable === "invoice" || renderable === "engagement_letter";
+  const make: string | null = !recordKind
+    ? "Generate PDF"
+    : !wentOut
+      ? "Make a draft copy"
+      : !loaded || documents.some((d) => d.role === "copy_of_record")
+        ? null
+        : renderable === "invoice"
+          ? "Make the issued copy"
+          : "Make the copy as sent";
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/subjects/{subjectKind}/{subjectRef}/documents", {
@@ -309,7 +340,7 @@ export function Documents({
         aside={
           <>
             {documents.length > 0 && <Pill tone="quiet">{documents.length}</Pill>}
-            {canWrite && renderable !== undefined && (
+            {canWrite && renderable !== undefined && make !== null && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -317,7 +348,7 @@ export function Documents({
                 icon={<Icon name="files" size={15} />}
                 onClick={() => void generate()}
               >
-                Generate PDF
+                {make}
               </Button>
             )}
             {canWrite && !adding && (
@@ -437,7 +468,7 @@ function FileRows({
   onShare,
   onWithdraw,
 }: {
-  doc: StoredDocument;
+  doc: SubjectFile;
   expanded: boolean;
   versions: readonly StoredDocumentVersion[] | undefined;
   onToggle: () => void;
@@ -455,6 +486,7 @@ function FileRows({
      "3 versions, button" and then, after pressing it, "Hide, button", with
      nothing saying a row had opened or where it was. */
   const versionsId = `doc-${doc.id}-versions`;
+  const made = madeAs(doc);
   return (
     <>
       <tr>
@@ -476,7 +508,7 @@ function FileRows({
             {/* A generated document could be produced again; an uploaded one is
                 the only copy that exists. Worth saying on a row somebody might
                 be deciding whether to chase a client for. */}
-            {doc.origin === "generated" && <Pill tone="quiet">Generated</Pill>}
+            {made !== null && <Pill tone="quiet">{made}</Pill>}
           </span>
         </Td>
         {/* ── WHO OUTSIDE THE FIRM CAN READ THIS (T6.7) ───────────────────
@@ -538,8 +570,9 @@ function FileRows({
             </Button>
             {/* Attached in error: take it off THIS page. The file and its
                 other attachments stay; the link is kept as history. Named by
-                the document, because a table draws one of these per row. */}
-            {canWrite && (
+                the document, because a table draws one of these per row. An
+                issued copy is never taken off: it is what the client holds. */}
+            {canWrite && doc.role !== "copy_of_record" && (
               <Button
                 variant="secondary"
                 size="sm"

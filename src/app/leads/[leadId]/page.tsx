@@ -411,7 +411,9 @@ export default function LeadPage() {
                   disabled={busy}
                   onChange={(e) => {
                     const stage = e.target.value as LeadStage;
-                    if (recordsLostReason(stage)) {
+                    // Every CLOSING stage asks a second time (V1.3): a closed
+                    // lead is never reopened. Lost and abandoned also ask why.
+                    if (TERMINAL_STAGES.includes(stage)) {
                       setClosing(stage);
                       return;
                     }
@@ -469,7 +471,10 @@ export default function LeadPage() {
             {closing !== null && (
               <form
                 action={(form) => {
-                  move(closing, String(form.get("lostReason") ?? "").trim());
+                  move(
+                    closing,
+                    recordsLostReason(closing) ? String(form.get("lostReason") ?? "").trim() : undefined,
+                  );
                 }}
               >
                 {/* Its own group: two forms are open on this card once a close
@@ -477,20 +482,32 @@ export default function LeadPage() {
                     questions about the same lead. */}
                 <fieldset
                   className="card"
-                  aria-label={`Closing this opportunity as ${closing}`}
+                  aria-label={`Closing this opportunity as ${codeLabel(closing).toLowerCase()}`}
                   style={{ marginTop: "var(--s-4)" }}
                 >
-                  <Field label={`Why is it ${closing}?`} hint="Required, in your own words.">
-                    <Textarea
-                      name="lostReason"
-                      rows={3}
-                      required
-                      placeholder="e.g. Chose their existing auditor"
-                    />
-                  </Field>
+                  <p className="text-md">
+                    {closing === "converted"
+                      ? "Mark this lead converted? "
+                      : `Close this lead as ${codeLabel(closing).toLowerCase()}? `}
+                    A closed lead cannot be reopened. If talks restart, capture a new lead.
+                  </p>
+                  {recordsLostReason(closing) && (
+                    <Field label={`Why is it ${codeLabel(closing).toLowerCase()}?`} hint="Required, in your own words.">
+                      <Textarea
+                        name="lostReason"
+                        rows={3}
+                        required
+                        placeholder="e.g. Chose their existing auditor"
+                      />
+                    </Field>
+                  )}
                   <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
                     <Button type="submit" loading={busy}>
-                      {busy ? "Closing…" : `Close it as ${closing}`}
+                      {busy
+                        ? "Closing…"
+                        : closing === "converted"
+                          ? "Mark it converted"
+                          : `Close it as ${codeLabel(closing).toLowerCase()}`}
                     </Button>
                     <Button
                       type="button"

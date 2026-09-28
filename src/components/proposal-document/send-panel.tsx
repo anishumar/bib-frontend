@@ -45,6 +45,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { useSession } from "@/components/layout";
+import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant, longInstantTime } from "@/lib/day";
 import { reloadProposal, useProposal } from "./store";
 import { whatsAppMessage, whatsAppUrl } from "./words";
@@ -284,7 +285,7 @@ export function ProposalSendPanel({
 
       {proposal.status === "sent" && canWrite && (
         <>
-          <Decision busy={busy} onDecide={decide} />
+          <Decision proposalRef={proposal.ref} busy={busy} onDecide={decide} />
           <SendAgain
             defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? reach.email ?? ""}
             replyTo={record.preparedBy?.email ?? null}
@@ -525,9 +526,11 @@ function EmailForm({
 /** Client accepted / declined, for an answer given by phone or in a meeting.
  *  A decline asks why, because that is the half worth anything later. */
 function Decision({
+  proposalRef,
   busy,
   onDecide,
 }: {
+  proposalRef: string;
   busy: string | null;
   onDecide: (decision: "accepted" | "rejected", declinedReason?: string) => Promise<boolean>;
 }) {
@@ -575,15 +578,24 @@ function Decision({
         </div>
       ) : (
         <div className="cluster">
-          <Button
+          {/* Confirmed (V1.3): the answer is recorded for good. */}
+          <ConfirmAction
             loading={busy === "accepted"}
             disabled={busy !== null}
-            onClick={() => {
+            title={`Record that the client accepted ${proposalRef}?`}
+            confirmLabel="Record acceptance"
+            consequence={
+              <p>
+                {proposalRef} is marked accepted and the answer cannot be changed. You can then
+                draft the engagement letter from it.
+              </p>
+            }
+            onConfirm={() => {
               void onDecide("accepted");
             }}
           >
             Client accepted
-          </Button>
+          </ConfirmAction>
           <Button
             ref={trigger}
             variant="destructive-quiet"

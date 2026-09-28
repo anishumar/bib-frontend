@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
@@ -42,6 +42,7 @@ import {
   Page,
   PageHeader,
   Pill,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -49,6 +50,8 @@ import {
 } from "@/components/tw";
 import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
+import { ConfirmAction } from "@/components/confirm-action";
+import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 
@@ -113,6 +116,7 @@ export default function LetterPage() {
   const [routing, setRouting] = useState<LetterRouting | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const sendForm = useRef<HTMLFormElement>(null);
   /** What "Add all standard terms" did last: the API's own list of what went
    *  on and what was left off, with each refusal's sentence (T6.18, D6). */
   const [standardTerms, setStandardTerms] = useState<StandardClausesAdded | null>(null);
@@ -246,6 +250,8 @@ export default function LetterPage() {
   // nothing on this page may be offered for it, so it is not a draft here.
   const deleted = letter.deletedAt !== null;
   const isDraft = letter.status === "draft" && !deleted;
+  // Sending locks the terms; the confirm says so before the press (V1.3).
+  const sendConsequence = `${letter.ref} goes out and its terms are locked. To change anything after this, withdraw it and draft a new letter.`;
   const isSigned = letter.status === "signed";
   // HOW THIS LETTER IS SIGNED (0080). `sends` is the deployment's answer:
   // true means sending raises a DocuSign envelope, so the send form asks whom
@@ -1170,38 +1176,53 @@ export default function LetterPage() {
           {/* One per service line, made at signing; work and filings are
               scheduled from them. Each starts on its line's date, else the
               letter's, else the signature day. */}
-          <p className="text-md text-muted">Made at signing, one per service.</p>
+          <p className="text-md text-muted">Made at signing, one per service. End or pause one here.</p>
           <TableWrap>
-        <Table>
-            <tbody>
-              {engagements.map((e) => (
-                <tr key={e.id}>
-                  <Td>
-                    {lines.find((l) => l.id === e.engagementLetterLineId)?.description ??
-                      e.engagementLetterLineId}
-                  </Td>
-                  <Td>
-                    {/* `state`, not `status`: the stored status is the
-                        COMMERCIAL gate, and `pending_start` is the calendar
-                        narrowing it. An engagement that begins in October is
-                        agreed, paid for and not started. */}
-                    <Pill
-                      dot
-                      tone={
-                        e.status === "pending_advance" || e.status === "cancelled"
-                          ? "danger"
-                          : "neutral"
-                      }
-                    >
-                      {codeLabel(e.state)}
-                    </Pill>
-                  </Td>
-                  <Td className="nowrap">From {longDay(e.effectiveFrom)}</Td>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Service</Th>
+                  <Th>Where it stands</Th>
+                  <Th>From</Th>
+                  <Th align="right">
+                    <span className="sr-only">Actions</span>
+                  </Th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableWrap>
+              </thead>
+              <tbody>
+                {engagements.map((e) => {
+                  const line = lines.find((l) => l.id === e.engagementLetterLineId);
+                  const service = line?.description ?? "Service";
+                  const company = line?.entity?.displayName ?? record.party.displayName;
+                  return (
+                    <tr key={e.id}>
+                      <Td>
+                        {service}
+                        <Sub>{company}</Sub>
+                        {/* The reason an engagement ended, in the firm's words. */}
+                        {e.endReason !== null && <Sub>{e.endReason}</Sub>}
+                      </Td>
+                      <Td>
+                        {/* In words: the stored status is the commercial gate,
+                            and an engagement that begins in October is agreed
+                            and not started. */}
+                        <EngagementStatePill e={e} />
+                      </Td>
+                      <Td className="nowrap">{longDay(e.effectiveFrom)}</Td>
+                      <Td align="right">
+                        <EngagementActions
+                          e={e}
+                          name={`${service} for ${company}`}
+                          canWrite={permissions.includes("party:write")}
+                          onChanged={load}
+                        />
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableWrap>
         </Card>
       )}
 
@@ -1232,6 +1253,7 @@ export default function LetterPage() {
             // name starts as the addressee's because that is usually who signs,
             // and it stays editable because it often is not.
             <form
+              ref={sendForm}
               className="mt-2"
               action={(form) => {
                 void act("send", () =>
@@ -1275,9 +1297,21 @@ export default function LetterPage() {
                     the labels': neither field carries a hint, so the bottoms of
                     the three cells are the same line. */}
                 <div className="self-end">
-                  <Button type="submit" className="justify-self-start" disabled={busy !== null}>
+                  {/* Confirmed (V1.3). The form is checked first, so an empty
+                      field is pointed at before anybody confirms a send. */}
+                  <ConfirmAction
+                    className="justify-self-start"
+                    disabled={busy !== null}
+                    title={`Send ${letter.ref} for signature?`}
+                    confirmLabel="Send it"
+                    consequence={<p>{sendConsequence}</p>}
+                    beforeOpen={() => sendForm.current?.reportValidity() ?? false}
+                    onConfirm={() => {
+                      sendForm.current?.requestSubmit();
+                    }}
+                  >
                     Send for signature
-                  </Button>
+                  </ConfirmAction>
                 </div>
               </div>
             </form>
@@ -1331,9 +1365,12 @@ export default function LetterPage() {
               now sits directly above this row. */}
           <div className="cluster mt-3">
             {isDraft && !signing.sends && (
-              <Button
+              <ConfirmAction
                 disabled={busy !== null}
-                onClick={() => {
+                title={`Send ${letter.ref} for signature?`}
+                confirmLabel="Send it"
+                consequence={<p>{sendConsequence}</p>}
+                onConfirm={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
                       params: { path: { letterId }, query: { asOf: browserDay() } },
@@ -1342,17 +1379,27 @@ export default function LetterPage() {
                 }}
               >
                 Send for signature
-              </Button>
+              </ConfirmAction>
             )}
             {/* A letter the client has SEEN is withdrawn, which keeps the record
                 that it was offered. A draft nobody has seen is deleted instead,
                 at the foot of the page (0086) — so Withdraw is for `sent` only. */}
             {letter.status === "sent" && (
-              <Button
+              <ConfirmAction
                 variant="destructive-quiet"
                 size="sm"
                 disabled={busy !== null}
-                onClick={() => {
+                title={`Withdraw ${letter.ref}?`}
+                confirmLabel="Withdraw it"
+                destructive
+                consequence={
+                  <p>
+                    The client can no longer sign {letter.ref}
+                    {signing.sends ? `, and the ${providerName} envelope is cancelled` : ""}. It
+                    stays on file as withdrawn. To offer terms again, draft a new letter.
+                  </p>
+                }
+                onConfirm={() => {
                   void act("withdraw", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
                       params: { path: { letterId } },
@@ -1361,7 +1408,7 @@ export default function LetterPage() {
                 }}
               >
                 Withdraw
-              </Button>
+              </ConfirmAction>
             )}
             {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
               <Button
@@ -1450,6 +1497,7 @@ export default function LetterPage() {
         // A deleted draft gains nothing (0086): its files stay readable.
         canWrite={permissions.includes("party:write") && !deleted}
         renderable="engagement_letter"
+        wentOut={letter.status !== "draft"}
         emptyHint="Upload the signed copy here."
       />
 

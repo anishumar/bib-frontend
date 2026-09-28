@@ -10,6 +10,7 @@ import { Button, cx } from "@/components/ui";
 import { Card, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
 import { CheckLines } from "./check-lines";
+import { ConfirmAction } from "@/components/confirm-action";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -353,6 +354,19 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   if (!loaded) return <p className="muted">Loading…</p>;
 
   const canComplete = permissions.includes("work:write");
+  const open = job !== null && job.status !== "done" && job.status !== "cancelled";
+
+  /** Stop the job for good (V2.4), behind V1.3's confirm. */
+  async function cancelJob(): Promise<void> {
+    setBusy("cancel");
+    const result = await api.POST("/api/v1/jobs/{jobId}/cancel", { params: { path: { jobId } } });
+    setBusy(null);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
 
   return (
     <Page>
@@ -385,8 +399,38 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                 <> · billed to {job.clientName}</>
               )}
               {job.splitCode !== null && <> · {job.splitCode}</>}
+              {job.status === "cancelled" && (
+                <>
+                  {" "}
+                  <Pill dot tone="danger">
+                    Cancelled
+                  </Pill>
+                </>
+              )}
             </>
           )
+        }
+        actions={
+          open && canComplete ? (
+            <ConfirmAction
+              variant="destructive-quiet"
+              disabled={busy !== null}
+              loading={busy === "cancel"}
+              title="Cancel this job?"
+              confirmLabel="Cancel the job"
+              destructive
+              consequence={
+                <p>
+                  Its open steps and tasks come off everyone&rsquo;s desk and cannot be
+                  reopened. Steps already done stay done.
+                  {job.periodLabel === null ? "" : ` No new job is made for ${job.periodLabel}.`}
+                </p>
+              }
+              onConfirm={() => void cancelJob()}
+            >
+              Cancel job
+            </ConfirmAction>
+          ) : undefined
         }
       />
       <ErrorNotice error={error} />
@@ -426,7 +470,11 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                       never shown (T6.15's editor keeps keys off screen too). */}
                   <div className="flex flex-wrap items-center gap-2">
                     <strong>{s.label}</strong>
-                    <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
+                    <StepState
+                      step={s}
+                      check={openCheckFor(checks, s.stepKey)}
+                      jobCancelled={job?.status === "cancelled"}
+                    />
                   </div>
                   <Desk step={s} />
                   {s.outcomeNote !== null && (
@@ -570,15 +618,23 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                               refusal cannot disagree; the refusal is still shown
                               if one arrives, because a colleague's list is not
                               this page's to predict. */}
-                          <Button
+                          <ConfirmAction
                             disabled={busy === s.stepKey || s.subStepsOpen > 0}
                             aria-label={`Done: ${s.stepKey}`}
-                            onClick={() => {
+                            title={`Mark "${s.label}" done?`}
+                            confirmLabel="Mark it done"
+                            consequence={
+                              <p>
+                                This records that you did &ldquo;{s.label}&rdquo;. It cannot be
+                                undone. If the step is checked, it goes to the checker next.
+                              </p>
+                            }
+                            onConfirm={() => {
                               void complete(s.stepKey);
                             }}
                           >
                             Done
-                          </Button>
+                          </ConfirmAction>
                           <SubStepsLeft count={s.subStepsOpen} />
                         </>
                       ) : s.viewer.reason === "ON_ANOTHER_DESK" ? (
@@ -851,7 +907,19 @@ function CheckActions({
   );
 }
 
-function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) {
+/** The note the API writes on a step its job's cancellation withdrew (V2.4,
+ *  `JOB_CANCELLED_NOTE` in the backend's orchestrator). */
+const JOB_CANCELLED_NOTE = "The job was cancelled.";
+
+function StepState({
+  step,
+  check,
+  jobCancelled,
+}: {
+  step: JobStep;
+  check: StepCheck | null;
+  jobCancelled: boolean;
+}) {
   // WAITING TO BE CHECKED is a fourth cause of `blocked`, and it has to be said
   // apart from the other three: the work is DONE here. A step that read
   // "waiting for you" while sitting in somebody else's queue is the same class
@@ -904,6 +972,7 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // it sits in is dimmed to say so. Red here put it in the same colour as "could
   // not be finished" one line below, which is the opposite fact.
   if (step.status === "skipped") {
+    if (jobCancelled && step.outcomeNote === JOB_CANCELLED_NOTE) return <Pill dot>Cancelled</Pill>;
     // A step withdrawn AFTER it opened (0304) keeps its start time, and says
     // so: it was on somebody's list, and "not needed" alone reads as if it
     // never was.

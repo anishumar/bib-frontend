@@ -45,6 +45,22 @@ export function useSession(): Principal | null {
   return useContext(SessionContext);
 }
 
+/* ── Sidebar counts (V2.1) ──────────────────────────────────────────────────
+ * The number beside Work board, Jobs and Client requests: what is on YOUR
+ * desk there. The shell fetches nothing for them: My day already holds every
+ * one of those lists, and the pages themselves hold their own, so whichever
+ * loaded last REPORTS its count here. A count nobody has reported yet is not
+ * drawn, never drawn as 0.
+ */
+type NavCounts = Partial<Record<"/work-items" | "/work" | "/client-requests", number>>;
+
+const NavCountsContext = createContext<(counts: NavCounts) => void>(() => undefined);
+
+/** Report what is on the reader's desk, for the sidebar. */
+export function useNavCounts(): (counts: NavCounts) => void {
+  return useContext(NavCountsContext);
+}
+
 /* ── The map of the product ─────────────────────────────────────────────────
  * ONE definition of what this workspace contains, and the permission each part
  * needs. It sits here because it is a fact about the application, not about
@@ -63,10 +79,17 @@ interface NavItem {
   needs?: string;
   /** An extra condition beyond a permission. */
   when?: (p: Principal) => boolean;
+  /** A few words after the label, in the muted count style ("Not live yet"). */
+  note?: string;
 }
 
 interface NavGroup {
   label: string;
+  /**
+   * Open until the reader closes it, wherever they are (V1.1: Delivery). The
+   * group holding the current page still opens on its own as well.
+   */
+  openByDefault?: boolean;
   /**
    * The group's own icon, shown on the row that opens it.
    *
@@ -100,14 +123,20 @@ function initials(who: string | null): string {
 
 const GROUPS: NavGroup[] = [
   {
-    /* WHAT THE FIRST SCREEN IS FOR, restated. It used to be "Home", and Home
-       was a page that printed the session's uuids at somebody who has never
-       seen one — the answer to a question only a developer asks. The first
-       thing in the sidebar is now the thing this product is heading towards:
-       ask the firm a question in words. It cannot answer yet and says so. */
+    /* Where staff land (V2.1): everything on their desk, by date. First, and a
+       plain link, because it is the screen a sidebar is most used to reach. */
+    label: "My day",
+    icon: "home",
+    items: [{ href: "/", label: "My day", icon: "home" }],
+  },
+  {
+    /* The Copilot is where the product is heading (ask the firm a question in
+       words) and it cannot answer yet, so it is one link that says so, not the
+       screen staff land on (V1.1). It was `/`, and every role started the day
+       on "Not live yet". */
     label: "Workspace",
     icon: "copilot",
-    items: [{ href: "/", label: "AI Copilot", icon: "copilot" }],
+    items: [{ href: "/copilot", label: "AI Copilot", icon: "copilot", note: "Not live yet" }],
   },
   {
     /* The book, the pipeline, what the firm has quoted and what it has agreed. */
@@ -151,9 +180,11 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    /* What a signed engagement turned into. */
+    /* What a signed engagement turned into. Open by default (V1.1): it is
+       where the day's work is, and a sidebar with every group shut hid it. */
     label: "Delivery",
     icon: "board",
+    openByDefault: true,
     items: [
       { href: "/work-items", label: "Work board", icon: "board", needs: "party:read" },
       { href: "/work", label: "Jobs", icon: "engine", needs: "party:read" },
@@ -385,6 +416,13 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+/** The reported count for a sidebar link, or undefined: nothing reported yet,
+ *  or nothing on the reader's desk there (a 0 is not drawn). */
+function countFor(counts: NavCounts, href: string): number | undefined {
+  const n = counts[href as keyof NavCounts];
+  return n === undefined || n === 0 ? undefined : n;
+}
+
 function visible(item: NavItem, p: Principal): boolean {
   if (item.needs !== undefined && !p.permissions.includes(item.needs)) return false;
   if (item.when !== undefined && !item.when(p)) return false;
@@ -416,6 +454,11 @@ export function AppShell({ children }: { children: ReactNode }) {
    * without being told to, and stops guessing the moment you disagree with it.
    */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  /** What the pages last reported is on the reader's desk (V2.1). */
+  const [counts, setCounts] = useState<NavCounts>({});
+  const reportCounts = useCallback((next: NavCounts) => {
+    setCounts((was) => ({ ...was, ...next }));
+  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const bare = isBare(pathname);
@@ -594,6 +637,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return {
       label: g.label,
       icon: g.icon,
+      openByDefault: g.openByDefault === true,
       /**
        * How many screens this section holds for this reader, BEFORE the search.
        *
@@ -632,6 +676,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SessionContext.Provider value={principal}>
+      <NavCountsContext.Provider value={reportCounts}>
       <div className="shell">
         {/* TWENTY-ONE TAB STOPS STOOD BETWEEN THE PAGE AND THE KEYBOARD.
             Measured: the sidebar is 14 to 21 stops depending on which
@@ -677,7 +722,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                  show you. Otherwise the reader's own choice wins, and where
                  they have not made one, the group holding the current page is
                  open. */
-              const expanded = needle !== "" || (toggled[group.label] ?? here);
+              const expanded =
+                needle !== "" || (toggled[group.label] ?? (here || group.openByDefault));
 
               /* A group with ONE screen is not a dropdown. Home behind a
                  chevron is a click added to reach the thing a sidebar is most
@@ -696,6 +742,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Icon name={solo.icon} className="nav-icon" />
                     <span className="label">{solo.label}</span>
+                    {solo.note !== undefined && <span className="count">{solo.note}</span>}
                   </Link>
                 );
               }
@@ -730,6 +777,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                             : {})}
                         >
                           <span className="label">{item.label}</span>
+                          {item.note !== undefined && <span className="count">{item.note}</span>}
+                          {countFor(counts, item.href) !== undefined && (
+                            <span className="count">{countFor(counts, item.href)}</span>
+                          )}
                         </Link>
                       ))}
                     </div>
@@ -850,6 +901,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      </NavCountsContext.Provider>
     </SessionContext.Provider>
   );
 }

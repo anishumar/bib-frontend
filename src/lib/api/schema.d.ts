@@ -4,6 +4,55 @@
  */
 
 export interface paths {
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is the process up, and which build is it */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Up. `commit` and `builtAt` are null when the image was built without them. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            status: "ok";
+                            /**
+                             * @description The git commit the running image was built from.
+                             * @example 32fbca3c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a
+                             */
+                            commit: string | null;
+                            /**
+                             * @description When the image was built, ISO-8601 UTC.
+                             * @example 2026-09-28T18:30:00Z
+                             */
+                            builtAt: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1586,6 +1635,76 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct your own display name
+         * @description Your account is yours across every firm you belong to, so this changes your name everywhere. It takes no id: it can reach nobody else's account.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenameSelf"];
+                };
+            };
+            responses: {
+                /** @description Renamed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SelfName"];
+                    };
+                };
+                /** @description A blank name, or longer than 200 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/tenancy/me/memberships": {
@@ -9019,6 +9138,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a job for good
+         * @description Withdraws the job's open steps and moves its open tasks to the firm's cancelled state, so nothing of it is left on anybody's desk, and writes `job.cancelled`. Steps already done stay done. The period is never spawned again: the job keeps its engagements.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cancelled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobCancelled"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The job is already finished or cancelled, or the firm has no state for cancelled work */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps/{stepKey}/complete": {
         parameters: {
             query?: never;
@@ -9900,6 +10096,388 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Party 360 — the party, its identifiers and relationships
+         * @description Always resolves, archived or not: a document pointing at this party has to render its counterparty.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Party profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PartyProfile"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Party not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct a client's name, trade name, industry or website
+         * @description Absent means unchanged; null or blank clears an optional field. Every list and every NEW PDF reads the new name; a signed letter and a filed PDF do not change. The audit trail records which fields changed, never their values.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateParty"];
+                };
+            };
+            responses: {
+                /** @description Corrected */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Party"];
+                    };
+                };
+                /** @description A blank name, a company field on a person, or nothing changed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Party not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/legal-entity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Correct a registered company's country or kind */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CorrectLegalEntity"];
+                };
+            };
+            responses: {
+                /** @description Corrected */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LegalEntity"];
+                    };
+                };
+                /** @description Not a two-letter country, a blank kind, or nothing changed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is not registered as a company */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/identifiers/{identifierId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An identifier stopped being in force (a GSTIN cancelled)
+         * @description Sets its end day. An ended identifier no longer blocks the value on another client.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                    identifierId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndIdentifier"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PartyIdentifier"];
+                    };
+                };
+                /** @description The end is before it began */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such identifier on this client */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already ended or voided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/identifiers/{identifierId}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void an identifier entered by mistake
+         * @description Kept and shown as voided, final, and no longer blocking the value: the correct PAN or GSTIN can then be added, here or on the right client.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                    identifierId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Voided */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PartyIdentifier"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such identifier on this client */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already voided */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/identifiers": {
         parameters: {
             query?: never;
@@ -10412,76 +10990,6 @@ export interface paths {
                 };
                 /** @description The session has not selected an org */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/parties/{partyId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Party 360 — the party, its identifiers and relationships
-         * @description Always resolves, archived or not: a document pointing at this party has to render its counterparty.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    asOf?: string;
-                };
-                header?: never;
-                path: {
-                    partyId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Party profile */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PartyProfile"];
-                    };
-                };
-                /** @description No authenticated session */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description The session has not selected an org */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description Party not found */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -14275,6 +14783,250 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagements/{engagementId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an engagement on its last day of service
+         * @description The status changes at once (completed, or cancelled when the end falls before the work began), so it leaves MRR today. Work up to the last day still spawns; its untouched upcoming filings for later periods are withdrawn in the same transaction. The signed letter is not touched.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndEngagement"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementEnded"];
+                    };
+                };
+                /** @description No reason, or the day is not a calendar day */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has already ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause running work
+         * @description No new jobs and no new filings until it resumes. Nothing already on the board or the calendar moves. It leaves MRR while paused.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paused */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Engagement"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is not running: waiting for its advance, already paused, or ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused engagement
+         * @description Work spawns again from the firm's today. A period that ended while it was paused gets no job; a filing that fell due meanwhile comes back, as missed if its date has passed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Resumed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Engagement"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is not paused, or it has ended */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/signature": {
         parameters: {
             query?: never;
@@ -17067,7 +17819,7 @@ export interface paths {
         put?: never;
         /**
          * Produce a PDF of one of the firm's own documents
-         * @description Renders an engagement letter, an invoice or a proposal, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob.
+         * @description Renders an engagement letter, an invoice or a proposal, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob. An invoice or a letter is filed ONCE after it goes out (2026-09-29): the first copy after an invoice is issued (Issue files it) or a letter is sent is its copy of record, and a second is refused with 409 COPY_ALREADY_MADE. A draft's copy is the firm's own, titled Draft and never shown to the client.
          */
         post: {
             parameters: {
@@ -17120,6 +17872,15 @@ export interface paths {
                 };
                 /** @description No such record at this firm */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The issued invoice or sent letter already has its copy of record */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -17444,6 +18205,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description An issued invoice's or a sent letter's copy of record stays on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -17481,7 +18251,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["DocumentsResponse"];
+                        "application/json": components["schemas"]["SubjectDocumentsResponse"];
                     };
                 };
                 /** @description Unknown subject kind */
@@ -17885,6 +18655,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Is this firm set up well enough to run its work?
+         * @description Eight lines: go-live floor and financial year, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The lines */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReadinessResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -18123,6 +18950,14 @@ export interface components {
             /** Format: uuid */
             userId: string;
             title: string;
+        };
+        SelfName: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+        };
+        RenameSelf: {
+            displayName: string;
         };
         MyMembership: components["schemas"]["Membership"] & {
             tenantName: string | null;
@@ -18620,6 +19455,11 @@ export interface components {
             subjectTitle: string;
             /** @description Who is billed. Null on a filing — an obligation is owed by the ENTITY and carries no client. */
             clientName: string | null;
+            /**
+             * Format: uuid
+             * @description The same client by id, to link it. Null exactly where `clientName` is.
+             */
+            clientPartyId: string | null;
             /** @description WHICH of the client's companies. A group of four files four sets of returns (G0.1), so a row naming only the client is four identical rows. */
             entityName: string | null;
             holder: components["schemas"]["EscalationPerson"] & unknown;
@@ -19595,6 +20435,7 @@ export interface components {
             assigneeUserId?: string | null;
             dueOn?: string | null;
             isStatutoryDue?: boolean;
+            /** @description Show this task on the client's portal. Absent means FALSE (V1.4): a task raised by hand is often an internal note, and the portal is the client's screen. Work spawned from an engagement or a statutory filing is shown regardless. */
             isClientVisible?: boolean;
         };
         UpdateWorkItemRequest: {
@@ -19659,6 +20500,10 @@ export interface components {
         };
         WorkItemCheckRow: components["schemas"]["WorkItemReview"] & {
             viewer: components["schemas"]["WorkItemCheckViewer"];
+            /** Format: uuid */
+            clientPartyId: string;
+            /** @description The task's own due day, or null when it has none. */
+            dueOn: string | null;
         };
         WorkItemChecksResponse: {
             checks: components["schemas"]["WorkItemCheckRow"][];
@@ -19822,6 +20667,20 @@ export interface components {
                 gradeName: string | null;
             }[];
         };
+        /** @description The job this is part of: its client (by id, to link) and company, period, services and due day. Null when the job is linked to no engagement, so there is nothing to name. */
+        StepJobContext: {
+            /** Format: uuid */
+            clientPartyId: string | null;
+            clientName: string | null;
+            /** Format: uuid */
+            entityPartyId: string | null;
+            entityName: string | null;
+            periodLabel: string | null;
+            /** @description The services the job delivers, by the names the client's letter pinned. */
+            services: string[];
+            /** @description `YYYY-MM-DD`: the earliest due day of the job's unfinished tasks, which is what a step on it is due by. Null when none carries a date. */
+            dueOn: string | null;
+        } | null;
         MyStep: {
             /** Format: uuid */
             id: string;
@@ -19831,6 +20690,7 @@ export interface components {
             label: string;
             /** @enum {string} */
             status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
+            job: components["schemas"]["StepJobContext"];
         };
         MyStepsResponse: {
             steps: components["schemas"]["MyStep"][];
@@ -19847,6 +20707,16 @@ export interface components {
             } | null;
             /** @description Required on a rejection, forbidden otherwise. */
             rejectedReason: string | null;
+        };
+        JobCancelled: {
+            /** Format: uuid */
+            jobId: string;
+            /** @enum {string} */
+            status: "cancelled";
+            /** @description Open steps taken off every desk (skipped, noted as cancelled). */
+            stepsWithdrawn: number;
+            /** @description Open tasks moved to the firm's own cancelled state. */
+            tasksCancelled: number;
         };
         CheckEligibility: {
             eligible: boolean;
@@ -19888,6 +20758,7 @@ export interface components {
             reviewPoints: components["schemas"]["CheckLine"][];
             /** @description How many review points are still open: the same count the decide route refuses Approve on. */
             reviewPointsOpen: number;
+            job: components["schemas"]["StepJobContext"];
         };
         StepChecksResponse: {
             checks: components["schemas"]["StepCheck"][];
@@ -20033,6 +20904,30 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        Party: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            /** @enum {string} */
+            kind: "organization" | "person";
+            displayName: string;
+            archivedAt: string | null;
+            /** @description One of the firm's OWN companies: the firm itself, or a company on Our companies (`crm.is_firm_entity`, 0313). Such a party is never a client: a proposal, an engagement letter, a lead and an invoice all refuse it. Listed all the same, so a screen that may name the firm (a task about it) still can; the client screens hide it. */
+            isOwnCompany: boolean;
+        };
+        UpdateParty: {
+            displayName?: string;
+            tradeName?: string | null;
+            industry?: string | null;
+            website?: string | null;
+        };
+        CorrectLegalEntity: {
+            /** @example IN */
+            jurisdiction?: string;
+            /** @example private_limited */
+            entityType?: string;
+        };
         PartyIdentifier: {
             /** Format: uuid */
             id: string;
@@ -20046,6 +20941,11 @@ export interface components {
             isPrimary: boolean;
             validFrom: string;
             validTo: string | null;
+            voidedAt: string | null;
+        };
+        EndIdentifier: {
+            /** Format: date */
+            validTo: string;
         };
         AddIdentifierRequest: {
             /** @enum {string} */
@@ -20103,16 +21003,6 @@ export interface components {
         EndRelationshipRequest: {
             /** Format: date */
             validTo: string;
-        };
-        Party: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tenantId: string;
-            /** @enum {string} */
-            kind: "organization" | "person";
-            displayName: string;
-            archivedAt: string | null;
         };
         PartyList: {
             parties: components["schemas"]["Party"][];
@@ -20962,6 +21852,7 @@ export interface components {
             status: string;
             effectiveFrom: string;
             endsOn: string | null;
+            endReason: string | null;
             /** @description The fee group that prices this engagement (0083), or null. When set, `unitAmount` is null because the price is the GROUP's — one fee for every engagement in it — and a screen must not prefill that fee per engagement: four engagements of a USD 5,000 retainer are billed 5,000, not 20,000. */
             feeGroup: {
                 /** Format: uuid */
@@ -21169,6 +22060,10 @@ export interface components {
             activatedAt: string | null;
             effectiveFrom: string;
             endsOn: string | null;
+            endReason: string | null;
+            endedAt: string | null;
+            pausedAt: string | null;
+            resumedOn: string | null;
         };
         EngagementLetterSigning: {
             provider: string;
@@ -21365,6 +22260,35 @@ export interface components {
                 name: string;
                 email: string;
             };
+        };
+        EngagementEnded: {
+            engagement: components["schemas"]["Engagement"];
+            filings: {
+                withdrawn: number;
+                kept: number;
+                keptStarted: number;
+                keptPastDue: number;
+                keptCoveredElsewhere: number;
+                repointed: number;
+            };
+            /** @description Jobs already on the board for periods after the end. Ending leaves them; cancel each on its job page. */
+            openJobsAfterEnd: {
+                /** Format: uuid */
+                jobId: string;
+                periodLabel: string | null;
+            }[];
+        };
+        EndEngagement: {
+            /**
+             * @description The LAST day the firm serves it, YYYY-MM-DD. Periods that begin after it get no job and no filing; its untouched filings for them are withdrawn. A day before its work began ends it as cancelled.
+             * @example 2026-09-30
+             */
+            endsOn: string;
+            /**
+             * @description Why it is ending, in your words. Kept on the engagement, never in the audit log.
+             * @example Client moved their books to another firm.
+             */
+            reason: string;
         };
         SignedEngagementLetter: {
             letter: components["schemas"]["EngagementLetter"];
@@ -21863,6 +22787,16 @@ export interface components {
         DocumentLinksResponse: {
             links: components["schemas"]["DocumentLink"][];
         };
+        SubjectDocument: components["schemas"]["Document"] & {
+            /**
+             * @description What this file is TO the subject it was listed for: `copy_of_record` is an issued invoice's or a sent letter's one copy, made once and never again; `draft_copy` is a draft printed for the firm, never shown to the client; `rendered` is any other copy the product made (a proposal's, or one made before 2026-09-29). Null for a file a person attached.
+             * @example copy_of_record
+             */
+            role: string | null;
+        };
+        SubjectDocumentsResponse: {
+            documents: components["schemas"]["SubjectDocument"][];
+        };
         BrandAsset: {
             /** Format: uuid */
             id: string;
@@ -21954,6 +22888,30 @@ export interface components {
                 /** @description Invoices it issued in the window in ANOTHER currency: in `billedReporting`, not in `billed`, because nothing stores a rate between two currencies that are not the reporting one. Zero for a company billing in the reporting currency. */
                 otherCurrencyInvoices: number;
             }[];
+        };
+        ReadinessGap: {
+            /** @description The subject: a client's party id (account_team, portal_contacts), a person's user id (reporting_lines) or a rule's id (compliance_rules). Null for a gap that is the firm's own. */
+            id: string | null;
+            /** @description A key to link with: the service's catalogue key on `processes`. Null elsewhere. */
+            ref: string | null;
+            /** @description The subject's name as the firm wrote it; empty for the firm's own gap. */
+            name: string;
+            /** @description What is missing, as a closed vocabulary per line: deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
+            missing: string[];
+        };
+        ReadinessLine: {
+            /** @enum {string} */
+            key: "deadlines" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            done: boolean;
+            gaps: components["schemas"]["ReadinessGap"][];
+            /** @description Why the line applies: on reporting_lines, the labels of the published check rules that read reporting lines alone. Empty elsewhere, and empty there when no rule reads them. */
+            context: string[];
+        };
+        ReadinessResponse: {
+            /** @description The firm's calendar day the lines were computed on. */
+            asOf: string;
+            /** @description The eight lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
+            lines: components["schemas"]["ReadinessLine"][];
         };
     };
     responses: never;

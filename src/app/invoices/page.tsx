@@ -372,7 +372,7 @@ export default function InvoicesPage() {
                       stopped the accident; the API now refuses the choice, so
                       the list stops offering it. */}
                   {parties
-                    .filter((p) => !entities.some((e) => e.id === p.id))
+                    .filter((p) => !p.isOwnCompany && !entities.some((e) => e.id === p.id))
                     .map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.displayName}

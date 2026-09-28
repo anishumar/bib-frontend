@@ -131,11 +131,12 @@ export function LetterClientStep({
       }
       setFirm(entities);
       if (parties?.data) {
-        // The firm's own companies are not clients.
+        // The firm's own companies are not clients (the API refuses a letter
+        // to one: CLIENT_IS_OWN_COMPANY).
         const own = new Set(entities.entities.map((e) => e.partyId));
         setBook(
           parties.data.parties
-            .filter((p) => !own.has(p.id))
+            .filter((p) => !p.isOwnCompany && !own.has(p.id))
             .map((p) => ({ id: p.id, name: p.displayName, kind: p.kind })),
         );
       }
@@ -157,7 +158,7 @@ export function LetterClientStep({
   }, []);
 
   /** The client's registration, its people and its signed letters. */
-  async function choose(id: string, name: string): Promise<void> {
+  async function choose(id: string, name: string, prefilled = false): Promise<void> {
     setError(null);
     const [profile, structure, letters] = await Promise.all([
       api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId: id } } }),
@@ -168,6 +169,15 @@ export function LetterClientStep({
     ]);
     if (profile.error) {
       setError(apiError(profile.error).message);
+      return;
+    }
+    // A link that named one of the firm's own companies: not chosen, and said
+    // in the API's own words, since Next would be refused.
+    if (prefilled && profile.data.party.isOwnCompany) {
+      setError(
+        `${profile.data.party.displayName} is one of your own companies, so it cannot be the ` +
+          `client on an engagement letter. Choose the client the letter is for.`,
+      );
       return;
     }
     const registered =
@@ -206,7 +216,7 @@ export function LetterClientStep({
     if (!loaded || firm === null) return;
     void (async () => {
       if (draft !== null) await choose(draft.party.id, draft.party.displayName);
-      else if (prefillClientId !== null) await choose(prefillClientId, "");
+      else if (prefillClientId !== null) await choose(prefillClientId, "", true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, firm]);

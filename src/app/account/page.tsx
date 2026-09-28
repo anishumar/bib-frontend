@@ -20,20 +20,35 @@
  * login that belongs to the person holding it and to nobody else, including
  * their own partners. So this screen is exactly that one fact, and a second
  * card here would need to be something equally theirs.
+ *
+ * ── TECHNICAL DETAILS: WHICH BUILD IS LIVE (V0.2) ─────────────────────────
+ *
+ * Closed, and last, for support: the commit and build time the API reports on
+ * `/health`. Nobody could tell which build QA ran, or whether a migration had
+ * gone out, without asking whoever deployed it. `/health` is public and cheap,
+ * and a failure to read it hides the line rather than showing an error on a
+ * page about something else.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api, codeLabel } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { Principal } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
-import { ErrorNotice, Meta, MetaItem, NotSet } from "@/components/ui";
+import { Button, ErrorNotice, Field, Input, Meta, MetaItem, NotSet } from "@/components/ui";
+import { longInstantTime } from "@/lib/day";
+
+type Build = { readonly commit: string | null; readonly builtAt: string | null };
 
 export default function AccountPage() {
   const [me, setMe] = useState<Principal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [build, setBuild] = useState<Build | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
 
   // Its own read rather than the shell's `useSession`, because this screen
   // CHANGES what that answer is: a password change replaces the session and
@@ -51,11 +66,33 @@ export default function AccountPage() {
     setLoaded(true);
   }, []);
 
+  /** Your OWN name (V2.5): the account is yours at every firm, so only you change it. */
+  async function rename(form: FormData): Promise<void> {
+    setRenaming(true);
+    setNameError(null);
+    const result = await api.PATCH("/api/v1/tenancy/me", {
+      body: { displayName: String(form.get("displayName") ?? "").trim() },
+    });
+    setRenaming(false);
+    if (result.error) {
+      setNameError(apiError(result.error).message);
+      return;
+    }
+    await load();
+  }
+
   useEffect(() => {
     void (async () => {
       await load();
     })();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await api.GET("/health", {});
+      if (data !== undefined) setBuild({ commit: data.commit, builtAt: data.builtAt });
+    })();
+  }, []);
 
   if (!loaded) return <Loading label="Reading your account" />;
 
@@ -79,6 +116,26 @@ export default function AccountPage() {
             <MetaItem label="Role">{me.role === null ? <NotSet /> : codeLabel(me.role)}</MetaItem>
           </Meta>
 
+          <details className="disclosure">
+            <summary>Change your name</summary>
+            <form
+              className="stack tight"
+              action={(form) => {
+                void rename(form);
+              }}
+            >
+              <Field label="Your name" hint="Shown to everyone at every firm you belong to.">
+                <Input name="displayName" required defaultValue={me.displayName ?? ""} placeholder="e.g. Asha Verma" />
+              </Field>
+              <ErrorNotice error={nameError} />
+              <div className="cluster">
+                <Button type="submit" variant="secondary" loading={renaming}>
+                  Save
+                </Button>
+              </div>
+            </form>
+          </details>
+
           <ChangePassword
             hasPassword={me.hasPassword}
             email={me.email}
@@ -87,6 +144,26 @@ export default function AccountPage() {
               void load();
             }}
           />
+
+          {build === null ? null : (
+            <details className="disclosure">
+              <summary>Technical details</summary>
+              <Meta>
+                <MetaItem label="Build">
+                  {build.commit === null ? (
+                    <NotSet />
+                  ) : (
+                    <span className="mono" title={build.commit}>
+                      {build.commit.slice(0, 7)}
+                    </span>
+                  )}
+                </MetaItem>
+                <MetaItem label="Built">
+                  {build.builtAt === null ? <NotSet /> : longInstantTime(build.builtAt)}
+                </MetaItem>
+              </Meta>
+            </details>
+          )}
         </Stack>
       )}
     </Page>

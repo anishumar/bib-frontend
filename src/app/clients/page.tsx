@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
@@ -79,8 +81,13 @@ export default function ClientsPage() {
       setLoaded(true);
       return;
     }
-    setParties(list.data.parties);
-    setMine(book.data?.clients ?? []);
+    // THE FIRM'S OWN COMPANIES ARE NOT CLIENTS: they live on Your firm, and a
+    // proposal, a letter, a lead or an invoice to one is refused. The API
+    // still lists them (a task may be about the firm), so this book hides
+    // them, from both tabs and their counts.
+    const own = new Set(list.data.parties.filter((p) => p.isOwnCompany).map((p) => p.id));
+    setParties(list.data.parties.filter((p) => !own.has(p.id)));
+    setMine((book.data?.clients ?? []).filter((c) => !own.has(c.clientPartyId)));
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -258,6 +265,15 @@ export default function ClientsPage() {
             </Table>
           </TableWrap>
         )}
+        <p className="muted mt-2">
+          Your own companies are on{" "}
+          {session?.permissions.includes("tenant:admin") === true ? (
+            <Link href={"/admin/firm#companies" as Route}>Your firm</Link>
+          ) : (
+            "Your firm"
+          )}
+          .
+        </p>
       </TabPanel>
 
       <Dialog

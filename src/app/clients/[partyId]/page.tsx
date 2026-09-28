@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, codeLabel } from "@/lib/api/client";
 import type {
@@ -16,6 +17,8 @@ import type {
 import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
+import { EngagementsPanel } from "./engagements";
+import { CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import {
   Button,
   Card,
@@ -36,6 +39,7 @@ import {
   Td,
   Th,
 } from "@/components/ui";
+import { ConfirmAction } from "@/components/confirm-action";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
@@ -383,18 +387,34 @@ export default function PartyPage() {
                 Archived
               </Pill>
             )}
-            {canWrite && (
-              <Button
-                variant={profile.party.archivedAt === null ? "destructive-quiet" : "secondary"}
+            {/* Archive is confirmed (V1.3); Restore puts it back and is not. */}
+            {canWrite && profile.party.archivedAt === null && (
+              <ConfirmAction
+                variant="destructive-quiet"
                 loading={archiving}
-                onClick={() => void setArchived(profile.party.archivedAt === null)}
+                title={`Archive ${profile.party.displayName}?`}
+                confirmLabel="Archive"
+                destructive
+                consequence={
+                  <p>
+                    {profile.party.displayName} leaves every list and picker, and no new work
+                    is created for it. Everything already done stays on file. You can restore
+                    it later.
+                  </p>
+                }
+                onConfirm={() => void setArchived(true)}
               >
-                {profile.party.archivedAt === null ? "Archive" : "Restore"}
+                Archive
+              </ConfirmAction>
+            )}
+            {canWrite && profile.party.archivedAt !== null && (
+              <Button variant="secondary" loading={archiving} onClick={() => void setArchived(false)}>
+                Restore
               </Button>
             )}
-            {/* An archived client is refused a proposal by the API (0305), so
-                it is not offered one. */}
-            {canWrite && profile.party.archivedAt === null && (
+            {/* An archived client is refused a proposal by the API (0305), and
+                so is one of the firm's own companies, so neither is offered one. */}
+            {canWrite && profile.party.archivedAt === null && !profile.party.isOwnCompany && (
               <LinkButton
                 variant="secondary"
                 href={`/engagement-letters/new?clientPartyId=${partyId}`}
@@ -402,7 +422,7 @@ export default function PartyPage() {
                 New engagement letter
               </LinkButton>
             )}
-            {canWrite && profile.party.archivedAt === null && (
+            {canWrite && profile.party.archivedAt === null && !profile.party.isOwnCompany && (
               <LinkButton variant="primary" href={`/proposals/new?clientPartyId=${partyId}`}>
                 New proposal
               </LinkButton>
@@ -437,12 +457,48 @@ export default function PartyPage() {
         </p>
       </PageHeader>
 
+      {/* Correct the name and company facts in place (V2.5). */}
+      {canWrite && (
+        <EditDetails
+          partyId={partyId}
+          kind={profile.party.kind}
+          current={{
+            displayName: profile.party.displayName,
+            tradeName: profile.organization?.tradeName ?? null,
+            industry: profile.organization?.industry ?? null,
+            website: profile.organization?.website ?? null,
+          }}
+          onSaved={load}
+        />
+      )}
+
       <ErrorNotice error={error} />
+
+      {/* Opened by a link or a bookmark: the page still reads, and says why it
+          offers no proposal or letter. */}
+      {profile.party.isOwnCompany && (
+        <Notice>
+          <p>
+            {profile.party.displayName} is one of your own companies, not a client. Its details
+            are on{" "}
+            {permissions.includes("tenant:admin") ? (
+              <Link href={"/admin/firm#companies" as Route}>Your firm</Link>
+            ) : (
+              "Your firm"
+            )}
+            .
+          </p>
+        </Notice>
+      )}
 
       {/* First, because "who at the firm looks after this client" is the
           question somebody opening a client page most often has, and until
           G3.2 nothing in this product could answer it. */}
       <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
+
+      {/* What the firm does for this client, and End / Pause / Resume on each
+          (V2.3). A client who leaves is ended here, then archived above. */}
+      <EngagementsPanel partyId={partyId} canWrite={canWrite} />
 
       {/* THE CLIENT'S OWN PEOPLE. Two panels in a row and they are opposite
           halves of the same question: the one above is who at the FIRM owns
@@ -524,6 +580,17 @@ export default function PartyPage() {
               </tbody>
             </Table>
           </TableWrap>
+          )}
+
+          {canWrite && profile.legalEntities[0] !== undefined && (
+            <CorrectEntity
+              partyId={partyId}
+              current={{
+                jurisdiction: profile.legalEntities[0].jurisdiction,
+                entityType: profile.legalEntities[0].entityType,
+              }}
+              onSaved={load}
+            />
           )}
 
           {/* The write that had no caller. Offered on `party:write`, the same
@@ -609,6 +676,12 @@ export default function PartyPage() {
                   <Th>Value</Th>
                   <Th>Country</Th>
                   <Th>From</Th>
+                  <Th>Until</Th>
+                  {canWrite && (
+                    <Th align="right">
+                      <span className="sr-only">Actions</span>
+                    </Th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -625,11 +698,35 @@ export default function PartyPage() {
                     </Td>
                     {/* Stored normalised by the API — uppercase, unspaced — which
                         is what makes two captures of one company match. */}
-                    <Td>{i.value}</Td>
+                    <Td>
+                      {/* A voided one stays on the record, struck through (V2.5). */}
+                      {i.voidedAt === null ? i.value : <s>{i.value}</s>}
+                    </Td>
                     <Td>
                       {i.jurisdiction === null ? <NotSet /> : <Pill tone="code">{i.jurisdiction}</Pill>}
                     </Td>
                     <Td className="nowrap">{longDay(i.validFrom)}</Td>
+                    <Td className="nowrap">
+                      {i.voidedAt !== null ? (
+                        <Pill dot tone="danger">
+                          Voided
+                        </Pill>
+                      ) : i.validTo === null ? (
+                        <NotSet>In force</NotSet>
+                      ) : (
+                        longDay(i.validTo)
+                      )}
+                    </Td>
+                    {canWrite && (
+                      <Td align="right">
+                        <IdentifierActions
+                          partyId={partyId}
+                          identifier={i}
+                          word={identifierWord(i.type)}
+                          onDone={load}
+                        />
+                      </Td>
+                    )}
                   </tr>
                 ))}
               </tbody>

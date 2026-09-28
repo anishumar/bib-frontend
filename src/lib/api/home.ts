@@ -23,11 +23,21 @@ import type { SignInResponse } from "@/lib/api/client";
  * login. Somebody who is a colleague at one firm and a client's contact at
  * another goes to the workspace and switches org from there: guessing the
  * portal for them would put the narrower app in front of the wider need.
+ *
+ * ── WHERE STAFF LAND ───────────────────────────────────────────────────────
+ *
+ * My day, at `/` (V2.1, 2026-09-28): everything on their desk, by date. It
+ * was the AI Copilot, which cannot answer anything yet, and every role started
+ * the day on it; V1.1 sent staff to the Work board until My day existed.
  */
-export function homeFor(result: SignInResponse | undefined): "/" | "/portal" {
-  if (result === undefined) return "/";
+const STAFF_HOME = "/";
+
+export function homeFor(result: SignInResponse | undefined): typeof STAFF_HOME | "/portal" {
+  if (result === undefined) return STAFF_HOME;
   if (result.principal.audience === "CLIENT_PORTAL") return "/portal";
-  if (result.principal.audience !== null) return "/";
+  if (result.principal.audience !== null) return STAFF_HOME;
   const all = result.memberships;
-  return all.length > 0 && all.every((m) => m.audience === "CLIENT_PORTAL") ? "/portal" : "/";
+  return all.length > 0 && all.every((m) => m.audience === "CLIENT_PORTAL")
+    ? "/portal"
+    : STAFF_HOME;
 }

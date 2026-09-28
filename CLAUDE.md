@@ -453,8 +453,9 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 | Route | Is |
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
-| `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
-| `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
+| `/` | **My day** (V2.1), where staff land: everything on the reader's desk (tasks, steps, checks to decide, client requests, escalations) as ONE list in Overdue / Today / This week / Later. Clients land on `/portal` |
+| `/copilot` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so (the sidebar link reads "Not live yet"). The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
+| `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Setup** first (V2.6: eight readiness lines, each Done or To do with what is missing and a link to the screen that fixes it, `#setup`), then **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
 | `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
@@ -851,7 +852,69 @@ returns the permissions the session's role carries, so a link is shown only to s
 can use it — but every screen still shows the API's refusal verbatim when one arrives, because
 the API is the only place the answer actually lives.
 
-## `/` — AI Copilot, and the uuids that used to be the first thing anybody saw
+## `/` — My day, the one list of everything that is mine (V2.1, 2026-09-28)
+
+A person's work was spread over the Work board, Jobs, two To check queues and Client requests:
+about nine clicks and four screens, and nothing said what was due today. `/` is now **My day**,
+and it is where staff land (`homeFor` sends them to `/`; V1.1 had sent them to the board until
+this existed).
+
+- **Six reads, one list, nothing per row.** `/work-items?mine=true&asOf=`, `/my-steps`,
+  `/work-item-checks`, `/checks`, `/client-requests` (kept to the reader's desk) and
+  `/escalations?mine=true`, in one `Promise.all`. The API grew what the rows needed rather than
+  this screen fetching per row: `MyStep.job` and `StepCheck.job` (client and company by id,
+  period, services, and the job's due day = its earliest UNFINISHED task's), and `clientPartyId`
+  (+ `dueOn`) on `WorkItemCheckRow` and `EscalationRow`. The reader comes from `useSession()`,
+  so the page asks nothing until the shell knows who is signed in. In `next dev` StrictMode runs
+  the effect twice (12 requests, 6 distinct); a production build makes 6.
+- **Buckets by the work's due day against `browserDay()`:** Overdue, Today, This week (the next
+  SEVEN days, so a Friday still shows Monday), Later (closed, a Show button). What waits on the
+  reader NOW (a check to decide, a request to answer, an escalation to chase) is Today unless
+  already late, whatever the work's own date; other undated work is Later. Within a bucket:
+  earliest first, the reader's own turn first, then name.
+- **Every row: what (a whole-row link to where it is worked), the client (a LINK to its page),
+  due, whose turn.** Whose turn is You / A checker / The client / An earlier step. A task with
+  an open review, and a step that is done with a check open on it, is the checker's; a request
+  answered and not yet replied to is the client's; a `pending` step waits on an earlier step.
+  Waiting on the client for a TASK needs the open asks on the board's read and is a P1 task.
+- **One row per thing.** An escalation about the reader's OWN task is the flag "Escalated" on
+  that task's row; about somebody else's work it is its own row ("Escalated to you · with
+  Ananya Nair"), one per piece of work however many rungs fired. A done step waiting for its
+  check is one row, not a step and a check. A task check is listed only when the reader may
+  decide it (their own task waiting for a check is already a task row).
+- **Flags under the title, in tone:** the blocked reason in danger (the kind line already says
+  the firm's word for the state, "Task · Blocked"), "Waiting on <task>" and "Escalated" in warn.
+- **Empty:** "Nothing due. You are up to date." when Overdue, Today and This week are empty.
+- **Sidebar counts (`useNavCounts`).** Work board = open tasks on the reader's desk, Jobs =
+  steps on it, Client requests = requests on it waiting for the firm. The shell fetches NOTHING
+  for them: My day reports all three, and the Work board and Jobs report their own when they
+  load. A count nobody reported, or a 0, is not drawn.
+
+## Setup readiness on Your firm and My day (V2.6, 2026-09-28)
+
+`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns eight lines as CODES; `lib/ui/readiness.tsx`
+is the one place they become words and links, so the two screens never phrase a gap twice.
+
+- **Your firm opens with a Setup card** (`#setup`): a table of the eight lines, each a whole-row
+  link to the screen that fixes it (Deadlines is `/admin/firm#deadlines`, which is why `SetOnce`
+  takes an `id`), a Done / To do pill, and up to three gaps under the label ("test company: no
+  Key Manager, no SPOC for FRC", with the client LINKED; "and N more" after). It is read in the
+  page's own `load`, so saving the Deadlines card below turns that line Done in the same reload.
+- **My day shows "Setup: 5 of 8 · See what is left"** at the top for `tenant:admin` only (the
+  seventh read, so an administrator's My day makes seven calls), and nothing once all eight are
+  done.
+- **The ladder line never suggests days.** It asks that each ladder is PUBLISHED; the firm has not
+  given its numbers (decision D3).
+- `request_routing` counts `none` as not set, though the API calls `none` a real answer: the
+  brief asks that the firm has chosen who picks up client requests.
+
+## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
+
+**It is not the landing any more (V1.1, 2026-09-28).** It was `/`, and every staff role signed
+in to "AI Copilot · Not live yet" with every sidebar group closed. Staff land on their work now
+(`homeFor` in `lib/api/home.ts`), the Copilot is one sidebar link carrying the note "Not live
+yet" (`NavItem.note`, drawn in the `.count` style), and the Delivery group is open by default
+(`NavGroup.openByDefault`) as well as whenever the current page is in it.
 
 This route was **Home**, and Home printed the session's user id, its tenant id and a row of
 permission keys above the fold. Every one of those is a fact about the SYSTEM. A partner
@@ -1500,7 +1563,19 @@ firm's own words. **They are two screens because they answer two questions**, an
 firm that has published no process still has work: ad hoc work has no job at all and is still
 owned, still due and still reviewable.
 
-**IT IS A BOARD BY DEFAULT, AND THE COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states
+**IT OPENS AS A DATED LIST (V1.2, 2026-09-28), AND THE BOARD IS ONE CLICK AWAY.** It opened as
+the board, and at 1440 the fifth column (Blocked) sat off the right edge: the v1.5 walk found
+Ananya's critical, late "GSTR-3B - Cobalt Logistics - July", waiting on the client, in exactly
+that column. The list is sorted overdue first (oldest first), then by due date, no due date
+last, rank then title breaking ties (`datedOrder`). Being stuck is a FLAG ON THE ROW: the state
+pill in danger tone with its reason under the task in danger, and "Waiting on <task>" in warn.
+**Tab and view are in the URL** (`?tab=mine|unassigned|checks|escalated|all&view=list|board`,
+kept in state and written with `history.replaceState`), so Back from a task lands on the same
+place. `router.replace` was the first version and is a transition: Everything then Board, pressed
+quickly, wrote `?tab=mine&view=board` because the second press read the tab before the first landed. `/client-requests` opens
+on Mine for the same reason (its tab is still local state).
+
+**THE BOARD VIEW'S COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states
 rows precisely so a firm could rename "Blocked" to "Stuck" without a deploy, and a board with
 hardcoded columns takes that back on the screen where it shows most. The columns come from
 `GET /work-vocabulary` — `party:read`, the same permission the board itself needs — ordered by

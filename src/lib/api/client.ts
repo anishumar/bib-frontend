@@ -145,6 +145,25 @@ export type CheckLine = JobStep["subSteps"][number];
 export type StepCheck =
   paths["/api/v1/checks"]["get"]["responses"][200]["content"]["application/json"]["checks"][number];
 
+/**
+ * One process step on the signed-in person's own desk, across jobs, with the
+ * job it belongs to (`job`: the client by id, period, services and the due day
+ * of the job's unfinished tasks; null when the job names no engagement).
+ * `status: "blocked"` is READY for this person; `pending` waits on an earlier
+ * step.
+ */
+export type MyStep =
+  paths["/api/v1/my-steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
+
+/**
+ * Setup readiness (V2.6): eight lines, each `done` or naming its `gaps`.
+ * `tenant:admin` only. `missing` is a closed vocabulary per line that the
+ * screen words (`lib/ui/readiness.tsx`); the API ships no sentence there.
+ */
+export type Readiness =
+  paths["/api/v1/tenancy/readiness"]["get"]["responses"][200]["content"]["application/json"];
+export type ReadinessLine = Readiness["lines"][number];
+
 /** Why one person may not check one thing. A closed set, because each one is a
  *  sentence a screen has to say out loud. */
 export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;
@@ -1128,6 +1147,12 @@ export type StoredDocument =
  *  letter commits to, which is what makes "is the file the client holds the one
  *  we issued" a comparison rather than a matter of trust. */
 export type StoredDocumentVersion = StoredDocument["latestVersion"];
+
+/** A file as ONE subject's list shows it: the document, and what it is to that
+ *  subject (`role`): `copy_of_record` for an issued invoice's or a sent letter's
+ *  one copy, `draft_copy` for a draft printed for the firm (2026-09-29). */
+export type SubjectFile =
+  paths["/api/v1/subjects/{subjectKind}/{subjectRef}/documents"]["get"]["responses"][200]["content"]["application/json"]["documents"][number];
 
 /** What a document is attached to. `subjectLabel` is NULL when the subject does
  *  not resolve — the reference carries no foreign key, so a dangling link is
