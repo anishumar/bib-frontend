@@ -440,6 +440,10 @@ export default function InvoicePage() {
                          own company's series, so it can only bill that
                          company's letters; the API refuses the rest. */
                       const otherCompany = b.issuingEntityPartyId !== invoice.entityPartyId;
+                      /* And another currency: a line takes the invoice's, so
+                         USD 3,000 would be billed as ₹3,000. The API refuses
+                         it too (ENGAGEMENT_IN_ANOTHER_CURRENCY). */
+                      const otherCurrency = b.currency !== invoice.currency;
                       return (
                         <option
                           key={b.engagementId}
@@ -448,7 +452,7 @@ export default function InvoicePage() {
                              comes back either way so the screen can explain why
                              a service the client signed for cannot be billed
                              yet — a picker that silently dropped it could not. */
-                          disabled={otherCompany || b.status !== "active"}
+                          disabled={otherCompany || otherCurrency || b.status !== "active"}
                         >
                           {b.entityName}: {b.description}
                           {b.feeGroup !== null
@@ -458,9 +462,11 @@ export default function InvoicePage() {
                               : ""}
                           {otherCompany
                             ? ` (billed by ${b.issuingEntityName})`
-                            : b.status === "active"
-                              ? ""
-                              : " (waiting on the advance)"}
+                            : otherCurrency
+                              ? ` (priced in ${b.currency})`
+                              : b.status === "active"
+                                ? ""
+                                : " (waiting on the advance)"}
                         </option>
                       );
                     })}

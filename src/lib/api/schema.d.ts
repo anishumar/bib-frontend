@@ -15390,7 +15390,7 @@ export interface paths {
         put?: never;
         /**
          * Add a line to a draft invoice
-         * @description An `engagementId` must be the billed client's, and its letter must have been signed by the company this invoice is charged by: the number is already in that company's series (ENGAGEMENT_OF_ANOTHER_ISSUER, 409).
+         * @description An `engagementId` must be the billed client's, and its letter must have been signed by the company this invoice is charged by: the number is already in that company's series (ENGAGEMENT_OF_ANOTHER_ISSUER, 409). The letter must also be priced in this invoice's currency, because the line takes the invoice's (ENGAGEMENT_IN_ANOTHER_CURRENCY, 409).
          */
         post: {
             parameters: {
@@ -15450,7 +15450,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The invoice has been issued (its lines are fixed), or the engagement's letter was signed by another of the firm's companies */
+                /** @description The invoice has been issued (its lines are fixed), or the engagement's letter was signed by another of the firm's companies or priced in another currency */
                 409: {
                     headers: {
                         [name: string]: unknown;

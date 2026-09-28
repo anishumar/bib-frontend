@@ -2513,7 +2513,11 @@ raise dialog no longer defaults to the first company. Choosing "Bill to" reads t
 letters are named under it ("Issued EL-2026-0001."); with none, or letters from several, the
 select stays on "Choose the company…" and `required` stops the form. On the invoice, "What is
 this for?" disables an engagement another company signed ("(billed by 10x Global FZCO)"), and
-the API refuses it too (`ENGAGEMENT_OF_ANOTHER_ISSUER`). The line form prefills the letter's
+the API refuses it too (`ENGAGEMENT_OF_ANOTHER_ISSUER`). The same goes for an engagement priced
+in another currency, "(priced in USD)", because a line takes the INVOICE's currency and USD 3,000
+became ₹3,000 (`ENGAGEMENT_IN_ANOTHER_CURRENCY`); and when the preselected company's letters for
+the client are all in one currency, the dialog prefills it ("As priced in EL-2026-0007."). Its
+rate still starts at 1. The line form prefills the letter's
 figures through `formatCount` ("1", "25000", never "1.0000"); every edit form that prefills from
 an API decimal does the same.
 

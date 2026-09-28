@@ -63,6 +63,9 @@ export default function InvoicesPage() {
   const [chargedBy, setChargedBy] = useState("");
   /** What the chosen client's letters say about who charges them. */
   const [signedBy, setSignedBy] = useState<SignedBy | null>(null);
+  /** The invoice's currency: INR unless the letters chose "Charged by" and
+   *  priced everything in one currency. */
+  const [currency, setCurrency] = useState("INR");
   /** The client whose letters were last asked for, so a slow answer about an
    *  earlier choice cannot overwrite a later one. */
   const asked = useRef("");
@@ -100,6 +103,7 @@ export default function InvoicesPage() {
     setBillTo("");
     setChargedBy("");
     setSignedBy(null);
+    setCurrency("INR");
     asked.current = "";
     setRaising(true);
   }
@@ -113,27 +117,37 @@ export default function InvoicesPage() {
    * its letters: one issuing company is preselected and the letters named under
    * it; none, or several, leaves the placeholder and `required` to make
    * somebody choose. Never a silent first option.
+   *
+   * And when that one company's letters are all priced in one currency, the
+   * invoice is raised in it: a line takes the invoice's currency, and the API
+   * refuses an engagement priced in another (ENGAGEMENT_IN_ANOTHER_CURRENCY).
    */
   async function chooseClient(partyId: string): Promise<void> {
     setBillTo(partyId);
     setChargedBy("");
     setSignedBy(null);
+    setCurrency("INR");
     asked.current = partyId;
     if (partyId === "") return;
     const result = await api.GET("/api/v1/parties/{partyId}/billable-engagements", {
       params: { path: { partyId } },
     });
     if (asked.current !== partyId) return;
-    const letters = new Map<string, Set<string>>();
+    const letters = new Map<string, { refs: Set<string>; currencies: Set<string> }>();
     for (const e of result.data?.engagements ?? []) {
-      const refs = letters.get(e.issuingEntityPartyId) ?? new Set<string>();
-      refs.add(e.letterRef);
-      letters.set(e.issuingEntityPartyId, refs);
+      const of = letters.get(e.issuingEntityPartyId) ?? { refs: new Set(), currencies: new Set() };
+      of.refs.add(e.letterRef);
+      of.currencies.add(e.currency);
+      letters.set(e.issuingEntityPartyId, of);
     }
     const [only] = letters;
     if (letters.size === 1 && only !== undefined && entities.some((e) => e.id === only[0])) {
-      setChargedBy(only[0]);
-      setSignedBy({ kind: "one", entityId: only[0], letters: [...only[1]].sort() });
+      const [entityId, { refs, currencies }] = only;
+      const [priced] = currencies;
+      const oneCurrency = currencies.size === 1 && priced !== undefined ? priced : null;
+      setChargedBy(entityId);
+      if (oneCurrency !== null) setCurrency(oneCurrency);
+      setSignedBy({ kind: "one", entityId, letters: [...refs].sort(), currency: oneCurrency });
       return;
     }
     setSignedBy(letters.size > 1 ? { kind: "several", count: letters.size } : { kind: "none" });
@@ -386,8 +400,16 @@ export default function InvoicesPage() {
             </FieldRow>
 
             <FieldRow>
-              <Field label="Currency">
-                <Input name="currency" defaultValue="INR" maxLength={3} required />
+              <Field label="Currency" hint={currencyHint(signedBy, chargedBy, currency)}>
+                <Input
+                  name="currency"
+                  value={currency}
+                  onChange={(e) => {
+                    setCurrency(e.target.value);
+                  }}
+                  maxLength={3}
+                  required
+                />
               </Field>
               <Field label="Rate to the firm's currency">
                 <Input name="fxRate" defaultValue="1" required />
@@ -414,22 +436,46 @@ export default function InvoicesPage() {
 /** Who signed the chosen client's letters: one company (and which letters), or
  *  more than one, or nobody yet. */
 type SignedBy =
-  | { readonly kind: "one"; readonly entityId: string; readonly letters: readonly string[] }
+  | {
+      readonly kind: "one";
+      readonly entityId: string;
+      readonly letters: readonly string[];
+      /** The one currency those letters are priced in, or null for several. */
+      readonly currency: string | null;
+    }
   | { readonly kind: "several"; readonly count: number }
   | { readonly kind: "none" };
+
+/** "EL-2026-0001, EL-2026-0004 and 2 more". */
+function namedLetters(letters: readonly string[]): string {
+  const [first, second, ...rest] = letters;
+  const named = [first, second].filter((r) => r !== undefined).join(", ");
+  return `${named}${rest.length > 0 ? ` and ${String(rest.length)} more` : ""}`;
+}
 
 /** The line under "Charged by": the letters that chose it while it is still
  *  their company, otherwise what the choice decides. */
 function chargedByHint(signedBy: SignedBy | null, chargedBy: string): string {
   if (signedBy?.kind === "one" && chargedBy === signedBy.entityId) {
-    const [first, second, ...rest] = signedBy.letters;
-    const named = [first, second].filter((r) => r !== undefined).join(", ");
-    return `Issued ${named}${rest.length > 0 ? ` and ${String(rest.length)} more` : ""}.`;
+    return `Issued ${namedLetters(signedBy.letters)}.`;
   }
   if (signedBy?.kind === "several") {
     return `Their letters come from ${String(signedBy.count)} companies.`;
   }
   return "Its number comes from this company's series.";
+}
+
+/** The line under "Currency", only while it is still the letters' currency. */
+function currencyHint(signedBy: SignedBy | null, chargedBy: string, currency: string): string | undefined {
+  if (
+    signedBy?.kind === "one" &&
+    signedBy.currency !== null &&
+    chargedBy === signedBy.entityId &&
+    currency.trim().toUpperCase() === signedBy.currency
+  ) {
+    return `As priced in ${namedLetters(signedBy.letters)}.`;
+  }
+  return undefined;
 }
 
 /** A cancelled invoice wears the same pill a revoked membership does: it is
