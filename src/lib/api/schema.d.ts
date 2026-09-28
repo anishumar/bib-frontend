@@ -19527,6 +19527,7 @@ export interface components {
             assigneeUserId?: string | null;
             dueOn?: string | null;
             isStatutoryDue?: boolean;
+            /** @description Show this task on the client's portal. Absent means FALSE (V1.4): a task raised by hand is often an internal note, and the portal is the client's screen. Work spawned from an engagement or a statutory filing is shown regardless. */
             isClientVisible?: boolean;
         };
         UpdateWorkItemRequest: {

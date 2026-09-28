@@ -584,6 +584,8 @@ function NewTaskDialog({
         clientPartyId: String(form.get("clientPartyId")),
         title: String(form.get("title")),
         isStatutoryDue: form.get("isStatutoryDue") === "on",
+        // SENT, never left to a default (V1.4): the box is what the person saw.
+        isClientVisible: form.get("isClientVisible") === "on",
         // Omitted rather than sent as null when empty: absent means "the API
         // decides", which for the assignee is the SPOC router and for the due
         // date is the service's own SLA. Null would say "there is none".
@@ -666,6 +668,14 @@ function NewTaskDialog({
             name="isStatutoryDue"
             label="Statutory deadline"
             note="Gets the firm's statutory priority."
+          />
+          {/* UNTICKED BY DEFAULT (V1.4). A task raised here is often an internal
+              note, and it used to reach the client's portal unless somebody
+              remembered to untick this. The API's default is `false` too. */}
+          <Checkbox
+            name="isClientVisible"
+            label="Show to the client"
+            note="The client sees it on their portal."
           />
         </FieldStack>
       </form>
