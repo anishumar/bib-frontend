@@ -260,6 +260,17 @@
   --cat-4-wash: #f7ecf4;
   --cat-4-ink: #7b3a71;
 
+  /* ── Chart data ──────────────────────────────────────────────────────────
+     A THIRD exception, the narrowest: the colour of ONE data series in a
+     chart (Wave 5). It never means good or bad, so a bar in it is neither
+     "done" nor "late": where a chart's colour IS a status (the ageing bars on
+     Receivables) it takes `--muted` and `--danger` instead. It is not a Dept
+     tint either: `--cat-*` stay Dept identity. One series per chart, which is
+     why there is one token: several companies are several small charts, not
+     several hues on one (four hues failed a colour-blind check). Checked
+     against the card and the page ground in both themes. */
+  --chart-1: #2f6fe0;
+
   /* ── Component grounds ───────────────────────────────────────────────────
      Named separately because they diverge between themes. Writing a colour at
      the call site would look right until the day dark mode landed.
@@ -432,6 +443,8 @@
     --cat-4-wash: #321b2e;
     --cat-4-ink: #e8b8e0;
 
+    --chart-1: #5b8fe8;
+
     /* Inverted: on a dark ground the loud button is the light one. */
     --btn-bg: var(--brand);
     --btn-ink: var(--brand-on);
@@ -521,6 +534,8 @@
   --cat-4: #c785bd;
   --cat-4-wash: #321b2e;
   --cat-4-ink: #e8b8e0;
+
+  --chart-1: #5b8fe8;
 
   --btn-bg: var(--brand);
   --btn-ink: var(--brand-on);

@@ -177,3 +177,18 @@ export function longMoment(iso: string): string {
   if (Number.isNaN(at.getTime())) return iso;
   return `${longInstant(iso)} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
+
+/**
+ * How many calendar days `day` is before `today`, both `YYYY-MM-DD`: 1 for
+ * yesterday, 0 for today, negative for a day still to come. SPLIT and counted
+ * on UTC midnights, where every day is exactly one day long, so neither the
+ * reader's zone nor a clock change can move it. Pass `browserDay()` as
+ * `today`: lateness counts from the reader's own calendar day.
+ */
+export function daysBefore(day: string, today: string): number {
+  const utc = (iso: string): number => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  };
+  return Math.round((utc(today) - utc(day)) / 86_400_000);
+}

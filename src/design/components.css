@@ -1097,6 +1097,256 @@
   letter-spacing: 0;
 }
 
+/* ── Charts ───────────────────────────────────────────────────────────────
+   Our own small chart kit (Wave 5), in shadcn's chart look and without its
+   library: `<BarChart>` and `<AreaChart>`, plain SVG laid out in real pixels
+   with the words as HTML over it, so text is always set at the type scale.
+
+   The look: horizontal grid lines only, in `--line`, and no axis lines; tick
+   labels 14px `--muted`; a single series in `--chart-1` (a data colour that
+   never means good or bad) unless the colour IS a status, when a bar takes
+   `--muted` or `--danger`; bars rounded 4px at the data end only; a 2px line
+   on a monotone curve with a wash fading to nothing under it; a dot with a
+   ring of the card's own ground on the last point. It draws itself in once
+   (twice `--dur`) and never again, and not at all under reduced motion. */
+
+.chart {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.chart-plot {
+  position: relative;
+  min-width: 0;
+}
+.chart-svg {
+  display: block;
+  overflow: visible;
+}
+.chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* Words over the drawing: never a pointer target, so the marks under them
+   stay one. */
+.chart-tick,
+.chart-value,
+.chart-name {
+  position: absolute;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.chart-tick {
+  font-size: var(--t-xs);
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tick-y {
+  left: 0;
+  text-align: right;
+  transform: translateY(-50%);
+}
+.chart-cats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--s-1);
+  margin-top: var(--s-2);
+  font-size: var(--t-xs);
+  line-height: 1.25;
+  color: var(--muted);
+  text-align: center;
+}
+.chart-cats > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chart-value {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, -100%);
+}
+.chart-value-end {
+  transform: translateY(-50%);
+}
+.chart-value-last {
+  transform: translate(-100%, -100%);
+}
+.chart-name {
+  left: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--t-sm);
+  line-height: 2.25rem;
+  color: var(--ink);
+}
+
+/* The marks. Drawn only: the pointer passes through them to the slot or the
+   plot under them, so hovering a bar and hovering the space above it are the
+   same gesture. */
+.chart-bar,
+.chart-reveal,
+.chart-cross {
+  pointer-events: none;
+}
+.chart-bar {
+  fill: var(--chart-1);
+  transform-box: fill-box;
+}
+.chart-bar[data-tone="muted"] { fill: var(--muted); }
+.chart-bar[data-tone="danger"] { fill: var(--danger); }
+.chart-line {
+  fill: none;
+  stroke: var(--chart-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart-fill-stop { stop-color: var(--chart-1); }
+.chart-fill-stop[data-at="top"] { stop-opacity: 0.35; }
+.chart-fill-stop[data-at="bottom"] { stop-opacity: 0; }
+.chart-dot {
+  fill: var(--chart-1);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.chart-cross line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* What the pointer and the keyboard land on: a bar's whole slot, a month's
+   point. The one focus colour, drawn as a stroke because an SVG shape has no
+   outline to show. */
+.chart-hit {
+  fill: transparent;
+}
+.chart-hit[data-active="true"] {
+  fill: var(--line-soft);
+}
+.chart-point {
+  fill: transparent;
+  pointer-events: none;
+}
+.chart-hit:focus-visible,
+.chart-point:focus-visible {
+  outline: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* The tooltip: the value first and in bold, what it is under it, keyed by a
+   short line in the mark's colour. */
+.chart-tip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.chart-tip[data-place="above"] {
+  transform: translateY(-100%);
+}
+.chart-key,
+.chart-swatch {
+  flex: none;
+  background: var(--chart-1);
+  border-radius: var(--r-sm);
+}
+.chart-key {
+  width: 3px;
+  align-self: stretch;
+}
+.chart-key[data-tone="muted"],
+.chart-swatch[data-tone="muted"] { background: var(--muted); }
+.chart-key[data-tone="danger"],
+.chart-swatch[data-tone="danger"] { background: var(--danger); }
+.chart-tip-body {
+  display: grid;
+  gap: 2px;
+}
+.chart-tip-body strong {
+  font-size: var(--t-sm);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-body span {
+  color: var(--muted);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+}
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.chart-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* The table view: quiet, under the drawing. */
+.disclosure.chart-table > summary {
+  font-weight: 400;
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+
+/* Drawn in once. */
+.chart-bar[data-grow="y"] {
+  transform-origin: bottom;
+  animation: chart-grow-y calc(var(--dur) * 2) var(--ease) both;
+}
+.chart-bar[data-grow="x"] {
+  transform-origin: left;
+  animation: chart-grow-x calc(var(--dur) * 2) var(--ease) both;
+}
+.chart-reveal {
+  animation: chart-reveal calc(var(--dur) * 2) var(--ease) both;
+}
+@keyframes chart-grow-y {
+  from { transform: scaleY(0); }
+}
+@keyframes chart-grow-x {
+  from { transform: scaleX(0); }
+}
+@keyframes chart-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+.chart[data-settled="true"] :is(.chart-bar, .chart-reveal) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-bar,
+  .chart-reveal {
+    animation: none;
+  }
+}
+
 /* ── Tabs ─────────────────────────────────────────────────────────────────
    One implementation. There were three: buttons styled as primary/secondary on
    `/work-items`, the same trick inside a different wrapper on `/work`, and

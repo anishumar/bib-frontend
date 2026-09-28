@@ -46,6 +46,7 @@ export { useAppearFocus } from "./appear-focus";
 export { scrollBelowBar } from "./below-bar";
 export { Stat, Strip } from "./stat";
 export { CountUp, type Figure } from "./count-up";
+export { AreaChart, BarChart, axisMoney, type AreaPoint, type BarDatum } from "./chart";
 export {
   Table,
   TableWrap,

@@ -27,6 +27,7 @@ import {
   Tr,
 } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { OwedPicture } from "./owed-picture";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -121,6 +122,10 @@ export default function ReceivablesPage() {
       />
 
       <ErrorNotice error={error} />
+
+      {/* ── The picture (Wave 5): two figures and two charts, from the same
+          rows as the Outstanding table, only when something is owed. */}
+      <OwedPicture owing={owing} today={today} />
 
       {/* ── Waiting for a person ───────────────────────────────────────── */}
       <Section title="Waiting for a decision" level={2}>

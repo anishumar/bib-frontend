@@ -50,7 +50,8 @@ what "the migration finished" means.
 | tabs | `<Tabs id>` + `<TabPanel tabsId>` | `@/components/ui` |
 | a warning or a refusal | `<Notice tone>` / `<ErrorNotice error>` | `@/components/ui` |
 | label/value pairs | `<Meta>` + `<MetaItem>` | `@/components/ui` |
-| a headline number | `<Strip>` + `<Stat>` | `@/components/ui` |
+| a headline number | `<Strip>` + `<Stat>` (counts up once; `figure` for money) | `@/components/ui` |
+| a chart | `<BarChart>` / `<AreaChart>` (our own SVG kit, no library) | `@/components/ui` |
 | a page | `<Page>` + `<PageHeader>` | `@/components/layout` |
 | spacing between things | `<Stack>` / `<Cluster>` / `<Grid>` | `@/components/layout` |
 | a loading screen | `<Loading>` / `<LoadingCard>` | `@/components/states` |
@@ -76,6 +77,8 @@ Semantic names only. Never a hex, never a raw ramp value.
 | `--brand` / `--brand-ink` / `--brand-wash` / `--brand-on` | whose product this is: the mark, the sidebar, the primary button |
 | `--warn` / `--warn-wash` | needs attention |
 | `--danger` / `--danger-wash` | wrong, refused, or overdue |
+| `--chart-1` | ONE data series in a chart: never good or bad, never a Dept |
+| `--aurora` / `--glass-*` | the page ground and the sidebar's glass: atmosphere, behind content, never on it |
 
 **`--brand` is the only colour that is NOT a status, and the only one allowed not to be.**
 Accent, warn and danger each MEAN something and nothing may borrow them for decoration — a
@@ -107,7 +110,14 @@ separate at `--s-5`. Prefer `<Stack>` / `<Cluster>` over writing a gap at all.
 ### Shape and motion
 
 Two radii (`--r`, `--r-sm`), one shadow (`--shadow`), one easing curve, two
-durations. A third of any of them is a decision nobody made on purpose.
+durations. A third of any of them is a decision nobody made on purpose, and
+Wave 5 made two on purpose: `--r-lg` for the floating glass sidebar, and
+`--dur-count` (500ms) for a headline figure counting up once.
+
+**Motion is quiet and in three places only** (Wave 5): a button rises 1px under
+the pointer and gives to `scale(.98)` when pressed; a headline figure counts up
+once when it appears (`<CountUp>`, which `<Stat>` uses); a chart draws itself in
+once. All three stop under reduced motion (`useReducedMotion` in `src/lib`).
 
 ## Do
 
