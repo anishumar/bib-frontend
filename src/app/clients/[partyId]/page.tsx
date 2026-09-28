@@ -382,6 +382,11 @@ export default function PartyPage() {
                 New proposal
               </LinkButton>
             )}
+            {canWrite && profile.party.archivedAt === null && (
+              <LinkButton size="sm" href={`/engagement-letters/new?clientPartyId=${partyId}`}>
+                New engagement letter
+              </LinkButton>
+            )}
             {canWrite && (
               <Button
                 size="sm"

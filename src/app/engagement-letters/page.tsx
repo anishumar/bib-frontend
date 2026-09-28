@@ -4,24 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, formatMoney } from "@/lib/api/client";
-import { browserDay, longDay } from "@/lib/day";
-import type { ClientStructure, LetterSummary, PartySummary } from "@/lib/api/client";
+import { longDay } from "@/lib/day";
+import type { LetterSummary } from "@/lib/api/client";
 import {
-  Button,
   Card,
-  CardTitle,
-  Checkbox,
   ErrorNotice,
-  Field,
-  FieldRow,
-  FieldStack,
-  Input,
+  LinkButton,
   Pill,
-  Select,
   Table,
   TableWrap,
   Td,
-  Textarea,
   Th,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
@@ -36,43 +28,20 @@ import { Page, PageHeader } from "@/components/layout";
  * A list that showed only the title made the one question a caller actually
  * asks — "which letter?" — unanswerable from this screen.
  *
- * The draft form asks WHERE and WHO separately, and that is not a formality.
- * `jurisdiction` is the law the letter is written under and it decides which
- * clauses may go on it; the ISSUING ENTITY is which of the firm's own companies
- * is bound by it. The letter that started this review was issued by the US
- * entity and printed Indian law, and nothing in the schema could have caught it
- * because nothing knew who had issued it.
+ * A new letter is written in the builder (`/engagement-letters/new`, T6.18
+ * S6): the client, the country, the issuing company and the money on step 1,
+ * the services on step 2, the letter itself on step 3. The draft form that
+ * used to sit at the bottom of this list took 40-odd clicks to a sendable
+ * letter; the builder takes 9 from a client page.
  */
 export default function LettersPage() {
   const router = useRouter();
   const [letters, setLetters] = useState<LetterSummary[]>([]);
-  const [parties, setParties] = useState<PartySummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [advance, setAdvance] = useState(false);
-  // The prose and the dates are settable HERE and nowhere else: a letter is
-  // editable only while it is a draft, and there is deliberately no route that
-  // rewrites a sent one — the client already has it as it was sent.
-  const [moreTerms, setMoreTerms] = useState(false);
-  /**
-   * WHO MAY BE NAMED BESIDE THE CLIENT (F-10-1). Both lists used to be the
-   * firm's whole book, so a letter could be "issued by" a client and addressed
-   * to another client's director, and the API accepted both. It refuses them
-   * now, so these offer exactly what it accepts: the firm's own companies for
-   * the issuer, and for the addressee the people the chosen client's page
-   * records a role for — read from the API's own answer, never built here.
-   */
-  const [firmEntities, setFirmEntities] = useState<{ id: string; displayName: string }[]>([]);
-  const [clientId, setClientId] = useState("");
-  const [contacts, setContacts] = useState<ClientStructure["people"]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm] = await Promise.all([
-      api.GET("/api/v1/engagement-letters", {}),
-      api.GET("/api/v1/parties", {}),
-      api.GET("/api/v1/firm-entities/preferences", {}),
-    ]);
+    const list = await api.GET("/api/v1/engagement-letters", {});
     if (list.response.status === 401) {
       router.push("/login");
       return;
@@ -83,34 +52,9 @@ export default function LettersPage() {
       return;
     }
     setLetters(list.data.letters);
-    if (book.data) setParties(book.data.parties);
-    if (firm.data) {
-      // One row per country, so a company can appear more than once; the
-      // picker wants each once — the invoice screen's "Charged by" rule.
-      const seen = new Map<string, string>();
-      for (const pref of firm.data.preferences) seen.set(pref.firmEntity.id, pref.firmEntity.displayName);
-      setFirmEntities([...seen].map(([id, displayName]) => ({ id, displayName })));
-    }
     setError(null);
     setLoaded(true);
   }, [router]);
-
-  // The chosen client's contacts, fetched when the client changes. The select's
-  // own handler drops the old list at once, so a name recorded at the previous
-  // client is never offered for this one while the new answer is on its way.
-  useEffect(() => {
-    if (clientId === "") return;
-    let current = true;
-    void (async () => {
-      const found = await api.GET("/api/v1/parties/{partyId}/structure", {
-        params: { path: { partyId: clientId } },
-      });
-      if (current && found.data) setContacts(found.data.people);
-    })();
-    return () => {
-      current = false;
-    };
-  }, [clientId]);
 
   useEffect(() => {
     void (async () => {
@@ -118,78 +62,27 @@ export default function LettersPage() {
     })();
   }, [load]);
 
-  async function draft(form: FormData): Promise<void> {
-    setBusy(true);
-    setError(null);
-    const amount = String(form.get("advanceAmount") ?? "").trim();
-    // Only what has a value. An empty string is not a date, not a paragraph and
-    // not a party — sending one would be this form asserting a fact nobody
-    // entered, and the API's schemas refuse it anyway.
-    const text = (name: string): string => String(form.get(name) ?? "").trim();
-    const background = text("background");
-    const addressedToPartyId = text("addressedToPartyId");
-    const issuedOn = text("issuedOn");
-    const effectiveFrom = text("effectiveFrom");
-    const supersedesId = text("supersedesId");
-    const issuingEntityPartyId = text("issuingEntityPartyId");
-
-    const result = await api.POST("/api/v1/engagement-letters", {
-      body: {
-        partyId: String(form.get("partyId")),
-        jurisdiction: String(form.get("jurisdiction")).toUpperCase(),
-        title: String(form.get("title")),
-        currency: String(form.get("currency")).toUpperCase(),
-        fxRate: String(form.get("fxRate")),
-        fxRateDate: String(form.get("fxRateDate")),
-        advanceRequired: advance,
-        ...(advance && amount !== "" ? { advanceAmount: amount } : {}),
-        ...(issuingEntityPartyId === "" ? {} : { issuingEntityPartyId }),
-        ...(background === "" ? {} : { background }),
-        ...(addressedToPartyId === "" ? {} : { addressedToPartyId }),
-        ...(issuedOn === "" ? {} : { issuedOn }),
-        ...(effectiveFrom === "" ? {} : { effectiveFrom }),
-        ...(supersedesId === "" ? {} : { supersedesId }),
-      },
-    });
-    setBusy(false);
-    if (result.error) {
-      setError(apiError(result.error).message);
-      return;
-    }
-    router.push(`/engagement-letters/${result.data.id}`);
-  }
-
   if (!loaded) return <Loading />;
-
-  // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
-  // is yesterday in India until 05:30 every morning — so something due
-  // yesterday would not read as overdue for those five and a half hours.
-  const today = browserDay();
-  // A letter already replaced cannot be replaced again — the API refuses a
-  // second successor, naming the first — and a draft or a withdrawn letter was
-  // never supersedable at all. The list already carries both facts, so the
-  // picker offers only what will work rather than a slower error.
-  const replaced = new Set(
-    letters.map((l) => l.letter.supersedesId).filter((id): id is string => id !== null),
-  );
-  const supersedable = letters.filter(
-    (l) => l.letter.status === "signed" && !replaced.has(l.letter.id),
-  );
 
   return (
     <Page>
       <PageHeader
         eyebrow="Commercial"
         title="Engagement letters"
-        lede="Every engagement letter: what each client has signed and what is still a draft. Draft a new one at the bottom, or write one up from an accepted proposal."
-        aside={<Pill tone="quiet">{letters.length}</Pill>}
+        lede="What each client has signed, and what is still a draft."
+        aside={
+          <div className="cluster">
+            <Pill tone="quiet">{letters.length}</Pill>
+            <LinkButton href="/engagement-letters/new">New engagement letter</LinkButton>
+          </div>
+        }
       />
       <ErrorNotice error={error} />
 
       <Card>
         {letters.length === 0 ? (
           <p className="muted">
-            No engagement letters yet. Draft the first one below.
+            No engagement letters yet.
           </p>
         ) : (
           <TableWrap>
@@ -245,202 +138,6 @@ export default function LettersPage() {
         )}
       </Card>
 
-      <Card>
-        <CardTitle level={2}>New engagement letter</CardTitle>
-        <form
-          action={(form) => {
-            void draft(form);
-          }}
-        >
-          {/* Eight hand-written `marginBottom`s down this form, and none under
-              the last row — which is a stack, spelt out. `.select` is already
-              `width: 100%`, so the four inline widths styled nothing. */}
-          <FieldStack>
-            <FieldRow>
-              <Field label="Title">
-                <Input name="title" required />
-              </Field>
-              <Field label="Client">
-                {/* AN UNCHOSEN PLACEHOLDER, because a party select that opens
-                    on its first option opens on the FIRM. The list is
-                    alphabetical and "10x Global" sorts above every client, so
-                    filling the rest of this form and pressing the button quoted
-                    or billed the firm to itself — a valid write the API has no
-                    reason to refuse. `required` plus an empty value makes the
-                    browser stop it instead. Found by walking the product. */}
-                <Select
-                  name="partyId"
-                  required
-                  value={clientId}
-                  onChange={(e) => {
-                    setClientId(e.target.value);
-                    setContacts([]);
-                  }}
-                >
-                  <option value="">Choose a client…</option>
-                  {/* Not the firm's own companies: a letter from the firm to
-                      itself is the footgun the placeholder above exists for. */}
-                  {parties
-                    .filter((p) => !firmEntities.some((f) => f.id === p.id))
-                    .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Country">
-                {/* Stated, not inferred: not always the client's, not always the
-                    firm's, and it decides which clauses may go on the letter. */}
-                <Input name="jurisdiction" defaultValue="IN" maxLength={2} required />
-              </Field>
-            </FieldRow>
-
-            <FieldRow>
-              <Field label="Currency">
-                <Input name="currency" defaultValue="INR" maxLength={3} required />
-              </Field>
-              <Field label="Exchange rate to the firm&apos;s currency">
-                <Input name="fxRate" defaultValue="1" required />
-              </Field>
-              <Field label="Rate as of">
-                <Input name="fxRateDate" type="date" defaultValue={today} required />
-              </Field>
-            </FieldRow>
-
-            <Checkbox
-              label="An advance is required before work begins. No work is started until the advance is recorded."
-              checked={advance}
-              onChange={(e) => {
-                setAdvance(e.target.checked);
-              }}
-            />
-            {advance && (
-              <FieldRow>
-                {/* Required once the box is ticked — the API refuses a gate with
-                    no figure, because nobody can pass one. */}
-                <Field label="Advance amount">
-                  <Input name="advanceAmount" required />
-                </Field>
-              </FieldRow>
-            )}
-
-            {/* Split at the em dash the sentence already had, so the words and
-                the rendering are unchanged and the NAME of the control is
-                "Write the document" rather than all three lines of it. */}
-            <Checkbox
-              label="Write the document"
-              note="who it is addressed to, why they are engaging you, its date, when the work begins, and the letter it replaces. None of these can be added after the letter is signed."
-              checked={moreTerms}
-              onChange={(e) => {
-                setMoreTerms(e.target.checked);
-              }}
-            />
-
-            {moreTerms && (
-              <>
-                <FieldRow>
-                  <Field label="Issued by">
-                    {/* Stored, never derived: the firm's rule for picking an
-                        entity may change, and re-deriving this at read time
-                        would silently restate every letter already issued. Left
-                        blank, the API applies the firm's own preference for this
-                        jurisdiction. */}
-                    <Select name="issuingEntityPartyId" defaultValue="">
-                      <option value="">the firm&apos;s own company for this country</option>
-                      {firmEntities.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.displayName}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field
-                    label="Addressed to"
-                    hint={
-                      clientId === ""
-                        ? "Choose the client first."
-                        : contacts.length === 0
-                          ? "Nobody is recorded at this client yet. Add a director, signatory or employee on the client's page to name them here."
-                          : "Only people the client's page records as a director, signatory, employee or shareholder."
-                    }
-                  >
-                    {/* A named PERSON, care-of the client above. Not who is
-                        billed — that is the client — which is why it is a second
-                        field and not a rename of the first. Keyed on the client
-                        so a new choice starts blank, never on a name from the
-                        client chosen before it. */}
-                    <Select key={clientId} name="addressedToPartyId" defaultValue="">
-                      <option value="">nobody named (addressed to the company)</option>
-                      {contacts.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.displayName}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                </FieldRow>
-
-                <Field label="Background">
-                  <Textarea
-                    name="background"
-                    rows={4}
-                    placeholder="Why this client is engaging you. This is the paragraph the letter opens with."
-                  />
-                </Field>
-
-                {/* These three sentences were loose `<p>`s under their fields,
-                    read by nobody: `.field-hint` already carries the 4px they
-                    were hand-rolling, and as `hint` they become the field's own
-                    `aria-describedby`. */}
-                <FieldRow>
-                  <Field
-                    label="Dated"
-                    hint="The date under the letterhead. Blank means the day it is sent."
-                  >
-                    <Input name="issuedOn" type="date" />
-                  </Field>
-                  <Field
-                    label="Work begins"
-                    hint="Blank means the signature date. A line may start later still."
-                  >
-                    <Input name="effectiveFrom" type="date" />
-                  </Field>
-                  <Field
-                    label="Replaces"
-                    hint={
-                      supersedable.length === 0
-                        ? "No signed letter is waiting to be replaced."
-                        : "A signed letter cannot be edited. Choose the letter this one replaces."
-                    }
-                  >
-                    <Select
-                      name="supersedesId"
-                      defaultValue=""
-                      disabled={supersedable.length === 0}
-                    >
-                      <option value="">nothing (this is a new agreement)</option>
-                      {supersedable.map((l) => (
-                        <option key={l.letter.id} value={l.letter.id}>
-                          {l.letter.ref} ({l.party.displayName})
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                </FieldRow>
-              </>
-            )}
-
-            {/* A `cluster`, because the stack is a flex COLUMN and a button laid
-                straight into one stretches the width of the card. */}
-            <div className="cluster">
-              <Button type="submit" loading={busy}>
-                {busy ? "Drafting…" : "Draft letter"}
-              </Button>
-            </div>
-          </FieldStack>
-        </form>
-      </Card>
     </Page>
   );
 }

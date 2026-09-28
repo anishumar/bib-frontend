@@ -23,6 +23,13 @@ import { EditablePieceShell } from "./editable";
 import { FREQUENCY_WORDS } from "./words";
 import type { BillingFrequency } from "./words";
 
+/** What the fee box reads of the thing it prices: a proposal's line, a
+ *  letter's line, or a letter's section (its fee, once). */
+export type FeeLine = Pick<
+  ProposalLine,
+  "unitAmount" | "billingFrequency" | "quantity" | "discountPercent" | "description"
+>;
+
 export interface FeeChange {
   unitAmount: string;
   billingFrequency: BillingFrequency | null;
@@ -37,7 +44,7 @@ export function EditableFee({
   onSave,
   children,
 }: {
-  line: ProposalLine;
+  line: FeeLine;
   currency: string;
   editable: boolean;
   onSave: (change: FeeChange) => Promise<SaveOutcome>;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
+import type { ReactNode } from "react";
 import { formatCount } from "@/lib/api/client";
-import type { ProposalLine } from "@/lib/api/client";
 import { Button, Field, FieldRow, FieldStack, Input, Select, Textarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { cleanAmount } from "@/lib/money";
@@ -22,6 +22,26 @@ export type ScopeKey = (typeof SCOPE_FIELDS)[number]["key"];
 
 /** This proposal's own wording for a scope block; null prints the catalogue's. */
 export type Overrides = Readonly<Record<ScopeKey, string | null>>;
+
+/**
+ * What a row needs of a line already on the document. A proposal's line is one
+ * as it comes; a letter's is mapped to it (its `standard` words are the pinned
+ * service's, and `inSection` names the section whose fee pays for it).
+ */
+export interface RowLine {
+  readonly id: string;
+  readonly unitAmount: string | null;
+  readonly currency: string;
+  readonly quantity: string;
+  readonly discountPercent: string | null;
+  readonly billingFrequency: Recurrence | null;
+  readonly pricingNote: string | null;
+  readonly terms: Readonly<
+    Record<ScopeKey, { readonly text: string | null; readonly tailored: boolean; readonly standard: string | null }>
+  >;
+  /** "B": a letter's section pays for this line, so it has no price of its own. */
+  readonly inSection?: string | null;
+}
 
 /** Everything a line says beyond which service it is. */
 export interface LineTerms {
@@ -52,7 +72,7 @@ export const NO_OVERRIDES: Overrides = {
  * converted here, because the only rate this proposal carries goes to the
  * firm's own currency, not to the catalogue's (D3).
  */
-export function ServiceRow({
+export function ServiceRow<L extends RowLine>({
   service,
   lines,
   currency,
@@ -62,10 +82,13 @@ export function ServiceRow({
   onAdd,
   onRemove,
   onSave,
+  extra,
+  noun = "proposal",
+  blocked = null,
 }: {
   service: CatalogueService;
-  /** The live lines of this proposal pinned to this service. Normally one. */
-  lines: readonly ProposalLine[];
+  /** The live lines of this document pinned to this service. Normally one. */
+  lines: readonly L[];
   currency: string;
   editable: boolean;
   busy: boolean;
@@ -73,7 +96,14 @@ export function ServiceRow({
   onAdd: (terms: LineTerms) => Promise<boolean>;
   onRemove: () => Promise<boolean>;
   /** Changes an added line. True when the API took it. */
-  onSave: (line: ProposalLine, terms: LineTerms) => Promise<boolean>;
+  onSave: (line: L, terms: LineTerms) => Promise<boolean>;
+  /** Shown under the row once the service is on the document. */
+  extra?: ReactNode;
+  /** What the document is called in the row's words. */
+  noun?: "proposal" | "letter";
+  /** Why a tick cannot be taken yet: the checkbox waits. The caller says why,
+   *  once, where the missing answer is asked for. */
+  blocked?: string | null;
 }) {
   const detailsId = useId();
   const [open, setOpen] = useState(false);
@@ -103,6 +133,7 @@ export function ServiceRow({
       if (added) void onRemove();
       return;
     }
+    if (blocked !== null) return;
     if (priced !== null) {
       void onAdd(standard);
       return;
@@ -129,7 +160,7 @@ export function ServiceRow({
             type="checkbox"
             className="mt-1 shrink-0"
             checked={added || asking !== null}
-            disabled={!editable || busy}
+            disabled={!editable || busy || (!added && blocked !== null)}
             aria-label={`Include ${label}`}
             onChange={(e) => {
               tick(e.target.checked);
@@ -161,6 +192,8 @@ export function ServiceRow({
           {error}
         </p>
       )}
+
+      {added && extra !== undefined && <div className="ml-8 mt-2">{extra}</div>}
 
       {asking !== null && !added && (
         <div className="ml-8 mt-3 flex flex-wrap items-end gap-3">
@@ -255,6 +288,7 @@ export function ServiceRow({
             currency={currency}
             editable={editable}
             busy={busy}
+            noun={noun}
             initial={line === null ? standard : termsOf(line)}
             onSubmit={async (terms) => {
               const ok = line === null ? await onAdd(terms) : await onSave(line, terms);
@@ -274,10 +308,13 @@ function PriceLabel({
   currency,
 }: {
   service: CatalogueService;
-  line: ProposalLine | null;
+  line: RowLine | null;
   currency: string;
 }) {
   if (line !== null) {
+    if (line.inSection !== undefined && line.inSection !== null) {
+      return <span className="text-muted">In section {line.inSection}</span>;
+    }
     if (line.unitAmount === null) return <span className="text-muted">No fixed fee</span>;
     const per = line.billingFrequency === null ? "" : ` ${FREQUENCY_WORDS[line.billingFrequency]}`;
     const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : ` × ${formatCount(line.quantity)}`;
@@ -301,7 +338,7 @@ function PriceLabel({
 }
 
 /** An added line's terms, as the Details form edits them. */
-export function termsOf(line: ProposalLine): LineTerms {
+export function termsOf(line: RowLine): LineTerms {
   const own = (t: { text: string | null; tailored: boolean }): string | null =>
     t.tailored ? t.text : null;
   return {
@@ -335,17 +372,22 @@ function Details({
   currency,
   editable,
   busy,
+  noun,
   initial,
   onSubmit,
 }: {
   service: CatalogueService;
-  line: ProposalLine | null;
+  line: RowLine | null;
   currency: string;
   editable: boolean;
   busy: boolean;
+  noun: "proposal" | "letter";
   initial: LineTerms;
   onSubmit: (terms: LineTerms) => Promise<void>;
 }) {
+  // A letter's line in a section has no price of its own: the section's fee
+  // pays for it, and the API refuses a price on it.
+  const section = line?.inSection ?? null;
   const [fee, setFee] = useState(initial.unitAmount ?? "");
   const [quantity, setQuantity] = useState(initial.quantity);
   const [discount, setDiscount] = useState(initial.discountPercent);
@@ -364,7 +406,7 @@ function Details({
       onSubmit={(e) => {
         e.preventDefault();
         void onSubmit({
-          unitAmount: fee.trim() === "" ? null : cleanAmount(fee),
+          unitAmount: section !== null || fee.trim() === "" ? null : cleanAmount(fee),
           quantity: quantity.trim() === "" ? "1" : quantity.trim(),
           discountPercent: discount.trim() === "" ? "0" : discount.trim(),
           billingFrequency: frequency === "" ? null : frequency,
@@ -379,6 +421,10 @@ function Details({
         aria-label={`Details of ${service.ref ?? ""} ${service.name}`.trim()}
       >
         <FieldStack>
+          {section !== null && (
+            <p className="text-sm text-muted">Paid by section {section}. Move it out of the section on the letter page.</p>
+          )}
+          {section === null && (
           <FieldRow>
             <Field
               label={`Fee (${currency})`}
@@ -437,6 +483,8 @@ function Details({
               />
             </Field>
           </FieldRow>
+          )}
+          {section === null && (
           <Field
             label="Pricing note"
             optional={fee.trim() !== ""}
@@ -454,6 +502,7 @@ function Details({
               }}
             />
           </Field>
+          )}
 
           {SCOPE_FIELDS.map((f) => {
             const std = standardText(f.key);
@@ -467,12 +516,12 @@ function Details({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      aria-label={`Edit "${f.label}" for this proposal`}
+                      aria-label={`Edit "${f.label}" for this ${noun}`}
                       onClick={() => {
                         setOverrides({ ...overrides, [f.key]: std ?? "" });
                       }}
                     >
-                      Edit for this proposal
+                      Edit for this {noun}
                     </Button>
                   ) : (
                     <Button
@@ -495,7 +544,7 @@ function Details({
                 ) : (
                   <Textarea
                     rows={3}
-                    aria-label={`${f.label}, for this proposal`}
+                    aria-label={`${f.label}, for this ${noun}`}
                     value={own}
                     onChange={(e) => {
                       setOverrides({ ...overrides, [f.key]: e.target.value });

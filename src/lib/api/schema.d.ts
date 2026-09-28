@@ -13220,7 +13220,229 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a draft letter's head
+         * @description T6.18 S6. Its title, Background, addressee, dates and advance; its currency while nothing on it is priced; its country and issuing company while no term is on it, which replaces its wording with that company's standard set for that country (D9). A draft only. Answers with the whole letter, as GET reads it.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReviseEngagementLetterRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description Nothing to change, a bad date or amount, or a currency without its rate */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, a new currency over priced lines, wording written for the client, or terms on the letter */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull a line from a draft */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a service already on a draft letter
+         * @description T6.18 S6. Its wording, company, quantity, fee, discount, billing frequency, pricing note, start date and scope texts, judged by the same rules as adding it. A service in a section has no price of its own; move it with `PUT …/pricing`. Answers with the whole letter.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateEngagementLetterLineRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description Nothing to change, a blank name, or a price the rules refuse */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft, or the company is not the client's */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/engagement-letters/{letterId}/lines": {
@@ -13634,79 +13856,6 @@ export interface paths {
                 };
             };
         };
-        trace?: never;
-    };
-    "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Pull a line from a draft */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    letterId: string;
-                    lineId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Removed */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not signed in */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No org selected, or the role does not permit it */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No such letter or line at this firm */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description The letter is no longer a draft */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/engagement-letters/{letterId}/clauses": {
@@ -20683,6 +20832,43 @@ export interface components {
         EngagementLettersResponse: {
             letters: components["schemas"]["EngagementLetterSummary"][];
         };
+        LetterFrequencyTotal: {
+            /** @enum {string|null} */
+            frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            net: string | null;
+            lineCount: number;
+            unpricedLineCount: number;
+        };
+        LetterDocumentPlan: {
+            sections: {
+                code: string;
+                title: string;
+                /** Format: uuid */
+                feeGroupId: string | null;
+                entityNames: string[] | null;
+                items: {
+                    code: string;
+                    description: string;
+                    entityNames: string[] | null;
+                    beginsOn: string | null;
+                    lineIds: string[];
+                }[];
+            }[];
+            fees: {
+                code: string;
+                /** Format: uuid */
+                feeGroupId: string | null;
+                /** Format: uuid */
+                lineId: string | null;
+                description: string;
+                /** @enum {string|null} */
+                billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+                startsOn: string | null;
+                amount: string | null;
+                pricingNote: string | null;
+                paymentTerms: string | null;
+            }[];
+        };
         LetterPinnedService: {
             key: string;
             version: number;
@@ -20842,6 +21028,14 @@ export interface components {
                 id: string;
                 displayName: string;
             };
+            issuer: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                jurisdiction: string | null;
+            };
+            totalsByFrequency: components["schemas"]["LetterFrequencyTotal"][];
+            document: components["schemas"]["LetterDocumentPlan"];
             addressedTo: {
                 /** Format: uuid */
                 id: string;
@@ -20883,6 +21077,43 @@ export interface components {
                 code: string;
                 message: string;
             } | null;
+        };
+        ReviseEngagementLetterRequest: {
+            title?: string;
+            background?: string | null;
+            /** Format: uuid */
+            addressedToPartyId?: string | null;
+            issuedOn?: string | null;
+            effectiveFrom?: string | null;
+            advanceRequired?: boolean;
+            advanceAmount?: string | null;
+            /** @description The letter's country, which decides its terms and its wording. Changing it (or the issuer) replaces the wording with the standard set for the new country and company, and is refused while terms are on the letter (TERMS_ON_LETTER). */
+            jurisdiction?: string;
+            /** Format: uuid */
+            issuingEntityPartyId?: string;
+            /** @description Replace wording edited or written for this client when the issuer or country changes. Without it such a change is refused with PROSE_EDITED, naming how many lines would go. */
+            replaceEditedProse?: boolean;
+            currency?: string;
+            fxRate?: string;
+            fxRateDate?: string;
+        };
+        UpdateEngagementLetterLineRequest: {
+            description?: string;
+            /** Format: uuid */
+            entityPartyId?: string;
+            quantity?: string;
+            unitAmount?: string | null;
+            discountPercent?: string;
+            /** @enum {string|null} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            pricingNote?: string | null;
+            effectiveFrom?: string | null;
+            jurisdiction?: string | null;
+            scopeOverride?: string | null;
+            clientObligationsOverride?: string | null;
+            volumeLimitsOverride?: string | null;
+            exclusionsOverride?: string | null;
+            oopEstimate?: components["schemas"]["LetterOutOfPocketEstimate"];
         };
         AddEngagementLetterLineRequest: {
             /** Format: uuid */

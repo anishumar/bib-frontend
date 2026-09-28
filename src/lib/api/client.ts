@@ -866,6 +866,19 @@ export function clauseApplies(clause: ClauseBody, jurisdiction: string): boolean
   return clause.jurisdictions.length === 0 || clause.jurisdictions.includes(jurisdiction);
 }
 
+/**
+ * Whether a clause's governing law and courts are the ISSUING company's
+ * (T6.18, D6): the API's `refuseForeignTerms`, used only to decide what to
+ * offer. A clause naming neither always fits; one naming either needs the
+ * issuer registered in the country it names. `issuerJurisdiction` is the
+ * letter read's `issuer.jurisdiction`.
+ */
+export function lawFits(clause: ClauseBody, issuerJurisdiction: string | null): boolean {
+  const named = [clause.governingLaw, clause.courts].filter((t) => t !== null);
+  if (named.length === 0) return true;
+  return issuerJurisdiction !== null && named.every((t) => t.jurisdiction === issuerJurisdiction);
+}
+
 /** An invoice as a LIST shows it: the money, the client, and what it is for. */
 export type InvoiceSummary =
   paths["/api/v1/invoices"]["get"]["responses"][200]["content"]["application/json"]["invoices"][number];

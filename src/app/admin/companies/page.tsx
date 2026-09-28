@@ -446,45 +446,9 @@ function Routing({
   const byId = (id: string): FirmEntity | undefined => entities.find((e) => e.partyId === id);
   const already = rows.find((r) => r.clientJurisdiction === newCountry) ?? null;
 
-  /**
-   * THE COMPANY A CHANGE WOULD STRAND, found by walking it (2026-09-28).
-   *
-   * A company is "the firm's" only while a row of this table names it (or it
-   * is the firm itself): that is `crm.is_firm_entity`. So giving away a
-   * company's LAST country does not just re-route clients, it takes the
-   * company off Our companies, Brand, the Standard prose tabs and the
-   * builder's "Issued by", and it can then no longer be picked here to be
-   * given a country back. Measured: Singapore moved to the Gulf company, and
-   * "EPB Asia Pte Ltd" vanished from every list.
-   *
-   * So the move is not offered, and the reason is said before any press. The
-   * firm can still have the Gulf company quote a Singapore client: it picks
-   * the company on that proposal (D4).
-   */
-  function stranded(country: string, fromId: string, toId: string): FirmEntity | null {
-    if (fromId === toId) return null;
-    const from = byId(fromId);
-    if (from === undefined || from.isFirmSelf) return null;
-    const keeps =
-      from.routedCountries.some((c) => c !== country && c !== "*") ||
-      (country !== "*" && from.isFallback);
-    return keeps ? null : from;
-  }
-  const strandedLine = (country: string, from: FirmEntity, toId: string) => {
-    const to = byId(toId)?.name ?? "another company";
-    const where = country === "*" ? "every other country" : countryName(country);
-    return (
-      <Notice tone="warn" key={`strand-${country}`}>
-        {from.name} quotes clients from {where} only. Giving that to {to} would take {from.name} off
-        your companies: it could no longer issue documents or be chosen on a proposal. Give{" "}
-        {from.name} another country first, or keep this row and pick {to} on the proposal itself.
-      </Notice>
-    );
-  };
-  const addStrands =
-    already === null || newCompany === ""
-      ? null
-      : stranded(newCountry, already.firmEntityPartyId, newCompany);
+  // A company stays the firm's with no country routed to it (0313): giving
+  // away its last country only re-routes clients. Until 0313 that move took
+  // the company off every list, and this screen refused it.
 
   async function save(country: string, partyId: string): Promise<void> {
     const entity = byId(partyId);
@@ -527,7 +491,6 @@ function Routing({
               const label = country === "*" ? "Everywhere else" : countryName(country);
               const picked = choice[country] ?? r.firmEntityPartyId;
               const changed = picked !== r.firmEntityPartyId;
-              const strands = stranded(country, r.firmEntityPartyId, picked);
               return (
                 <tr key={r.id}>
                   <Td>
@@ -561,7 +524,7 @@ function Routing({
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={!changed || strands !== null}
+                      disabled={!changed}
                       loading={busy === `route:${country}`}
                       aria-label={`Save the company for ${label}`}
                       onClick={() => void save(country, picked)}
@@ -575,11 +538,6 @@ function Routing({
           </tbody>
         </Table>
       </TableWrap>
-      {rows.map((r) => {
-        const picked = choice[r.clientJurisdiction] ?? r.firmEntityPartyId;
-        const from = stranded(r.clientJurisdiction, r.firmEntityPartyId, picked);
-        return from === null ? null : strandedLine(r.clientJurisdiction, from, picked);
-      })}
       <p className="field-hint">
         A country cannot be taken off this table, only given to another company. To treat a country
         like every other one, give it the same company as Everywhere else.
@@ -630,10 +588,7 @@ function Routing({
                 </Select>
               </Field>
             </FieldRow>
-            {already !== null &&
-              addStrands !== null &&
-              strandedLine(newCountry, addStrands, newCompany)}
-            {already !== null && addStrands === null && (
+            {already !== null && (
               <p className="field-hint" role="status">
                 {countryName(newCountry)} is already in the table, quoted by{" "}
                 {byId(already.firmEntityPartyId)?.name ?? "another company"}. Adding it again gives
@@ -644,7 +599,6 @@ function Routing({
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={addStrands !== null}
                 loading={busy === `route:${newCountry}`}
               >
                 Add the country

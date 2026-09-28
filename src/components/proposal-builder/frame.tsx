@@ -12,6 +12,17 @@ const STEPS: readonly { step: BuilderStep; label: string }[] = [
   { step: "preview", label: "Preview and send" },
 ];
 
+/** Where a builder lives, so the proposal's and the letter's share one stepper. */
+export interface BuilderKind {
+  /** "/proposals" or "/engagement-letters". */
+  readonly base: string;
+  /** The stepper's accessible name. */
+  readonly label: string;
+  readonly steps?: readonly { step: BuilderStep; label: string }[];
+}
+
+const PROPOSAL_BUILDER: BuilderKind = { base: "/proposals", label: "Proposal steps" };
+
 /**
  * Where the reader is among the three steps, and a way back to any of them.
  *
@@ -20,11 +31,20 @@ const STEPS: readonly { step: BuilderStep; label: string }[] = [
  * link lands on the same step. Before the draft exists (`proposalId` null) the
  * later steps have nothing to show, so they are drawn and not offered.
  */
-export function Stepper({ current, proposalId }: { current: BuilderStep; proposalId: string | null }) {
+export function Stepper({
+  current,
+  proposalId,
+  kind = PROPOSAL_BUILDER,
+}: {
+  current: BuilderStep;
+  /** The draft's id, or null before it exists. */
+  proposalId: string | null;
+  kind?: BuilderKind;
+}) {
   return (
-    <nav aria-label="Proposal steps">
+    <nav aria-label={kind.label}>
       <ol className="flex flex-wrap items-center gap-2">
-        {STEPS.map((s, i) => {
+        {(kind.steps ?? STEPS).map((s, i) => {
           const here = s.step === current;
           const body = (
             <>
@@ -49,7 +69,7 @@ export function Stepper({ current, proposalId }: { current: BuilderStep; proposa
               )}
               {proposalId !== null && !here ? (
                 <Link
-                  href={`/proposals/${proposalId}/build?step=${s.step}` as Route}
+                  href={`${kind.base}/${proposalId}/build?step=${s.step}` as Route}
                   className="flex items-center gap-2 rounded-sm px-1 no-underline hover:bg-surface-hover"
                 >
                   {body}

@@ -375,7 +375,7 @@ export function ProposalDocument({
   );
 }
 
-function DocSection({ title, children }: { title: string; children: ReactNode }) {
+export function DocSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-xl font-semibold text-brand-ink">{title}</h2>
@@ -385,7 +385,7 @@ function DocSection({ title, children }: { title: string; children: ReactNode })
 }
 
 /** A piece the PDF would leave out, shown only where it can be written. */
-function Missing({ children }: { children: ReactNode }) {
+export function Missing({ children }: { children: ReactNode }) {
   return <p className="rounded-sm border border-dashed border-line px-3 py-2 text-sm text-muted">{children}</p>;
 }
 
@@ -539,14 +539,17 @@ function ServiceItem({
 
 /** Marks a text this proposal changed, with the way back to the catalogue's
  *  words: a null override is the API's "print the catalogue's". */
-function BackToStandard({
+export function BackToStandard({
   noun,
   service,
   standard,
   onRestore,
+  documentNoun = "proposal",
 }: {
   noun: string;
   service: string;
+  /** What the document is called: "proposal" or "letter". */
+  documentNoun?: string;
   /** The catalogue's words, or null when it has none (putting it back then
    *  takes the text off this proposal). */
   standard: string | null;
@@ -556,13 +559,13 @@ function BackToStandard({
   const [refusal, setRefusal] = useState<string | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-      <span>Changed for this proposal.</span>
+      <span>Changed for this {documentNoun}.</span>
       <button
         type="button"
         disabled={busy}
         className="text-xs text-brand underline"
         aria-label={`Put back the catalogue's ${noun} for ${service}`}
-        title={standard === null ? "The catalogue has none, so this takes it off the proposal." : `The catalogue says: ${standard}`}
+        title={standard === null ? `The catalogue has none, so this takes it off the ${documentNoun}.` : `The catalogue says: ${standard}`}
         onClick={() => {
           setBusy(true);
           setRefusal(null);
@@ -677,7 +680,7 @@ function FrequencyTotals({
   );
 }
 
-function NoteList({
+export function NoteList({
   title,
   noun,
   rows,
@@ -685,10 +688,19 @@ function NoteList({
   onEdit,
   onStrike,
   onAdd,
+  documentNoun = "proposal",
+  paragraphs = false,
+  headingLevel = 3,
 }: {
   title: string;
   noun: string;
-  rows: readonly Block[];
+  rows: readonly Pick<Block, "id" | "body" | "isHeading">[];
+  /** What the document is called: "proposal" or "letter". */
+  documentNoun?: string;
+  /** A letter's cover and acceptance are paragraphs, not a bulleted list. */
+  paragraphs?: boolean;
+  /** 3 under a section heading; 0 draws no heading (the caller has one). */
+  headingLevel?: 0 | 3;
   mayEdit: boolean;
   onEdit: (blockId: string, body: string) => Promise<SaveOutcome>;
   onStrike: (blockId: string) => Promise<SaveOutcome>;
@@ -700,14 +712,14 @@ function NoteList({
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-lg font-semibold">{title}</h3>
+      {headingLevel === 3 && <h3 className="text-lg font-semibold">{title}</h3>}
       {rows.length === 0 && !adding && (
-        <p className="text-sm text-muted">None on this proposal, so the PDF leaves this out.</p>
+        <p className="text-sm text-muted">None on this {documentNoun}, so the PDF leaves this out.</p>
       )}
       <ul className="flex flex-col gap-1">
         {rows.map((b) => (
-          <li key={b.id} className={cx("group/line relative flex flex-col", !b.isHeading && "pl-5")}>
-            {!b.isHeading && (
+          <li key={b.id} className={cx("group/line relative flex flex-col", !b.isHeading && !paragraphs && "pl-5")}>
+            {!b.isHeading && !paragraphs && (
               <span aria-hidden="true" className="absolute left-1 top-0 text-muted">
                 •
               </span>
@@ -724,7 +736,7 @@ function NoteList({
                   disabled={striking !== null}
                   className={cx(PIECE_BUTTON, "hover:text-danger")}
                   aria-label={`Strike off the ${noun} line “${b.body.slice(0, 60)}”`}
-                  title="Strike it off this proposal"
+                  title={`Strike it off this ${documentNoun}`}
                   onClick={() => {
                     setStriking(b.id);
                     setRefusal(null);
@@ -758,7 +770,7 @@ function NoteList({
               value=""
               editable
               initiallyEditing
-              placeholder={`A new ${noun} line for this proposal only.`}
+              placeholder={`A new ${noun} line for this ${documentNoun} only.`}
               onSave={onAdd}
               onClose={() => {
                 setAdding(false);

@@ -950,6 +950,10 @@ company that rewrites it as VAT without changing that would never see it on a UA
 first company list hid its currency and its buttons at 1280 while the page reported 0 overflow.
 `bib/demo-assets/tools/epb-s5-walk.mjs` measures every `.tablewrap` too (61 checks).
 
+**Update (S6, 0313):** a company is the firm's by membership now, so giving away its last country
+only re-routes clients; the screen's refusal of that move is gone, and the company reads "no country
+yet" in the list.
+
 ## `/admin/brand` — the marks, per COMPANY
 
 Not three upload boxes. A firm with an Indian company and a US company signs on two
@@ -1896,9 +1900,9 @@ proposal page mounts. The step is in the URL, so a reload or a colleague's link 
 - **"Add all standard terms for <issuer>"** sits on the letter page's Terms card (the route is
   T6.18 item 7): every published clause through the add-one rules, and what did not fit is listed
   with the API's own sentence ("…names IN as its governing law, and this letter is issued by an
-  entity registered in AE…"). The one-at-a-time picker below it still offers every clause for the
-  letter's country, including a foreign-law one the API will refuse; filtering it needs the
-  issuer's country on the letter read, which is the letter builder's (S6) to add.
+  entity registered in AE…"). The one-at-a-time picker below it offers only what fits: the
+  letter's country (`clauseApplies`) AND the issuer's law and courts (`lawFits`, from the read's
+  `issuer.jurisdiction`, S6).
 
 **Measured on a fresh fixture** (`bib/demo-assets/tools/epb-s4-walk.mjs`, 71 checks, screenshots
 in `bib/demo-assets/notes/epb-s4-walk/`): **8 clicks** from "New proposal" on `/proposals` to
@@ -1908,6 +1912,34 @@ in AED, an India service shows "Set fee", a scope edited in step 2 and an exclus
 edited in the preview are all in the PDF of record, the email reaches Mailpit with the PDF and a
 `/p/<token>` link that accepts, the letter written up carries the edited exclusion (D11), and a
 second draft moved to another company is asked first and gets that company's prose (D9).
+
+### The letter builder (T6.18 S6, 2026-09-28)
+
+`/engagement-letters/new` → `/engagement-letters/{id}/build?step=client|services|preview`, in
+`src/components/letter-builder/`, the proposal builder's shape and pieces. **Step 1**: client,
+country (decides the terms and, by the firm's rule, the issuer), issuing company, currency, subject,
+addressee, work begins, Background, advance, and "Replaces" when the client has a signed letter
+nothing replaced. On a draft it PATCHes only what changed; issuer and country lock once a term is on
+the letter, currency once anything is priced. **Step 2**: the proposal builder's `ServiceRow`
+(generic over `RowLine`; a letter's line is mapped by `rowLineOf`, a line a section pays for reads
+"In section B"), and "For which company" asked ONLY when the client's `structure` holds more than
+one company (a one-company client is the client itself, which is not a guess); "One fee for several
+services" is the letter page's `FeeGroups`, moved to `letter-builder/fee-groups.tsx`. **Step 3**:
+`<LetterDocument>` in the Annexure PDF's order, from the read's `document` (`planAnnexure`), edited
+in place with the proposal document's `EditableText` / `EditableChoice` / `EditableFee` /
+`NoteList`; an item's edit goes to every line it prints for. Money and frequency in the LETTER PDF's
+words (`letter-builder/words.ts`: "INR 5,000.00 per month", "Annually", "One-off"), not the
+proposal's. "Add all standard terms for <issuer>" is one click, and `<LetterSendPanel>` sends
+(DocuSign asks who signs) with the owner rule's warning; Send is disabled, with the reason, until a
+service and a term are on it. One store (`letter-builder/store.ts`) for all of it.
+
+**"Write it up" on an accepted quote lands on step 2** with the quote's lines, issuer, currency and
+prose (D11); the country is asked (a select, starting at the issuer's) only when the lines disagree.
+The letters list's draft form is gone; "New engagement letter" is on the list and on a client's page.
+The proposal builder's step 2 is services ONLY: its prose editor was removed, the preview edits the
+same rows. Measured (`bib/demo-assets/tools/epb-s6-walk.mjs`, 69 checks): **9 clicks** from "New
+engagement letter" on a client page to Sent with 3 services and the standard terms (40+ before),
+**5** from "Write it up" to Sent.
 
 ## Screens are how API gaps get found
 

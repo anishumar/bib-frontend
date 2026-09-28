@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
+import { CountrySelect } from "@/components/country-select";
 import { api, apiError, formatCount, formatMoney, readServiceBody } from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
 import { Documents } from "@/lib/ui/documents";
@@ -11,6 +13,7 @@ import {
   Button,
   Card,
   CardTitle,
+  Checkbox,
   ErrorNotice,
   Field,
   FieldRow,
@@ -273,12 +276,13 @@ export default function ProposalPage() {
                 params: { path: { proposalId } },
                 body,
               });
-              // A WRITE TAKES YOU TO THE THING YOU MADE, with the skipped-line
-              // report carried along.
+              // A WRITE TAKES YOU TO THE THING YOU MADE: the letter builder's
+              // services step (T6.18 S6), with everything the quote agreed on
+              // it and the skipped-line report carried along.
               if (!result.error) {
                 const skipped = result.data.skipped.length;
                 router.push(
-                  `/engagement-letters/${result.data.letter.id}${skipped > 0 ? "?carried=partial" : ""}`,
+                  `/engagement-letters/${result.data.letter.id}/build?step=services${skipped > 0 ? "&carried=partial" : ""}` as Route,
                 );
               }
               return result;
@@ -617,7 +621,6 @@ function ServicesAndPrices({
  * reader should see what it will say rather than find out on the next page.
  */
 function WriteItUp({
-  proposalId,
   record,
   entityChoices,
   contacts,
@@ -628,7 +631,7 @@ function WriteItUp({
   record: ProposalRecord;
   /** The client and its group — what a line with no company of its own can be
    *  filed against. Empty means the screen offers nothing and reports the
-   *  skips, which is exactly what it did before this existed. */
+   *  skips. */
   entityChoices: readonly GroupCompany[];
   /** Who the letter may be addressed to — the client's people, the same list
    *  "Prepared for" offers and the API checks the choice against. */
@@ -655,26 +658,20 @@ function WriteItUp({
     ),
   ];
   // The API derives it when the lines agree, and refuses otherwise. The field
-  // is offered on exactly that second case.
+  // is offered on exactly that second case, starting at the issuer's country.
   const mustState = countries.length !== 1;
   const withoutEntity = record.lines.filter((l) => l.entityPartyId === null);
   const carrying = record.lines.length - withoutEntity.length;
   /**
-   * WHETHER THE PICKER IS OFFERED, AND WHETHER IT IS REQUIRED.
-   *
-   * Offered whenever a line names no company and there is a company to name.
-   * REQUIRED when nothing at all would carry without it: the API refuses to
-   * draw a reference number for a letter with no lines, so a button whose only
-   * outcome is that refusal is worse than a field.
-   *
-   * This is the gap T3.5b left open and said so: the route has taken
-   * `defaultEntityPartyId` since it shipped and no screen offered it, so a
-   * quote whose lines named no company was a dead end on this page — the
-   * notice sent people to /engagement-letters to retype the terms by hand,
-   * which is the exact thing carrying the price forward was built to stop.
+   * WHICH COMPANY a line with none of its own is for. A client whose structure
+   * holds ONE company is that company, so nobody is asked (T6.18 S6): the
+   * only company a letter line could name is the client itself, which is not a
+   * guess. With several, the picker is offered, unchosen, as before.
    */
-  const offerDefault = withoutEntity.length > 0 && entityChoices.length > 0;
+  const onlyCompany = entityChoices.length === 1 ? (entityChoices[0]?.id ?? null) : null;
+  const offerDefault = withoutEntity.length > 0 && entityChoices.length > 1;
   const defaultRequired = offerDefault && carrying === 0;
+  const nothingToCarry = carrying === 0 && withoutEntity.length > 0 && entityChoices.length === 0;
 
   const lineWord = (n: number): string => `${String(n)} ${n === 1 ? "line" : "lines"}`;
 
@@ -682,61 +679,33 @@ function WriteItUp({
     <Card>
       <CardTitle level={2}>Write it up as an engagement letter</CardTitle>
       <p className="muted">
-        Every line on this quote is copied into the letter as agreed: service, wording,
-        quantity, price and discount, in the same currency. The letter opens as a draft, and
-        you choose its clauses from the library afterwards.
+        Every service, price and piece of wording comes across. You choose the terms in the letter.
       </p>
 
-      {carrying === 0 && !offerDefault ? (
-        /* The API refuses this before drawing a reference number, so the screen
-           says so rather than offering a button whose only outcome is a
-           refusal. */
+      {nothingToCarry ? (
         <Notice tone="warn" eyebrow="Nothing to carry">
           <p>
-            No line on this quote says which company the work is for, and every line on a
-            letter must name one. Draft the letter from{" "}
-            <Link href="/engagement-letters">Engagement letters</Link> and add the lines there,
-            naming the company on each.
+            No line on this quote says which company the work is for. Record the client&apos;s company on
+            its page first.
           </p>
         </Notice>
       ) : (
         <>
-          {withoutEntity.length > 0 && !offerDefault && (
-            <Notice tone="warn" eyebrow="Some lines stay behind">
-              <p>
-                {lineWord(carrying)} will carry across. {lineWord(withoutEntity.length)}{" "}
-                {withoutEntity.length === 1 ? "names" : "name"} no company (
-                {withoutEntity.map((l) => l.description).join(", ")}), and every line on a letter
-                must name one. Add
-                {withoutEntity.length === 1 ? " it" : " them"} to the letter by hand afterwards.
-              </p>
-            </Notice>
-          )}
           {offerDefault && (
             <Notice tone="warn" eyebrow={defaultRequired ? "Say which company" : "Some lines name no company"}>
               <p>
-                {lineWord(withoutEntity.length)}{" "}
-                {withoutEntity.length === 1 ? "does" : "do"} not say which company the work is
-                for: {withoutEntity.map((l) => l.description).join(", ")}. Every line on a
-                letter must name one.{" "}
-                {defaultRequired
-                  ? "No line on this quote names a company, so choose one below before the letter can be written."
-                  : "Choose a company below and they come across too. Leave it empty and they stay behind, and the letter says so when it opens."}
+                {lineWord(withoutEntity.length)} {withoutEntity.length === 1 ? "does" : "do"} not say which
+                company the work is for: {withoutEntity.map((l) => l.description).join(", ")}.
               </p>
             </Notice>
           )}
 
-          {/* A FORM and its own FormData, not `document.querySelector`. This
-              page already carries an "Amount" input on the add-a-line form, so
-              a lookup by name would read whichever the document happened to
-              hold first — the duplicate-id bug this repo fixed on the client
-              screen, in a new costume. */}
           <form
             action={(form) => {
               const text = (name: string): string => String(form.get(name) ?? "").trim();
               const j = text("jurisdiction");
               const amount = text("advanceAmount");
-              const entity = text("defaultEntityPartyId");
+              const entity = onlyCompany ?? text("defaultEntityPartyId");
               const title = text("title");
               const addressee = text("addressedToPartyId");
               const background = text("background");
@@ -745,13 +714,9 @@ function WriteItUp({
                 advanceRequired,
                 ...(advanceRequired && amount !== "" ? { advanceAmount: amount } : {}),
                 ...(j === "" ? {} : { jurisdiction: j.toUpperCase() }),
-                // OMITTED WHEN EMPTY, never sent as "". Absent means "file
-                // nothing against a company nobody chose", which is the API's
-                // own default and the safe one on a document somebody signs.
-                ...(entity === "" ? {} : { defaultEntityPartyId: entity }),
-                // The same rule for the cover's four: an emptied box is "not
-                // this", and the API's own default (the quote's title, the
-                // company, no Background, the signature date) is what applies.
+                // OMITTED WHEN EMPTY, never sent as "": absent means "file
+                // nothing against a company nobody chose".
+                ...(entity === "" || withoutEntity.length === 0 ? {} : { defaultEntityPartyId: entity }),
                 ...(title === "" ? {} : { title }),
                 ...(addressee === "" ? {} : { addressedToPartyId: addressee }),
                 ...(background === "" ? {} : { background }),
@@ -759,134 +724,94 @@ function WriteItUp({
               });
             }}
           >
-          <FieldStack>
-            {mustState && (
-              <Field
-                label="Which country is this letter under?"
-                hint={
-                  countries.length === 0
-                    ? "No line on this quote says which country the work is in. A letter covers one country, which decides its governing law and which of your own companies issues it."
-                    : `This quote covers ${countries.join(" and ")}. A letter covers one country, which decides its governing law. Say which country this letter is under, or write one letter per country.`
-                }
-              >
-                <Input name="jurisdiction" maxLength={2} placeholder="IN" />
-              </Field>
-            )}
-
-            {offerDefault && (
-              <Field
-                label={
-                  defaultRequired
-                    ? "Which company is this work for?"
-                    : "Which company are the remaining lines for? (optional)"
-                }
-                hint="The client this quote is for, and the companies its page records under it. Lines that already name a company keep it; this only fills in the blanks."
-              >
-                {/* NO PRE-SELECTED COMPANY, EVEN WHEN THERE IS ONLY ONE. The
-                    API's own words: a guessed party on a signed page is
-                    indistinguishable from one somebody agreed to. A default
-                    here would be the product choosing a counterparty. */}
-                <Select name="defaultEntityPartyId" defaultValue="" required={defaultRequired}>
-                  <option value="">
-                    {defaultRequired
-                      ? "Choose a company"
-                      : `Leave them behind (${lineWord(withoutEntity.length)} will not carry)`}
-                  </option>
-                  {entityChoices.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.relation})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            )}
-
-            {/* PAGE ONE OF THE LETTER, filled from the quote. The title is the
-                letter's subject line, so it starts as the firm's own wording
-                for one rather than the quote's name for its services. */}
-            <FieldRow>
-              <Field label="Title" hint="Prints as the letter's subject line.">
-                <Input
-                  name="title"
-                  defaultValue={`Engagement Letter for ${record.party.displayName}`}
-                />
-              </Field>
-              <Field
-                label="Addressed to"
-                hint={
-                  contacts.length === 0
-                    ? "Nobody is recorded at this client yet, so the letter opens \"Dear Sir or Madam,\". Add a director, signatory or employee on the client's page to name them here."
-                    : "The letter opens \"Dear …\" with this name. Filled from the quote's Prepared for."
-                }
-              >
-                {/* Only a person the client's page records: the API checks the
-                    choice against the same list and refuses anybody else. A
-                    quote prepared for somebody no longer on it starts blank. */}
-                <Select
-                  name="addressedToPartyId"
-                  defaultValue={
-                    contacts.some((c) => c.id === record.proposal.addressedToPartyId)
-                      ? (record.proposal.addressedToPartyId ?? "")
-                      : ""
-                  }
+            <FieldStack>
+              {mustState && (
+                <Field
+                  label="Which country is this letter under?"
+                  hint="A letter covers one country. It decides the terms."
                 >
-                  <option value="">nobody named (addressed to the company)</option>
-                  {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+                  <CountrySelect
+                    name="jurisdiction"
+                    required
+                    blankLabel="Choose the country"
+                    defaultValue={record.issuer.jurisdiction ?? ""}
+                  />
+                </Field>
+              )}
+
+              {offerDefault && (
+                <Field label={defaultRequired ? "Which company is this work for?" : "Which company are the other lines for?"}>
+                  <Select name="defaultEntityPartyId" defaultValue="" required={defaultRequired}>
+                    <option value="">
+                      {defaultRequired ? "Choose a company" : `Leave them behind (${lineWord(withoutEntity.length)})`}
                     </option>
-                  ))}
-                </Select>
-              </Field>
-            </FieldRow>
+                    {entityChoices.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.relation})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
 
-            <Field
-              label="Background"
-              hint="The paragraph Annexure 1 opens with. Filled from the quote; empty it and the letter opens straight with the services."
-            >
-              <Textarea name="background" rows={4} defaultValue={record.proposal.background ?? ""} />
-            </Field>
-
-            <Field
-              label="Work begins"
-              optional
-              hint="Blank means the day the client signs. A date here prints in the subject as “period commencing …”, and monthly work is owed from that date's month."
-            >
-              <Input name="effectiveFrom" type="date" />
-            </Field>
-
-            {/* THE ADVANCE IS THE FIRM'S DECISION AND NOT THE QUOTE'S — a
-                proposal has no advance, so there is nothing here to inherit
-                and the field starts empty rather than at zero. */}
-            <label className="check">
-              <input
-                type="checkbox"
+              <Checkbox
+                label="Hold the work until an advance is paid"
                 checked={advanceRequired}
                 onChange={(e) => {
                   setAdvanceRequired(e.target.checked);
                 }}
               />
-              <span>Hold the work until an advance is received</span>
-            </label>
-            {advanceRequired && (
-              <Field
-                label="How much"
-                hint="No work under this letter starts until somebody records the advance as received."
-              >
-                <Input name="advanceAmount" inputMode="decimal" />
-              </Field>
-            )}
+              {advanceRequired && (
+                <Field label="How much">
+                  <Input name="advanceAmount" inputMode="decimal" required placeholder="e.g. 25000" />
+                </Field>
+              )}
 
-            <div className="cluster">
-              <Button type="submit" loading={busy === "letter"}>
-                {busy === "letter" ? "Drafting…" : "Draft the engagement letter"}
-              </Button>
-              <p className="field-hint">
-                {lineWord(carrying)} carried at the price this client agreed. The quote itself
-                stays exactly as it is.
-              </p>
-            </div>
-          </FieldStack>
+              {/* PAGE ONE OF THE LETTER, filled from the quote. Behind a
+                  disclosure: every one of these is also editable in the
+                  letter's own preview. */}
+              <details>
+                <summary className="cursor-pointer text-md">Change the subject, addressee or dates first</summary>
+                <div className="mt-3">
+                  <FieldStack>
+                    <FieldRow>
+                      <Field label="Subject">
+                        <Input name="title" defaultValue={`Engagement Letter for ${record.party.displayName}`} />
+                      </Field>
+                      <Field label="Addressed to">
+                        <Select
+                          name="addressedToPartyId"
+                          defaultValue={
+                            contacts.some((c) => c.id === record.proposal.addressedToPartyId)
+                              ? (record.proposal.addressedToPartyId ?? "")
+                              : ""
+                          }
+                        >
+                          <option value="">Nobody named (the company)</option>
+                          {contacts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </FieldRow>
+                    <Field label="Background" optional>
+                      <Textarea name="background" rows={3} defaultValue={record.proposal.background ?? ""} />
+                    </Field>
+                    <Field label="Work begins" optional hint="Leave empty for the day it is signed.">
+                      <Input name="effectiveFrom" type="date" />
+                    </Field>
+                  </FieldStack>
+                </div>
+              </details>
+
+              <div className="cluster">
+                <Button type="submit" loading={busy === "letter"}>
+                  {busy === "letter" ? "Writing it up…" : "Write it up"}
+                </Button>
+              </div>
+            </FieldStack>
           </form>
         </>
       )}

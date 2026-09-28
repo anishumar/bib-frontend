@@ -8,9 +8,13 @@
  * `words` is how the PDF says money, frequency and the per-frequency total.
  * The builder says them the same way by importing them from here.
  */
-export { ProposalDocument } from "./proposal-document";
+export { ProposalDocument, BackToStandard, DocSection, Missing, NoteList } from "./proposal-document";
+export { EditableChoice, EditableText } from "./editable";
+export { EditableFee } from "./fee";
+export type { FeeLine } from "./fee";
+export type { SaveOutcome } from "./editable";
 export { ProposalSendPanel } from "./send-panel";
 export { ClientAnswer } from "./client-answer";
 export { putProposal, reloadProposal, useProposal } from "./store";
-export { FREQUENCY_WORDS, pdfMoney, totalWords } from "./words";
+export { FREQUENCY_WORDS, pdfDate, pdfMoney, summaryFee, totalWords } from "./words";
 export type { BillingFrequency } from "./words";

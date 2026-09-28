@@ -4,8 +4,7 @@ import { useId, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
-import type { BlockKind, ProposalLine, ProposalRecord, ServiceAxis } from "@/lib/api/client";
-import { DocumentBlocks } from "@/lib/ui/document-blocks";
+import type { ProposalLine, ProposalRecord, ServiceAxis } from "@/lib/api/client";
 import { Card, CardTitle } from "@/components/tw";
 import { Button, LinkButton, TabPanel, Tabs } from "@/components/ui";
 import { countryName } from "@/lib/country";
@@ -16,12 +15,11 @@ import { ServiceRow } from "./service-row";
 import { FrequencyTotals } from "./totals";
 import type { LineTerms } from "./service-row";
 
-/** The proposal's own prose shown under the list: what is excluded, and the
- *  commercial terms. The team block belongs to the preview. */
-const PROSE_KINDS: readonly BlockKind[] = ["exclusion", "commercial"];
-
 /**
- * STEP 2: which services, at what fee, with what scope.
+ * STEP 2: which services, at what fee, with what scope. Services ONLY: the
+ * exclusions, commercials and team are edited in the preview (step 3), where
+ * each line has its pencil and "Add a line to …" — the same rows, read where
+ * the client reads them (T6.18, 2026-09-28).
  *
  * A checkbox list rather than a form per line: the firm's own catalogue, one
  * country at a time (the issuer's first, D3), grouped by Dept and then by
@@ -241,16 +239,6 @@ export function ServicesStep({
           </div>
         )}
       </Card>
-
-      <DocumentBlocks
-        blocks={record.blocks}
-        owner={{ proposalId }}
-        kinds={PROSE_KINDS}
-        canWrite={canWrite}
-        editable={proposal.status === "draft" && proposal.deletedAt === null}
-        frozenNote={`This proposal is ${proposal.status}, so its wording is the record of what the client was shown.`}
-        onChanged={onChanged}
-      />
 
       <StickyFooter
         summary={<FrequencyTotals record={record} />}

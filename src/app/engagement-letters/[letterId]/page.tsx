@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
 import { DocumentBlocks } from "@/lib/ui/document-blocks";
 import {
@@ -13,13 +14,14 @@ import {
   clauseApplies,
   formatCount,
   formatMoney,
+  lawFits,
   readClauseBody,
   readServiceBody,
 } from "@/lib/api/client";
-import type { ConfigEntry, LetterDeptRouting, LetterRecord, LetterRouting } from "@/lib/api/client";
+import type { ConfigEntry, LetterRecord, LetterRouting } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { Button, Field, Input, LinkButton, Meta, MetaItem, Select, Textarea } from "@/components/ui";
-import { FeeGroups, LineFee, groupFee } from "./fee-groups";
+import { FeeGroups, LineFee, groupFee } from "@/components/letter-builder/fee-groups";
 import {
   Card,
   CardTitle,
@@ -35,6 +37,8 @@ import {
 } from "@/components/tw";
 import { instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
+import { RoutingWarning } from "@/components/letter-builder/routing-warning";
+import { totalWords } from "@/components/proposal-document";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -249,8 +253,10 @@ export default function LetterPage() {
     const published = entry.published;
     if (published === null || alreadyOn.has(published.id)) return false;
     // Offer only what will work: a clause written for another jurisdiction is
-    // refused by the API, and this is the same rule used to decide what to show.
-    return clauseApplies(readClauseBody(published.body), letter.jurisdiction);
+    // refused by the API, and so is one naming another law or courts than the
+    // ISSUER's (D6) — the same two rules, used to decide what to show.
+    const body = readClauseBody(published.body);
+    return clauseApplies(body, letter.jurisdiction) && lawFits(body, record.issuer.jurisdiction);
   });
 
   /**
@@ -313,9 +319,16 @@ export default function LetterPage() {
         /* This letter's own timeline, scoped to it. The sidebar's Audit trail
            is the whole firm's, so it is not a substitute. */
         actions={
-          <LinkButton size="sm" href={`/audit?type=engagement_letter&id=${letterId}`}>
-            History
-          </LinkButton>
+          <div className="cluster">
+            {isDraft && permissions.includes("party:write") && (
+              <LinkButton size="sm" variant="primary" href={`/engagement-letters/${letterId}/build?step=preview` as Route}>
+                Edit in the builder
+              </LinkButton>
+            )}
+            <LinkButton size="sm" href={`/audit?type=engagement_letter&id=${letterId}`}>
+              History
+            </LinkButton>
+          </div>
         }
       />
 
@@ -687,14 +700,16 @@ export default function LetterPage() {
         </Table>
         </TableWrap>
         <div className="mt-4 text-right">
+          {/* PER FREQUENCY (D8), never one mixed net: a monthly fee and a
+              one-time fee added together is a number nobody is billed. Summed
+              by the database, a section's fee once at its own frequency. */}
           <div className="mono text-lg">
-            {formatMoney(totals.net, totals.currency)}
+            {(() => {
+              const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
+              if (withheld) return <span className="text-muted">Fees not shown to you</span>;
+              return sentence ?? <span className="text-muted">No fixed fee yet</span>;
+            })()}
           </div>
-          {feeGroups.length > 0 && (
-            <div className="text-md text-muted">
-              including each section&apos;s fee once, whatever its period
-            </div>
-          )}
           {letter.advanceRequired && (
             <div className="text-md text-muted">
               advance {formatMoney(letter.advanceAmount, totals.currency)}
@@ -1446,65 +1461,4 @@ export default function LetterPage() {
       />
     </Page>
   );
-}
-
-/**
- * THE SEND WARNING (T6.17, decided 2026-09-27: a warning, never a refusal).
- *
- * When the letter is signed, each line's work goes to the client's SPOC for
- * its Dept. A Dept with no SPOC sends it to the client's Key Manager, or to
- * the person who signs for the firm, to HAND OUT, and the person sending should
- * know that while naming a SPOC on the client's page still changes it. The API
- * answers with the same owner rule the signed letter's work is routed by, so
- * the names here are the desks the work will land on today.
- *
- * Nothing is said when every Dept has a SPOC. Send is never disabled by this.
- */
-function RoutingWarning({
-  routing,
-  client,
-}: {
-  routing: LetterRouting;
-  client: { id: string; displayName: string };
-}) {
-  const gaps = routing.depts.filter((d) => d.how !== "spoc");
-  if (gaps.length === 0) return null;
-  return (
-    <Notice tone="warn" role="status" eyebrow="Some of this work has no SPOC">
-      <div>
-        <p>
-          {`When this letter is signed, each service's work goes to ${client.displayName}'s SPOC for its Dept. Not all of it has one:`}
-        </p>
-        <ul className="mt-2 list-disc pl-5">
-          {gaps.map((d) => (
-            <li key={d.deptCode ?? "none"}>{routingSentence(d)}</li>
-          ))}
-        </ul>
-        <p className="mt-2">
-          Name a SPOC on <Link href={`/clients/${client.id}`}>{client.displayName}&apos;s page</Link>{" "}
-          (Account team) to send it straight to them. You can still send the letter as it is.
-        </p>
-      </div>
-    </Notice>
-  );
-}
-
-/** One Dept's line of the warning: which work, why it has no SPOC, whose desk it goes to. */
-function routingSentence(d: LetterDeptRouting): string {
-  const services = d.lines.map((l) => l.name).join(", ");
-  const what =
-    d.reason === "no_dept"
-      ? `${services}: the service is not filed under a Dept`
-      : d.reason === "unknown_dept"
-        ? `${services}: the service names Dept ${d.deptCode ?? ""}, which is not one of the firm's Depts`
-        : `${d.deptName ?? d.deptCode ?? "This Dept"} (${services}): no SPOC on this client`;
-  const who =
-    d.how === "key_manager"
-      ? `so the work will go to ${d.ownerName ?? "the client's Key Manager"}, the Key Manager, to hand out.`
-      : d.how === "partner"
-        ? d.ownerName === null
-          ? "and no Key Manager, so the work will go to the person who signs for the firm, to hand out."
-          : `and no Key Manager, so the work will go to ${d.ownerName}, who signs for the firm, to hand out.`
-        : "no Key Manager, and nobody named to sign for the firm, so nobody will get the work until somebody hands it out.";
-  return `${what}, ${who}`;
 }
