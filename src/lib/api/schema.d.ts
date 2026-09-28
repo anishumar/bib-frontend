@@ -9068,6 +9068,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{jobId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a job for good
+         * @description Withdraws the job's open steps and moves its open tasks to the firm's cancelled state, so nothing of it is left on anybody's desk, and writes `job.cancelled`. Steps already done stay done. The period is never spawned again: the job keeps its engagements.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cancelled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobCancelled"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such job at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The job is already finished or cancelled, or the firm has no state for cancelled work */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/{jobId}/steps/{stepKey}/complete": {
         parameters: {
             query?: never;
@@ -19828,6 +19905,16 @@ export interface components {
             } | null;
             /** @description Required on a rejection, forbidden otherwise. */
             rejectedReason: string | null;
+        };
+        JobCancelled: {
+            /** Format: uuid */
+            jobId: string;
+            /** @enum {string} */
+            status: "cancelled";
+            /** @description Open steps taken off every desk (skipped, noted as cancelled). */
+            stepsWithdrawn: number;
+            /** @description Open tasks moved to the firm's own cancelled state. */
+            tasksCancelled: number;
         };
         CheckEligibility: {
             eligible: boolean;
