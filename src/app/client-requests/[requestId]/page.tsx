@@ -110,7 +110,6 @@ export default function ClientRequestRecordPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Delivery"
         title={request.subject}
         lede={
           <>
@@ -128,32 +127,34 @@ export default function ClientRequestRecordPage() {
       {ended === null && (
         /* A LIVE request reached by link. `neutral`, not `warn`: nothing is
            wrong — this page is simply not where it is worked. */
-        <Notice tone="neutral" eyebrow={whereItStands(request)}>
+        <Notice tone="neutral">
           <p>
-            This one is still going, so it is in the inbox on{" "}
-            <Link href="/client-requests">Client requests</Link>, where it can be replied to,
-            handed on and closed. This page is the record.
+            Still open. Reply, hand it on or close it on{" "}
+            <Link href="/client-requests">Client requests</Link>.
           </p>
         </Notice>
       )}
 
       <Card>
-        <CardTitle level={2}>What they asked</CardTitle>
         <Meta>
           {/* "How it ended" only once it has: on a request still waiting, the
               label read as an ending above a pill saying it had not. */}
           <MetaItem label={ended === null ? "Where it stands" : "How it ended"}>
             {ended === null ? (
-              <Pill tone="warn">{whereItStands(request)}</Pill>
+              <Pill dot tone="warn">
+                {whereItStands(request)}
+              </Pill>
             ) : (
-              <Pill tone={ended.tone}>{ended.label}</Pill>
+              <Pill dot tone={ended.tone === "quiet" ? "neutral" : ended.tone}>
+                {ended.label}
+              </Pill>
             )}
           </MetaItem>
           <MetaItem label="Who asked">
             {/* A company with two directors asking for different things is two
                 conversations, so the person is worth naming — and null is
                 ordinary on a seeded account, which is why it is not a blank. */}
-            {request.raisedByName ?? <NotStated>somebody at the client</NotStated>}
+            {request.raisedByName ?? <NotStated>Someone at the client</NotStated>}
           </MetaItem>
           {/* Every date here is a `timestamptz` — an INSTANT — so it is PARSED
               and printed as the day it happened where the READER is. A `date`
@@ -169,9 +170,9 @@ export default function ClientRequestRecordPage() {
             {request.assignee !== null ? (
               (request.assignee.displayName ?? request.assignee.email)
             ) : request.assignmentNote !== null ? (
-              <NotStated>nobody. {request.assignmentNote}</NotStated>
+              <NotStated>Nobody. {request.assignmentNote}</NotStated>
             ) : (
-              <NotStated>nobody</NotStated>
+              <NotStated>Nobody</NotStated>
             )}
           </MetaItem>
         </Meta>
@@ -183,7 +184,7 @@ export default function ClientRequestRecordPage() {
       <Card>
         <CardTitle level={2}>The conversation</CardTitle>
         {request.replies.length === 0 ? (
-          <p className="muted">
+          <p className="text-ink-2">
             {/* "CLOSED" WAS WRONG HERE and the walk caught it: the first
                 withdrawn request rendered read "on a closed request", which is
                 the firm's ending being used to describe the client's. The two
@@ -192,8 +193,8 @@ export default function ClientRequestRecordPage() {
                 yet read "this request ended", under a banner saying it was
                 still going. Walked 2026-09-25. */}
             {ended === null
-              ? "Nobody has replied yet. The reply goes out from the inbox on Client requests."
-              : "Nobody replied. This request ended without a reply going back to the client."}
+              ? "No reply yet."
+              : "It ended with no reply to the client."}
           </p>
         ) : (
           <Stack gap="tight">

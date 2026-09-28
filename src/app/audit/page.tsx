@@ -53,6 +53,11 @@ import {
  * that. Both are true, so the row says "Signed in" and the exact record sits
  * under "Exact record" on the same row, folded away, in the same characters
  * the database holds. `@/lib/ui/audit-words` is the dictionary.
+ *
+ * THE WAVE 4 SHAPE (2026-09-28): no eyebrow and no lede (that the log cannot be
+ * edited is shown by there being nothing to edit); a record's own history is
+ * titled "History of this task" rather than "History" over a sentence saying
+ * so; the date is the sans face. The exact record stays mono: it is true code.
  */
 export default function AuditPage() {
   return (
@@ -111,17 +116,11 @@ function AuditFeed() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Record"
-        title={scoped ? "History" : "Audit trail"}
-        lede={
-          scoped
-            ? `Everything that has happened to ${subject ?? "this record"}, newest first.`
-            : "Everything that has happened in your firm's account, newest first. Entries are written automatically as people work, and nothing here can be changed or deleted."
-        }
+        title={scoped ? `History of ${subject ?? "this record"}` : "Audit trail"}
         aside={
           scoped ? (
             <LinkButton size="sm" href="/audit">
-              Back to the whole trail
+              Whole trail
             </LinkButton>
           ) : undefined
         }
@@ -132,7 +131,7 @@ function AuditFeed() {
       {events.length === 0 && error === null ? (
         <Card>
           <Empty title="Nothing recorded yet" icon="audit">
-            Entries appear here on their own as your firm works. Nothing is typed in by hand.
+            Entries appear on their own as your firm works.
           </Empty>
         </Card>
       ) : (
@@ -153,9 +152,7 @@ function AuditFeed() {
                 const noun = objectNoun(r.event.objectType);
                 return (
                   <tr key={r.event.id}>
-                    <Td className="nowrap">
-                      <span className="mono">{longMoment(r.event.occurredAt)}</span>
-                    </Td>
+                    <Td className="nowrap">{longMoment(r.event.occurredAt)}</Td>
                     <Td>
                       {/* A block with a max-width, because `.table` is
                           `min-width: max-content` and a long sentence in a cell
@@ -184,7 +181,7 @@ function AuditFeed() {
                           actors have no account, and neither does a human whose
                           account has since been erased. */}
                       {r.actor === null ? (
-                        <span className="muted">{describeActor(r.event.actorType)}</span>
+                        <span className="text-ink-2">{describeActor(r.event.actorType)}</span>
                       ) : (
                         (r.actor.displayName ?? r.actor.email)
                       )}

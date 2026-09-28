@@ -13,6 +13,7 @@ import {
   LinkButton,
   Meta,
   MetaItem,
+  NotSet,
   Select,
   Switch,
   Textarea,
@@ -37,6 +38,7 @@ import {
   Page,
   PageHeader,
   Pill,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -172,18 +174,35 @@ export default function WorkItemPage() {
   const item = detail.item;
   const openReview = detail.reviews.find((r) => r.decision === "pending") ?? null;
   const canWrite = me?.permissions.includes("work:write") ?? false;
+  // The reviews, and WHERE they go: at the bottom as history, or straight under
+  // the details while a check is open, because Approve is then the page's act.
+  const reviews = (
+    <Reviews
+      reviews={detail.reviews}
+      openReview={openReview}
+      openReviewViewer={detail.openReviewViewer}
+      canWrite={canWrite}
+      busy={busy}
+      onDecide={(approvalId, decision, notes) => {
+        void act(approvalId, () =>
+          api.POST("/api/v1/work-item-checks/{approvalId}/decide", {
+            params: { path: { approvalId } },
+            body: { decision, notes },
+          }),
+        );
+      }}
+    />
+  );
 
   return (
     <Page>
       {/* The tab carries the identifier, the same as the proposal and the
-          engagement letter. Walked with several tabs open and this one was
-          "BiB — 10X Workspace" while its neighbours said which document they
-          were: the tab strip is how a person finds their way back. */}
+          engagement letter: the tab strip is how a person finds their way back. */}
       <title>{`${item.title} · ${item.clientName}`}</title>
 
       <PageHeader
-        eyebrow="Delivery"
         title={item.title}
+        /* Who it is for, in one line: data, not an explanation. */
         lede={
           <>
             {item.clientName}
@@ -193,182 +212,80 @@ export default function WorkItemPage() {
             {item.deptName !== null && ` · ${item.deptName}`}
           </>
         }
-        /* The two things this item hangs off. Siblings, not breadcrumbs: the
-           sidebar already says where you are, and these say what else to open. */
+        /* The two things this item hangs off, and the page's one brand action:
+           sending the work for review, while nothing is waiting to be checked.
+           Once a check is open, Approve in the Reviews card is the action. */
         actions={
           <>
             {item.jobId !== null && (
-              <LinkButton size="sm" href={`/work/${item.jobId}`}>
+              <LinkButton size="sm" variant="ghost" href={`/work/${item.jobId}`}>
                 The job
               </LinkButton>
             )}
-            <LinkButton size="sm" href={`/clients/${item.clientPartyId}`}>
+            <LinkButton size="sm" variant="ghost" href={`/clients/${item.clientPartyId}`}>
               The client
             </LinkButton>
+            {canWrite && openReview === null && (
+              <Button
+                disabled={busy === "review"}
+                onClick={() => {
+                  void act("review", () =>
+                    api.POST("/api/v1/work-items/{workItemId}/review", {
+                      params: { path: { workItemId } },
+                      body: {},
+                    }),
+                  );
+                }}
+              >
+                Send for review
+              </Button>
+            )}
           </>
         }
       />
-      {/* A REFUSAL TAKES FOCUS, and `ErrorNotice` is where that now lives — the
-          ref, the `tabIndex={-1}` and the "only when it appears" rule were
-          hand-rolled here first, then measured across the app: thirty screens
-          rendered a refusal and three moved focus to it. */}
+      {/* A REFUSAL TAKES FOCUS, and `ErrorNotice` is where that lives. */}
       <ErrorNotice error={error} />
 
-      <Card>
-        <Meta>
-          <MetaItem label="State">
-            {/* `ok`, not `accent`. In `components/tw` "accent" is shadcn's hover
-                ground; this product's status teal is `ok`, and confusing the
-                two has painted a status colour onto furniture three times. */}
-            <Pill
-              tone={
-                item.state.isBlocked ? "danger" : item.state.isTerminal ? "neutral" : "ok"
-              }
-            >
-              {item.state.name}
-            </Pill>
-          </MetaItem>
-          <MetaItem label="Priority">{item.priority.name}</MetaItem>
-          <MetaItem label="Owner">
-            {/* "Nobody", and nothing else. The REASON is the callout below —
-                printing it here too made the fact grid six lines tall and said
-                the same sentence twice, which is what opening the page found. */}
-            {item.assignee === null ? (
-              <span className="muted">Nobody</span>
-            ) : (
-              (item.assignee.displayName ?? item.assignee.email)
-            )}
-          </MetaItem>
-          <MetaItem label="Due">
-            {item.dueOn === null ? "no date" : longDay(item.dueOn)}
-            {item.slaDaysSnapshot !== null && (
-              <span className="muted text-xs">
-                {" "}
-                {/* The SNAPSHOT, and the page says it is one. A catalogue
-                    revision must not make finished work retroactively late, so
-                    this is the number that applied when the work was raised —
-                    not what the service says today. */}
-                (turnaround of {item.slaDaysSnapshot} days, as set when this task was raised)
-              </span>
-            )}
-          </MetaItem>
-          {item.isStatutoryDue && (
-            <MetaItem label="Deadline">
-              Legal deadline. The date comes from the law, not from the firm.
-            </MetaItem>
-          )}
-          <MetaItem label="Client can see this">{item.isClientVisible ? "Yes" : "No"}</MetaItem>
-        </Meta>
-
-        {/* On an unassigned task it says why nobody has it; on a Key Manager's
-            or the signing partner's desk it says the task came to them to hand
-            out, and why (the owner rule, 2026-09-27). A hand move clears it. */}
-        {item.assignmentNote !== null && <Notice>{item.assignmentNote}</Notice>}
-        {/* `warn`, not `danger`: held up is not the same as wrong, and this
-            product's rule is that a block is warn. */}
-        {item.state.isBlocked && item.blockedReason !== null && (
-          <Notice tone="warn">
-            <strong>Blocked:</strong> {item.blockedReason}
-          </Notice>
-        )}
-        {item.blockedByOpen.length > 0 && (
-          <Notice tone="warn">
-            Cannot start until {item.blockedByOpen.map((b) => b.title).join(", ")}{" "}
-            {item.blockedByOpen.length === 1 ? "is" : "are"} finished.
-          </Notice>
-        )}
-      </Card>
-
-      {canWrite && vocabulary !== null && (
-        <MoveState
-          vocabulary={vocabulary}
-          currentStateId={item.state.id}
-          busy={busy === "state"}
-          onMove={(stateId, blockedReason) => {
-            void act("state", () =>
-              api.POST("/api/v1/work-items/{workItemId}/state", {
-                params: { path: { workItemId } },
-                body: { stateId, blockedReason },
-              }),
-            );
-          }}
-        />
-      )}
-
-      {canWrite && (
-        <ClientVisibility
-          visible={item.isClientVisible}
-          busy={busy === "visibility"}
-          onChange={(isClientVisible) => {
-            void act("visibility", () =>
-              api.PATCH("/api/v1/work-items/{workItemId}", {
-                params: { path: { workItemId } },
-                body: { isClientVisible },
-              }),
-            );
-          }}
-        />
-      )}
-
-      {canWrite && roster.length > 0 && (
-        <Assign
-          roster={roster}
-          currentUserId={item.assignee?.userId ?? null}
-          busy={busy === "assign"}
-          stepsHandedOver={stepsHandedOver}
-          onAssign={(assigneeUserId) => {
-            setStepsHandedOver(null);
-            let handed = 0;
-            void act("assign", async () => {
-              const result = await api.POST("/api/v1/work-items/{workItemId}/assignee", {
-                params: { path: { workItemId } },
-                body: { assigneeUserId },
-              });
-              handed = result.data?.stepsHandedOver ?? 0;
-              return result;
-            }).then((ok) => {
-              if (ok && handed > 0) setStepsHandedOver(handed);
+      <Details
+        item={item}
+        canWrite={canWrite}
+        vocabulary={vocabulary}
+        roster={roster}
+        busy={busy}
+        stepsHandedOver={stepsHandedOver}
+        onMove={(stateId, blockedReason) => {
+          void act("state", () =>
+            api.POST("/api/v1/work-items/{workItemId}/state", {
+              params: { path: { workItemId } },
+              body: { stateId, blockedReason },
+            }),
+          );
+        }}
+        onVisibility={(isClientVisible) => {
+          void act("visibility", () =>
+            api.PATCH("/api/v1/work-items/{workItemId}", {
+              params: { path: { workItemId } },
+              body: { isClientVisible },
+            }),
+          );
+        }}
+        onAssign={(assigneeUserId) => {
+          setStepsHandedOver(null);
+          let handed = 0;
+          void act("assign", async () => {
+            const result = await api.POST("/api/v1/work-items/{workItemId}/assignee", {
+              params: { path: { workItemId } },
+              body: { assigneeUserId },
             });
-          }}
-        />
-      )}
-
-      {/* WHAT WE ARE WAITING ON THE CLIENT FOR (T6.6). Below the visibility
-          switch on purpose: an ask about work the client cannot see never
-          reaches them, and the panel says so when the switch is off. */}
-      <ClientAsks
-        workItemId={workItemId}
-        canWrite={canWrite}
-        isClientVisible={item.isClientVisible}
+            handed = result.data?.stepsHandedOver ?? 0;
+            return result;
+          }).then((ok) => {
+            if (ok && handed > 0) setStepsHandedOver(handed);
+          });
+        }}
       />
 
-      {/* ── THE FILES ON THIS TASK (T6.7) ───────────────────────────────────
-
-          `subject_kind = 'work_item'` was added by migration 0063 so a client's
-          uploaded answer files itself against the job that asked for it — *"the
-          person who raised the ask is looking at the work item, and a file
-          reachable only through the ask would not arrive where they are
-          looking."* And then nothing on this page listed those files: the ask
-          panel above names the filename of each response and there was no other
-          reader at all.
-
-          It is also where the CLIENT-VISIBILITY switch on each document lives.
-          `is_client_visible` (0066) decides whether a file appears in the
-          client's own portal library, enforced by a database policy — and T6.5
-          named the failure this avoids on the flag one card above: *a flag the
-          portal enforces and no screen can change is a wall built against a
-          value nobody can move.*
-
-          `partyId` is the task's CLIENT, so a file uploaded here belongs to them
-          rather than to the firm — which is what makes the switch mean anything
-          at all. */}
-      <Documents
-        subjectKind="work_item"
-        subjectRef={workItemId}
-        partyId={item.clientPartyId}
-        canWrite={canWrite}
-        emptyHint="Nothing filed on this task yet. Add the challan, the acknowledgement or the register the client sent, so it can be found a year from now."
-      />
+      {openReview !== null && reviews}
 
       <Checklist
         lines={detail.checklist}
@@ -399,10 +316,8 @@ export default function WorkItemPage() {
         }}
       />
 
-      {/* WHAT THIS WAITS ON. The checklist above is what is INSIDE this task;
-          this is what is outside it, and it is the thing that decides whether
-          the task can be started at all. `detail.dependencies` has been on the
-          wire since T3.1 and no screen has ever drawn it. */}
+      {/* WHAT THIS WAITS ON. The checklist is what is INSIDE this task; this is
+          what is outside it, and it decides whether the task can start. */}
       <Dependencies
         workItemId={workItemId}
         clientPartyId={item.clientPartyId}
@@ -426,261 +341,269 @@ export default function WorkItemPage() {
         }}
       />
 
-      <Reviews
-        reviews={detail.reviews}
-        openReview={openReview}
-        openReviewViewer={detail.openReviewViewer}
+      {/* WHAT WE ARE WAITING ON THE CLIENT FOR (T6.6). Below the visibility
+          switch: an ask about work the client cannot see never reaches them,
+          and the panel says so when the switch is off. */}
+      <ClientAsks
+        workItemId={workItemId}
         canWrite={canWrite}
-        busy={busy}
-        onRequest={() => {
-          void act("review", () =>
-            api.POST("/api/v1/work-items/{workItemId}/review", {
-              params: { path: { workItemId } },
-              body: {},
-            }),
-          );
-        }}
-        onDecide={(approvalId, decision, notes) => {
-          void act(approvalId, () =>
-            api.POST("/api/v1/work-item-checks/{approvalId}/decide", {
-              params: { path: { approvalId } },
-              body: { decision, notes },
-            }),
-          );
-        }}
+        isClientVisible={item.isClientVisible}
       />
+
+      {/* ── THE FILES ON THIS TASK (T6.7) ───────────────────────────────────
+          `subject_kind = 'work_item'` (0063) so a client's uploaded answer files
+          itself against the job that asked for it. It is also where each
+          document's client-visibility switch lives (0066). `partyId` is the
+          task's CLIENT, so a file uploaded here belongs to them. */}
+      <Documents
+        subjectKind="work_item"
+        subjectRef={workItemId}
+        partyId={item.clientPartyId}
+        canWrite={canWrite}
+        emptyHint="Nothing filed yet. Add the challan, acknowledgement or register here."
+      />
+
+      {openReview === null && reviews}
     </Page>
   );
 }
 
 /**
- * The state picker.
+ * THE TASK AT A GLANCE, and the three things you change about it.
  *
- * Offers only ACTIVE states — a retired one still renders everywhere it is held
- * but is not offered for a move, which is the difference between retiring and
- * deleting. And the reason box is keyed on the selected state's `isBlocked`
- * FLAG, so it follows the firm's own configuration rather than a name this
- * screen knows.
+ * One card (Wave 4, 2026-09-28). It was four: the facts, then "Change state",
+ * "What the client sees" and "Whose desk" each in a titled card of its own, so
+ * the same state and the same owner were printed once as a fact and again in a
+ * select one card lower. Now the State and Whose desk facts ARE the controls
+ * for somebody with `work:write`, and plain words for everybody else.
+ *
+ * ── THE STATE PICKER IS THE FIRM'S OWN VOCABULARY ───────────────────────────
+ *
+ * Offers only ACTIVE states (a retired one still renders where it is held), and
+ * the reason box is keyed on the SELECTED state's `isBlocked` FLAG, so it
+ * follows the firm's own configuration rather than a name this screen knows.
+ * Asking before the API refuses is not a duplicated rule: a person who has
+ * already pressed Save has lost the sentence they were about to write.
+ *
+ * ── WHAT THE CLIENT SEES is `is_client_visible` (0051; enforced by 0062) ────
+ *
+ * A switch and not a checkbox in a form: it takes effect on the client's page
+ * immediately, which is what a switch means.
  */
-function MoveState({
+function Details({
+  item,
+  canWrite,
   vocabulary,
-  currentStateId,
+  roster,
   busy,
+  stepsHandedOver,
   onMove,
+  onVisibility,
+  onAssign,
 }: {
-  vocabulary: WorkVocabulary;
-  currentStateId: string;
-  busy: boolean;
+  item: WorkItemDetail["item"];
+  canWrite: boolean;
+  vocabulary: WorkVocabulary | null;
+  roster: Colleague[];
+  busy: string | null;
+  stepsHandedOver: number | null;
   onMove: (stateId: string, blockedReason: string | null) => void;
+  onVisibility: (visible: boolean) => void;
+  onAssign: (userId: string | null) => void;
 }) {
+  const currentStateId = item.state.id;
+  const currentUserId = item.assignee?.userId ?? null;
   const [stateId, setStateId] = useState(currentStateId);
   const [reason, setReason] = useState("");
+  const [userId, setUserId] = useState(currentUserId ?? "");
 
   /**
-   * RE-SYNC WHEN THE ITEM MOVES UNDER US, and it now does.
-   *
-   * `useState(currentStateId)` reads the prop ONCE, at mount, and this
-   * component never unmounts — so anything that changed the state from
-   * somewhere else left the picker showing the old one. It was latent until
-   * 0073: sending a task for review MOVES it into the firm's "with a checker"
-   * state, and walking that found the picker still reading "Not Started" on an
-   * item the API had already put in "Under Review". The whole point of that
-   * change is that the screen stops disagreeing with the record, so a stale
-   * picker undoes it exactly.
-   *
-   * React's own recipe for adjusting state to a prop — compare against what was
-   * last seen and set during render — rather than an effect (which renders the
-   * wrong value once first) or a `key` on the parent (which remounts, blurring
-   * whatever had focus). Only the SELECTION is reset: a half-typed block reason
-   * belongs to the person typing it.
+   * RE-SYNC WHEN THE ITEM MOVES UNDER US. `useState(currentStateId)` reads the
+   * prop once and this never unmounts, so sending a task for review (0073
+   * MOVES it into the firm's "with a checker" state) left the picker on the old
+   * state. React's recipe: compare against what was last seen and set during
+   * render. Only the SELECTION is reset; a half-typed reason is the typist's.
    */
   const [seenStateId, setSeenStateId] = useState(currentStateId);
   if (seenStateId !== currentStateId) {
     setSeenStateId(currentStateId);
     setStateId(currentStateId);
   }
-  const target = vocabulary.states.find((s) => s.id === stateId) ?? null;
+  const target = vocabulary?.states.find((s) => s.id === stateId) ?? null;
   const needsReason = target?.isBlocked ?? false;
+  const mayMove = canWrite && vocabulary !== null;
+  const mayAssign = canWrite && roster.length > 0;
 
   return (
     <Card>
-      <CardTitle level={2}>Change state</CardTitle>
-      <div className="field-row">
-        <Field label="State">
-          <Select
-            value={stateId}
-            onChange={(e) => { setStateId(e.target.value); }}
-          >
-            {vocabulary.states
-              .filter((s) => s.isActive || s.id === currentStateId)
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-          </Select>
-        </Field>
-        <Button
-          /* The diagnosis on the line that used to be here was right and the
-             cure was not: `.field-row` IS a `minmax(12rem, 1fr)` grid, and that
-             is exactly why `flex: 0 0 auto` did nothing about it — `flex` is
-             read by flex containers only. Measured on the page, this button was
-             551px wide, the banner the old comment was trying to prevent.
-             `justify-self` is the grid property that means the same thing: 68px.
-             A utility rather than an inline style: `.btn` never declares
-             `justify-self`, so there is nothing unlayered for it to lose to. */
-          className="justify-self-start"
-          /* Two cards on this screen each have a "Save". They do different
-             things to different fields and the word alone says neither. */
-          aria-label="Save the new state"
-          disabled={busy || stateId === currentStateId || (needsReason && reason.trim() === "")}
-          onClick={() => {
-            onMove(stateId, needsReason ? reason.trim() : null);
-          }}
-        >
-          Save
-        </Button>
-      </div>
+      <Meta>
+        <MetaItem label="State">
+          {mayMove ? (
+            <span className="cluster tight">
+              <Select
+                variant="quiet"
+                aria-label="State"
+                value={stateId}
+                onChange={(e) => {
+                  setStateId(e.target.value);
+                }}
+              >
+                {vocabulary.states
+                  .filter((s) => s.isActive || s.id === currentStateId)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </Select>
+              {stateId !== currentStateId && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  /* Two Saves on this card, each named by what it saves. */
+                  aria-label="Save the new state"
+                  disabled={busy === "state" || (needsReason && reason.trim() === "")}
+                  onClick={() => {
+                    onMove(stateId, needsReason ? reason.trim() : null);
+                  }}
+                >
+                  Save
+                </Button>
+              )}
+            </span>
+          ) : (
+            <Pill
+              dot
+              tone={item.state.isBlocked ? "danger" : item.state.isTerminal ? "neutral" : "ok"}
+            >
+              {item.state.name}
+            </Pill>
+          )}
+        </MetaItem>
+        <MetaItem label="Whose desk">
+          {mayAssign ? (
+            <span className="cluster tight">
+              <Select
+                variant="quiet"
+                aria-label="Whose desk"
+                {...(userId !== (currentUserId ?? "") ? { "aria-describedby": "assign-hint" } : {})}
+                value={userId}
+                onChange={(e) => {
+                  setUserId(e.target.value);
+                }}
+              >
+                <option value="">Nobody</option>
+                {/* Active staff only, already: the API leaves out a revoked
+                    membership, because offering it would produce a refusal. */}
+                {roster.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {colleagueLabel(m)}
+                  </option>
+                ))}
+              </Select>
+              {userId !== (currentUserId ?? "") && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-label="Save whose desk this sits on"
+                  disabled={busy === "assign"}
+                  onClick={() => {
+                    onAssign(userId === "" ? null : userId);
+                  }}
+                >
+                  Save
+                </Button>
+              )}
+            </span>
+          ) : item.assignee === null ? (
+            <NotSet>Nobody</NotSet>
+          ) : (
+            (item.assignee.displayName ?? item.assignee.email)
+          )}
+        </MetaItem>
+        <MetaItem label="Due">
+          {item.dueOn === null ? <NotSet>No due date</NotSet> : longDay(item.dueOn)}
+          {/* The SNAPSHOT: a catalogue revision must not make finished work
+              retroactively late, so this is the turnaround that applied when
+              the work was raised, not what the service says today. */}
+          {item.slaDaysSnapshot !== null && (
+            <Sub>{`${String(item.slaDaysSnapshot)}-day turnaround`}</Sub>
+          )}
+          {item.isStatutoryDue && <Sub>Legal deadline</Sub>}
+        </MetaItem>
+        <MetaItem label="Priority">{item.priority.name}</MetaItem>
+        <MetaItem label="Client portal">
+          {canWrite ? (
+            <Switch
+              label={item.isClientVisible ? "Shown" : "Hidden"}
+              /* The visible word is the STATE; the name says what it does. */
+              aria-label="Show this on the client portal"
+              checked={item.isClientVisible}
+              disabled={busy === "visibility"}
+              aria-describedby="visibility-hint"
+              onChange={(e) => {
+                onVisibility(e.target.checked);
+              }}
+            />
+          ) : item.isClientVisible ? (
+            "Shown"
+          ) : (
+            "Hidden"
+          )}
+          {/* The consequence, both ways, because the cost is asymmetric: a task
+              wrongly hidden leaves a client in the dark, one wrongly shown puts
+              an internal note in front of the person it is about. */}
+          <Sub>
+            <span id="visibility-hint">
+              {item.isClientVisible ? "Never shows whose desk or priority." : "The client cannot see it."}
+            </span>
+          </Sub>
+        </MetaItem>
+      </Meta>
 
-      {needsReason && (
-        /* The capture-or-lose half, said out loud. At the moment somebody
-           blocks a task the reason is obvious to everybody in the room and
-           nobody writes it down; a year later "are our delays ours or the
-           client's" has no query that can answer it.
-
-           It was a <span> INSIDE the <label>, which makes the whole paragraph
-           part of the control's NAME — a screen reader reads the lot back as
-           the field's name every time focus lands on it. As a `hint` it is a
-           description instead, which is what it is. */
-        <Field
-          label="Why is it stuck?"
-          hint="Required for this state. Say what is holding it up. The note stays on the task and is not written to the audit trail."
-        >
+      {needsReason && mayMove && stateId !== currentStateId && (
+        /* A `hint`, not a span in the label: a label's text is the control's
+           NAME and a screen reader would read the whole sentence on focus. */
+        <Field label="Why is it stuck?" hint="Required. It stays on the task.">
           <Textarea
             value={reason}
             rows={2}
-            onChange={(e) => { setReason(e.target.value); }}
+            placeholder="e.g. Waiting for the client's revised challan"
+            onChange={(e) => {
+              setReason(e.target.value);
+            }}
           />
         </Field>
       )}
-    </Card>
-  );
-}
-
-/**
- * WHAT THE CLIENT SEES — the control behind `is_client_visible`.
- *
- * The column has existed since migration 0051, carrying the client's own words
- * (*"Clients would be able to see their tasks"*), and until T6.5 nothing read
- * it and no screen could set it: it was writable over HTTP and reachable from
- * nowhere. The portal is now its reader — enforced in the DATABASE, by a
- * restrictive policy (0062), so a portal read that forgets the filter still
- * cannot return an internal note — and this is its writer.
- *
- * A switch and not a checkbox in a form: it takes effect on the client's page
- * immediately, which is what a switch means and a Save button would misdescribe.
- * The sentence under it names the consequence in both directions, because the
- * cost of getting it wrong is asymmetric — a task wrongly hidden is a client
- * left in the dark, and a task wrongly shown is an internal note read by the
- * person it is about.
- */
-function ClientVisibility({
-  visible,
-  busy,
-  onChange,
-}: {
-  visible: boolean;
-  busy: boolean;
-  onChange: (visible: boolean) => void;
-}) {
-  return (
-    <Card>
-      <CardTitle level={2}>What the client sees</CardTitle>
-      {/* The Switch carries its own label, so there is no <Field> around it —
-          two labels on one control is what a screen reader reads out twice.
-          The explanation goes under it as a hint, which is where every hint in
-          this app goes. */}
-      <Switch
-        label="Show this on the client portal"
-        checked={visible}
-        disabled={busy}
-        onChange={(e) => { onChange(e.target.checked); }}
-      />
-      <p className="field-hint">
-        {visible
-          ? "The client's contacts see this task, its status and, if it is held up, the reason recorded on it. They never see who it is assigned to or its priority."
-          : "Hidden from the client portal. Use this for internal work about a client, such as a write-off discussion, a quality review or a credit decision."}
-      </p>
-    </Card>
-  );
-}
-
-/** Whose desk it is on. Offered to anybody with `work:write`, since the
- *  picker behind it is `party:read` — see the note in `load`. */
-function Assign({
-  roster,
-  currentUserId,
-  busy,
-  stepsHandedOver,
-  onAssign,
-}: {
-  roster: Colleague[];
-  currentUserId: string | null;
-  busy: boolean;
-  stepsHandedOver: number | null;
-  onAssign: (userId: string | null) => void;
-}) {
-  const [userId, setUserId] = useState(currentUserId ?? "");
-
-  return (
-    <Card>
-      <CardTitle level={2}>Whose desk</CardTitle>
-      <div className="field-row">
-        <Field label="Owner">
-          <Select
-            value={userId}
-            aria-describedby="assign-hint"
-            onChange={(e) => { setUserId(e.target.value); }}
-          >
-            <option value="">Nobody</option>
-            {/* Active staff only, already: the API leaves out a revoked
-                membership, because offering it would produce the assign
-                route's refusal, and offering what will fail is just a slower
-                error. */}
-            {roster.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {colleagueLabel(m)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Button
-          className="justify-self-start"
-          aria-label="Save whose desk this sits on"
-          disabled={busy || userId === (currentUserId ?? "")}
-          onClick={() => {
-            onAssign(userId === "" ? null : userId);
-          }}
-        >
-          Save
-        </Button>
-      </div>
-      {/* Below the row, so it stays the width of the card rather than of one
-          grid column — pointed at from the select by id instead of being its
-          `hint`. */}
-      <p className="field-hint" id="assign-hint">
-        A task created from an engagement goes to the client&rsquo;s SPOC for that Dept on its
-        own. With no SPOC it goes to the client&rsquo;s Key Manager, and with no Key Manager to
-        the person who signs for the firm, to hand out. Giving it to somebody here also gives
-        them the job&rsquo;s steps nobody has taken, where their grade allows. The change is
-        recorded.
-      </p>
+      {/* Said where somebody acts: once they have picked someone else. */}
+      {mayAssign && userId !== (currentUserId ?? "") && (
+        <p className="field-hint" id="assign-hint">
+          Handing it on also hands over the job&rsquo;s untaken steps, where grade allows.
+        </p>
+      )}
       {stepsHandedOver !== null && (
-        <p className="muted text-sm" role="status">
+        <p className="text-md" role="status">
           {stepsHandedOver === 1
             ? "1 step of this job went with it."
-            : `${stepsHandedOver} steps of this job went with it.`}
+            : `${String(stepsHandedOver)} steps of this job went with it.`}
         </p>
+      )}
+
+      {/* On an unassigned task it says why nobody has it; on a Key Manager's or
+          the signing partner's desk it says the task came to them to hand out,
+          and why (the owner rule, 2026-09-27). A hand move clears it. */}
+      {item.assignmentNote !== null && <Notice>{item.assignmentNote}</Notice>}
+      {/* `warn`, not `danger`: held up is not the same as wrong. */}
+      {item.state.isBlocked && item.blockedReason !== null && (
+        <Notice tone="warn">
+          <strong>{item.state.name}:</strong> {item.blockedReason}
+        </Notice>
+      )}
+      {item.blockedByOpen.length > 0 && (
+        <Notice tone="warn">
+          Cannot start until {item.blockedByOpen.map((b) => b.title).join(", ")}{" "}
+          {item.blockedByOpen.length === 1 ? "is" : "are"} finished.
+        </Notice>
       )}
     </Card>
   );
@@ -707,20 +630,15 @@ function Checklist({
 
   return (
     <Card>
-      <CardTitle level={2}>
-        Checklist{" "}
-        <span className="annot text-sm">
-          {done}/{lines.length}
-        </span>
-      </CardTitle>
-      {lines.length === 0 && (
-        <p className="muted text-md">
-          Nothing on it yet. This is your firm&rsquo;s own to-do list for this task. The process
-          steps are on the job.
-        </p>
-      )}
+      <div className="row">
+        <CardTitle level={2}>Checklist</CardTitle>
+        {lines.length > 0 && (
+          <span className="text-md">{`${String(done)} of ${String(lines.length)} ticked`}</span>
+        )}
+      </div>
+      {lines.length === 0 && <p className="text-md">Nothing on it yet.</p>}
       {lines.map((line) => (
-        <div key={line.id} className="row py-1">
+        <div key={line.id} className="cluster py-1">
           <label className="check">
             <input
               type="checkbox"
@@ -746,7 +664,7 @@ function Checklist({
                which is why no sweep has seen them. The label is what the row
                is, and nothing on this screen renames a line. */
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               disabled={busy === line.id}
               aria-label={`Remove "${line.label}" from the checklist`}
@@ -764,7 +682,7 @@ function Checklist({
         <div className="field-row">
           <Input
             value={draft}
-            placeholder="Add a line"
+            placeholder="e.g. Pull the trial balance"
             aria-label="New checklist line"
             onChange={(e) => {
               setDraft(e.target.value);
@@ -793,9 +711,9 @@ function Checklist({
       {/* A ticked line cannot be removed, and the screen says so before somebody
           goes looking for the button. The tick is the record that a person did
           something and it lives nowhere else. */}
-      <p className="field-hint">
-        A ticked line cannot be removed. Untick it first if it was ticked by mistake.
-      </p>
+      {lines.some((l) => l.doneAt !== null) && (
+        <p className="field-hint">Untick a line to remove it.</p>
+      )}
     </Card>
   );
 }
@@ -807,7 +725,6 @@ function Reviews({
   openReviewViewer,
   canWrite,
   busy,
-  onRequest,
   onDecide,
 }: {
   reviews: readonly WorkItemReview[];
@@ -817,27 +734,16 @@ function Reviews({
   openReviewViewer: WorkItemDetail["openReviewViewer"];
   canWrite: boolean;
   busy: string | null;
-  onRequest: () => void;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
+  // Nothing sent for review yet: no card at all. Send for review is the
+  // page's own button, top right.
+  if (openReview === null && reviews.length === 0) return null;
   return (
     <Card>
-      <CardTitle level={2}>Review</CardTitle>
+      <CardTitle level={2}>Reviews</CardTitle>
 
-      {openReview === null ? (
-        <>
-          <p className="muted text-md">
-            Nothing is waiting to be checked.
-          </p>
-          {canWrite && (
-            <div className="cluster">
-              <Button disabled={busy === "review"} onClick={onRequest}>
-                Send for review
-              </Button>
-            </div>
-          )}
-        </>
-      ) : (
+      {openReview === null ? null : (
         <DecideReview
           review={openReview}
           viewer={openReviewViewer}
@@ -853,7 +759,7 @@ function Reviews({
           <thead>
             <tr>
               <Th>Sent</Th>
-              <Th>By</Th>
+              <Th>Done by</Th>
               <Th>Rule</Th>
               <Th>Outcome</Th>
               <Th>Note</Th>
@@ -866,12 +772,12 @@ function Reviews({
                     takes the UTC day, and a check submitted at 00:20 in Delhi
                     is 18:50 UTC the day BEFORE. The same class of bug this repo
                     has now fixed on eleven screens. */}
-                <Td className="mono">{longInstant(r.submittedAt)}</Td>
+                <Td>{longInstant(r.submittedAt)}</Td>
                 {/* Null is a real answer: the task was unassigned when the check
                     opened, so nobody is recorded as having made it — and maker
                     != checker then has nothing to compare. */}
-                <Td>{r.submittedByName ?? <span className="muted">nobody recorded</span>}</Td>
-                <Td className="muted">{r.policyLabel ?? "no particular rule"}</Td>
+                <Td>{r.submittedByName ?? <NotSet>Nobody recorded</NotSet>}</Td>
+                <Td>{r.policyLabel ?? "Anyone but the maker"}</Td>
                 <Td>
                   {/* `approved` is the OK one. This column read the other way
                       round — `pending` in the product's status teal and
@@ -881,6 +787,7 @@ function Reviews({
                       reassuring one. Waiting is `warn`, which is what "held up"
                       is everywhere else in this product. */}
                   <Pill
+                    dot
                     tone={
                       r.decision === "rejected"
                         ? "danger"
@@ -889,10 +796,10 @@ function Reviews({
                           : "warn"
                     }
                   >
-                    {r.decision}
+                    {DECISION_WORDS[r.decision]}
                   </Pill>
                 </Td>
-                <Td className="muted">{r.notes ?? "no note"}</Td>
+                <Td>{r.notes ?? <NotSet>No note</NotSet>}</Td>
               </tr>
             ))}
           </tbody>
@@ -935,11 +842,11 @@ function DecideReview({
 
   return (
     <>
-      <Notice>
+      <p className="text-md">
         Waiting to be checked since {longInstant(review.submittedAt)}
-        {review.submittedByName !== null && `, made by ${review.submittedByName}`}
+        {review.submittedByName !== null && `, done by ${review.submittedByName}`}
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
-      </Notice>
+      </p>
 
       {/* THE WHOLE RULE, FROM THE API — and it used to be a third of it.
           This screen derived maker != checker from `submittedBy` and could see
@@ -973,10 +880,7 @@ function DecideReview({
               thing that ever explains rework…" — the whole paragraph, read back
               on every focus, because the <span> sat inside the <label>. As a
               `hint` it is a description, which is what it is. */}
-          <Field
-            label="Note"
-            hint="Required when you send it back. Say what needs fixing, so the reason stays on record."
-          >
+          <Field label="Note" hint="Required to send it back.">
             <Textarea
               rows={2}
               value={notes}
@@ -1006,7 +910,7 @@ function DecideReview({
         </>
       )}
 
-      <details className="mt-4">
+      <details className="mt-3">
         <summary
           onClick={() => {
             if (checkers === null) void loadCheckers();
@@ -1025,14 +929,16 @@ function DecideReview({
               {checkers.map((c) => (
                 <tr key={c.userId}>
                   <Td>{c.displayName}</Td>
-                  <Td className="muted">{c.gradeName ?? "no grade set"}</Td>
+                  <Td>{c.gradeName ?? <NotSet>No grade</NotSet>}</Td>
                   <Td>
                     {c.eligible ? (
-                      <Pill tone="ok">may check</Pill>
+                      <Pill dot tone="ok">
+                        Can check
+                      </Pill>
                     ) : (
                       // The REASON, always. "You cannot check this" with no
                       // reason is how a person concludes the button is broken.
-                      <span className="muted">{c.reason}</span>
+                      <span className="text-ink-2">{c.reason}</span>
                     )}
                   </Td>
                 </tr>
@@ -1154,38 +1060,31 @@ function Dependencies({
 
   return (
     <Card>
-      <CardTitle level={2}>
-        What this waits on{" "}
+      <div className="row">
+        <CardTitle level={2}>Waits on</CardTitle>
         {deps.length > 0 && (
-          <span className="annot text-sm">
-            {open_.length}/{deps.length} still open
-          </span>
+          <span className="text-md">{`${String(open_.length)} of ${String(deps.length)} still open`}</span>
         )}
-      </CardTitle>
-      <p className="muted text-md">
-        Use this when one task cannot start until another is finished, for example an annual
-        filing that waits on twelve monthly ones. While anything here is unfinished, this task
-        cannot be moved out of its starting state. It can still be cancelled.
-      </p>
+      </div>
 
       {deps.length === 0 ? (
-        <p className="muted text-md">
-          Nothing. This can be started whenever somebody picks it up.
-        </p>
+        <p className="text-md">Nothing. It can start any time.</p>
       ) : (
         deps.map((d) => (
-          <div key={d.id} className="row py-1">
+          <div key={d.id} className="cluster py-1">
             <span>
               <Link href={`/work-items/${d.dependsOnWorkItemId}`}>{d.dependsOnTitle}</Link>{" "}
               {/* THE FIRM'S OWN WORD FOR THE STATE, with the tone taken from
                   the FLAG. Nothing here compares a state code — a firm may call
                   its finished state anything, and `/work-items` and this page
                   must not disagree about which of its own states means done. */}
-              <Pill tone={d.dependsOnIsTerminal ? "ok" : "warn"}>{d.dependsOnStateName}</Pill>
+              <Pill dot tone={d.dependsOnIsTerminal ? "ok" : "warn"}>
+                {d.dependsOnStateName}
+              </Pill>
             </span>
             {canWrite && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 loading={busy === d.id}
                 /* NAMED BY WHAT IT WAITS ON. A task waiting on four things
@@ -1222,10 +1121,7 @@ function Dependencies({
             >
               <fieldset className="fieldset" aria-label="Make this task wait on another">
                 <FieldStack>
-                  <Field
-                    label="Wait on"
-                    hint="Only this client's other tasks are listed. A task for another client cannot be chosen here."
-                  >
+                  <Field label="Wait on" hint="Only this client's other tasks are listed.">
                     {/* NO PRE-SELECTED TASK. A dependency recorded against
                         whatever sorted first is a wrong fact rather than a
                         typo, and it is one that stops work. */}
@@ -1249,7 +1145,7 @@ function Dependencies({
                     </Select>
                   </Field>
                   <div className="cluster">
-                    <Button type="submit" loading={busy === "dependency"}>
+                    <Button type="submit" variant="secondary" loading={busy === "dependency"}>
                       {busy === "dependency" ? "Adding…" : "Make it wait"}
                     </Button>
                     <Button
@@ -1267,10 +1163,7 @@ function Dependencies({
                         screen says the check exists rather than pretending to
                         have prevented it. The sentence itself is rendered raw
                         by the page's error notice. */}
-                    <p className="field-hint">
-                      Two tasks cannot wait on each other, directly or through a chain. That
-                      would mean neither could ever start.
-                    </p>
+                    <p className="field-hint">Two tasks cannot wait on each other.</p>
                   </div>
                 </FieldStack>
               </fieldset>
@@ -1286,10 +1179,17 @@ function Dependencies({
                 void open();
               }}
             >
-              Make it wait on something
+              Add a task it waits on
             </Button>
           </div>
         ))}
     </Card>
   );
 }
+
+/** A check's outcome in words: `rejected` is the checker's "Send back". */
+const DECISION_WORDS: Record<WorkItemReview["decision"], string> = {
+  pending: "Waiting",
+  approved: "Approved",
+  rejected: "Sent back",
+};

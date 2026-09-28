@@ -273,11 +273,11 @@ export function MonthView({
             phone has. Below 32rem of container the grid is not drawn at all
             and the list below it is — see the comment on that section. */}
         <section className="hidden rounded-md border border-line bg-surface p-4 @lg:block">
+          {/* The month's name is the calendar's own caption, with its arrows;
+              a heading here said it a second time (Wave 4). What this line
+              adds is the month's load. */}
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-line-soft pb-3">
-            <h2 className="text-lg font-semibold text-ink">
-              {month === null ? " " : `${MONTHS[month.getMonth()] ?? ""} ${String(month.getFullYear())}`}
-            </h2>
-            <p className="text-sm text-muted">
+            <p className="text-md text-ink-2">
               {month === null || !loaded ? (
                 "Loading the calendar…"
               ) : monthRows.length === 0 ? (
@@ -334,11 +334,7 @@ export function MonthView({
           )}
 
           <p className="mt-3 border-t border-line-soft pt-3 text-xs text-muted">
-            The number under a date is how many filings land on it. Laid out by{" "}
-            <span className="text-ink">
-              {basis === "internal" ? "the firm’s own start date" : "the legal deadline"}
-            </span>
-            . Red means something on that day is already past it.
+            The number under a date is its filings. Red is past the date.
           </p>
         </section>
 
@@ -606,7 +602,7 @@ function FilingCard({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{row.name}</p>
           {row.authority !== null && (
-            <p className="truncate text-xs text-muted">{row.authority}</p>
+            <p className="truncate text-xs text-ink-2">{row.authority}</p>
           )}
         </div>
         <span
@@ -622,8 +618,8 @@ function FilingCard({
         </span>
       </div>
 
-      <p className="mt-1 truncate text-xs text-muted">
-        {row.entityName ?? "no company"}
+      <p className="mt-1 truncate text-sm text-ink">
+        {row.entityName ?? "Not set"}
         {row.clientName !== null && row.clientName !== row.entityName && (
           <> &middot; {row.clientName}</>
         )}
@@ -651,7 +647,7 @@ function FilingCard({
       </dl>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="mono text-xs text-muted">{row.periodLabel}</span>
+        <span className="text-xs text-ink-2">{row.periodLabel}</span>
         {/* SHOWN, never hidden — same reason as on `/calendar`. The date came
             from a document rather than from a partner checking it against the
             statute, and the plausible-looking wrong one is the dangerous kind. */}
@@ -660,7 +656,7 @@ function FilingCard({
             title={`Rule pack ${row.rulePack}`}
             className="rounded-sm bg-warn-wash px-2 py-0.5 text-xs text-warn-ink"
           >
-            unconfirmed rule
+            Unconfirmed rule
           </span>
         )}
         {row.workItemId !== null && (
@@ -674,14 +670,14 @@ function FilingCard({
               .filter(Boolean)
               .join(", ")}: open on the work board`}
           >
-            on the board &rarr;
+            On the board
           </Link>
         )}
       </div>
 
       {basis === "statutory" && lateInternally && !lateLegally && (
         <p className="mt-2 text-xs text-warn-ink">
-          Past the firm&rsquo;s own start date, though the legal one has not arrived.
+          Past our start date; the legal deadline is still ahead.
         </p>
       )}
     </li>

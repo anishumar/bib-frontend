@@ -391,6 +391,12 @@
   max-width: 24rem;
   white-space: normal;
 }
+/* A narrower wrap for a table that carries several free-text columns at once
+   (the work board's list: a task, a routing note, a reason). Added for the
+   Wave 4 delivery sweep; 24rem each put three columns off the edge at 1280. */
+.table .cell-text[data-size="narrow"] {
+  max-width: 14rem;
+}
 /* The quiet chevron at the end of a linked row: says "this opens" without
    a word. Decoration only, so it is hidden from a screen reader. */
 .table .row-chevron {
@@ -1390,7 +1396,8 @@
    what lets the text wrap instead. */
 
 .audit-what {
-  max-width: 34rem;
+  /* 28rem, not 34: at 1280 the trail hid 96px of its Record column (Wave 4). */
+  max-width: 28rem;
 }
 .audit-record {
   margin-top: 0.15rem;
@@ -1673,7 +1680,7 @@
   flex-wrap: wrap;
   gap: var(--s-1) var(--s-2);
   font-size: var(--t-xs);
-  color: var(--muted);
+  color: var(--ink-2); /* a due date and a priority are DATA (Wave 4) */
 }
 /* Above the title's stretched link, so the one hoverable thing inside a card
    that is otherwise all link still answers to a pointer. */

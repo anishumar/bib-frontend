@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { WorkItem, WorkItemState } from "@/lib/api/client";
-import { Card, Pill, Tooltip } from "@/components/ui";
+import { Card, NotSet, Pill } from "@/components/ui";
 import { Empty } from "@/components/states";
 import { longDay } from "@/lib/day";
 
@@ -86,8 +86,7 @@ export function WorkBoard({
     return (
       <Card>
         <Empty title="No task states set up yet" icon="board">
-          Each column on this board is one of your firm&rsquo;s task states. Add them on Work
-          states.
+          Each column is one of your firm&rsquo;s task states. Add them on Work states.
         </Empty>
       </Card>
     );
@@ -127,9 +126,7 @@ export function WorkBoard({
             </header>
             <div className="board-col-body">
               {!state.isActive && (
-                <p className="wcard-note">
-                  Retired. Nothing new can be moved here, and what is here stays.
-                </p>
+                <p className="wcard-note">Retired. Nothing new goes here.</p>
               )}
               {inColumn.length === 0 ? (
                 // Said, not blank. An empty column is an ANSWER — "nothing is
@@ -228,9 +225,8 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
 
       <div className="wcard-meta">
         {item.dueOn === null ? (
-          <Tooltip text="The firm has not stated a turnaround for this service">
-            <span className="unstated">no date</span>
-          </Tooltip>
+          // Not a blank: the firm has not stated a turnaround for this work.
+          <NotSet>No due date</NotSet>
         ) : (
           <span className="wcard-due" data-tone={overdue ? "danger" : dueToday ? "warn" : undefined}>
             {longDay(item.dueOn)}
@@ -252,7 +248,7 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
         {item.checklistTotal > 0 && (
           <span
             className="wcard-prog"
-            title={`${String(item.checklistDone)} of ${String(item.checklistTotal)} steps ticked`}
+            title={`${String(item.checklistDone)} of ${String(item.checklistTotal)} ticked`}
           >
             <span className="wcard-prog-track">
               <span
@@ -264,7 +260,7 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
           </span>
         )}
 
-        {item.hasOpenReview && <Pill tone="ok">in review</Pill>}
+        {item.hasOpenReview && <Pill tone="ok">In review</Pill>}
       </div>
 
       <div className="wcard-foot" data-nobody={who === null ? "true" : undefined}>

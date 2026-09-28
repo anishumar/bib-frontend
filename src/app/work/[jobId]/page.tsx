@@ -50,28 +50,18 @@ function NoStepsYet({ job }: { job: Job | null }) {
   if (job !== null && isUpcoming(job)) {
     return (
       <>
-        This job is not open yet. It opens on <strong>{longInstant(job.runnableAt)}</strong>,
-        and its process is chosen that day, so the steps appear then. Nothing needs doing
-        before that.
+        Opens on <strong>{longInstant(job.runnableAt)}</strong>. The steps appear then.
       </>
     );
   }
   if (job === null || job.templateVersionId === null) {
     return (
       <>
-        This job has no steps yet, because the service it is for does not name a published
-        process. Open the service in the Catalogue and choose the process every job for it
-        follows, or publish one first under How work runs. The work is not lost, it waits,
-        and the job picks the process up on its own.
+        No steps yet: this service has no published process. Choose one for it in the Catalogue.
       </>
     );
   }
-  return (
-    <>
-      This job&rsquo;s process is chosen but has produced no steps yet. The next sweep opens
-      them; nothing needs doing.
-    </>
-  );
+  return <>No steps yet. They open on the next run.</>;
 }
 
 export default function JobStepsPage({ params }: { params: Promise<{ jobId: string }> }) {
@@ -369,34 +359,40 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       <nav className="cluster">
         <Link href="/work">← Jobs</Link>
       </nav>
+      {/* WHOSE work this is, as the title. After the merge one checklist can
+          hold three services for one of a client's companies, so the title is
+          what it delivers and the line under it is the company (and who is
+          billed, when that differs). The period, on a per-period job (T6.13):
+          this is September's checklist, not the engagement's. */}
       <PageHeader
-        eyebrow="Delivery"
-        title="Job"
+        title={
+          job === null
+            ? "Job"
+            : [
+                job.services.length === 0
+                  ? "Job"
+                  : job.services.map((sv) => sv.serviceName).join(" · "),
+                job.periodLabel,
+              ]
+                .filter((x) => x !== null)
+                .join(" · ")
+        }
+        lede={
+          job === null ? undefined : (
+            <>
+              {job.entityName ?? "An unnamed company"}
+              {job.clientName !== null && job.clientName !== job.entityName && (
+                <> · billed to {job.clientName}</>
+              )}
+              {job.splitCode !== null && <> · {job.splitCode}</>}
+            </>
+          )
+        }
       />
-      {/* WHOSE work this is, above the steps. After the merge one checklist can
-          hold three services for one of a client's companies, and a page that
-          only listed steps left "which client, which company, which services"
-          unanswerable from the screen. */}
-      {job !== null && (
-        <p className="muted max-w-[var(--measure)]">
-          <strong>{job.entityName ?? "an unnamed company"}</strong>
-          {job.clientName !== null && job.clientName !== job.entityName && (
-            <> · billed to {job.clientName}</>
-          )}
-          {job.splitCode !== null && <> · {job.splitCode}</>}
-          {/* The period, on a per-period job (T6.13): this is September's
-              checklist, not the engagement's. */}
-          {job.periodLabel !== null && <> · {job.periodLabel}</>}
-          <br />
-          {job.services.length === 0
-            ? "No services listed against this job."
-            : job.services.map((sv) => sv.serviceName).join(" · ")}
-        </p>
-      )}
       <ErrorNotice error={error} />
 
       {steps.length === 0 ? (
-        <p className="muted max-w-[var(--measure)]">
+        <p className="max-w-[var(--measure)] text-ink-2">
           {/* THREE reasons a job has no steps, and only one of them is the firm
               not having written a process. Saying that one for all three sent a
               partner to the process editor on the 24th of the month to find v1
@@ -426,15 +422,15 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <strong>{s.label}</strong>{" "}
-                  <span className="mono muted text-xs">
-                    {s.stepKey}
-                  </span>
-                  <br />
-                  <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
+                  {/* The step's LABEL only: its key is the process's handle,
+                      never shown (T6.15's editor keeps keys off screen too). */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>{s.label}</strong>
+                    <StepState step={s} check={openCheckFor(checks, s.stepKey)} />
+                  </div>
                   <Desk step={s} />
                   {s.outcomeNote !== null && (
-                    <p className="muted mt-1 text-sm">{s.outcomeNote}</p>
+                    <p className="mt-1 text-sm text-ink-2">{s.outcomeNote}</p>
                   )}
                   {s.proposal !== null && s.proposal !== undefined && (
                     <Proposal proposal={s.proposal} />
@@ -600,8 +596,8 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           Take it
                         </Button>
                       ) : (
-                        <span className="muted text-sm">
-                          {s.performer === null ? "not yours to do" : `for ${bandLabel(s.performer)}`}
+                        <span className="text-sm text-ink-2">
+                          {s.performer === null ? "Not yours to do" : `For ${bandLabel(s.performer)}`}
                         </span>
                       )
                     ))}
@@ -615,28 +611,15 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         </Card>
       )}
 
-      <p className="muted max-w-[var(--measure)] text-sm">
-        Marking a step done records that <strong>you</strong> did it, and opens the steps that
-        were waiting on it. This cannot be undone.
-      </p>
-      {/* Said only on a job whose process HAS lists. A job pinned to a version
-          written before sub-steps existed has none, and a sentence about them
-          there would describe a control that is not on the page. */}
-      {steps.some((s) => s.subSteps.length > 0) && (
-        <p className="muted max-w-[var(--measure)] text-sm">
-          Where a step has sub-steps, each one is ticked, or marked not applicable with a reason,
-          before the step can be marked done. Once it is sent to be checked the ticks are locked,
-          and they open again only if it is sent back. Review points are the checker&rsquo;s own
-          list: each one is ticked before the work can be approved, and sending it back is always
-          allowed.
+      {/* ONE line, where the act is (Wave 4). Three paragraphs sat here; the
+          rules they spelt out (sub-steps hold Done shut, review points hold
+          Approve shut, a machine's answer is accepted, corrected or rejected)
+          are each said on the control they govern, and in CLAUDE.md. */}
+      {steps.some((s) => s.status === "blocked") && (
+        <p className="max-w-[var(--measure)] text-sm text-ink-2">
+          Done records that <strong>you</strong> did the step. It cannot be undone.
         </p>
       )}
-      <p className="muted max-w-[var(--measure)] text-sm">
-        Where the system has proposed an answer, you can accept it, correct it or reject it. The
-        original answer and your decision are both kept. A correction must change something, and
-        a rejection must say what was wrong. Rejecting does not finish the step. The work still
-        needs doing.
-      </p>
       {/* Working papers, challans, the evidence a step was actually done. A
           job's files belong to the FIRM rather than to a client, so no partyId
           is passed — the column exists for the client portal's record scope,
@@ -646,7 +629,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         subjectRef={jobId}
         canWrite={permissions.includes("party:write")}
         title="Working papers"
-        emptyHint="Nothing attached yet. Add the challan, the acknowledgement or the working paper behind a step, so a colleague can see this was done."
+        emptyHint="Nothing attached yet. Add the challan or working paper behind a step."
       />
     </Page>
   );
@@ -686,7 +669,7 @@ function CheckHistory({ checks, scope }: { checks: StepCheck[]; scope: string })
     <div className="mt-2">
       {decided.map((c) => (
         <div key={c.id}>
-          <p className="muted mt-0.5 text-sm">
+          <p className="mt-0.5 text-sm text-ink-2">
             {c.decision === "rejected" ? "Sent back" : "Approved"} on{" "}
             {c.decidedAt === null ? "an unknown date" : longInstant(c.decidedAt)}
             {c.notes !== null && c.notes.trim() !== "" && <>: “{c.notes}”</>}
@@ -787,9 +770,8 @@ function subStepsLocked(step: JobStep, check: StepCheck | null, canWrite: boolea
 function SubStepsLeft({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <p className="muted max-w-[22ch] text-sm">
-      {count === 1 ? "1 sub-step" : `${String(count)} sub-steps`} still to tick or mark not
-      applicable.
+    <p className="max-w-[22ch] text-sm text-ink-2">
+      {count === 1 ? "1 sub-step left" : `${String(count)} sub-steps left`}
     </p>
   );
 }
@@ -819,7 +801,7 @@ function CheckActions({
 }) {
   if (!check.viewer.eligible) {
     return (
-      <p className="muted max-w-[22ch] text-sm">
+      <p className="max-w-[22ch] text-sm text-ink-2">
         {check.viewer.reason === null
           ? "Not yours to check."
           : CHECK_INELIGIBILITY[check.viewer.reason]}
@@ -859,11 +841,10 @@ function CheckActions({
         Send back
       </Button>
       {check.reviewPointsOpen > 0 && (
-        <p className="muted max-w-[22ch] text-sm">
+        <p className="max-w-[22ch] text-sm text-ink-2">
           {check.reviewPointsOpen === 1
-            ? "1 review point"
-            : `${String(check.reviewPointsOpen)} review points`}{" "}
-          still to tick before approving. Sending it back is always allowed.
+            ? "1 review point left to tick"
+            : `${String(check.reviewPointsOpen)} review points left to tick`}
         </p>
       )}
     </>
@@ -876,8 +857,14 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
   // "waiting for you" while sitting in somebody else's queue is the same class
   // of bug T2.8 found by opening this page — a label reading one fact when a
   // second had become true underneath it.
+  // Every state below is a dot and a word (Wave 4). "Waiting" is WARN, never
+  // danger: held up is not wrong, and red is kept for "could not be finished".
   if (step.status === "blocked" && check !== null) {
-    return <Pill tone="danger">finished, waiting to be checked</Pill>;
+    return (
+      <Pill dot tone="warn">
+        Done, waiting to be checked
+      </Pill>
+    );
   }
   if (step.status === "blocked") {
     // A MACHINE ANSWERED IT changes what this says, and getting that wrong was
@@ -892,21 +879,25 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
     const blockedBecause =
       step.proposal === null || step.proposal === undefined
         ? step.executor === "agent"
-          ? "waiting for you (nothing automated for this yet)"
+          ? "Waiting for you (not automated yet)"
           : step.executor === "agent_with_approval"
-            ? "waiting for you to approve"
+            ? "Waiting for you to approve"
             : // WHOSE (0301). "waiting for you" on a step that sits on Rohan's
               // desk, read by Kavya or by the partner, was this same bug again:
               // the label read one fact after a second had become true.
               step.viewer.mayComplete
-              ? "waiting for you"
+              ? "Waiting for you"
               : step.assignee !== null
-                ? `waiting for ${step.assignee.displayName}`
-                : "waiting for somebody else"
+                ? `Waiting for ${step.assignee.displayName}`
+                : "Waiting for someone"
         : step.proposal.decision === "escalated"
-          ? "the system could not answer this, waiting for you to decide"
-          : "the system answered, waiting for you to check it";
-    return <Pill tone="danger">{blockedBecause}</Pill>;
+          ? "The system could not answer: you decide"
+          : "The system answered: check it";
+    return (
+      <Pill dot tone="warn">
+        {blockedBecause}
+      </Pill>
+    );
   }
   // NOT `danger`, which is what it wore until this was seen rendered. A skip is
   // a decision somebody recorded, not a failure — nothing is wrong, and the row
@@ -916,20 +907,30 @@ function StepState({ step, check }: { step: JobStep; check: StepCheck | null }) 
     // A step withdrawn AFTER it opened (0304) keeps its start time, and says
     // so: it was on somebody's list, and "not needed" alone reads as if it
     // never was.
-    return <Pill>{step.startedAt !== null ? "no longer needed" : "not needed"}</Pill>;
+    return (
+      <Pill dot>{step.startedAt !== null ? "No longer needed" : "Not needed"}</Pill>
+    );
   }
   if (step.status === "failed") {
-    return <Pill tone="danger">could not be finished</Pill>;
+    return (
+      <Pill dot tone="danger">
+        Could not be finished
+      </Pill>
+    );
   }
   if (step.status === "done") {
-    return <Pill tone="ok">done</Pill>;
+    return (
+      <Pill dot tone="ok">
+        Done
+      </Pill>
+    );
   }
   // `pending` and `running`. Pending is not "nobody has started it" — it is
   // waiting on a step before it, which is worth saying rather than leaving
   // somebody to wonder why there is no button.
   return (
-    <span className="muted text-sm">
-      {step.status === "running" ? "in progress" : "waiting on an earlier step"}
+    <span className="text-sm text-ink-2">
+      {step.status === "running" ? "In progress" : "After an earlier step"}
     </span>
   );
 }
@@ -997,17 +998,17 @@ function Desk({ step }: { step: JobStep }) {
   // kept on the row as history, so the person whose list it left can find it.
   if (step.status === "skipped" && step.startedAt !== null) {
     return (
-      <p className="muted mt-1 text-sm">
-        opened {longInstant(step.startedAt)}
+      <p className="mt-1 text-sm text-ink-2">
+        Opened {longInstant(step.startedAt)}
         {step.assignee === null ? ", on nobody's desk" : `, on ${step.assignee.displayName}'s desk`}
       </p>
     );
   }
   if (step.status === "done" || step.status === "skipped" || step.status === "failed") return null;
   return (
-    <p className="muted mt-1 text-sm">
-      {step.assignee === null ? "on nobody's desk" : `on ${step.assignee.displayName}'s desk`}
-      {step.performer !== null && <> · for {bandLabel(step.performer)}</>}
+    <p className="mt-1 text-sm text-ink-2">
+      {step.assignee === null ? "On nobody's desk" : `On ${step.assignee.displayName}'s desk`}
+      {step.performer !== null && <> · {bandLabel(step.performer)}</>}
     </p>
   );
 }
@@ -1043,6 +1044,7 @@ function HandOver({
     <div className="cluster mt-1">
       <select
         className="select"
+        data-size="sm"
         aria-label={`Hand ${step.stepKey} to`}
         value={choice}
         onChange={(e) => {

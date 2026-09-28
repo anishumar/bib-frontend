@@ -1284,6 +1284,59 @@ names) and `/tenancy/axes` (the ACTIVE Depts and teams, names the table above al
 both on `party:read`. Swapping only the first left the form hidden — the Dept list 403'd — and
 only walking the page as a manager showed it.
 
+## The Wave 4 delivery sweep (2026-09-28)
+
+`/work-items` (+ `[workItemId]`), `/work` (+ `[jobId]`), `/calendar`, `/client-requests` (+
+`[requestId]`) and `/audit`, moved to the Wave 4 rules above. **The look changed; what each
+control does did not**, and `bib/demo-assets/tools/w4d-walk.mjs` (50 checks, on a fresh
+`epb-fixture.mjs` + `w4d-seed.mjs` firm) presses every one of them. The sections below still
+describe the behaviour; this one records what the screens now look like, and why.
+
+- **One brand action where there is one.** The board: **New task**, which opens a dialog (it was a
+  disclosure card above the tabs). The task page: **Send for review** in the header while nothing
+  is waiting; once a check is open the Reviews card moves up under the details, because Approve is
+  then the page's act. Jobs, the calendar, client requests and the trail have none: they are
+  worked row by row, or read. A queue row's Approve is secondary.
+- **No eyebrows, no ledes.** What they explained is in the sections below. The coverage and
+  decisions tabs keep ONE line each ("Not an error: most advisory work has none" still says the
+  thing T3.2 requires said).
+- **The task page is one details card.** It was four (the facts, then "Change state", "What the
+  client sees" and "Whose desk", each titled), which printed the state and the owner twice. State
+  and Whose desk ARE the controls now, quiet selects whose Save appears once the value changes
+  (aria-labels unchanged); the portal switch shows its state as its word and is NAMED "Show this
+  on the client portal"; the hand-over rule is said once somebody else is picked. The ask form
+  opens on a button, as the dependency form already did.
+- **Tables: whole-row links, and nothing hidden at 1280.** The list view, Jobs, Jobs' To check and
+  Finished requests open from anywhere on the row; the ten "Open" buttons are gone. Measured before
+  at 1280: the board's list hid **1168px** (one "Raised by hand with no Dept…" note made Whose desk
+  so wide that Due, State and Priority were off the edge), the escalations 214px, the trail 96px.
+  After: 0 on every table, both widths. What made room:
+  - `.cell-text[data-size="narrow"]` (14rem; added beside W4A's 24rem one) for a table carrying
+    several free-text columns;
+  - the list says priority only when it is urgent (rank 1–2, by RANK), under the task, and puts
+    the stuck reason there too;
+  - on an assigned task the owner rule's hand-out note reads "To hand out" (the card and the task
+    page keep the full sentence, T6.17);
+  - the escalations fold Whose desk into Told ("Desk: X", only when it is not the person told),
+    and a grade rung reads its NAME from `/tenancy/colleagues` ("Partner or above"; the grades
+    route is `tenant:admin`), falling back to "Level N or above" for a rank nobody holds.
+- **Engine states in words.** Jobs and steps are a dot and a word: "Waiting on someone" and
+  "Done, waiting to be checked" are WARN (held up, not wrong), red is kept for "could not be
+  finished". A job page is titled by its services and period, and a step's key is no longer on
+  screen (its buttons' aria-labels still carry it). A check in Jobs' To check names its company
+  from the jobs list the page already holds.
+- **Client requests.** The reply form opens on **Reply** (its textarea takes focus, which is also
+  what loads the documents, so the picker is never empty); the Whose desk line IS the picker, a
+  labelled quiet select that assigns on change as the old one did; Take it, Put it back and Close
+  without replying sit beside Reply. Three open requests measured 2,510px; now 1,351.
+- **No mono on data** anywhere on these screens: dates, periods and counts are the sans face. The
+  trail's "Exact record" stays mono, because it is true code.
+
+**The trap this sweep hit: Turbopack served a stale `components.css`.** One edit (the trail's
+`.audit-what` width) never reached the browser, through a touch and a restart, while earlier edits
+to the same file had. The served chunk still said `34rem`. Deleting the worktree's `.next/dev` and
+restarting fixed it. If a CSS change "does nothing", read the served chunk before debugging the rule.
+
 ## `/work-items` and `/admin/work-vocabulary` — the board, and the words on it (T3.1)
 
 `/work` shows the ENGINE: which process a job is walking and which step it is on. `/work-items`

@@ -214,8 +214,8 @@ function LineRow({
       {/* Indented to sit under the label rather than under the box. */}
       {notApplicable && (
         <p className="mt-0.5 pl-6 text-xs">
-          <Pill>not applicable</Pill>{" "}
-          <span className="muted">{line.note === null ? "" : `“${line.note}”`}</span>
+          <Pill>Not applicable</Pill>{" "}
+          <span className="text-ink-2">{line.note === null ? "" : `“${line.note}”`}</span>
         </p>
       )}
       {line.markedBy !== null && line.markedAt !== null && (
@@ -227,15 +227,12 @@ function LineRow({
 
       {asking && (
         <div ref={panel} tabIndex={-1} className="mt-1 max-w-[48ch] pl-6">
-          <Field
-            label="Why does it not apply?"
-            hint="Required. A few words, kept with the line so anybody can see why it was not done."
-          >
+          <Field label="Why does it not apply?" hint="Required. It stays with the line.">
             <Input
               size="sm"
               value={reason}
               maxLength={500}
-              placeholder="No payroll this month"
+              placeholder="e.g. No payroll this month"
               onChange={(e) => {
                 setReason(e.target.value);
               }}

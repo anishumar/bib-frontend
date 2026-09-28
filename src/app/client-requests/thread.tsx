@@ -28,7 +28,7 @@ export function ReplyLine({
   const fromFirm = reply.authorSide === "firm";
   return (
     <div>
-      <p className="muted">
+      <p className="text-sm text-ink-2">
         {/* BOTH SIDES ARE NAMED HERE, unlike the portal's copy of this thread —
             the firm needs to know which of its own people answered, and which
             of the client's two directors asked. */}
@@ -36,7 +36,7 @@ export function ReplyLine({
         {fromFirm ? "us" : clientName} · {longInstant(reply.writtenAt)}
       </p>
       <p>{reply.body}</p>
-      {reply.document !== null && <p className="muted">Sent: {reply.document.title}</p>}
+      {reply.document !== null && <p className="text-ink-2">Sent: {reply.document.title}</p>}
     </div>
   );
 }
