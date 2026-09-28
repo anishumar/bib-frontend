@@ -403,7 +403,7 @@ re-run with `--update`, and one hint on the letter page). Over the merged branch
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | **My day** (V2.1), where staff land: everything on the reader's desk (tasks, steps, checks to decide, client requests, escalations) as ONE list in Overdue / Today / This week / Later. Clients land on `/portal` |
 | `/copilot` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so (the sidebar link reads "Not live yet"). The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
-| `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
+| `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Setup** first (V2.6: eight readiness lines, each Done or To do with what is missing and a link to the screen that fixes it, `#setup`), then **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
 | `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
@@ -837,6 +837,24 @@ this existed).
   steps on it, Client requests = requests on it waiting for the firm. The shell fetches NOTHING
   for them: My day reports all three, and the Work board and Jobs report their own when they
   load. A count nobody reported, or a 0, is not drawn.
+
+## Setup readiness on Your firm and My day (V2.6, 2026-09-28)
+
+`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns eight lines as CODES; `lib/ui/readiness.tsx`
+is the one place they become words and links, so the two screens never phrase a gap twice.
+
+- **Your firm opens with a Setup card** (`#setup`): a table of the eight lines, each a whole-row
+  link to the screen that fixes it (Deadlines is `/admin/firm#deadlines`, which is why `SetOnce`
+  takes an `id`), a Done / To do pill, and up to three gaps under the label ("test company: no
+  Key Manager, no SPOC for FRC", with the client LINKED; "and N more" after). It is read in the
+  page's own `load`, so saving the Deadlines card below turns that line Done in the same reload.
+- **My day shows "Setup: 5 of 8 · See what is left"** at the top for `tenant:admin` only (the
+  seventh read, so an administrator's My day makes seven calls), and nothing once all eight are
+  done.
+- **The ladder line never suggests days.** It asks that each ladder is PUBLISHED; the firm has not
+  given its numbers (decision D3).
+- `request_routing` counts `none` as not set, though the API calls `none` a real answer: the
+  brief asks that the firm has chosen who picks up client requests.
 
 ## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
 

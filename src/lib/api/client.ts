@@ -155,6 +155,15 @@ export type StepCheck =
 export type MyStep =
   paths["/api/v1/my-steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
 
+/**
+ * Setup readiness (V2.6): eight lines, each `done` or naming its `gaps`.
+ * `tenant:admin` only. `missing` is a closed vocabulary per line that the
+ * screen words (`lib/ui/readiness.tsx`); the API ships no sentence there.
+ */
+export type Readiness =
+  paths["/api/v1/tenancy/readiness"]["get"]["responses"][200]["content"]["application/json"];
+export type ReadinessLine = Readiness["lines"][number];
+
 /** Why one person may not check one thing. A closed set, because each one is a
  *  sentence a screen has to say out loud. */
 export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;

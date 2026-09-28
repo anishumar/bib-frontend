@@ -9,6 +9,7 @@ import type {
   ClientRequest,
   Escalation,
   MyStep,
+  Readiness,
   StepCheck,
   WorkItem,
   WorkItemCheckRow,
@@ -20,6 +21,7 @@ import {
   Card,
   ErrorNotice,
   NotSet,
+  Notice,
   Pill,
   RowChevron,
   RowLink,
@@ -32,6 +34,7 @@ import {
   Tr,
 } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { readinessCount } from "@/lib/ui/readiness";
 
 /**
  * My day (V2.1, 2026-09-28): one list of everything that is the reader's.
@@ -51,7 +54,8 @@ import { browserDay, longDay } from "@/lib/day";
  *   /client-requests          the live inbox, kept to what is on my desk
  *   /escalations?mine         what the ladder told me about
  *
- * Six calls on load, and nothing per row: every read carries the client BY ID
+ * Six calls on load (seven for an administrator, who also gets the firm's setup
+ * readiness as one line at the top, V2.6), and nothing per row: every read carries the client BY ID
  * and the due day, which the API grew for this screen. An escalation about one
  * of my own tasks is a FLAG on that task's row, not a second row.
  *
@@ -151,7 +155,10 @@ export default function MyDayPage() {
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLater, setShowLater] = useState(false);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
   const userId = session?.userId ?? null;
+  // Only an administrator sees the firm's setup (the API refuses anybody else).
+  const admin = session?.permissions.includes("tenant:admin") === true;
 
   useEffect(() => {
     // The shell knows who is signed in; until it does there is nothing to ask.
@@ -159,13 +166,14 @@ export default function MyDayPage() {
     let live = true;
     void (async () => {
       const today = browserDay();
-      const [tasks, steps, taskChecks, stepChecks, requests, escalated] = await Promise.all([
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated, ready] = await Promise.all([
         api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
         api.GET("/api/v1/my-steps", {}),
         api.GET("/api/v1/work-item-checks", {}),
         api.GET("/api/v1/checks", {}),
         api.GET("/api/v1/client-requests", {}),
         api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
+        admin ? api.GET("/api/v1/tenancy/readiness", {}) : Promise.resolve(null),
       ]);
       if (!live) return;
       if (tasks.response.status === 401) {
@@ -189,6 +197,7 @@ export default function MyDayPage() {
         escalations: escalated.data?.rows ?? [],
       });
       setRows(built);
+      setReadiness(ready?.data ?? null);
       setError(null);
       reportCounts({
         "/work-items": tasks.data.items.length,
@@ -201,7 +210,7 @@ export default function MyDayPage() {
     return () => {
       live = false;
     };
-  }, [userId, router, reportCounts]);
+  }, [userId, admin, router, reportCounts]);
 
   if (session === null || rows === null) return <Loading label="Loading your day" />;
 
@@ -219,6 +228,8 @@ export default function MyDayPage() {
       <PageHeader title="My day" aside={<span className="text-ink-2">{longDay(today)}</span>} />
 
       <ErrorNotice error={error} />
+
+      {readiness !== null && <SetupLine readiness={readiness} />}
 
       {dueSoon === 0 && (
         <Card>
@@ -267,6 +278,20 @@ export default function MyDayPage() {
         );
       })}
     </Page>
+  );
+}
+
+/** "Setup: 5 of 8", for an administrator, until the firm is set up. */
+function SetupLine({ readiness }: { readiness: Readiness }) {
+  const { done, total } = readinessCount(readiness);
+  if (done === total) return null;
+  return (
+    <Notice tone="warn">
+      <p>
+        <strong>{`Setup: ${String(done)} of ${String(total)}`}</strong>{" "}
+        <Link href={"/admin/firm#setup" as Route}>See what is left</Link>
+      </p>
+    </Notice>
   );
 }
 
