@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
@@ -57,16 +57,25 @@ export default function InvoicesPage() {
   const [busy, setBusy] = useState(false);
   const [raising, setRaising] = useState(false);
   const raiseForm = useId();
+  /** The dialog's "Bill to" and "Charged by", held so choosing the client can
+   *  choose the company. */
+  const [billTo, setBillTo] = useState("");
+  const [chargedBy, setChargedBy] = useState("");
+  /** What the chosen client's letters say about who charges them. */
+  const [signedBy, setSignedBy] = useState<SignedBy | null>(null);
+  /** The client whose letters were last asked for, so a slow answer about an
+   *  earlier choice cannot overwrite a later one. */
+  const asked = useRef("");
 
   const load = useCallback(async (): Promise<void> => {
     const [list, book, firm] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
-      // WHICH OF THE FIRM'S OWN ENTITIES is charging. Not a free-text field and
-      // not this app's guess: the preferences screen is where a firm says which
-      // entity serves which country, and an invoice must be raised by one of
-      // them because the series belongs to the entity.
-      api.GET("/api/v1/firm-entities/preferences", {}),
+      // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
+      // (0313), the list the letter and proposal builders issue from. The
+      // routing preferences left out a company no country pointed at, and its
+      // letters then had no "Charged by" to be invoiced under.
+      api.GET("/api/v1/firm-entities", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -80,15 +89,55 @@ export default function InvoicesPage() {
     setInvoices(list.data.invoices);
     if (book.data) setParties(book.data.parties);
     if (firm.data) {
-      // One row per country, so the same entity appears more than once. The
-      // picker wants each company once.
-      const seen = new Map<string, string>();
-      for (const p of firm.data.preferences) seen.set(p.firmEntity.id, p.firmEntity.displayName);
-      setEntities([...seen].map(([id, displayName]) => ({ id, displayName })));
+      setEntities(firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name })));
     }
     setError(null);
     setLoaded(true);
   }, [router]);
+
+  function openRaise(): void {
+    setError(null);
+    setBillTo("");
+    setChargedBy("");
+    setSignedBy(null);
+    asked.current = "";
+    setRaising(true);
+  }
+
+  /**
+   * THE COMPANY THAT SIGNED THE CLIENT'S LETTERS CHARGES FOR THE WORK.
+   *
+   * "Charged by" opened on the first company in the list, so an Indian
+   * client's invoice was numbered in the Gulf company's series unless somebody
+   * noticed, and a number drawn cannot be undone. Now choosing the client reads
+   * its letters: one issuing company is preselected and the letters named under
+   * it; none, or several, leaves the placeholder and `required` to make
+   * somebody choose. Never a silent first option.
+   */
+  async function chooseClient(partyId: string): Promise<void> {
+    setBillTo(partyId);
+    setChargedBy("");
+    setSignedBy(null);
+    asked.current = partyId;
+    if (partyId === "") return;
+    const result = await api.GET("/api/v1/parties/{partyId}/billable-engagements", {
+      params: { path: { partyId } },
+    });
+    if (asked.current !== partyId) return;
+    const letters = new Map<string, Set<string>>();
+    for (const e of result.data?.engagements ?? []) {
+      const refs = letters.get(e.issuingEntityPartyId) ?? new Set<string>();
+      refs.add(e.letterRef);
+      letters.set(e.issuingEntityPartyId, refs);
+    }
+    const [only] = letters;
+    if (letters.size === 1 && only !== undefined && entities.some((e) => e.id === only[0])) {
+      setChargedBy(only[0]);
+      setSignedBy({ kind: "one", entityId: only[0], letters: [...only[1]].sort() });
+      return;
+    }
+    setSignedBy(letters.size > 1 ? { kind: "several", count: letters.size } : { kind: "none" });
+  }
 
   useEffect(() => {
     void (async () => {
@@ -147,14 +196,7 @@ export default function InvoicesPage() {
             <LinkButton variant="ghost" href="/receivables" iconAfter={<Icon name="arrowRight" size={16} />}>
               Receivables
             </LinkButton>
-            <Button
-              onClick={() => {
-                setError(null);
-                setRaising(true);
-              }}
-            >
-              Raise an invoice
-            </Button>
+            <Button onClick={openRaise}>Raise an invoice</Button>
           </>
         }
       />
@@ -303,7 +345,14 @@ export default function InvoicesPage() {
                     or billed the firm to itself — a valid write the API has no
                     reason to refuse. `required` plus an empty value makes the
                     browser stop it instead. Found by walking the product. */}
-                <Select name="partyId" required>
+                <Select
+                  name="partyId"
+                  required
+                  value={billTo}
+                  onChange={(e) => {
+                    void chooseClient(e.target.value);
+                  }}
+                >
                   <option value="">Choose who to bill…</option>
                   {/* NOT the firm's own companies (F-10-1). The placeholder
                       stopped the accident; the API now refuses the choice, so
@@ -317,8 +366,16 @@ export default function InvoicesPage() {
                     ))}
                 </Select>
               </Field>
-              <Field label="Charged by" hint="Its number comes from this company's series.">
-                <Select name="entityPartyId" required>
+              <Field label="Charged by" hint={chargedByHint(signedBy, chargedBy)}>
+                <Select
+                  name="entityPartyId"
+                  required
+                  value={chargedBy}
+                  onChange={(e) => {
+                    setChargedBy(e.target.value);
+                  }}
+                >
+                  <option value="">Choose the company…</option>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.displayName}
@@ -352,6 +409,27 @@ export default function InvoicesPage() {
       </Dialog>
     </Page>
   );
+}
+
+/** Who signed the chosen client's letters: one company (and which letters), or
+ *  more than one, or nobody yet. */
+type SignedBy =
+  | { readonly kind: "one"; readonly entityId: string; readonly letters: readonly string[] }
+  | { readonly kind: "several"; readonly count: number }
+  | { readonly kind: "none" };
+
+/** The line under "Charged by": the letters that chose it while it is still
+ *  their company, otherwise what the choice decides. */
+function chargedByHint(signedBy: SignedBy | null, chargedBy: string): string {
+  if (signedBy?.kind === "one" && chargedBy === signedBy.entityId) {
+    const [first, second, ...rest] = signedBy.letters;
+    const named = [first, second].filter((r) => r !== undefined).join(", ");
+    return `Issued ${named}${rest.length > 0 ? ` and ${String(rest.length)} more` : ""}.`;
+  }
+  if (signedBy?.kind === "several") {
+    return `Their letters come from ${String(signedBy.count)} companies.`;
+  }
+  return "Its number comes from this company's series.";
 }
 
 /** A cancelled invoice wears the same pill a revoked membership does: it is

@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, LEAD_SOURCES } from "@/lib/api/client";
+import { api, apiError, formatCount, LEAD_SOURCES } from "@/lib/api/client";
 import type { LeadSource, ProposalRecord } from "@/lib/api/client";
 import { Card, CardTitle } from "@/components/tw";
 import {
@@ -146,7 +146,7 @@ export function ClientStep({
   const [ratePick, setRatePick] = useState<string | null>(
     draft?.proposal.fxRate === undefined || draft.proposal.fxRate === null
       ? null
-      : trimRate(draft.proposal.fxRate),
+      : formatCount(draft.proposal.fxRate),
   );
   const [datePick, setDatePick] = useState<string | null>(draft?.proposal.fxRateDate ?? null);
   const [titlePick, setTitlePick] = useState<string | null>(draft?.proposal.title ?? null);
@@ -195,7 +195,7 @@ export function ClientStep({
         );
         for (const p of sorted) {
           const { currency: c, fxRate: r, fxRateDate: d, ref } = p.proposal;
-          if (r !== null && !known.has(c)) known.set(c, { rate: trimRate(r), on: d, ref });
+          if (r !== null && !known.has(c)) known.set(c, { rate: formatCount(r), on: d, ref });
         }
         setRates(known);
       }
@@ -299,7 +299,7 @@ export function ClientStep({
   const moneyChanged =
     draft !== null &&
     (currency !== draft.proposal.currency ||
-      (foreign && fxRate !== trimRate(draft.proposal.fxRate ?? "")) ||
+      (foreign && fxRate !== formatCount(draft.proposal.fxRate ?? "")) ||
       fxRateDate !== draft.proposal.fxRateDate);
   /** Lines this proposal says in its own words: reworded from the standard
    *  set, or written for this client. All of them go when the issuer changes. */
@@ -993,11 +993,6 @@ function Choice({
       </span>
     </label>
   );
-}
-
-/** "1.0000000000" as a person writes it. */
-function trimRate(rate: string): string {
-  return rate.includes(".") ? rate.replace(/\.?0+$/, "") : rate;
 }
 
 /** The calendar day before a `YYYY-MM-DD`, done on the string's own parts. */

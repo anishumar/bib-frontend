@@ -14034,11 +14034,13 @@ export interface paths {
         put?: never;
         /**
          * Send it for signature
-         * @description Freezes the terms and dates the letter. When the deployment signs through a provider that SENDS (`signing.sends` on the letter — DocuSign), `signer` is required and an envelope is raised for them at once; if the provider refuses, the letter is still sent and `signing.request.lastFailure` says why — retry with `…/signature-request`. When it does not send, `signer` is ignored.
+         * @description Freezes the terms and dates the letter. When the deployment signs through a provider that SENDS (`signing.sends` on the letter — DocuSign), `signer` is required and an envelope is raised for them at once; if the provider refuses, the letter is still sent and `signing.request.lastFailure` says why — retry with `…/signature-request`. When it does not send, `signer` is ignored. A letter drafted with no `issuedOn` is dated the caller's `asOf`, or the firm's day.
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     letterId: string;
@@ -14060,7 +14062,7 @@ export interface paths {
                         "application/json": components["schemas"]["EngagementLetter"];
                     };
                 };
-                /** @description DocuSign is the provider and no usable signer was given */
+                /** @description DocuSign is the provider and no usable signer was given, or asOf is not today anywhere */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -14284,11 +14286,13 @@ export interface paths {
         put?: never;
         /**
          * Record the client's signature
-         * @description Freezes the letter — the database refuses any later change — and creates one engagement per line. Engagements start `pending_advance` when the letter requires an advance, and no `contract.activated` is emitted until it is recorded.
+         * @description Freezes the letter — the database refuses any later change — and creates one engagement per line. Engagements start `pending_advance` when the letter requires an advance, and no `contract.activated` is emitted until it is recorded. Work whose line and letter name no start day starts on the caller's `asOf`, or the firm's day.
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     letterId: string;
@@ -14310,7 +14314,7 @@ export interface paths {
                         "application/json": components["schemas"]["SignedEngagementLetter"];
                     };
                 };
-                /** @description A signature missing a signatory */
+                /** @description A signature missing a signatory, or asOf is not today anywhere */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -15384,7 +15388,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a line to a draft invoice */
+        /**
+         * Add a line to a draft invoice
+         * @description An `engagementId` must be the billed client's, and its letter must have been signed by the company this invoice is charged by: the number is already in that company's series (ENGAGEMENT_OF_ANOTHER_ISSUER, 409).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -15443,7 +15450,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The invoice has been issued — its lines are fixed */
+                /** @description The invoice has been issued (its lines are fixed), or the engagement's letter was signed by another of the firm's companies */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -20780,6 +20787,12 @@ export interface components {
             letterId: string;
             /** @description Where the figure comes from, so a screen can cite the signed document. */
             letterRef: string;
+            /**
+             * Format: uuid
+             * @description Which of the firm's companies signed the letter. That company charges for the work: an invoice line for this engagement is refused on an invoice charged by any other (ENGAGEMENT_OF_ANOTHER_ISSUER), so an invoice screen preselects it.
+             */
+            issuingEntityPartyId: string;
+            issuingEntityName: string;
             /** @description The LETTER LINE's own wording — what the client read and agreed to, not the catalogue's standard description. */
             description: string;
             quantity: string;

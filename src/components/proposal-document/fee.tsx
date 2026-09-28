@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent, ReactNode } from "react";
 import { cleanAmount, toMinorUnits } from "@/lib/money";
+import { formatCount } from "@/lib/api/client";
 import type { ProposalLine } from "@/lib/api/client";
 import { cx } from "@/components/ui";
 import type { SaveOutcome } from "./editable";
@@ -70,7 +71,8 @@ export function EditableFee({
   }, [editing]);
 
   function open(): void {
-    setAmount(line.unitAmount ?? "");
+    // "25000.0000" is the column's scale; the box shows what a person writes.
+    setAmount(line.unitAmount === null ? "" : formatCount(line.unitAmount));
     setFrequency(line.billingFrequency ?? "");
     setError(null);
     setEditing(true);
@@ -86,7 +88,8 @@ export function EditableFee({
     if (saving.current) return;
     const typed = cleanAmount(amount.trim());
     const often = frequency === "" ? null : frequency;
-    if (typed === (line.unitAmount ?? "") && often === line.billingFrequency) {
+    // Compared trimmed on both sides: "25000" is the stored "25000.0000".
+    if (formatCount(typed) === formatCount(line.unitAmount ?? "") && often === line.billingFrequency) {
       close(byKeyboard);
       return;
     }

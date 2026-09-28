@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "next";
 import { api, apiError } from "@/lib/api/client";
 import type { LetterRouting } from "@/lib/api/client";
+import { browserDay } from "@/lib/day";
 import { Button, Field, FieldRow, Input, LinkButton, Notice } from "@/components/ui";
 import { Card, CardTitle } from "@/components/tw";
 import { useSession } from "@/components/layout";
@@ -56,7 +57,8 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
     setBusy(true);
     setError(null);
     const result = await api.POST("/api/v1/engagement-letters/{letterId}/send", {
-      params: { path: { letterId } },
+      // An undated letter is dated today where you are, never Greenwich's day.
+      params: { path: { letterId }, query: { asOf: browserDay() } },
       ...(signing.sends ? { body: { signer: { name: name.trim(), email: signerEmail.trim() } } } : {}),
     });
     setBusy(false);

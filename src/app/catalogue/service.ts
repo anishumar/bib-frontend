@@ -21,7 +21,7 @@
  */
 
 import type { ConfigEntry, ConfigVersion, FirmEntity, ServiceAxis } from "@/lib/api/client";
-import { formatMoney } from "@/lib/api/client";
+import { formatCount, formatMoney } from "@/lib/api/client";
 import { cleanAmount } from "@/lib/money";
 import { countryName } from "@/lib/country";
 
@@ -352,7 +352,7 @@ export function draftOf(record: ServiceRecord | null, currency: string): Service
     jurisdictions: [...(record?.jurisdictions ?? [])],
     workflowTemplateKey: record?.workflowTemplateKey ?? "",
     slaDays: record?.slaDays === null || record === null ? "" : String(record.slaDays),
-    amount: record?.listPrice?.amount.replace(/\.0+$/, "") ?? "",
+    amount: record?.listPrice ? formatCount(record.listPrice.amount) : "",
     currency: record?.listPrice?.currency ?? currency,
     recurrence: record?.recurrence ?? "",
     billingBasis: record?.billingBasis ?? "fixed",

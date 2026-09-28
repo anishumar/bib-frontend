@@ -31,7 +31,7 @@
  */
 
 import { useState } from "react";
-import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatMoney } from "@/lib/api/client";
+import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
 import type { FeeGroup, LetterLine } from "@/lib/api/client";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { Card, CardTitle, Pill } from "@/components/tw";
@@ -320,7 +320,7 @@ function GroupForm({
             <Input
               name="groupAmount"
               inputMode="decimal"
-              defaultValue={group?.amount ?? ""}
+              defaultValue={group?.amount == null ? "" : formatCount(group.amount)}
               required={adding}
             />
           </Field>

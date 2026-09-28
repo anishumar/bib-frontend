@@ -47,7 +47,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { instantDay, longDay, longInstant } from "@/lib/day";
+import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
@@ -1236,7 +1236,9 @@ export default function LetterPage() {
               action={(form) => {
                 void act("send", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                    params: { path: { letterId } },
+                    // An undated letter is dated today where you are, not on
+                    // Greenwich's day (a Delhi send at 01:00 read the day before).
+                    params: { path: { letterId }, query: { asOf: browserDay() } },
                     body: {
                       signer: {
                         name: String(form.get("signerName") ?? "").trim(),
@@ -1334,7 +1336,7 @@ export default function LetterPage() {
                 onClick={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                      params: { path: { letterId } },
+                      params: { path: { letterId }, query: { asOf: browserDay() } },
                     }),
                   );
                 }}
@@ -1384,7 +1386,8 @@ export default function LetterPage() {
                 const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
                 void act("sign", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/signature", {
-                    params: { path: { letterId } },
+                    // Work nobody dated starts today where you are.
+                    params: { path: { letterId }, query: { asOf: browserDay() } },
                     body: {
                       signedByName: String(form.get("signedByName")),
                       reference: String(form.get("reference") ?? ""),

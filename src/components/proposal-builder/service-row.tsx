@@ -119,7 +119,8 @@ export function ServiceRow<L extends RowLine>({
     service.listPrice !== null && service.listPrice.currency === currency ? service.listPrice : null;
 
   const standard: LineTerms = {
-    unitAmount: priced?.amount ?? null,
+    // The catalogue's "4000.00" shown as a person writes it in the Details form.
+    unitAmount: priced === null ? null : formatCount(priced.amount),
     quantity: "1",
     discountPercent: "0",
     billingFrequency: service.recurrence,

@@ -389,12 +389,10 @@ re-run with `--update`, and one hint on the letter page). Over the merged branch
   preview must say what the paper says. The PDFs themselves group INR the western way; that is
   the renderer's choice (`render-source.ts`), a backend question, and it is written into the
   handover rather than changed here.
-- **Still open, found by the walk:** "Raise an invoice" opens "Charged by" on the first company
-  in the list (the fallback, EPB Gulf FZE in the test firm), not the company that signed the
-  client's letter or serves the client's country. An Indian client's invoice was numbered in the
-  Gulf company's series until somebody changed the select, and a series number is not
-  reversible. Which default is right (the letter's company, or D4's country rule) is a product
-  call; both walks choose it by hand today.
+- **Found by the walk, fixed 2026-09-28:** "Raise an invoice" opened "Charged by" on the first
+  company in the list (the Gulf one in the test firm), so an Indian client's invoice was
+  numbered in the Gulf company's series unless somebody changed the select. It now follows the
+  client's letters (the company that signed them charges); see "The billing screens" below.
 - **The email's Accept link names the API's `BIB_APP_BASE_URL`.** The shared Wave 4 API was
   started with W4A's web port, so a walk on another port follows the token path, not the origin.
 
@@ -2097,6 +2095,13 @@ something to go and fix.
 when a firm has billed nothing in the window is that there is not enough billing to say, and
 the two render as different sentences.
 
+**DSO is a ratio, and the sentence says so (2026-09-28).** It is what is owed divided by what was
+billed in the last 90 days (issued invoices less their credit notes, drafts and cancelled ones
+left out), times 90. It read "Paid on average 45.6 days after invoicing" on a firm where every
+invoice was raised that day and nothing had been paid late; it now reads "What is owed equals
+about 45.6 days of billing (last 90 days)". On that firm ₹76,700 owed over ₹1,51,400 billed
+(₹1,53,400 less a ₹2,000 credit note) is 45.6; the query was right, the words were not.
+
 **Every ageing band is shown, including the empty ones.** "Nothing is more than 90 days
 overdue" is the most reassuring row on that table and it has to be visible rather than absent
 — and a table that changed shape as debt moved would be unreadable week to week.
@@ -2430,7 +2435,7 @@ numbered GST series in its name — or bill the firm itself. The API refuses all
 
 | Picker | Reads |
 |---|---|
-| letter "Issued by", invoice "Charged by" | `/firm-entities/preferences`, deduplicated — the firm's own companies |
+| letter "Issued by", invoice "Charged by" | `/firm-entities`, the firm's own companies (members since 0313, whether or not a country points at them) |
 | letter "Client", invoice "Bill to" | the book, minus those companies |
 | letter line "For which company", a quote's "Which company is this work for?" | `/parties/{id}/structure` → `entities` |
 | letter "Addressed to" | `/parties/{id}/structure` → `people`, re-read when the client changes |
@@ -2494,6 +2499,23 @@ about the DOCUMENT — drafted, sent, withdrawn — and what has been paid is ar
 database does over invoices, payments and credit notes. This app renders the four figures the
 API returns and adds nothing up: a badge would be a cache of a sum, and it would drift the
 first time a payment was corrected.
+
+**Only an issued invoice owes anything (2026-09-28).** The "What is owed" card rendered whenever
+the balance read answered: a cancelled invoice showed its whole value as Outstanding and a draft
+four zeros that read as settled. The card is for `issued` only; a draft says "Not issued yet, so
+nothing is owed." and a cancelled one "Cancelled, so nothing is owed.", as the list and
+Receivables already did.
+
+**The company that signed the client's letters charges for the work (2026-09-28).** A number is
+drawn from "Charged by"'s series the moment the draft is made and can only be cancelled, so the
+raise dialog no longer defaults to the first company. Choosing "Bill to" reads that client's
+`billable-engagements`: when every letter was issued by ONE company it is preselected and the
+letters are named under it ("Issued EL-2026-0001."); with none, or letters from several, the
+select stays on "Choose the company…" and `required` stops the form. On the invoice, "What is
+this for?" disables an engagement another company signed ("(billed by 10x Global FZCO)"), and
+the API refuses it too (`ENGAGEMENT_OF_ANOTHER_ISSUER`). The line form prefills the letter's
+figures through `formatCount` ("1", "25000", never "1.0000"); every edit form that prefills from
+an API decimal does the same.
 
 **A negative payment is a real thing and the form says so.** A bounced cheque is a reversal
 with its own date, sitting beside the original — not the original edited away. Both rows show,

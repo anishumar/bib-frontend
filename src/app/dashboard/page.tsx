@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The firm's own numbers (T3.7) — MRR, what it is owed, and how long it waits.
+ * The firm's own numbers (T3.7) — MRR, what it is owed, and how many days of
+ * billing that is (DSO: a ratio, not an observed payment time).
  *
  * THE GAPS ARE NOT A FOOTNOTE, and that is the whole design of this screen.
  *
@@ -20,8 +21,8 @@
  * the top, and never repeated per row.
  *
  * DSO CAN BE NULL AND NULL IS NOT ZERO. "0 days" reads as excellent collections;
- * the truth when the firm has billed nothing in the window is that there is not
- * enough billing to say. Those render differently.
+ * the truth when the firm has billed nothing in the window is that there is
+ * nothing to compare what is owed with. Those render differently.
  *
  * ── Migrated to Tailwind, and what that did and did not change ──────────────
  *
@@ -274,15 +275,17 @@ export default function DashboardPage() {
             note={
               overview.dsoDays === null ? (
                 // NULL is not zero. See the file header.
-                <>
-                  Not enough billing in the last {overview.dsoWindowDays} days to say how long
-                  the firm waits to be paid.
-                </>
+                <>Nothing billed in the last {overview.dsoWindowDays} days to compare it with.</>
               ) : (
+                // WHAT THE FIGURE IS, not what it sounds like. DSO is what is
+                // owed divided by what was billed (less credit notes) in the
+                // window, times its days. It read "Paid on average 45.6 days
+                // after invoicing" on a firm whose every invoice was raised
+                // that day and nothing was paid late: nothing was observed.
                 <>
-                  Paid on average{" "}
-                  <strong className="text-ink">{overview.dsoDays} days</strong> after invoicing,
-                  measured over the last {overview.dsoWindowDays} days.
+                  What is owed equals about{" "}
+                  <strong className="text-ink">{overview.dsoDays} days</strong> of billing (last{" "}
+                  {overview.dsoWindowDays} days).
                 </>
               )
             }

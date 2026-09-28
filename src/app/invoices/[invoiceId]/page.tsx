@@ -249,10 +249,20 @@ export default function InvoicePage() {
             </span>
           </MetaItem>
         </Meta>
+        {/* NOTHING IS OWED on a draft or a cancelled invoice, and the four
+            boxes said otherwise: a cancelled one showed its full value as
+            Outstanding, a draft four zeros that read as settled. The list says
+            "Not issued" and Receivables counts only issued ones; so does this. */}
+        {draft && (
+          <p className="mt-3 text-sm text-muted">Not issued yet, so nothing is owed.</p>
+        )}
+        {invoice.status === "cancelled" && (
+          <p className="mt-3 text-sm text-muted">Cancelled, so nothing is owed.</p>
+        )}
       </Card>
 
       {/* ── The money, as the database computed it ─────────────────────── */}
-      {balance !== null && (
+      {issued && balance !== null && (
         <Card>
           <CardTitle level={2}>What is owed</CardTitle>
           <Meta>
@@ -424,25 +434,36 @@ export default function InvoicePage() {
                     }}
                   >
                     <option value="">Not from an engagement (type it below)</option>
-                    {billable.map((b) => (
-                      <option
-                        key={b.engagementId}
-                        value={b.engagementId}
-                        /* THE ADVANCE GATE, said rather than hidden. The row
-                           comes back either way so the screen can explain why
-                           a service the client signed for cannot be billed
-                           yet — a picker that silently dropped it could not. */
-                        disabled={b.status !== "active"}
-                      >
-                        {b.entityName}: {b.description}
-                        {b.feeGroup !== null
-                          ? ` (in section ${b.feeGroup.code}, ${b.feeGroup.title})`
-                          : b.unitAmount === null
-                            ? " (no price agreed)"
-                            : ""}
-                        {b.status === "active" ? "" : " (waiting on the advance)"}
-                      </option>
-                    ))}
+                    {billable.map((b) => {
+                      /* ANOTHER COMPANY SIGNED IT, said rather than hidden, as
+                         the advance gate is. This invoice's number is in its
+                         own company's series, so it can only bill that
+                         company's letters; the API refuses the rest. */
+                      const otherCompany = b.issuingEntityPartyId !== invoice.entityPartyId;
+                      return (
+                        <option
+                          key={b.engagementId}
+                          value={b.engagementId}
+                          /* THE ADVANCE GATE, said rather than hidden. The row
+                             comes back either way so the screen can explain why
+                             a service the client signed for cannot be billed
+                             yet — a picker that silently dropped it could not. */
+                          disabled={otherCompany || b.status !== "active"}
+                        >
+                          {b.entityName}: {b.description}
+                          {b.feeGroup !== null
+                            ? ` (in section ${b.feeGroup.code}, ${b.feeGroup.title})`
+                            : b.unitAmount === null
+                              ? " (no price agreed)"
+                              : ""}
+                          {otherCompany
+                            ? ` (billed by ${b.issuingEntityName})`
+                            : b.status === "active"
+                              ? ""
+                              : " (waiting on the advance)"}
+                        </option>
+                      );
+                    })}
                   </Select>
                 </Field>
               )}
@@ -479,11 +500,14 @@ export default function InvoicePage() {
                     placeholder="e.g. Monthly bookkeeping, October"
                   />
                 </Field>
+                {/* The letter's figures as a person writes them: the API sends
+                    the column's scale ("1.0000", "25000.0000"), and
+                    `formatCount` trims it on the string, never via a number. */}
                 <Field label="Qty">
                   <Input
                     key={`q-${chosen?.engagementId ?? "none"}`}
                     name="quantity"
-                    defaultValue={chosen?.quantity ?? "1"}
+                    defaultValue={chosen === null ? "1" : formatCount(chosen.quantity)}
                     required
                   />
                 </Field>
@@ -491,7 +515,7 @@ export default function InvoicePage() {
                   <Input
                     key={`u-${chosen?.engagementId ?? "none"}`}
                     name="unitAmount"
-                    defaultValue={chosen?.unitAmount ?? ""}
+                    defaultValue={chosen?.unitAmount == null ? "" : formatCount(chosen.unitAmount)}
                     required
                     placeholder="e.g. 50000"
                   />
@@ -500,7 +524,7 @@ export default function InvoicePage() {
                   <Input
                     key={`x-${chosen?.engagementId ?? "none"}`}
                     name="discountPercent"
-                    defaultValue={chosen?.discountPercent ?? "0"}
+                    defaultValue={chosen === null ? "0" : formatCount(chosen.discountPercent)}
                   />
                 </Field>
                 <Field label="Tax %">

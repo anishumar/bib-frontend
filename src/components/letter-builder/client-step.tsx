@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, formatCount } from "@/lib/api/client";
 import type { LetterRecord } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { Card, CardTitle } from "@/components/tw";
@@ -99,7 +99,7 @@ export function LetterClientStep({
   const [issuerPick, setIssuerPick] = useState<string | null>(draft?.letter.issuingEntityPartyId ?? null);
   const [currencyPick, setCurrencyPick] = useState<string | null>(draft?.letter.currency ?? null);
   const [ratePick, setRatePick] = useState<string | null>(
-    draft?.letter.fxRate == null ? null : trimRate(draft.letter.fxRate),
+    draft?.letter.fxRate == null ? null : formatCount(draft.letter.fxRate),
   );
   const [datePick, setDatePick] = useState<string | null>(draft?.letter.fxRateDate ?? null);
   const [titlePick, setTitlePick] = useState<string | null>(draft?.letter.title ?? null);
@@ -108,7 +108,7 @@ export function LetterClientStep({
   const [effectiveFrom, setEffectiveFrom] = useState(draft?.letter.effectiveFrom ?? "");
   const [advance, setAdvance] = useState(draft?.letter.advanceRequired ?? false);
   const [advanceAmount, setAdvanceAmount] = useState(
-    draft?.letter.advanceAmount == null ? "" : trimRate(draft.letter.advanceAmount),
+    draft?.letter.advanceAmount == null ? "" : formatCount(draft.letter.advanceAmount),
   );
   const [supersedesId, setSupersedesId] = useState("");
   const [askReplace, setAskReplace] = useState(false);
@@ -146,7 +146,7 @@ export function LetterClientStep({
         );
         for (const p of sorted) {
           const { currency: c, fxRate: r, fxRateDate: d, ref } = p.proposal;
-          if (r !== null && !known.has(c)) known.set(c, { rate: trimRate(r), on: d, ref });
+          if (r !== null && !known.has(c)) known.set(c, { rate: formatCount(r), on: d, ref });
         }
         setRates(known);
       }
@@ -234,7 +234,7 @@ export function LetterClientStep({
   const moneyChanged =
     draft !== null &&
     (currency !== draft.letter.currency ||
-      (foreign && fxRate !== trimRate(draft.letter.fxRate ?? "")) ||
+      (foreign && fxRate !== formatCount(draft.letter.fxRate ?? "")) ||
       fxRateDate !== draft.letter.fxRateDate);
   const ownProse = (draft?.blocks ?? []).filter((b) => b.isEdited || b.sourceId === null).length;
 
@@ -258,7 +258,7 @@ export function LetterClientStep({
     if ((background.trim() || null) !== letter.background) body.background = background.trim() || null;
     if ((effectiveFrom || null) !== letter.effectiveFrom) body.effectiveFrom = effectiveFrom || null;
     const amount = advance ? advanceAmount.replace(/[,\s]/g, "") : "";
-    if (advance !== letter.advanceRequired || (advance && trimRate(letter.advanceAmount ?? "") !== amount)) {
+    if (advance !== letter.advanceRequired || (advance && formatCount(letter.advanceAmount ?? "") !== amount)) {
       body.advanceRequired = advance;
       body.advanceAmount = advance ? amount : null;
     }
@@ -667,7 +667,3 @@ export function LetterClientStep({
   );
 }
 
-/** "1.0000000000" as a person writes it. */
-function trimRate(rate: string): string {
-  return rate.includes(".") ? rate.replace(/\.?0+$/, "") : rate;
-}
