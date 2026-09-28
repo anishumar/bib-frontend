@@ -9,7 +9,6 @@
   "src/app/admin/verification/page.tsx": 2,
   "src/app/admin/work-vocabulary/page.tsx": 2,
   "src/app/admin/workflows/page.tsx": 6,
-  "src/app/catalogue/page.tsx": 13,
   "src/app/clients/[partyId]/page.tsx": 4,
   "src/app/engagement-letters/[letterId]/page.tsx": 2,
   "src/app/leads/[leadId]/page.tsx": 1,
