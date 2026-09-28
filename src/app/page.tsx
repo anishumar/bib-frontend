@@ -179,12 +179,9 @@ export default function CopilotPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="10X Workspace"
-        title="AI Copilot"
-        lede="Ask a question about your firm in plain words. The Copilot is not connected to your records yet, so it cannot answer for real. This is the screen it will arrive in."
-        aside={<Pill tone="warn">Not live yet</Pill>}
-      />
+      {/* No lede (Wave 4): "not live" is still said in the three places
+          CLAUDE.md names, the pill, the reply and the line under the box. */}
+      <PageHeader title="AI Copilot" aside={<Pill tone="warn">Not live yet</Pill>} />
 
       <ErrorNotice error={error} />
 
@@ -197,10 +194,6 @@ export default function CopilotPage() {
                   <Icon name="copilot" size={26} />
                 </span>
                 <h2>What would you like to know?</h2>
-                <p>
-                  When it is live, the Copilot will read the same records the rest of the
-                  workspace does, and only the ones your role can already see.
-                </p>
                 <div className="chat-suggests">
                   {OPENERS.map((opener) => (
                     <button
@@ -266,7 +259,7 @@ export default function CopilotPage() {
               ref={box}
               rows={1}
               value={draft}
-              placeholder="Ask about your clients, your work, or your money…"
+              placeholder="e.g. What is due this week?"
               onChange={(e) => {
                 setDraft(e.target.value);
                 // Grow to fit what has been typed. The CSS caps it at 12rem and

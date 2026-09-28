@@ -139,12 +139,19 @@ export default function VerificationPage() {
 
   return (
     <Page>
+      {/* No lede (Wave 4): each process step names the rule that checks it,
+          on Processes, so one process can have a manager review and a
+          separate partner sign-off. "Write a rule" is the one brand button;
+          the form takes its place while open (`useSwapFocus`). */}
       <PageHeader
-        eyebrow="How work runs"
         title="Who checks the work"
-        lede={<>Decide who is allowed to approve a finished step. Each step in a process names the
-        rule that applies to it on <strong>How the firm works</strong>, so one process can have
-        a manager review and a separate partner sign-off.</>}
+        aside={
+          adding ? undefined : (
+            <Button ref={addTrigger} onClick={() => { setAdding(true); }}>
+              Write a rule
+            </Button>
+          )
+        }
       />
 
       {/* NOT a setting, and the screen has to say so where somebody would look
@@ -156,19 +163,35 @@ export default function VerificationPage() {
           newspaper columns of one paragraph, measured 83px and 30px wide.
           `Notice` puts its children in `.notice-body`, where prose belongs. */}
       <Notice className="measure">
+        {/* Not a setting and cannot be switched off; it holds against
+            imports and automated actions too (a database CHECK). */}
         <p>
-          <strong>Nobody can ever approve their own work.</strong> That is not a setting on this
-          page and cannot be switched off. It applies to imports and automated actions too. What
-          you choose below is who <em>else</em> may check it.
+          <strong>Nobody can ever approve their own work.</strong> Below you choose who{" "}
+          <em>else</em> may check it.
         </p>
       </Notice>
 
       <ErrorNotice error={error} />
 
+      {adding && (
+        <Card ref={addPanel} tabIndex={-1}>
+          <CardTitle level={2}>A new rule</CardTitle>
+          <PolicyForm
+            policyKey={null}
+            grades={grades}
+            onDone={() => {
+              setAdding(false);
+              void load();
+            }}
+            onCancel={() => { setAdding(false); }}
+            onError={setError}
+          />
+        </Card>
+      )}
+
       {policies.length === 0 ? (
-        <p className="muted" style={{ maxWidth: "64ch" }}>
-          No rule written yet. Until there is one, a step that names no rule is simply finished
-          by whoever did it, and nothing is held for checking.
+        <p className="max-w-[64ch]">
+          No rule yet. Until there is one, a step is finished by whoever does it.
         </p>
       ) : (
         policies.map((p) => (
@@ -184,30 +207,6 @@ export default function VerificationPage() {
         ))
       )}
 
-      {adding ? (
-        <Card ref={addPanel} tabIndex={-1}>
-          <CardTitle level={2}>A new rule</CardTitle>
-          <PolicyForm
-            policyKey={null}
-            grades={grades}
-            onDone={() => {
-              setAdding(false);
-              void load();
-            }}
-            onCancel={() => { setAdding(false); }}
-            onError={setError}
-          />
-        </Card>
-      ) : (
-        /* A `cluster`, because `<Page>` is a flex COLUMN and a button laid
-           straight into one is stretched by it. Measured at 1168px — the full
-           width of the page — against the 81px "Change it" inside a card. */
-        <div className="cluster">
-          <Button ref={addTrigger} onClick={() => { setAdding(true); }}>
-            Write a rule
-          </Button>
-        </div>
-      )}
     </Page>
   );
 }
@@ -246,19 +245,15 @@ function PolicyCard({
           <CardTitle level={2}>
             {inForce?.label ?? readBody(draft?.body)?.label ?? entry.entry.key}
           </CardTitle>
-          <p className="muted text-sm">
-            <code>{entry.entry.key}</code> is the name a process step uses to say it is checked
-            under this rule.
-          </p>
+
         </div>
       </div>
 
       {inForce === null ? (
         // A rule somebody wrote and never published is a real state, and hiding
         // it would leave a partner sure they had set something they had not.
-        <p className="muted" style={{ marginTop: "var(--s-4)" }}>
-          <strong>Not in force.</strong> A step naming this rule is checked by anybody except
-          the person who did the work, because nothing is published for it yet.
+        <p style={{ marginTop: "var(--s-4)" }}>
+          <strong>Not in force.</strong> Until it is, anybody but the doer may check.
         </p>
       ) : (
         <dl className="meta" data-layout="list" style={{ marginTop: "var(--s-4)" }}>
@@ -271,7 +266,7 @@ function PolicyCard({
                 {grades.find((g) => g.code === inForce.minGradeCode)?.name ??
                   inForce.minGradeCode ??
                   `rank ${String(inForce.minGradeRank)}`}{" "}
-                <span className="muted">and above</span>
+                and above
               </dd>
             </>
           )}
@@ -281,8 +276,7 @@ function PolicyCard({
       {draft && (
         <Notice className="mt-4">
           <p>
-            <strong>A change is saved but not yet in force.</strong> It applies to new checks only
-            once it is published. Checks already open keep the rule they started under.
+            <strong>A change is saved, not in force.</strong> Open checks keep their rule.
           </p>
           <div className="cluster mt-2">
             <Button
@@ -421,13 +415,10 @@ function PolicyForm({
     >
       <FieldRow>
         {policyKey === null && (
-          <Field
-            label="Short name"
-            hint="The name a process step uses to say it is checked under this rule. It cannot be changed later, because every step pointing at it would lose its rule."
-          >
+          <Field label="Short name">
             <Input
               value={key}
-              placeholder="manager_review"
+              placeholder="e.g. manager_review"
               onChange={(e) => { setKey(e.target.value); }}
             />
           </Field>
@@ -435,11 +426,16 @@ function PolicyForm({
         <Field label="What to call it">
           <Input
             value={label}
-            placeholder="Manager review"
+            placeholder="e.g. Manager review"
             onChange={(e) => { setLabel(e.target.value); }}
           />
         </Field>
       </FieldRow>
+      {/* UNDER the row (the FieldRow rule): every step pointing at a rule
+          names it by this short name, so it cannot change. */}
+      {policyKey === null && (
+        <p className="field-hint">The short name cannot change later.</p>
+      )}
 
       <Fieldset legend="Who may check it">
         {VERIFICATION_RULES.map((r) => (
@@ -470,10 +466,7 @@ function PolicyForm({
           {offered.length === 0 ? (
             <>
               <p className="label">From which grade up</p>
-              <p className="muted">
-                Your firm has no active grades, so there is nothing to compare. Add grades on{" "}
-                <strong>Grades</strong> first, or choose the reporting-line rule.
-              </p>
+              <p>No grades yet. Add them on Grades, or choose the manager rule.</p>
             </>
           ) : (
             /* `className="input"` on a `<select>`. The two share a base rule so
@@ -502,10 +495,8 @@ function PolicyForm({
         // Said before they choose it, not discovered when the queue turns out to
         // be unactionable. Every firm is in exactly this state the day the
         // feature ships, because nothing has filled the column in.
-        <p id={reportingNoteId} className="muted" style={{ marginTop: "var(--s-4)", maxWidth: "60ch" }}>
-          This rule reads <strong>who reports to whom</strong>, which is set on{" "}
-          <strong>People</strong>. Anybody whose manager is not recorded there has nobody who
-          may check their work, and the queue will say so.
+        <p id={reportingNoteId} className="field-hint" style={{ marginTop: "var(--s-4)" }}>
+          Reads who reports to whom on People. Nobody there: nobody may check their work.
         </p>
       )}
 
@@ -527,9 +518,8 @@ function PolicyForm({
           Cancel
         </Button>
       </div>
-      <p id={draftNoteId} className="muted text-xs">
-        Saved as a draft. It applies to nothing until you put it in force. Checks already open
-        keep the rule they started under.
+      <p id={draftNoteId} className="field-hint">
+        Saved as a draft. Nothing changes until you put it in force.
       </p>
     </fieldset>
   );

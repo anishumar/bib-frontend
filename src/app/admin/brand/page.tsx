@@ -36,14 +36,14 @@ import {
   BRAND_ASSET_LABELS,
 } from "@/lib/api/client";
 import type { BrandAsset, BrandAssetKind, InvoiceSeries } from "@/lib/api/client";
-import { Button, Field, FieldRow, Input, scrollBelowBar } from "@/components/ui";
+import { Button, Field, FieldRow, Input, NotSet, scrollBelowBar } from "@/components/ui";
 import {
   Card,
-  CardTitle,
   ErrorNotice,
   Notice,
   Page,
   PageHeader,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -215,35 +215,17 @@ export default function BrandPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="Documents"
-        title="Brand"
-        lede="The logo, signature, letterhead and proposal cover each of your companies prints on what it sends, and how its invoices are numbered."
-      />
-
-      {/* THE HONEST BANNER, and it had gone stale in the other direction: it
-          still said nothing printed these long after the renderer (T3.8) drew
-          the logo on every letter and invoice and 0081 the signature on a sent
-          letter. A caveat that is no longer true teaches a partner to
-          disbelieve the screen. What is still true is said: the letterhead is
-          stored and not drawn. */}
-      <p className="field-hint">
-        <strong>What prints where:</strong> the logo heads every letter, invoice and proposal this
-        company issues; the signature signs its engagement letters once they are sent; the
-        proposal cover is the first page of its proposals. The letterhead is stored and is not
-        printed on anything yet. <strong>Invoice numbers</strong> are live too: that section on
-        each company shows how the next invoice will be numbered.
-      </p>
+      {/* No lede and no "what prints where" paragraph (Wave 4): each mark's
+          row says where it prints, including that the letterhead is stored
+          and not drawn on anything yet. */}
+      <PageHeader title="Brand" />
 
       <ErrorNotice error={error} />
 
       {entities.length === 0 ? (
         <Card>
-          <p className="muted">
-            Your firm has no issuing companies yet, so there is nothing to give a logo to. A
-            company appears here once it is added on{" "}
-            <Link href="/admin/firm">Your firm</Link>. The same list decides which
-            company issues a proposal or an engagement letter.
+          <p>
+            No companies yet. Add one on <Link href="/admin/firm">Your firm</Link>.
           </p>
         </Card>
       ) : (
@@ -254,17 +236,39 @@ export default function BrandPage() {
             <h2 className="card-title" id={entityHeadingId(entity)}>
               {entity.displayName}
             </h2>
-            {BRAND_ASSET_KINDS.map((kind) => (
-              <Slot
-                key={kind}
-                kind={kind}
-                entity={entity}
-                asset={(assets[entity.id] ?? []).find((a) => a.kind === kind)}
-                busy={busy === `${entity.id}:${kind}`}
-                onSubmit={(fd) => void put(entity, kind, fd)}
-                onError={setError}
-              />
-            ))}
+            {/* ONE TABLE OF FOUR MARKS (Wave 4). It was four stacked sections
+                per company, each with a heading, a paragraph, a file box and a
+                brand "Set" button: 6,732px and twenty brand buttons for five
+                companies. */}
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Mark</Th>
+                    <Th>In use</Th>
+                    <Th>
+                      <span className="sr-only">Actions</span>
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {BRAND_ASSET_KINDS.map((kind) => (
+                    <Slot
+                      key={kind}
+                      kind={kind}
+                      entity={entity}
+                      asset={(assets[entity.id] ?? []).find((a) => a.kind === kind)}
+                      busy={busy === `${entity.id}:${kind}`}
+                      onSubmit={(fd) => void put(entity, kind, fd)}
+                      onError={setError}
+                    />
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrap>
+            {/* SUPERSEDES, NEVER REPLACES: a document issued under the old
+                mark still shows what it carried. */}
+            <p className="field-hint">Replacing keeps the old file on record.</p>
             {/* THE ONE THING ON THIS PAGE THAT IS ALREADY LIVE. Everything
                 above is stored and not yet rendered anywhere (T3.8); an invoice
                 number is on every invoice the firm has issued, and this is what
@@ -305,7 +309,6 @@ function Slot({
   onSubmit: (form: FormData) => void;
   onError: (message: string) => void;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const headingId = useId();
   const hintId = useId();
@@ -340,104 +343,104 @@ function Slot({
     };
   }, [asset]);
 
-  return (
-    <div className="mt-4 border-t border-line pt-4">
-      <div className="card-head">
-        <h3 className="card-title" id={headingId}>
-          {label}
-        </h3>
-        {/* An id, so the sentence on the right of the heading is the file
-            control's DESCRIPTION rather than prose sitting near it. It was
-            wired to nothing: measured, this screen described 0 of 3 controls. */}
-        <span className="muted text-sm" id={hintId}>
-          {BRAND_ASSET_HINTS[kind]}
-        </span>
-      </div>
+  const fileInput = useRef<HTMLInputElement>(null);
+  const verb = asset === undefined ? "Upload" : "Replace";
 
-      {asset === undefined ? (
-        <p className="unstated mb-4">none set</p>
-      ) : (
-        <div className="cluster mb-4">
-          {preview !== null && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={preview}
-              alt={`${entity.displayName} ${kind}`}
-              className="max-h-12 max-w-[200px] bg-[var(--logo-plate)] p-1"
-            />
-          )}
-          <span className="muted text-sm">
-            {asset.version.filename} · {formatBytes(asset.version.byteSize)} · since{" "}
-            {/* `createdAt` is a `timestamptz`. `.slice(0, 10)` took the UTC day,
-                which is YESTERDAY in India until 05:30 every morning — and
-                printed it as `2026-09-04` besides. Seen rendered rather than
-                reasoned about: an asset stored at 20:10Z read "since
-                2026-09-04" at 03:53 on the fifth, local. `longInstant` parses
-                and prints the day it fell on HERE. */}
-            {longInstant(asset.createdAt)}
+  return (
+    <tr>
+      <Td>
+        {/* Ids, so the file control is NAMED by the company and the mark and
+            DESCRIBED by the line under it ("Logo" repeats per company). */}
+        {/* Held to 22rem so the hint wraps: unwrapped it pushed Replace out
+            of the table once a file was in use. */}
+        <div className="max-w-[22rem] whitespace-normal">
+          <span id={headingId}>{label}</span>
+          <span id={hintId}>
+            <Sub>{BRAND_ASSET_HINTS[kind]}</Sub>
           </span>
+        </div>
+      </Td>
+      <Td>
+        {asset === undefined ? (
+          <NotSet />
+        ) : (
+          <span className="flex flex-wrap items-center gap-3">
+            {preview !== null && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview}
+                alt={`${entity.displayName} ${kind}`}
+                className="max-h-12 max-w-[160px] bg-[var(--logo-plate)] p-1"
+              />
+            )}
+            <span>
+              {asset.version.filename}
+              {/* `createdAt` is a `timestamptz`, so `longInstant` parses it and
+                  prints the day it fell on HERE (`.slice(0, 10)` was the UTC
+                  day, yesterday in India until 05:30). */}
+              <Sub>
+                {formatBytes(asset.version.byteSize)} · since {longInstant(asset.createdAt)}
+              </Sub>
+            </span>
+          </span>
+        )}
+      </Td>
+      <Td align="right" className="whitespace-nowrap">
+        <span className="inline-flex gap-2">
+          {asset !== undefined && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Download the ${label.toLowerCase()} for ${entity.displayName}`}
+              onClick={() => {
+                // The VERSION, named explicitly rather than "latest": a
+                // superseded mark is still downloadable, and the latest version
+                // of that document is not necessarily the one in force.
+                void downloadDocument(
+                  asset.version.documentId,
+                  asset.version.filename,
+                  asset.version.id,
+                ).then((failure) => {
+                  if (failure !== null) onError(failure);
+                });
+              }}
+            >
+              Download
+            </Button>
+          )}
+          {/* THE FILE PICKER OPENS FROM THE BUTTON and the file goes up when
+              it is chosen (Wave 4): a visible file box and a brand "Set" on
+              every row was twenty boxes and twenty brand buttons. The input is
+              still a real, named file control. */}
+          <input
+            ref={fileInput}
+            name="file"
+            type="file"
+            hidden
+            aria-labelledby={`${entityHeadingId(entity)} ${headingId}`}
+            aria-describedby={hintId}
+            accept={BRAND_ASSET_ACCEPT[kind]}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file === undefined) return;
+              const fd = new FormData();
+              fd.set("file", file);
+              onSubmit(fd);
+              e.target.value = "";
+            }}
+          />
           <Button
             variant="secondary"
             size="sm"
-            aria-label={`Download the ${label.toLowerCase()} for ${entity.displayName}`}
-            onClick={() => {
-              // The VERSION, named explicitly rather than "latest": a
-              // superseded mark is still downloadable, and the latest version
-              // of that document is not necessarily the one in force.
-              void downloadDocument(
-                asset.version.documentId,
-                asset.version.filename,
-                asset.version.id,
-              ).then((failure) => {
-                if (failure !== null) onError(failure);
-              });
-            }}
+            disabled={busy}
+            aria-label={`${verb} the ${label.toLowerCase()} for ${entity.displayName}`}
+            onClick={() => fileInput.current?.click()}
           >
-            Download
+            {busy ? "Saving…" : verb}
           </Button>
-        </div>
-      )}
-
-      <form
-        ref={formRef}
-        action={(fd) => {
-          onSubmit(fd);
-          formRef.current?.reset();
-        }}
-        className="cluster"
-      >
-        {/* NAMED. Three of these on a card and not one had a label, an
-            `aria-label` or a wrapping <label> — the app's own probe excluded
-            `type="file"` from its control count, which is why the sweep that
-            reported "0 unnamed controls" was reporting on two of the three
-            kinds of control on this screen. Named by the COMPANY and the kind
-            together, because "Logo" repeats once per company. */}
-        <input
-          name="file"
-          type="file"
-          className="input"
-          aria-labelledby={`${entityHeadingId(entity)} ${headingId}`}
-          aria-describedby={hintId}
-          accept={BRAND_ASSET_ACCEPT[kind]}
-          required
-        />
-        {/* The word on the button stays; the NAME says which of the three it
-            belongs to. Three buttons reading "Set" is one name, not three. */}
-        <Button
-          type="submit"
-          disabled={busy}
-          aria-label={`${asset === undefined ? "Set" : "Replace"} the ${label.toLowerCase()} for ${entity.displayName}`}
-        >
-          {busy ? "Saving…" : asset === undefined ? "Set" : "Replace"}
-        </Button>
-      </form>
-      {asset !== undefined && (
-        <p className="field-hint">
-          Replacing keeps the current file on record, so a document issued under it still shows
-          what it carried at the time.
-        </p>
-      )}
-    </div>
+        </span>
+      </Td>
+    </tr>
   );
 }
 
@@ -499,10 +502,9 @@ function InvoiceNumbers({
       <h3 className="card-title text-md">Invoice numbers</h3>
 
       {series.length === 0 ? (
-        <p className="muted text-md">
-          {entity.displayName} has not issued an invoice yet. Numbering starts with the first
-          invoice, as <span className="mono">INV/&lt;year&gt;/0001</span>, and the prefix can be
-          changed from then on.
+        <p className="text-md">
+          No invoices yet. The first will read INV/&lt;year&gt;/0001, and the prefix can change
+          after that.
         </p>
       ) : (
         <>
@@ -519,19 +521,19 @@ function InvoiceNumbers({
               <tbody>
                 {series.map((r) => (
                   <tr key={`${r.financialYear}:${r.documentType}`}>
-                    <Td className="mono">{financialYearLabel(r.financialYear)}</Td>
+                    <Td>{financialYearLabel(r.financialYear)}</Td>
                     <Td>
-                      {r.documentType === "invoice" ? "Invoices" : "Credit notes"}{" "}
-                      <span className="mono annot">{r.prefix}</span>
+                      {r.documentType === "invoice" ? "Invoices" : "Credit notes"}
+                      <Sub>Prefix {r.prefix}</Sub>
                     </Td>
                     {/* WHERE THE SERIES HAS REACHED, which is also how many
                         documents it has issued — a gapless series has no zeroth
                         document, so the counter and the count are the same
                         number. */}
-                    <Td align="right" className="mono">
+                    <Td align="right" className="tabular-nums">
                       {r.lastNumber}
                     </Td>
-                    <Td className="mono">
+                    <Td>
                       {r.prefix}/{financialYearLabel(r.financialYear)}/
                       {String(r.lastNumber + 1).padStart(4, "0")}
                     </Td>
@@ -547,19 +549,15 @@ function InvoiceNumbers({
                   /admin/verification uses to put maker != checker above its
                   form: somebody about to rename a statutory series should meet
                   the explanation, not the refusal. */}
+              {/* THE CONSEQUENCES, BEFORE THE BUTTON (kept, shorter): an
+                  invoice series is an unbroken sequence a tax authority may
+                  ask about; the change applies to EVERY financial year of this
+                  company's invoices, so one back-dated into a closed year gets
+                  the new prefix in the old year's sequence. */}
               <Notice tone="warn" eyebrow="This is not a rename">
                 <p>
-                  Invoice numbers run in an unbroken <strong>sequence</strong>, and a tax
-                  authority may ask about it. Changing the prefix changes the numbers{" "}
-                  <strong>from now on</strong>. Every invoice already issued keeps the number it
-                  was issued with.
-                </p>
-                <p>
-                  The change applies to <strong>every financial year</strong> of{" "}
-                  {entity.displayName}&rsquo;s invoices, not just the current one. So an invoice
-                  back-dated into a closed year would get the new prefix and sit in the same
-                  sequence as the old-prefix numbers already issued for that year. Credit notes
-                  are not affected and keep their own numbering.
+                  New numbers use the new prefix, in <strong>every financial year</strong>, even
+                  a back-dated invoice. Issued invoices and credit notes keep theirs.
                 </p>
               </Notice>
 
@@ -585,7 +583,7 @@ function InvoiceNumbers({
                   <FieldRow>
                     <Field
                       label="The prefix"
-                      hint="Up to twelve characters: capital letters, digits, “-” and “/”, starting with a letter or digit. It prints on a legal document, so anything else is not accepted."
+                      hint="Up to 12 capital letters, digits, “-” or “/”."
                     >
                       {/* THE CURRENT VALUE, not a placeholder. Somebody renaming
                           a series should be editing what is there rather than

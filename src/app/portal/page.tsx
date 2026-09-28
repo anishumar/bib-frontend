@@ -72,7 +72,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalFilingRow, PortalStatusHome, PortalWorkRow } from "@/lib/api/client";
-import { LinkButton } from "@/components/ui";
+import { LinkButton, NotSet } from "@/components/ui";
 import {
   Card,
   Empty,
@@ -147,8 +147,8 @@ export default function PortalHomePage() {
 
   return (
     <Page>
+      {/* No eyebrow (Wave 4): the firm is named in the rail and the bar. */}
       <PageHeader
-        eyebrow={firm}
         title={greeting(session?.displayName ?? null)}
         lede={
           home.companies.length === 0
@@ -204,11 +204,7 @@ export default function PortalHomePage() {
           {/* The button sits BESIDE the sentence rather than under it. Stacked
               it cost eighty pixels on the one screen a client lands on, and it
               read as a second step from the sentence explaining it. */}
-          <p>
-            {firm} {counts.awaitingYou === 1 ? "has asked you for something" : "has asked you for a few things"}: a
-            document, an approval or an answer. Nothing here moves on until{" "}
-            {counts.awaitingYou === 1 ? "it is" : "they are"} dealt with.
-          </p>
+          <p>{firm} is waiting on your answer before it can carry on.</p>
         </Notice>
       )}
 
@@ -221,14 +217,6 @@ export default function PortalHomePage() {
           title="Held up"
           level={2}
           count={home.heldUp.length}
-          lede={
-            <>
-              {firm} cannot move these on until something arrives. Where they have asked you
-              for it directly, the request is under <Link href="/portal/requests">Requests</Link>,
-              where you can answer it. The rest show the note {firm}&rsquo;s team wrote, which
-              may be about something outside your control.
-            </>
-          }
         >
           <div className="flex flex-col gap-3">
             {home.heldUp.map((row) => (
@@ -289,7 +277,6 @@ export default function PortalHomePage() {
           title="Filings still owed"
           level={2}
           count={home.upcomingFilings.length}
-          lede="The date each one is due by law. Anything already past its date is at the top."
         >
           <TableWrap>
           <Table>
@@ -356,7 +343,7 @@ export default function PortalHomePage() {
                   <Td>{row.companyName}</Td>
                   <Td>{row.periodLabel}</Td>
                   <Td>
-                    {row.filedOn === null ? "date not recorded" : longDay(row.filedOn)}
+                    {row.filedOn === null ? <NotSet>Not recorded</NotSet> : longDay(row.filedOn)}
                   </Td>
                 </tr>
               ))}
@@ -366,27 +353,8 @@ export default function PortalHomePage() {
         </Section>
       )}
 
-      {/* WHERE THE REST OF IT IS — AND THIS PARAGRAPH HAS NOW GONE STALE TWICE.
-
-          Before T6.6 it said "sending files across is not here yet — email
-          10x Global as you do now", and the walk found it one paragraph below
-          a working file picker. T6.6 rewrote it to say invoices and documents
-          were not here yet; T6.7 built both, and it was false again inside one
-          task.
-
-          So it is not a list of what is MISSING any more. A sentence that
-          enumerates absences goes stale every time somebody removes one, and
-          NOTHING in a typecheck, a lint or a test can see that happen. This one
-          points at where things are, which stays true as more arrives — and the
-          nav above it is the actual fix. */}
-      {home.companies.length > 0 && (
-        <p className="max-w-[var(--measure)] text-sm text-muted">
-          This page shows what is happening now. Anything {firm} has asked you for, and
-          anything you have asked them, is under <Link href="/portal/requests">Requests</Link>.
-          Your documents, your invoices and a month-by-month record of what {firm} has done are
-          on the pages beside it.
-        </p>
-      )}
+      {/* No footer (Wave 4): it listed where things are, and the rail does
+          that. It went stale twice; see CLAUDE.md. */}
     </Page>
   );
 }
@@ -395,7 +363,7 @@ function WorkLine({ row }: { row: PortalWorkRow }) {
   return (
     <tr>
       <Td>{row.title}</Td>
-      <Td>{row.companyName ?? <span className="text-muted">Your account</span>}</Td>
+      <Td>{row.companyName ?? "Your account"}</Td>
       <Td>
         {/* `quiet`, the same as the filings table's. The firm's own word for
             where something has got to is INFORMATION, and the one urgent mark
@@ -407,7 +375,7 @@ function WorkLine({ row }: { row: PortalWorkRow }) {
         {/* ELAPSED, NEVER A DEADLINE. The one date this row is entitled to
             state is when the work opened — unless a statute set one, which the
             filings table above says better. */}
-        <span className="mono">{longDay(row.openedOn)}</span>
+        {longDay(row.openedOn)}
       </Td>
     </tr>
   );
@@ -423,7 +391,7 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
       <Td>{row.companyName}</Td>
       <Td>{row.periodLabel}</Td>
       <Td>
-        <span className={overdue ? "mono text-danger" : "mono"}>
+        <span className={overdue ? "text-danger" : undefined}>
           {longDay(row.statutoryDueOn)}
         </span>
         {overdue && (
@@ -442,9 +410,9 @@ function FilingLine({ row, today }: { row: PortalFilingRow; today: string }) {
             which is the shipped state and not something to report as a
             failure to a client. */}
         {row.lastNudgedAt === null ? (
-          <span className="text-faint">not yet</span>
+          <NotSet>Not yet</NotSet>
         ) : (
-          <span className="mono">{longInstant(row.lastNudgedAt)}</span>
+          longInstant(row.lastNudgedAt)
         )}
       </Td>
     </tr>

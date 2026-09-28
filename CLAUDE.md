@@ -843,6 +843,64 @@ that no letter can pin. A half-written term — a country with no words — is S
 registry's own refusal reaches the screen (*"never half a statement"*, verbatim) instead of being
 tidied here into a clause that silently names no law. Proven by trying it.
 
+## Wave 4 on the admin, portal and sign-in screens (W4C admin-portal, 2026-09-28)
+
+Every `/admin/*` screen except Your firm and Standard terms, `/account`, `/`, the client portal,
+`/p/[token]`, `/login` and `/auth/*`, in the Wave 4 shape. **Behaviour did not change**: every API
+refusal is still shown verbatim, and each screen's rules below still hold. What changed, and the
+facts that the older sections below now say differently:
+
+- **No eyebrow and no lede anywhere in the group.** Their reasoning is in this file. The sidebar's
+  own word is now the title where they differed: `/admin/workflows` is **Processes**,
+  `/admin/structure` is **Structure**.
+- **One brand button per screen, top right**, opening a dialog where the form was a card at the
+  bottom: People (**Add somebody**), Grades (**Add a grade**), Roles (**Add a role**). The refusal
+  is shown IN the dialog. People's outcome ("Added" / "Added, but no email sent") is a notice on
+  the page after the dialog closes. Where the form takes the page (Who checks work, Escalation
+  ladder, Processes, Compliance rules), the button sits in the header and the form opens under the
+  title; `useSwapFocus` still hands focus back.
+- **A quiet text box, `<Input variant="quiet">`** (added, beside W4A's quiet select): a name, an
+  order or a rank renamed in place in a table row reads as its value, framed on hover and focus.
+  Grades, Structure, Work states and Calendar words use it; the commit-on-blur/Enter rule is
+  unchanged. A system code (`senior_manager`, `in_progress`) is a line under the name, and a
+  retired row carries a Retired pill there instead of a Status column and a 55% dim.
+- **People**: access is a pill beside the name only when it is not ordinary staff (Revoked,
+  Client portal); Revoke / Restore moved into the row's **More** menu. The table hid 287px at 1280.
+- **Compliance rules**: the counts paragraph, the Show select and the "Show retired" checkbox are
+  ONE control, **tabs with counts** (All · Producing dates · Not used by a service · Not yet
+  confirmed · Waiting on a fact · Event-driven · Retired; a tab with nothing in it is left out
+  except the four a partner looks for). The line under the tabs is where a service is chosen (the
+  Catalogue). An arrival at an all-retired chain still shows its rows. Authority is a line under
+  the filing's name. **The editor opens under its own row**, with the page's notice and refusal in
+  it, where it used to open after all 58 rows. "Not used by any service yet" is said on a row only
+  where the pill does not already say it and a formula exists. The table hid 1,432px at 1280.
+- **Roles is one table**: permissions down (the API's sentence, the key under it), roles across,
+  a box per cell named "<key> for <role>". Each role still saves on its own, draft then publish,
+  from a **Publish** button under its column that appears only when its ticks changed.
+- **Brand is one table of four marks per company.** The file picker opens from **Upload /
+  Replace** and the file goes up as soon as it is chosen (the same two calls, document then brand
+  asset). Where each mark prints is its row's hint, including that the letterhead is stored and
+  not printed yet. `BRAND_ASSET_HINTS` in `client.ts` was shortened for it.
+- **Standard prose**: an empty kind's add form starts FOLDED (it was open for the cover letter and
+  acceptance), and the add form's "Prints in" has no hint inside the row.
+- **Territories** picks the country from `CountrySelect`; the value is still the code.
+- **The portal**: no eyebrow naming the firm (the rail and the bar do); a request's reply box opens
+  on **Add to this** (it was an open box and a brand Send on every card); invoices print through
+  `formatMoney` (`₹1,47,500.59`, no `.00`); the month picker sits in the header; the footers that
+  listed where things are, are gone (the rail is the fix, see T6.7). Documents still says
+  "Missing something? Ask ... to share it", and the month page still says it is not an email.
+- **`/p/[token]`**: a zero discount arrives as "0.00", and comparing it to "0" drew "after ₹0 off
+  ₹65,000" under the total. Fixed.
+- **`/login`**: "Email me a sign-in link instead" is no longer disabled until an email is typed
+  (it drew pale grey); with no email it asks the browser to say the box is empty and focuses it.
+
+Measured with `bib/demo-assets/tools/w4ap-measure.mjs` at 1280 (1440 the same), height and words
+before -> after: People 1062 -> 900, 310 -> 172; Compliance rules 7612 -> 8154 (taller because it
+now wraps: it hid 1,432px of columns), 2968 -> 2251; Roles 4243 -> 1700, 1878 -> 315; Brand 6732 ->
+3419; Standard prose 3462 -> 2511, 1264 -> 297; Structure 2402 -> 1880; Grades 1352 -> 923; Client
+reminders 1391 -> 1213; portal Requests 2549 -> 2073; every table in the group 0px hidden. Walk:
+`w4ap-walk.mjs` (fixture EPB_TAG=w4admin + `w4d-seed.mjs` + `w4ap-seed.mjs`).
+
 ## `/admin/structure` — and the one control that says it is not live yet
 
 Two lists side by side, never a tree: a **Dept** (FRC / TRC / RAA) is the revenue axis and a

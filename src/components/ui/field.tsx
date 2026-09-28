@@ -133,11 +133,18 @@ export type ControlSize = "sm" | "md";
 export interface InputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "size"> {
   size?: ControlSize;
+  /**
+   * `quiet` reads as its value, with a frame only on hover and focus: a name
+   * or a rank renamed in place in a table row, the text-box twin of
+   * `<Select variant="quiet">` (added by the W4C admin sweep). Needs an
+   * `aria-label` in a row, where no `<label>` sits over it.
+   */
+  variant?: "quiet";
   className?: string;
   ref?: Ref<HTMLInputElement>;
 }
 
-export function Input({ size = "md", className, ...rest }: InputProps) {
+export function Input({ size = "md", variant, className, ...rest }: InputProps) {
   const field = useFieldWiring();
   return (
     <input
@@ -147,6 +154,7 @@ export function Input({ size = "md", className, ...rest }: InputProps) {
       {...rest}
       className={cx("input", className)}
       data-size={size}
+      {...(variant === undefined ? {} : { "data-variant": variant })}
     />
   );
 }

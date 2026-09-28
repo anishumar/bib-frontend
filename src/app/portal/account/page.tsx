@@ -30,7 +30,7 @@ import type { Principal } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
-import { ErrorNotice, Meta, MetaItem } from "@/components/ui";
+import { ErrorNotice, Meta, MetaItem, NotSet } from "@/components/ui";
 
 export default function PortalAccountPage() {
   const [me, setMe] = useState<Principal | null>(null);
@@ -57,24 +57,20 @@ export default function PortalAccountPage() {
   if (!loaded) return <Loading label="Reading your account" />;
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow="You"
-        title="Your account"
-        lede="Your password. Your accountants never see it and cannot read it — if you lose it, they cannot give it back to you, they can only point you at the sign-in page."
-      />
+    <Page width="narrow">
+      <PageHeader title="Your account" />
 
       <ErrorNotice error={error} />
 
       {me === null ? null : (
         <Stack gap="tight">
           <Meta>
-            <MetaItem label="Signed in as">{me.displayName ?? me.email ?? "—"}</MetaItem>
-            <MetaItem label="Email">{me.email ?? "—"}</MetaItem>
+            <MetaItem label="Signed in as">{me.displayName ?? me.email ?? <NotSet />}</MetaItem>
+            <MetaItem label="Email">{me.email ?? <NotSet />}</MetaItem>
             {/* WHOSE PORTAL, by name — the firm, not the companies. The rail
                 already carries the companies, and the fact worth stating on an
                 account page is which firm's portal this login belongs to. */}
-            <MetaItem label="Your accountants">{me.tenantName ?? "—"}</MetaItem>
+            <MetaItem label="Your accountants">{me.tenantName ?? <NotSet />}</MetaItem>
           </Meta>
 
           <ChangePassword

@@ -124,24 +124,21 @@ const CHASER: LadderSpec = {
   title: "When we have asked and not had it back",
   lede: (
     <>
-      Counted forward from the day the firm asked the client for something. A client whose
-      reminders are <Link href="/clients">paused</Link> is not chased at all. You pause reminders
-      on the client&rsquo;s own record, and the panel there shows these steps.
+      Counted from the day you asked. A client whose reminders are{" "}
+      <Link href="/clients">paused</Link> on their record is not chased.
     </>
   ),
   rungNoun: "reminder",
   rungNounCapitalised: "Reminder",
   ladderNoun: "reminder ladder",
   emptyTitle: "No reminder ladder is published",
-  emptyBody:
-    "No client is reminded. If a client never answers a request, nobody is told, and somebody " +
-    "has to spot it on the work board.",
+  emptyBody: "No client is reminded when a request goes unanswered.",
   daysLabel: "How many days after we asked",
-  daysHint:
-    "The steps must go up in order, for example 3, then 7, then 15. A ladder written out of " +
-    "order is not saved, so you can correct it. 0 means the same day you asked.",
-  labelPlaceholder: "A gentle reminder",
-  keyPlaceholder: "first",
+  // A ladder written out of order is refused, with the rung named, so it can
+  // be corrected.
+  daysHint: "Steps go up in order, e.g. 3, 7, 15. 0 is the same day.",
+  labelPlaceholder: "e.g. A gentle reminder",
+  keyPlaceholder: "e.g. first",
   whenWords: (days) =>
     days === 0
       ? "The same day we asked"
@@ -156,24 +153,18 @@ const NUDGE: LadderSpec = {
   lede: (
     <>
       Counted back from the legal due date on the{" "}
-      <Link href="/calendar">compliance calendar</Link>. It is a heads-up only and asks the client
-      for nothing. Pausing a client&rsquo;s reminders does not stop it, because the filing is
-      still due.
+      <Link href="/calendar">calendar</Link>. It asks for nothing, and pausing does not stop it.
     </>
   ),
   rungNoun: "heads-up",
   rungNounCapitalised: "Heads-up",
   ladderNoun: "heads-up ladder",
   emptyTitle: "No heads-up ladder is published",
-  emptyBody:
-    "No client is told that a filing is coming up. The date still shows on their portal, but " +
-    "nothing draws their attention to it.",
+  emptyBody: "No client is told a filing is coming up. The date still shows on their portal.",
   daysLabel: "How many days before it is due",
-  daysHint:
-    "The steps must count down to the deadline, for example 7, then 3, then 1. A ladder written " +
-    "the other way round is not saved, so you can correct it. 0 means the day it is due.",
-  labelPlaceholder: "A week to go",
-  keyPlaceholder: "week",
+  daysHint: "Steps count down to the deadline, e.g. 7, 3, 1. 0 is the due day.",
+  labelPlaceholder: "e.g. A week to go",
+  keyPlaceholder: "e.g. week",
   whenWords: (days) =>
     days === 0
       ? "The day it is due"
@@ -221,20 +212,14 @@ function readRungs(body: Record<string, unknown> | undefined, spec: LadderSpec):
 export default function ClientRemindersPage() {
   return (
     <Page>
-      <PageHeader
-        eyebrow="How work runs"
-        title="Client reminders"
-        lede="Set when your clients hear from the firm. There are two reminder ladders: one for something you asked for and have not received, and one for a filing of theirs that is coming up."
-      />
+      {/* No lede (Wave 4): two ladders, one for what you asked and did not
+          get, one for a filing coming up. The two sections say which. */}
+      <PageHeader title="Client reminders" />
 
       <Notice tone="neutral">
         <p>
-          <strong>Nothing is sent until you publish a ladder, and nothing is set by default.</strong>{" "}
-          Until then, no client is reminded of anything.
-        </p>
-        <p>
-          <strong>Reminders are not emailed yet.</strong> When a step comes due, the reminder is
-          raised and the client sees it on their own portal.
+          <strong>Nothing is sent until you publish a ladder.</strong> Reminders are not emailed
+          yet: the client sees them on their portal.
         </p>
       </Notice>
 
@@ -371,13 +356,11 @@ function Ladder({ spec }: { spec: LadderSpec }) {
               <div className="row">
                 <div>
                   <CardTitle>
-                    Draft <Pill tone="warn">not in force</Pill>
+                    Draft <Pill dot tone="warn">Not in force</Pill>
                   </CardTitle>
                   {/* A draft nobody published is a real state, and a firm needs
                       to see it rather than wonder why its edit did nothing. */}
-                  <Sub>
-                    Saved but not published. No client is being reminded on these numbers.
-                  </Sub>
+                  <Sub>No client is reminded on these numbers until you publish.</Sub>
                 </div>
                 <Button
                   size="sm"
@@ -412,19 +395,15 @@ function RungTable({ rungs, spec }: { rungs: Rung[]; spec: LadderSpec }) {
           <tr>
             <Th>When</Th>
             <Th>Called</Th>
-            <Th>Kept on the record as</Th>
+            <Th>Short name</Th>
           </tr>
         </thead>
         <tbody>
           {rungs.map((r) => (
             <tr key={r.key}>
               <Td>{spec.whenWords(r.days)}</Td>
-              <Td>
-                <Pill tone="quiet">{r.label}</Pill>
-              </Td>
-              <Td>
-                <span className="mono">{r.key}</span>
-              </Td>
+              <Td>{r.label}</Td>
+              <Td>{r.key}</Td>
             </tr>
           ))}
         </tbody>
@@ -522,9 +501,8 @@ function LadderForm({
         {spec.daysHint}
       </p>
       <p className="field-hint" id={`${uid}-naming`}>
-        The name is what your colleagues see on a request&rsquo;s history. The short name is stored
-        on every reminder this step has sent, so renaming the step later does not change old
-        reminders. Changing the short name makes it a new step with no history.
+        {/* Changing the short name makes it a new step with no history. */}
+        The name shows on a request&rsquo;s history. Old reminders keep their short name.
       </p>
 
       {rungs.map((rung, index) => (
@@ -628,10 +606,7 @@ function LadderForm({
           </Button>
         </span>
       </div>
-      <p className="field-hint">
-        Saving creates a draft. Nothing is sent from a draft until you publish it. The ladder in
-        force is the one published last.
-      </p>
+      <p className="field-hint">Saved as a draft. Nothing is sent until you publish it.</p>
     </div>
   );
 }

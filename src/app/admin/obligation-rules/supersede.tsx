@@ -76,28 +76,19 @@ export function Supersede({
         <CardTitle>The law changed</CardTitle>
       </CardHead>
       <Stack>
-        <Notice tone="warn" eyebrow="THIS KEEPS THE OLD RULE">
+        <Notice tone="warn" eyebrow="This keeps the old rule">
           <p>
-            <strong>{rule.name}</strong> goes on governing every period beginning before the day
-            you give, and the filings made under it keep their dates. A new rule governs
-            everything from that day.
-          </p>
-          <p>
-            Filings already on the calendar for those later periods move to the new rule and its
-            dates. One that somebody has already started stays as it is, and you are told how
-            many.
+            <strong>{rule.name}</strong> keeps every period before the day you give. A new rule
+            governs from that day. Later filings move to its dates, unless somebody has started
+            them.
           </p>
           {/* T6.16: a service carries the rule's CHAIN, so the new rule is on
               every service the old one was on with nothing to copy. Said here
               because otherwise a partner goes to the catalogue to add it
               again, and wonders why it is already there. */}
           <p>
-            The new rule stays on every service the old one is on in the Catalogue. Nothing needs
-            adding again.
-          </p>
-          <p>
-            If instead the date on this rule was simply <em>wrong</em>, close this and edit the
-            formula. Editing corrects the calendar. This form records a change in the law.
+            It stays on the same services. If the date was simply <em>wrong</em>, edit the
+            formula instead.
           </p>
         </Notice>
 
@@ -120,9 +111,8 @@ export function Supersede({
             `align-items: end`, so a field carrying a hint stands taller and its
             input sits higher than the ones beside it. */}
         <p className="field-hint">
-          Give the start of the period, not the due date. August&rsquo;s return follows
-          August&rsquo;s law even though it is due on 20 September. Replacing{" "}
-          <span className="mono">{rule.rulePack}</span>.
+          The start of the period, not the due date: August follows August&rsquo;s law.
+          Replacing <span className="mono">{rule.rulePack}</span>.
         </p>
 
         <FieldRow>
@@ -167,8 +157,8 @@ export function Supersede({
             the 20th and it is now the 11th" — and a form showing only the new
             one asks somebody to remember the old. */}
         <Row>
-          <span className="mono faint">was · {describeDraft({ ...draftOf(rule), hasFormula: true })}</span>
-          <span className="mono">now · {describeDraft({ ...draft, hasFormula: true })}</span>
+          <span className="sub">Was: {describeDraft({ ...draftOf(rule), hasFormula: true })}</span>
+          <span>Now: {describeDraft({ ...draft, hasFormula: true })}</span>
         </Row>
 
         <Cluster>

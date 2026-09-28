@@ -18,6 +18,7 @@ import {
   Notice,
   Pill,
   Select,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -121,39 +122,36 @@ export default function ObligationVocabularyPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="How work runs"
-        title="Compliance states and decisions"
-        lede="The words your firm uses on its compliance calendar. Rename any of them, add your own, or change what each one means. The tick boxes decide how a filing is treated, not the names, so renaming is always safe."
-      />
+      {/* No lede (Wave 4): the firm's words for its calendar. The tick boxes
+          decide how a filing is treated, never the names, so renaming is safe. */}
+      <PageHeader title="Compliance states and decisions" />
       <ErrorNotice error={error} />
 
       <Card>
         <CardTitle level={2}>States a filing moves through</CardTitle>
-        <p className="field-hint">
-          The four columns on the right say where a filing goes when something happens to it.
-          Your firm has exactly one of each. Ticking a different row moves it there in one step.
+        <p className="lede">
+          The four &ldquo;here&rdquo; columns: one row each. Ticking another row moves it.
         </p>
         <TableWrap>
           <Table>
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Code</Th>
-              <Th style={{ width: 90 }}>Order</Th>
+              <Th>Order</Th>
               <Th>Finished</Th>
               <Th>Needs a decision</Th>
               <Th>Starts here</Th>
               <Th>Filed here</Th>
               <Th>Missed here</Th>
               <Th>Decided here</Th>
-              <Th>Status</Th>
-              <Th />
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
             {states.map((s) => (
-              <tr key={s.id} data-inactive={!s.isActive}>
+              <tr key={s.id}>
                 <Td>
                   <CommitText
                     key={`${s.id}:${s.name}`}
@@ -169,12 +167,23 @@ export default function ObligationVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { name }));
                     }}
                   />
+                  {/* The code never changes (an audit event that recorded it
+                      would stop resolving); nothing compares it, which is what
+                      makes the NAME free to change. A line under the name, with
+                      a retired state saying so there (Wave 4: two columns fewer,
+                      the table hid 218px at 1280). */}
+                  <Sub>
+                    {s.code}
+                    {!s.isActive && (
+                      <>
+                        {" "}
+                        <Pill dot tone="danger">
+                          Retired
+                        </Pill>
+                      </>
+                    )}
+                  </Sub>
                 </Td>
-                {/* The code never changes. It is the firm's stable handle, and
-                    an audit event that recorded it would stop resolving if it
-                    moved. Nothing in the product compares it, which is what
-                    makes the NAME free to change. */}
-                <Td className="mono muted">{s.code}</Td>
                 <Td>
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
@@ -259,14 +268,6 @@ export default function ObligationVocabularyPage() {
                   why="Only a finished state can be where a partner's decision ends a filing."
                   onPick={() => { void act(s.id, () => patchState(s.id, { isResolution: true })); }}
                 />
-                <Td>
-                  {/* `ok`, not `accent`. `accent` is shadcn's neutral hover
-                      ground; the status teal on this product is `ok`, and the
-                      sister screen /admin/work-vocabulary already said so. */}
-                  <Pill tone={s.isActive ? "ok" : "neutral"}>
-                    {s.isActive ? "in use" : "retired"}
-                  </Pill>
-                </Td>
                 <Td align="right">
                   {/* A pill is a STATUS. This is an action, and the same action
                       on the sister screen is a button — so retiring a state
@@ -300,28 +301,27 @@ export default function ObligationVocabularyPage() {
 
       <Card>
         <CardTitle level={2}>What may be decided about a missed deadline</CardTitle>
-        <p className="field-hint">
-          When a legal deadline passes with nothing filed, a partner picks one of these and
-          writes down <strong>why</strong>. The list is yours. The four below came from the
-          previous system, so they are marked <em>unconfirmed</em> until somebody here confirms
-          they are right.
+        {/* The shipped four came from the previous system, so they are
+            unconfirmed until somebody here confirms them. */}
+        <p className="lede">
+          A partner picks one when a deadline passes unfiled, and writes why.
         </p>
         <TableWrap>
           <Table>
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Code</Th>
               <Th style={{ width: 90 }}>Order</Th>
               <Th>What it does</Th>
               <Th>Confirmed</Th>
-              <Th>Status</Th>
-              <Th />
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
             {options.map((o) => (
-              <tr key={o.id} data-inactive={!o.isActive}>
+              <tr key={o.id}>
                 <Td>
                   <CommitText
                     key={`${o.id}:${o.name}`}
@@ -332,8 +332,18 @@ export default function ObligationVocabularyPage() {
                       void act(o.id, () => patchOption(o.id, { name }));
                     }}
                   />
+                  <Sub>
+                    {o.code}
+                    {!o.isActive && (
+                      <>
+                        {" "}
+                        <Pill dot tone="danger">
+                          Retired
+                        </Pill>
+                      </>
+                    )}
+                  </Sub>
                 </Td>
-                <Td className="mono muted">{o.code}</Td>
                 <Td>
                   <CommitNumber
                     key={`${o.id}:${String(o.sortOrder)}`}
@@ -356,6 +366,7 @@ export default function ObligationVocabularyPage() {
                       system's own light grey dropdown in the middle of a dark
                       table — measured `appearance: auto` on every one. */}
                   <Select
+                    variant="quiet"
                     value={o.closesWithoutFiling ? "closes" : "refiles"}
                     aria-label={`What ${o.name} does to the filing`}
                     disabled={busy === o.id}
@@ -384,11 +395,6 @@ export default function ObligationVocabularyPage() {
                       );
                     }}
                   />
-                </Td>
-                <Td>
-                  <Pill tone={o.isActive ? "ok" : "neutral"}>
-                    {o.isActive ? "in use" : "retired"}
-                  </Pill>
                 </Td>
                 <Td align="right">
                   <Button
@@ -533,6 +539,7 @@ function CommitText({
 
   return (
     <Input
+      variant="quiet"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -571,6 +578,8 @@ function CommitNumber({
 
   return (
     <Input
+      variant="quiet"
+      className="max-w-16"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -616,14 +625,14 @@ function AddState({
             <Field label="Name">
               <Input
                 value={name}
-                placeholder="Awaiting client"
+                placeholder="e.g. Awaiting client"
                 onChange={(e) => { setName(e.target.value); }}
               />
             </Field>
             <Field label="Code">
               <Input
                 value={code}
-                placeholder="awaiting_client"
+                placeholder="e.g. awaiting_client"
                 onChange={(e) => { setCode(e.target.value); }}
               />
             </Field>
@@ -708,14 +717,14 @@ function AddOption({
             <Field label="Name">
               <Input
                 value={name}
-                placeholder="Client deregistered mid-year"
+                placeholder="e.g. Client deregistered mid-year"
                 onChange={(e) => { setName(e.target.value); }}
               />
             </Field>
             <Field label="Code">
               <Input
                 value={code}
-                placeholder="client_deregistered"
+                placeholder="e.g. client_deregistered"
                 onChange={(e) => { setCode(e.target.value); }}
               />
             </Field>
@@ -765,8 +774,7 @@ function AddOption({
           fork with consequences either way, and an option that let one be
           dismissed would hide the thing this queue exists to surface. */}
       <p className="field-hint">
-        A new decision starts unconfirmed, like the four that came with the system. Nothing is
-        ever deleted. Retiring a decision keeps it on every filing already decided with it.
+        A new decision starts unconfirmed. Retiring keeps it on filings already decided.
       </p>
     </details>
   );

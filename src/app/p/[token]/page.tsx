@@ -181,7 +181,7 @@ export default function SharedProposalPage() {
           <>
             {/* The number the RECIPIENT quotes back down the phone. They have
                 no account and no other way to name this document. */}
-            <span className="mono">{shared.ref}</span> · Prepared for {shared.addressedTo}
+            {shared.ref} · Prepared for {shared.addressedTo}
             {/* A `date` column, so `longDay` and never `longInstant`. This is
                 the CLIENT's copy of the quote, and it was the one screen on
                 the product where a client read an ISO date. */}
@@ -221,22 +221,12 @@ export default function SharedProposalPage() {
               // no internal ids — deliberately — so position is the key.
               <tr key={`${String(i)}-${l.description}`}>
                 <Td>{l.description}</Td>
+                <Td align="right">{formatCount(l.quantity)}</Td>
+                <Td align="right">{formatMoney(l.unitAmount, shared.currency)}</Td>
                 <Td align="right">
-                  <span className="mono">{formatCount(l.quantity)}</span>
+                  {Number(l.discountPercent) === 0 ? "None" : `${formatCount(l.discountPercent)}%`}
                 </Td>
-                <Td align="right">
-                  <span className="mono">{formatMoney(l.unitAmount, shared.currency)}</span>
-                </Td>
-                <Td align="right">
-                  <span className="mono">
-                    {Number(l.discountPercent) === 0
-                      ? "none"
-                      : `${formatCount(l.discountPercent)}%`}
-                  </span>
-                </Td>
-                <Td align="right">
-                  <span className="mono">{formatMoney(l.net, shared.currency)}</span>
-                </Td>
+                <Td align="right">{formatMoney(l.net, shared.currency)}</Td>
               </tr>
             ))}
           </tbody>
@@ -247,7 +237,9 @@ export default function SharedProposalPage() {
         <Stat
           label="Total"
           value={formatMoney(shared.totals.net, shared.currency)}
-          {...(shared.totals.discount !== "0"
+          /* "0.00" is no discount too: the wire sends a decimal string, and
+             comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
+          {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
             ? {
                 note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
               }
@@ -288,9 +280,8 @@ export default function SharedProposalPage() {
         <div ref={answerCard} tabIndex={-1}>
           <Card>
             <CardTitle level={2}>Your answer</CardTitle>
-            <p className="muted text-md mb-3">
-              Accept or decline this proposal. Your name is recorded with your answer, and{" "}
-              {shared.firmName} is told at once.
+            <p className="text-md mb-3">
+              Your name is recorded with your answer, and {shared.firmName} is told at once.
             </p>
             {/* Toggle buttons, not tabs: two answers, one ready at a time. */}
             <div className="cluster mb-4" role="group" aria-label="Your answer">

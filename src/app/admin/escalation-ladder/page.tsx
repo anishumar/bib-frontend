@@ -68,24 +68,21 @@ const WATCHES = [
   {
     value: "work_item_due",
     label: "A task is past its due date",
-    detail:
-      "Counted from the turnaround promised for the service, which becomes the task's due date. " +
-      "A task for a service with no turnaround has no due date, so this watch skips it.",
+    // Counted from the service's turnaround, which becomes the task's due
+    // date; a service with no turnaround gives no due date, so it is skipped.
+    detail: "From the due date. Tasks with no due date are skipped.",
   },
   {
     value: "work_item_unassigned",
     label: "Nobody has picked a task up",
-    detail:
-      "Counted from the day the task appeared. A task stays unassigned when the client has no " +
-      "SPOC to route it to, so this is the queue to keep an eye on.",
+    detail: "From the day the task appeared, e.g. a client with no SPOC.",
   },
   {
     value: "obligation_target",
     label: "A filing is past our own target",
-    detail:
-      "Your firm's own target date on the compliance calendar, set a number of days before the " +
-      "legal due date. This warning fires while the legal date is still ahead. Once the legal " +
-      "date passes, the filing goes to the partner decision queue instead.",
+    // Fires while the legal date is still ahead; once it passes, the filing
+    // goes to the partner decision queue instead.
+    detail: "Your own target, before the legal date. After it, partners decide.",
   },
 ] as const;
 
@@ -93,14 +90,12 @@ const TARGETS = [
   {
     value: "assignee",
     label: "Whoever holds it",
-    detail: "A reminder to the person holding the task. Nothing happens if nobody holds it.",
+    detail: "A reminder to the person holding it. Nobody holds it: nothing.",
   },
   {
     value: "manager",
     label: "Their manager",
-    detail:
-      "Taken from who reports to whom on the People page. If no manager is recorded for the " +
-      "person, this step reaches nobody, and the queue says so on the row.",
+    detail: "From People. No manager recorded: it reaches nobody, and says so.",
   },
   {
     value: "grade_at_least",
@@ -108,9 +103,7 @@ const TARGETS = [
     // narrows: "Everybody at a grade and above" rendered as "Everybody at a
     // grade and abo". Found by opening the form, not by typechecking it.
     label: "A grade and above",
-    detail:
-      "Everyone at that level and above sees it, not just one person. So it still reaches " +
-      "somebody when one partner is on leave.",
+    detail: "Everyone at that grade and above, so leave does not stop it.",
   },
 ] as const;
 
@@ -215,26 +208,28 @@ export default function EscalationLadderPage() {
 
   return (
     <Page>
+      {/* No lede (Wave 4): when the firm is told work has stalled. Escalated
+          items show on the work board, under Escalated. The one brand button
+          writes the ladder; the form takes the page while open. */}
       <PageHeader
-        eyebrow="How work runs"
         title="Escalation ladder"
-        lede={
-          <>
-            Decide when the firm is told that work has stalled: a task overdue, a task nobody has
-            picked up, or a filing past your own target. Escalated items show on the{" "}
-            <Link href="/work-items">work board</Link>, under Escalated.
-          </>
+        aside={
+          editing ? undefined : (
+            <Button ref={editTrigger} onClick={() => { setEditing(true); }}>
+              {inForce.length === 0 ? "Write the ladder" : "New version"}
+            </Button>
+          )
         }
       />
 
       <ErrorNotice error={error} />
 
       <Notice tone="neutral">
+        {/* Editing later is safe: every notice keeps the days it fired at,
+            so a shortened step cannot make yesterday's escalation look early. */}
         <p>
-          <strong>Nothing here fires until you publish it, and nothing is set by default.</strong>{" "}
-          A firm with no ladder escalates nobody. Editing the ladder later is safe: every notice
-          keeps the number of days it fired at, so shortening a step tomorrow cannot make
-          yesterday&rsquo;s escalation look early.
+          <strong>Nothing fires until you publish it.</strong> Nothing is set by default. See
+          escalations on the <Link href="/work-items">work board</Link>.
         </p>
       </Notice>
 
@@ -256,16 +251,10 @@ export default function EscalationLadderPage() {
       ) : (
         <>
           <Card>
-            <div className="row">
-              <h2 className="card-title">In force</h2>
-              <Button ref={editTrigger} size="sm" onClick={() => { setEditing(true); }}>
-                {inForce.length === 0 ? "Write the ladder" : "New version"}
-              </Button>
-            </div>
+            <h2 className="card-title">In force</h2>
             {inForce.length === 0 ? (
               <Empty title="No ladder is published" icon="alert">
-                Nothing is being watched. Until a step is published, an overdue task or a filing
-                past your own target is not flagged to anyone.
+                Nothing is watched. Late or unpicked work is not flagged to anyone.
               </Empty>
             ) : (
               <RungTable rungs={inForce} grades={grades} />
@@ -277,12 +266,12 @@ export default function EscalationLadderPage() {
               <div className="row">
                 <div>
                   <h2 className="card-title">
-                    Draft <Pill tone="warn">not in force</Pill>
+                    Draft <Pill dot tone="warn">Not in force</Pill>
                   </h2>
                   {/* A draft that was never published is a real state, and a
                       firm needs to see it rather than wonder why its edit did
                       nothing. /catalogue makes the same point. */}
-                  <Sub>Saved but not published. Nothing is escalating on these numbers.</Sub>
+                  <Sub>Nothing escalates on these numbers until you publish.</Sub>
                 </div>
                 <Button
                   size="sm"
@@ -324,12 +313,10 @@ function RungTable({ rungs, grades }: { rungs: Rung[]; grades: StaffGrade[] }) {
             <tr key={r.key}>
               <Td>{WATCHES.find((w) => w.value === r.watch)?.label ?? r.watch}</Td>
               <Td>
-                <span className="mono">{r.afterDays}</span> {r.afterDays === 1 ? "day" : "days"}
+                {r.afterDays} {r.afterDays === 1 ? "day" : "days"}
               </Td>
               <Td>{targetWords(r, grades)}</Td>
-              <Td>
-                <Pill tone="quiet">{r.label}</Pill>
-              </Td>
+              <Td>{r.label}</Td>
             </tr>
           ))}
         </tbody>
@@ -572,21 +559,20 @@ function LadderForm({
             <Field label="What to call this step">
               <Input
                 value={rung.label}
-                placeholder="Tell their manager"
+                placeholder="e.g. Tell their manager"
                 onChange={(e) => { update(index, { label: e.target.value }); }}
               />
             </Field>
             <Field label="Short name">
               <Input
                 value={rung.key}
-                placeholder="manager"
+                placeholder="e.g. manager"
                 onChange={(e) => { update(index, { key: e.target.value }); }}
               />
             </Field>
           </FieldRow>
           <p className="field-hint">
-            The name is what people see on the queue. The short name is stored on every notice
-            this step has raised, so renaming the step later does not change old notices.
+            The name shows on the queue. Old notices keep the short name they fired under.
           </p>
           {/* Its own line, not a column of the row. The reason written here
               before was wrong in its detail — `.field-row` is a GRID, not
@@ -613,8 +599,8 @@ function LadderForm({
       {grades.length === 0 && (
         <Notice tone="warn">
           <p>
-            Your firm has no grades set up yet, so a step cannot be sent to a grade. Add them on{" "}
-            <Link href="/admin/grades">Grades</Link> first.
+            No grades yet, so a step cannot go to a grade. Add them on{" "}
+            <Link href="/admin/grades">Grades</Link>.
           </p>
         </Notice>
       )}
@@ -634,10 +620,7 @@ function LadderForm({
           </Button>
         </span>
       </div>
-      <p className="field-hint">
-        Saving creates a draft. Nothing escalates from a draft until you publish it. The ladder in
-        force is the one published last.
-      </p>
+      <p className="field-hint">Saved as a draft. Nothing escalates until you publish it.</p>
     </div>
   );
 }

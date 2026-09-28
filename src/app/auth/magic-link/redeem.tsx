@@ -96,7 +96,7 @@ export function RedeemMagicLink() {
             <h1>This link no longer works</h1>
           </div>
           <Card>
-            <p className="muted">{message}</p>
+            <p>{message}</p>
           </Card>
           <Button variant="secondary" onClick={() => { router.push("/login"); }}>
             Back to sign in

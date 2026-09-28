@@ -116,7 +116,7 @@ function ResetPassword() {
                 <FieldStack>
                   <Field
                     label="New password"
-                    hint="At least 12 characters. Length is the only rule — a long passphrase beats a short one with symbols."
+                    hint="At least 12 characters. A long phrase works best."
                   >
                     <Input
                       type="password"
@@ -171,8 +171,7 @@ function ResetPassword() {
               only RESET links behave this way; sign-in links do not cancel
               each other. */}
           <p className="muted">
-            Asked for more than one link? Only the most recent one works — each new request
-            cancels the ones before it.
+            Asked for more than one link? Only the newest one works.
           </p>
           <Button
             variant="link"

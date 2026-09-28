@@ -145,11 +145,9 @@ export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
           title="Waiting on you"
           level={2}
           count={centre.awaitingYou.length}
-          lede={
-            mayRespond
-              ? "Each of these is something the firm has asked you for. Answer it here and it goes straight to the person handling that work."
-              : "Your login can read everything here but cannot reply. Ask your contact at the firm to give this address permission to respond, or reply from a colleague's login."
-          }
+          {...(mayRespond
+            ? {}
+            : { lede: "Your login can read these but cannot reply. Ask the firm for access." })}
         >
           <div className="flex flex-col gap-3">
             {centre.awaitingYou.map((ask) => (
@@ -176,11 +174,8 @@ export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
                   card with no controls on it at all — and, because all their
                   asks were answered, that was the only sentence about them on
                   the page. */}
-              You have answered these. They stay here until the firm confirms it has what it
-              needs
-              {mayRespond
-                ? ". If you sent the wrong thing, you can still send another."
-                : ". Your login can read them but cannot reply."}
+              They stay here until the firm has what it needs
+              {mayRespond ? ". Sent the wrong thing? Send another." : ". Your login cannot reply."}
             </>
           }
         >
@@ -294,7 +289,7 @@ function AskCard({
       <div className="flex flex-col gap-2 text-sm">
         {/* THE FIRM'S OWN WORDS, VERBATIM, under a line saying whose they are —
             the same treatment `blocked_reason` gets, for the same reason. */}
-        <p>{ask.prompt}</p>
+        <p className="text-md">{ask.prompt}</p>
         <p className="muted">
           {ask.companyName ?? "About your account"} · {ask.workItemTitle} · asked{" "}
           {longInstant(ask.raisedAt)}
@@ -336,7 +331,7 @@ function AskCard({
                 </Field>
                 <Field
                   label="Anything to say about it (optional)"
-                  hint="Or answer in words instead. 'We do not have this' is a valid answer."
+                  hint="Or answer in words, e.g. 'We do not have this'."
                 >
                   <Textarea
                     rows={2}
@@ -430,7 +425,7 @@ function SentLine({ response }: { response: PortalAskResponse }) {
         {who} {what}
       </strong>{" "}
       · {longInstant(response.respondedAt)}
-      {response.answerText !== null && <div>{response.answerText}</div>}
+      {response.answerText !== null && <div className="text-ink">{response.answerText}</div>}
     </div>
   );
 }

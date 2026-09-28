@@ -20,6 +20,7 @@ import {
   FieldStack,
   Input,
   Pill,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -115,13 +116,9 @@ export default function WorkVocabularyPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="How work runs"
-        title="Work states and priorities"
-        lede="The words your firm uses for its tasks. Rename any of them, add your own, or change
-        what each one means. The tick boxes decide how a task is treated, not the names, so
-        renaming is always safe."
-      />
+      {/* No lede (Wave 4): the firm's words for its tasks. The tick boxes
+          decide how a task is treated, never the names, so renaming is safe. */}
+      <PageHeader title="Work states and priorities" />
       <ErrorNotice error={error} />
 
       <Card>
@@ -135,20 +132,20 @@ export default function WorkVocabularyPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Code</Th>
               <Th style={{ width: 90 }}>Order</Th>
               <Th>Starting</Th>
               <Th>Finished</Th>
               <Th>Done, not dropped</Th>
               <Th>Blocked</Th>
               <Th>With a checker</Th>
-              <Th>Status</Th>
-              <Th />
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
             {states.map((s) => (
-              <tr key={s.id} data-inactive={!s.isActive}>
+              <tr key={s.id}>
                 <Td>
                   <CommitText
                     key={`${s.id}:${s.name}`}
@@ -163,11 +160,21 @@ export default function WorkVocabularyPage() {
                       void act(s.id, () => patchState(s.id, { name }));
                     }}
                   />
+                  {/* The code never changes (an audit event or an import that
+                      recorded it would stop resolving), so it is a line under
+                      the name, and a retired state says so there. */}
+                  <Sub>
+                    {s.code}
+                    {!s.isActive && (
+                      <>
+                        {" "}
+                        <Pill dot tone="danger">
+                          Retired
+                        </Pill>
+                      </>
+                    )}
+                  </Sub>
                 </Td>
-                {/* The code never changes. It is the firm's stable handle, and
-                    an audit event or an import that recorded it would stop
-                    resolving if it moved. */}
-                <Td className="mono muted">{s.code}</Td>
                 <Td>
                   <CommitNumber
                     key={`${s.id}:${String(s.sortOrder)}`}
@@ -275,11 +282,6 @@ export default function WorkVocabularyPage() {
                     }}
                   />
                 </Td>
-                <Td>
-                  <Pill tone={s.isActive ? "ok" : "danger"}>
-                    {s.isActive ? "in use" : "retired"}
-                  </Pill>
-                </Td>
                 <Td align="right">
                   {/* Named by the state. Twelve buttons on this screen read
                       "Retire", and it is the destructive one. */}
@@ -300,15 +302,13 @@ export default function WorkVocabularyPage() {
             </tbody>
           </Table>
         </TableWrap>
+        {/* Starting: exactly one; marking another moves it. Finished records
+            the completion time. Blocked makes a written reason mandatory. With a
+            checker is the one box that moves work on its own. Every box
+            unticked is valid. Retiring keeps a state on the tasks in it. */}
         <p className="field-hint">
-          <strong>Starting</strong> is where new work begins. There is exactly one, and marking
-          another row moves it. <strong>Finished</strong> records the completion time and takes
-          the task off the open board. <strong>Blocked</strong> makes a written reason mandatory
-          whenever a task enters that state, so a delay can be explained later.
-          <strong> With a checker</strong> is the one box that moves work on its own: sending a
-          task for review puts it in that state, so the board column and the review queue always
-          agree. Leaving every box unticked is a valid answer. Retiring a state keeps it on every
-          task already in it. It just stops being offered.
+          Click a name or order to change it. <strong>Blocked</strong> needs a written reason.{" "}
+          <strong>With a checker</strong> is where Send for review puts a task.
         </p>
         <AddState
           busy={busy === "new-state"}
@@ -327,17 +327,17 @@ export default function WorkVocabularyPage() {
           <thead>
             <tr>
               <Th>Name</Th>
-              <Th>Code</Th>
               <Th style={{ width: 90 }}>Rank</Th>
               <Th>Default</Th>
               <Th>Statutory</Th>
-              <Th>Status</Th>
-              <Th />
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
             </tr>
           </thead>
           <tbody>
             {priorities.map((p) => (
-              <tr key={p.id} data-inactive={!p.isActive}>
+              <tr key={p.id}>
                 <Td>
                   <CommitText
                     key={`${p.id}:${p.name}`}
@@ -348,8 +348,18 @@ export default function WorkVocabularyPage() {
                       void act(p.id, () => patchPriority(p.id, { name }));
                     }}
                   />
+                  <Sub>
+                    {p.code}
+                    {!p.isActive && (
+                      <>
+                        {" "}
+                        <Pill dot tone="danger">
+                          Retired
+                        </Pill>
+                      </>
+                    )}
+                  </Sub>
                 </Td>
-                <Td className="mono muted">{p.code}</Td>
                 <Td>
                   <CommitNumber
                     key={`${p.id}:${String(p.rank)}`}
@@ -385,11 +395,6 @@ export default function WorkVocabularyPage() {
                     }}
                   />
                 </Td>
-                <Td>
-                  <Pill tone={p.isActive ? "ok" : "danger"}>
-                    {p.isActive ? "in use" : "retired"}
-                  </Pill>
-                </Td>
                 <Td align="right">
                   <Button
                     size="sm"
@@ -408,12 +413,12 @@ export default function WorkVocabularyPage() {
             </tbody>
           </Table>
         </TableWrap>
+        {/* Statutory is what work with a legal deadline gets automatically, so
+            nobody has to remember to mark a filing urgent; it may be the same
+            row as Default. */}
         <p className="field-hint">
-          Rank <strong>1 is the most urgent</strong>, and the board sorts by it. The names are
-          yours. <strong>Default</strong> is what ordinary work is created with.{" "}
-          <strong>Statutory</strong> is what work with a legal deadline gets automatically, so
-          nobody has to remember to mark a filing urgent. The two may be the same row if you do
-          not want statutory work treated differently.
+          Rank 1 is the most urgent. <strong>Statutory</strong> is what work with a legal
+          deadline gets.
         </p>
         <AddPriority
           busy={busy === "new-priority"}
@@ -496,6 +501,7 @@ function CommitText({
 
   return (
     <Input
+      variant="quiet"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -536,6 +542,7 @@ function CommitNumber({
 
   return (
     <Input
+      variant="quiet"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -587,7 +594,7 @@ function AddState({
             <Field label="Code">
               <Input
                 value={code}
-                placeholder="with_auditor"
+                placeholder="e.g. with_auditor"
                 onChange={(e) => { setCode(e.target.value); }}
               />
             </Field>
@@ -677,7 +684,7 @@ function AddPriority({
             <Field label="Code">
               <Input
                 value={code}
-                placeholder="urgent"
+                placeholder="e.g. urgent"
                 onChange={(e) => { setCode(e.target.value); }}
               />
             </Field>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { StaffGrade } from "@/lib/api/client";
@@ -8,17 +8,18 @@ import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import {
   Button,
-  Card,
-  CardHead,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
+  FieldStack,
   Input,
   Pill,
   Table,
   TableWrap,
   Td,
   Th,
+  useSwapFocus,
 } from "@/components/ui";
 
 /**
@@ -118,12 +119,10 @@ export default function GradesPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="The firm"
-        title="Grades"
-        lede="Your firm's seniority levels, from most junior to most senior. They decide who is senior enough to check someone else's work, for example a rule that says “Manager or above”."
-        aside={<Pill tone="quiet">{grades.length} grades</Pill>}
-      />
+      {/* No lede (Wave 4): the seniority ladder, most junior first, read by
+          the firm's "Manager or above" review rule. Add a grade is the one
+          brand button and opens a dialog. */}
+      <PageHeader title="Grades" aside={<AddGrade onAdded={() => void load()} />} />
 
       <ErrorNotice error={error} />
 
@@ -143,7 +142,7 @@ export default function GradesPage() {
           </thead>
           <tbody>
             {grades.map((g) => (
-              <tr key={g.id} data-inactive={!g.isActive}>
+              <tr key={g.id}>
                 <Td>
                   <GradeName
                     key={`${g.id}:${g.name}`}
@@ -160,9 +159,7 @@ export default function GradesPage() {
                 {/* The code never changes. It is the firm's stable handle for
                     the rung, and anything that has recorded it — an audit event,
                     an import script — would stop resolving if it moved. */}
-                <Td>
-                  <span className="mono muted">{g.code}</span>
-                </Td>
+                <Td>{g.code}</Td>
                 <Td>
                   <GradeRank
                     key={`${g.id}:${String(g.rank)}`}
@@ -173,8 +170,8 @@ export default function GradesPage() {
                   />
                 </Td>
                 <Td>
-                  <Pill tone={g.isActive ? "ok" : "danger"}>
-                    {g.isActive ? "in use" : "retired"}
+                  <Pill dot tone={g.isActive ? "ok" : "danger"}>
+                    {g.isActive ? "In use" : "Retired"}
                   </Pill>
                 </Td>
                 <Td align="right">
@@ -196,14 +193,13 @@ export default function GradesPage() {
           </tbody>
           </Table>
         </TableWrap>
+        {/* Ranks need not be consecutive, and two grades may share one.
+            Retiring keeps a grade on whoever holds it; it only stops being
+            offered to anybody new. */}
         <p className="field-hint">
-          Rank 1 is the most junior. A review rule like “Manager or above” compares these ranks.
-          Ranks need not be consecutive, and two grades may share one. Retiring a grade keeps it
-          on everybody who already holds it. It only stops being offered to anybody new.
+          Click a name or rank to change it. Rank 1 is the most junior.
         </p>
       </Stack>
-
-      <AddGrade onAdded={() => void load()} onError={setError} />
     </Page>
   );
 }
@@ -245,7 +241,7 @@ function GradeName({
 
   return (
     <Input
-      size="sm"
+      variant="quiet"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -289,9 +285,10 @@ function GradeRank({
 
   return (
     <Input
-      size="sm"
+      variant="quiet"
       type="number"
       min={1}
+      className="max-w-24"
       value={draft}
       disabled={disabled}
       aria-label={label}
@@ -314,17 +311,16 @@ function GradeRank({
  * plausible wrong rank is indistinguishable from a real one and this is the
  * number that decides who may sign off a statutory filing.
  */
-function AddGrade({
-  onAdded,
-  onError,
-}: {
-  onAdded: () => void;
-  onError: (message: string) => void;
-}) {
+function AddGrade({ onAdded }: { onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const { trigger } = useSwapFocus(open);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [rank, setRank] = useState("1");
   const [busy, setBusy] = useState(false);
+  // The refusal is shown IN the dialog, beside the form that caused it.
+  const [error, setError] = useState<string | null>(null);
+  const formId = useId();
 
   async function submit(): Promise<void> {
     setBusy(true);
@@ -332,70 +328,84 @@ function AddGrade({
     // APPEARS, so a second identical refusal has to be a second absent →
     // present transition or the press looks like it did nothing. It also
     // stops a refusal from the LAST action sitting over this one.
-    onError("");
+    setError(null);
     const result = await api.POST("/api/v1/tenancy/grades", {
       body: { code, name, rank: Number(rank) },
     });
     setBusy(false);
     if (result.error) {
-      onError(apiError(result.error).message);
+      setError(apiError(result.error).message);
       return;
     }
     setCode("");
     setName("");
+    setOpen(false);
     onAdded();
   }
 
   return (
-    <Card>
-      <CardHead title="Add a grade" level={2} />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <div className="stack">
-          <FieldRow>
-            <Field label="Name">
-              <Input
-                required
-                value={name}
-                placeholder="Article"
-                onChange={(e) => { setName(e.target.value); }}
-              />
-            </Field>
-            <Field label="Code" hint="Permanent once set.">
-              <Input
-                required
-                value={code}
-                placeholder="article"
-                onChange={(e) => { setCode(e.target.value); }}
-              />
-            </Field>
-            <Field label="Rank">
-              <Input
-                type="number"
-                min={1}
-                required
-                value={rank}
-                onChange={(e) => { setRank(e.target.value); }}
-              />
-            </Field>
-          </FieldRow>
-
-          <div>
-            <Button type="submit" loading={busy}>
+    <>
+      <Button ref={trigger} onClick={() => { setOpen(true); }}>
+        Add a grade
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => { setOpen(false); }}
+        title="Add a grade"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setOpen(false); }}>
+              Cancel
+            </Button>
+            <Button type="submit" form={formId} loading={busy}>
               Add
             </Button>
-            <p className="field-hint">
-              The code is permanent and is how this grade is referred to everywhere else. To
-              slot a grade in below an existing one, give it the rank you want and edit the
-              ranks above it.
-            </p>
-          </div>
-        </div>
-      </form>
-    </Card>
+          </>
+        }
+      >
+        <form
+          id={formId}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <FieldStack>
+            <FieldRow>
+              <Field label="Name">
+                <Input
+                  required
+                  autoFocus
+                  value={name}
+                  placeholder="e.g. Article"
+                  onChange={(e) => { setName(e.target.value); }}
+                />
+              </Field>
+              <Field label="Code">
+                <Input
+                  required
+                  value={code}
+                  placeholder="e.g. article"
+                  onChange={(e) => { setCode(e.target.value); }}
+                />
+              </Field>
+              <Field label="Rank">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={rank}
+                  onChange={(e) => { setRank(e.target.value); }}
+                />
+              </Field>
+            </FieldRow>
+            {/* UNDER the row (the FieldRow rule). To slot a grade in below an
+                existing one, give it that rank and edit the ranks above. */}
+            <p className="field-hint">The code cannot change later. Rank 1 is the most junior.</p>
+            <ErrorNotice error={error} />
+          </FieldStack>
+        </form>
+      </Dialog>
+    </>
   );
 }

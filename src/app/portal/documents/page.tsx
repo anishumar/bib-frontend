@@ -145,11 +145,7 @@ export default function PortalLibraryPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={firm}
-        title="Your documents"
-        lede={`Everything ${firm} has shared with you, newest first. Nothing here expires.`}
-      />
+      <PageHeader title="Your documents" />
 
       {/* TWO EMPTY STATES, TWO SENTENCES. A client who has been given nothing
           should be told to ask; a client whose search matched nothing should be
@@ -157,9 +153,7 @@ export default function PortalLibraryPage() {
           declining to say which is true — T6.5's own finding, applied again. */}
       {documents.length === 0 ? (
         <Empty title="Nothing shared with you yet" icon="files">
-          {firm} has not yet put any of your documents here. Filed returns, challans and
-          signed letters appear here as they are made. If you are looking for something in
-          particular, ask them for it and it can be added.
+          Filed returns, challans and signed letters appear here once {firm} shares them.
         </Empty>
       ) : (
         <>
@@ -169,11 +163,11 @@ export default function PortalLibraryPage() {
             <div className="max-w-[26rem]">
               <Field
                 label="Find one"
-                hint="Matches the title, the file name, and the job or invoice it belongs to."
+                hint="Searches the title, file name and what it is about."
               >
                 <Input
                   value={query}
-                  placeholder="challan, GSTR-3B, July…"
+                  placeholder="e.g. challan, GSTR-3B, July"
                   onChange={(e) => {
                     setQuery(e.target.value);
                   }}
@@ -208,8 +202,7 @@ export default function PortalLibraryPage() {
                   </Button>
                 }
               >
-                Nothing here matches what you typed. Try a shorter word, such as part of a
-                file name or the month it was for.
+                Nothing matches. Try a shorter word, such as the month.
               </NoResults>
             ) : (
               <TableWrap>
@@ -242,9 +235,7 @@ export default function PortalLibraryPage() {
           look harder or to ask, and a page that stayed silent would leave them
           concluding the firm never filed it. */}
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        {firm} decides which of your documents appear here. Their own working papers and
-        internal notes do not. If something you expect is missing, ask them and they can
-        share it.
+        Missing something? Ask {firm} to share it.
       </p>
     </Page>
   );
@@ -334,7 +325,7 @@ function DocumentRow({ doc }: { doc: PortalDocument }) {
           )}
         </Td>
         <Td>
-          <span className="mono">{longInstant(doc.addedOn)}</span>
+          {longInstant(doc.addedOn)}
         </Td>
         <Td align="right" className="nowrap">
           {/* NAMED BY THE FILE. Every row draws this button and they all say
