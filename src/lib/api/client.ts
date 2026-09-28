@@ -1332,6 +1332,12 @@ export async function fetchDocumentBytes(
 export type DashboardOverview =
   paths["/api/v1/dashboard/overview"]["get"]["responses"][200]["content"]["application/json"];
 
+/** What each of the firm's companies billed, month by month (Wave 5): issued
+ *  invoices before tax, less credit notes, each company in its own currency,
+ *  and the whole firm in the reporting currency. */
+export type RevenueByCompany =
+  paths["/api/v1/dashboard/revenue/by-company"]["get"]["responses"][200]["content"]["application/json"];
+
 /** One row of a grouped figure — a client, a service. Carries the NAME. */
 export type DashboardSlice =
   paths["/api/v1/dashboard/mrr/{axis}"]["get"]["responses"][200]["content"]["application/json"]["slices"][number];

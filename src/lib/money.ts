@@ -111,6 +111,18 @@ export function commonUnits(
   };
 }
 
+/** The exact sum of SIGNED decimal strings at any scale ("-5000.0000" is a
+ *  month a credit note outweighed), or null if one is not a plain decimal.
+ *  `addDecimals` is the same for amounts that cannot be negative. */
+export function sumSigned(amounts: readonly string[]): string | null {
+  const common = commonUnits(amounts);
+  if (common === null) return null;
+  return fromScaledUnits(
+    common.units.reduce((a, b) => a + b, BigInt(0)),
+    common.scale,
+  );
+}
+
 /**
  * `part` as a share of `whole` in PER MILLE, 0 to 1000, worked out on `bigint`.
  * A chart's geometry is drawn from this, never from money as a JS number: the

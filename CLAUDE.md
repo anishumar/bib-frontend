@@ -396,6 +396,54 @@ re-run with `--update`, and one hint on the letter page). Over the merged branch
 - **The email's Accept link names the API's `BIB_APP_BASE_URL`.** The shared Wave 4 API was
   started with W4A's web port, so a walk on another port follows the token path, not the origin.
 
+## Wave 5: the Aurora shell, quiet motion, and our own charts (2026-09-29)
+
+The user's cut, and it binds: on the frontend QA runs, **only the sidebar and the page ground
+change** (Aurora glass), no text, no font, no other redesign; then **decent, not bold** motion on
+buttons and headline numbers, and **charts in shadcn's look without its library**. Brief:
+`bib/prompts/entity-proposal-builder/W5-AURORA-SHELL.md`.
+
+- **The ground and the glass are atmosphere.** `--aurora` (a mesh of four soft lights, a shine and
+  a fine grain; a low cool version in dark) is painted ONCE on a fixed `body::before`, never
+  `background-attachment: fixed` (repaints on scroll; iPhone Safari stretches it). The sidebar is
+  frosted glass (`--glass-*`, `--r-lg` 18px, the one third radius). Nothing on a card, pill, button
+  or line of text takes a colour from either, so the status and brand rules stand. The topbar, the
+  builder's sticky footer and the cards were left as they were: the user's call, not W5's.
+- **Motion lives in three places and nowhere else.** A `.btn` (and the shadcn button) rises 1px onto
+  `--shadow-sm` under the pointer and settles to `scale(.98)` pressed, quicker than it rose; never
+  on a disabled, `aria-disabled` or busy button, never on `link`, no shadow on `ghost`. A headline
+  figure counts up ONCE (`<CountUp>`, `--dur-count` 500ms). A chart draws itself in once. All three
+  stop under reduced motion (`useReducedMotion` in `src/lib`, plus the CSS blocks).
+- **`<CountUp>` never makes money a JS number.** Each frame is the amount's `bigint` units at its own
+  scale (`scaledUnits` in `lib/money`, which takes the API's four-place strings that `toMinorUnits`
+  refuses) times an eased per-mille step, printed by `formatMoney`; the last frame is the final text.
+  The final text holds the width invisibly under the counting one; a screen reader hears only the
+  final value. `<Stat>` (both) counts a NUMBER value on its own and money when given `figure`, and
+  prints exactly what it did before at rest. Never in a table cell, pill, date, tab count or the nav.
+- **The chart kit is ours** (`src/components/ui/chart`, `<BarChart>` / `<AreaChart>`): plain SVG in
+  real pixels from a `ResizeObserver`, the words as HTML over it, no dependency. Geometry is a per
+  mille of a round axis worked out on `bigint` (`commonUnits`, `perMille`); ticks are `axisMoney`
+  ("₹1 L", "₹50K", "AED 5K"); every figure a person reads is `formatMoney`. Pointer and keyboard
+  (arrow keys between marks) show the same tooltip; "Show as a table" under every chart, so a tooltip
+  never gates a number. The drawn marks are pointer-transparent: a bar that swallowed the pointer
+  showed no tooltip when hovered, found by probing it.
+- **`--chart-1`** (#2f6fe0 / #5b8fe8) is ONE data series, never good or bad and never a Dept; where a
+  chart's colour IS a status (the ageing bars) it is `--muted` / `--danger`, with a legend in words.
+- **`/receivables`**: a strip (Outstanding, Overdue, each with its invoices) and "How late the money
+  is" (the dashboard's six buckets, lateness from `browserDay()` via `daysBefore`) beside "Who owes
+  it" (top six, then Everyone else), from the SAME rows as the table, no new call. **Different
+  currencies are never added together**: the rows carry no rate, so a firm owed in several gets a tab
+  per currency. Nothing when nothing is owed, or when the amounts are hidden from the login.
+- **`/dashboard` "Billing by company"**: small multiples, one area chart per company in its own
+  currency (they cannot share an axis; four hues on one chart failed a colour-blind check), four in
+  a row at 1440, and "All companies, in INR" above them from the API's per-month total. A company
+  with fewer than two months that have invoices says "Charts appear once two months have invoices."
+  instead of drawing empty axes. The read is `GET /dashboard/revenue/by-company` (backend CLAUDE.md,
+  "Billing by company").
+- **Weight**: no new package; `/dashboard` and `/receivables` grew by a few KB gzipped
+  (`bib/demo-assets/notes/w5-build/`). Fixture: `bib/demo-assets/tools/w5-fixture.mjs` (four
+  companies, six months, a credit note, a cancelled invoice, 16 clients owing in four currencies).
+
 ## The screens, and what they are for
 
 | Route | Is |

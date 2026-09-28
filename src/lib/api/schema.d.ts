@@ -17817,6 +17817,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/revenue/by-company": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each of the firm's companies billed, month by month
+         * @description One series per company in its own currency (they cannot share an axis), and the whole firm in the reporting currency. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. Summed in SQL on numeric; every amount is a decimal string. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    months?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billing by company */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardRevenueByCompany"];
+                    };
+                };
+                /** @description `months` is not a whole number from 1 to 24 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -21855,6 +21923,37 @@ export interface components {
         DashboardSlicesResponse: {
             currency: string;
             slices: components["schemas"]["DashboardSlice"][];
+        };
+        DashboardRevenueByCompany: {
+            reportingCurrency: string;
+            /** @description The last N calendar months, oldest first, as YYYY-MM. The last one is the month the FIRM is in now, on its own timezone, not the server's. */
+            months: string[];
+            /** @description The whole firm, every company, month by month, in the reporting currency. */
+            total: {
+                month: string;
+                billedReporting: string;
+                invoiceCount: number;
+            }[];
+            companies: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                jurisdiction: string | null;
+                /** @description The currency the company bills in, from where it is registered (IN INR, AE AED, SG SGD, US USD, else the reporting currency): the one table `defaultCurrency` on /firm-entities serves. */
+                currency: string;
+                months: {
+                    /** @description YYYY-MM. */
+                    month: string;
+                    /** @description A decimal STRING in the company's own `currency`, never a number. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. */
+                    billed: string;
+                    /** @description The same month in the firm's reporting currency, every document at the rate stored on it, never a rate looked up today. Includes invoices in other currencies. */
+                    billedReporting: string;
+                    /** @description Invoices counted in `billed`. */
+                    invoiceCount: number;
+                }[];
+                /** @description Invoices it issued in the window in ANOTHER currency: in `billedReporting`, not in `billed`, because nothing stores a rate between two currencies that are not the reporting one. Zero for a company billing in the reporting currency. */
+                otherCurrencyInvoices: number;
+            }[];
         };
     };
     responses: never;
