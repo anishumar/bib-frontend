@@ -13,6 +13,12 @@ import { AppShell, themeScript } from "@/components/layout";
  * Italic is loaded, not synthesised: a placeholder and "Not set" are both
  * italic, and a slanted regular is the browser guessing.
  *
+ * No `weight`: Source Sans 3 is a variable font, one file per subset covering
+ * 200–900, so the 400/600/700 we use all come from it. Naming the weights makes
+ * Google list that same file once per weight, and Turbopack's production build
+ * fails on the repeat ("next/font/google queries have exactly one entry") —
+ * `next dev` does not, which is how it got past the branch's own checks.
+ *
  * Loaded through `next/font` rather than a stylesheet link: the files are
  * fetched at build time and served from this origin, so there is no
  * third-party connection on the critical path, no layout shift when the real
@@ -20,7 +26,6 @@ import { AppShell, themeScript } from "@/components/layout";
  */
 const sans = Source_Sans_3({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "600", "700"],
   style: ["normal", "italic"],
   variable: "--font-sans",
   display: "swap",
