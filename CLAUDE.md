@@ -401,7 +401,8 @@ re-run with `--update`, and one hint on the letter page). Over the merged branch
 | Route | Is |
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
-| `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
+| `/` | where staff land: redirects to the Work board (V1.1, 2026-09-28). Clients land on `/portal` |
+| `/copilot` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so (the sidebar link reads "Not live yet"). The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
 | `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
 | `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
@@ -799,7 +800,13 @@ returns the permissions the session's role carries, so a link is shown only to s
 can use it — but every screen still shows the API's refusal verbatim when one arrives, because
 the API is the only place the answer actually lives.
 
-## `/` — AI Copilot, and the uuids that used to be the first thing anybody saw
+## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
+
+**It is not the landing any more (V1.1, 2026-09-28).** It was `/`, and every staff role signed
+in to "AI Copilot · Not live yet" with every sidebar group closed. Staff land on their work now
+(`homeFor` in `lib/api/home.ts`), the Copilot is one sidebar link carrying the note "Not live
+yet" (`NavItem.note`, drawn in the `.count` style), and the Delivery group is open by default
+(`NavGroup.openByDefault`) as well as whenever the current page is in it.
 
 This route was **Home**, and Home printed the session's user id, its tenant id and a row of
 permission keys above the fold. Every one of those is a fact about the SYSTEM. A partner
