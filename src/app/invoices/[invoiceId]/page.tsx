@@ -214,8 +214,8 @@ export default function InvoicePage() {
               consequence={
                 <p>
                   {invoice.number} becomes a tax invoice dated {longDay(browserDay())}. Its
-                  lines and amounts are then locked. To correct it later, you cancel it and
-                  raise a new invoice.
+                  lines and amounts are then locked, and its PDF is filed and shown to the
+                  client. To correct it later, you cancel it and raise a new invoice.
                 </p>
               }
               onConfirm={() =>
@@ -925,15 +925,19 @@ export default function InvoicePage() {
           </p>
         </Card>
       )}
-      {/* An invoice's own paperwork — the issued PDF once T3.8 renders one, the
-          client's remittance advice, a signed challan. `party:write` decides
-          what to OFFER; the API is still the only place the answer lives. */}
+      {/* An invoice's own paperwork: the issued copy (filed by Issue, and never
+          drawn again), the client's remittance advice, a signed challan.
+          `party:write` decides what to OFFER; the API is still the only place
+          the answer lives. Keyed on the status so Issue reloads the list with
+          its new copy on it. */}
       <Documents
+        key={invoice.status}
         subjectKind="invoice"
         subjectRef={invoiceId}
-        partyId={invoice?.partyId ?? undefined}
+        partyId={invoice.partyId}
         canWrite={permissions.includes("party:write")}
         renderable="invoice"
+        wentOut={invoice.issuedOn !== null}
         emptyHint="Upload a remittance advice, a challan or the issued copy."
       />
     </Page>

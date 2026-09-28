@@ -1497,6 +1497,7 @@ export default function LetterPage() {
         // A deleted draft gains nothing (0086): its files stay readable.
         canWrite={permissions.includes("party:write") && !deleted}
         renderable="engagement_letter"
+        wentOut={letter.status !== "draft"}
         emptyHint="Upload the signed copy here."
       />
 

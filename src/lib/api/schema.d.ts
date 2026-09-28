@@ -17819,7 +17819,7 @@ export interface paths {
         put?: never;
         /**
          * Produce a PDF of one of the firm's own documents
-         * @description Renders an engagement letter, an invoice or a proposal, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob.
+         * @description Renders an engagement letter, an invoice or a proposal, stores it as a `generated` document and attaches it to the record it came from. Re-rendering unchanged data produces the SAME bytes and therefore the same content hash — the store is content-addressed, so calling this twice costs one blob. An invoice or a letter is filed ONCE after it goes out (2026-09-29): the first copy after an invoice is issued (Issue files it) or a letter is sent is its copy of record, and a second is refused with 409 COPY_ALREADY_MADE. A draft's copy is the firm's own, titled Draft and never shown to the client.
          */
         post: {
             parameters: {
@@ -17872,6 +17872,15 @@ export interface paths {
                 };
                 /** @description No such record at this firm */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The issued invoice or sent letter already has its copy of record */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -18196,6 +18205,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description An issued invoice's or a sent letter's copy of record stays on it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -18233,7 +18251,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["DocumentsResponse"];
+                        "application/json": components["schemas"]["SubjectDocumentsResponse"];
                     };
                 };
                 /** @description Unknown subject kind */
@@ -22700,6 +22718,16 @@ export interface components {
         };
         DocumentLinksResponse: {
             links: components["schemas"]["DocumentLink"][];
+        };
+        SubjectDocument: components["schemas"]["Document"] & {
+            /**
+             * @description What this file is TO the subject it was listed for: `copy_of_record` is an issued invoice's or a sent letter's one copy, made once and never again; `draft_copy` is a draft printed for the firm, never shown to the client; `rendered` is any other copy the product made (a proposal's, or one made before 2026-09-29). Null for a file a person attached.
+             * @example copy_of_record
+             */
+            role: string | null;
+        };
+        SubjectDocumentsResponse: {
+            documents: components["schemas"]["SubjectDocument"][];
         };
         BrandAsset: {
             /** Format: uuid */

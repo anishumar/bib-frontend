@@ -1148,6 +1148,12 @@ export type StoredDocument =
  *  we issued" a comparison rather than a matter of trust. */
 export type StoredDocumentVersion = StoredDocument["latestVersion"];
 
+/** A file as ONE subject's list shows it: the document, and what it is to that
+ *  subject (`role`): `copy_of_record` for an issued invoice's or a sent letter's
+ *  one copy, `draft_copy` for a draft printed for the firm (2026-09-29). */
+export type SubjectFile =
+  paths["/api/v1/subjects/{subjectKind}/{subjectRef}/documents"]["get"]["responses"][200]["content"]["application/json"]["documents"][number];
+
 /** What a document is attached to. `subjectLabel` is NULL when the subject does
  *  not resolve — the reference carries no foreign key, so a dangling link is
  *  possible and is shown as unresolved rather than rendered blank. */
