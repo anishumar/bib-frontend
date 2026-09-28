@@ -407,8 +407,23 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
   a fine grain; a low cool version in dark) is painted ONCE on a fixed `body::before`, never
   `background-attachment: fixed` (repaints on scroll; iPhone Safari stretches it). The sidebar is
   frosted glass (`--glass-*`, `--r-lg` 18px, the one third radius). Nothing on a card, pill, button
-  or line of text takes a colour from either, so the status and brand rules stand. The topbar, the
-  builder's sticky footer and the cards were left as they were: the user's call, not W5's.
+  or line of text takes a colour from either, so the status and brand rules stand. The builder's
+  sticky footer and the cards were left as they were: the user's call, not W5's.
+- **The top bar is glass on the sidebar's line** (the user, after the first build: the full-width
+  band met the floating sidebar in a notch at the top-left). Both panes start one gutter down, same
+  radius and glass, one gutter apart. The header is sticky at 0 and `--topbar-h` + a gutter tall;
+  its `::before` is the bar, its `::after` the body's own ground (same fixed full-window box, same
+  background) clipped to the header's corner of the window, so a scrolled page never shows in the
+  gutter. Measured pixel-identical to the ground. Folded (60rem) the bar is a second strip under
+  the first and scrolls away with it.
+- **The sidebar's LIST scrolls, not the sidebar.** As the scroller, the whole sidebar pushed the
+  account block (name, Your account, Sign out) under the window's bottom edge as soon as a group was
+  opened. The brand, search box and account block stay put; `.sidebar > .nav` scrolls, with 4px of
+  padding for the focus ring. The Next dev badge sits bottom-right (`devIndicators`), off Sign out.
+- **The page mounts once.** `AppShell` used to return the page bare until `/auth/me` answered and
+  then again inside the frame, so every screen was built twice per load (two "Loading"s, its reads
+  twice, a count-up run twice). The frame now renders from the first paint with the page in the
+  same place; only the links, the account and the firm's name wait for the answer.
 - **Motion lives in three places and nowhere else.** A `.btn` (and the shadcn button) rises 1px onto
   `--shadow-sm` under the pointer and settles to `scale(.98)` pressed, quicker than it rose; never
   on a disabled, `aria-disabled` or busy button, never on `link`, no shadow on `ghost`. A headline

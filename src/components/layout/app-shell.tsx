@@ -603,11 +603,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   // by being brief.
   if (wrongApp || signedOut) return <Leaving />;
 
-  // Until `/auth/me` answers, render the page without chrome rather than a
-  // skeleton sidebar. A nav that appears and then loses half its links reads
-  // as a bug; a nav that arrives a beat late reads as loading.
-  if (!checked || principal === null) return <>{children}</>;
-
   /*
    * THE LOCKOUT.
    *
@@ -620,7 +615,11 @@ export function AppShell({ children }: { children: ReactNode }) {
    * So this replaces the app rather than sitting inside it. It is the one
    * screen in the product that is not optional.
    */
-  if (principal.tenantId === null && staffMemberships(memberships).length > 0) {
+  if (
+    principal !== null &&
+    principal.tenantId === null &&
+    staffMemberships(memberships).length > 0
+  ) {
     return (
       <ChooseFirm
         memberships={staffMemberships(memberships)}
@@ -632,7 +631,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const needle = query.trim().toLowerCase();
-  const groups = GROUPS.map((g) => {
+  const groups = principal === null ? [] : GROUPS.map((g) => {
     const allowed = g.items.filter((i) => visible(i, principal));
     return {
       label: g.label,
@@ -674,6 +673,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }).filter((g) => g.items.length > 0);
 
+  /*
+   * THE PAGE MOUNTS ONCE.
+   *
+   * Until `/auth/me` answered, this used to return the page bare and then,
+   * once it had, the page again inside the frame. A different parent is a
+   * different tree to React, so every page was built twice on every load:
+   * its "Loading" came up twice, it fetched its data twice, and a count-up ran
+   * twice. The frame is now there from the first render and the page sits in
+   * the same place in it throughout; what waits for the answer is only what
+   * needs it, the links and the account. They come in a beat late rather than
+   * as a skeleton, for the reason the old comment gave: a nav that appears and
+   * then loses half its links reads as a bug.
+   */
   return (
     <SessionContext.Provider value={principal}>
       <NavCountsContext.Provider value={reportCounts}>
@@ -714,164 +726,168 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </div>
 
-          <nav className="nav" aria-label="Sections">
-            {groups.map((group) => {
-              const here = group.items.some((i) => isCurrent(pathname, i.href));
-              /* A SEARCH OPENS EVERYTHING, and it has to: a result hidden
-                 inside a collapsed group is a search that answered and did not
-                 show you. Otherwise the reader's own choice wins, and where
-                 they have not made one, the group holding the current page is
-                 open. */
-              const expanded =
-                needle !== "" || (toggled[group.label] ?? (here || group.openByDefault));
+          {principal !== null && (
+            <>
+              <nav className="nav" aria-label="Sections">
+                {groups.map((group) => {
+                  const here = group.items.some((i) => isCurrent(pathname, i.href));
+                  /* A SEARCH OPENS EVERYTHING, and it has to: a result hidden
+                     inside a collapsed group is a search that answered and did not
+                     show you. Otherwise the reader's own choice wins, and where
+                     they have not made one, the group holding the current page is
+                     open. */
+                  const expanded =
+                    needle !== "" || (toggled[group.label] ?? (here || group.openByDefault));
 
-              /* A group with ONE screen is not a dropdown. Home behind a
-                 chevron is a click added to reach the thing a sidebar is most
-                 often used to reach. Read from `size` and never from what the
-                 search left behind — see the note on `size`. */
-              const solo = group.size === 1 ? group.items[0] : undefined;
-              if (solo !== undefined) {
-                return (
-                  <Link
-                    key={group.label}
-                    href={solo.href}
-                    className="nav-link nav-top"
-                    {...(isCurrent(pathname, solo.href)
-                      ? { "aria-current": "page" as const }
-                      : {})}
-                  >
-                    <Icon name={solo.icon} className="nav-icon" />
-                    <span className="label">{solo.label}</span>
-                    {solo.note !== undefined && <span className="count">{solo.note}</span>}
-                  </Link>
-                );
-              }
+                  /* A group with ONE screen is not a dropdown. Home behind a
+                     chevron is a click added to reach the thing a sidebar is most
+                     often used to reach. Read from `size` and never from what the
+                     search left behind — see the note on `size`. */
+                  const solo = group.size === 1 ? group.items[0] : undefined;
+                  if (solo !== undefined) {
+                    return (
+                      <Link
+                        key={group.label}
+                        href={solo.href}
+                        className="nav-link nav-top"
+                        {...(isCurrent(pathname, solo.href)
+                          ? { "aria-current": "page" as const }
+                          : {})}
+                      >
+                        <Icon name={solo.icon} className="nav-icon" />
+                        <span className="label">{solo.label}</span>
+                        {solo.note !== undefined && <span className="count">{solo.note}</span>}
+                      </Link>
+                    );
+                  }
 
-              return (
-                <div key={group.label} className="nav-group" data-here={here || undefined}>
-                  <button
-                    type="button"
-                    className="nav-link nav-top nav-group-head"
-                    aria-expanded={expanded}
-                    aria-controls={`nav-${group.label}`}
-                    onClick={() => {
-                      setToggled((t) => ({ ...t, [group.label]: !expanded }));
-                    }}
-                  >
-                    <Icon name={group.icon} className="nav-icon" />
-                    <span className="label">{group.label}</span>
-                    <Icon name="chevronDown" size={14} className="nav-chevron" />
-                  </button>
-                  {expanded && (
-                    <div className="nav-children" id={`nav-${group.label}`}>
-                      {group.items.map((item) => (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className="nav-link"
-                          /* The current page is stated with `aria-current`, so
-                             the styling and the announcement cannot drift
-                             apart. */
-                          {...(isCurrent(pathname, item.href)
-                            ? { "aria-current": "page" as const }
-                            : {})}
-                        >
-                          <span className="label">{item.label}</span>
-                          {item.note !== undefined && <span className="count">{item.note}</span>}
-                          {countFor(counts, item.href) !== undefined && (
-                            <span className="count">{countFor(counts, item.href)}</span>
-                          )}
-                        </Link>
-                      ))}
+                  return (
+                    <div key={group.label} className="nav-group" data-here={here || undefined}>
+                      <button
+                        type="button"
+                        className="nav-link nav-top nav-group-head"
+                        aria-expanded={expanded}
+                        aria-controls={`nav-${group.label}`}
+                        onClick={() => {
+                          setToggled((t) => ({ ...t, [group.label]: !expanded }));
+                        }}
+                      >
+                        <Icon name={group.icon} className="nav-icon" />
+                        <span className="label">{group.label}</span>
+                        <Icon name="chevronDown" size={14} className="nav-chevron" />
+                      </button>
+                      {expanded && (
+                        <div className="nav-children" id={`nav-${group.label}`}>
+                          {group.items.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className="nav-link"
+                              /* The current page is stated with `aria-current`, so
+                                 the styling and the announcement cannot drift
+                                 apart. */
+                              {...(isCurrent(pathname, item.href)
+                                ? { "aria-current": "page" as const }
+                                : {})}
+                            >
+                              <span className="label">{item.label}</span>
+                              {item.note !== undefined && <span className="count">{item.note}</span>}
+                              {countFor(counts, item.href) !== undefined && (
+                                <span className="count">{countFor(counts, item.href)}</span>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* A search that found nothing has to SAY so. An empty column reads
-                as a sidebar that broke. */}
-            {groups.length === 0 && (
-              <p className="nav-empty">
-                No screen matches <b>{query.trim()}</b>.
-              </p>
-            )}
-          </nav>
+                  );
+                })}
+                {/* A search that found nothing has to SAY so. An empty column reads
+                    as a sidebar that broke. */}
+                {groups.length === 0 && (
+                  <p className="nav-empty">
+                    No screen matches <b>{query.trim()}</b>.
+                  </p>
+                )}
+              </nav>
 
-          <div className="sidebar-foot">
-            {/* Offered only when there is more than one firm to be in. A
-                switcher with one entry is furniture that implies a choice the
-                account does not have. */}
-            {staffMemberships(memberships).length > 1 && (
-              <Menu
-                align="left"
-                trigger={
-                  <span className="nav-link">
-                    <Icon name="structure" className="nav-icon" />
-                    <span className="label">Switch firm</span>
-                    <Icon name="chevronDown" size={14} />
-                  </span>
-                }
-              >
-                {staffMemberships(memberships).map((m) => (
-                  <MenuItem
-                    key={m.id}
-                    disabled={m.tenantId === principal.tenantId || switching !== null}
-                    onClick={() => void switchTenant(m.tenantId)}
+              <div className="sidebar-foot">
+                {/* Offered only when there is more than one firm to be in. A
+                    switcher with one entry is furniture that implies a choice the
+                    account does not have. */}
+                {staffMemberships(memberships).length > 1 && (
+                  <Menu
+                    align="left"
+                    trigger={
+                      <span className="nav-link">
+                        <Icon name="structure" className="nav-icon" />
+                        <span className="label">Switch firm</span>
+                        <Icon name="chevronDown" size={14} />
+                      </span>
+                    }
                   >
-                    {m.tenantId === principal.tenantId ? "✓ " : ""}
-                    {m.tenantName ?? m.tenantId.slice(0, 8)} · {m.role}
-                  </MenuItem>
-                ))}
-              </Menu>
-            )}
-            {/* WHO IS SIGNED IN, and it used to say WHAT they are. The block
-                rendered the role on both lines' worth of meaning — "partner /
-                Signed in" — which is the same words under every partner's
-                avatar at the firm, and the product telling somebody what they
-                ARE rather than who they are.
+                    {staffMemberships(memberships).map((m) => (
+                      <MenuItem
+                        key={m.id}
+                        disabled={m.tenantId === principal.tenantId || switching !== null}
+                        onClick={() => void switchTenant(m.tenantId)}
+                      >
+                        {m.tenantId === principal.tenantId ? "✓ " : ""}
+                        {m.tenantName ?? m.tenantId.slice(0, 8)} · {m.role}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                )}
+                {/* WHO IS SIGNED IN, and it used to say WHAT they are. The block
+                    rendered the role on both lines' worth of meaning — "partner /
+                    Signed in" — which is the same words under every partner's
+                    avatar at the firm, and the product telling somebody what they
+                    ARE rather than who they are.
 
-                The name comes first, the email is the fallback (`displayName`
-                is nullable and genuinely empty at real firms), and the ROLE
-                moves to the second line where it belongs — it is a fact about
-                this membership, and it is what the second line was for. */}
-            <div className="who">
-              <span className="avatar" aria-hidden="true">
-                {initials(principal.displayName ?? principal.email ?? principal.role)}
-              </span>
-              <span className="who-id">
-                <span className="n">
-                  {principal.displayName ?? principal.email ?? "Signed in"}
-                </span>
-                <span className="r">
-                  {principal.tenantId === null
-                    ? "No firm selected"
-                    : (principal.role ?? "No role")}
-                </span>
-              </span>
-            </div>
-            {/* YOUR account, not the firm's roster. Everything about a person
-                that the FIRM decides — role, grade, reporting line, access —
-                is /admin/people behind `tenant:admin`. A password is the one
-                fact about a login that belongs to the person holding it, so it
-                is reached from here rather than from the map of the product,
-                and it needs no permission at all. */}
-            <Button
-              variant="link"
-              icon={<Icon name="lock" size={15} />}
-              onClick={() => {
-                router.push("/account");
-              }}
-            >
-              Your account
-            </Button>
-            <Button
-              variant="link"
-              icon={<Icon name="signout" size={15} />}
-              onClick={() => void signOut()}
-            >
-              Sign out
-            </Button>
-          </div>
+                    The name comes first, the email is the fallback (`displayName`
+                    is nullable and genuinely empty at real firms), and the ROLE
+                    moves to the second line where it belongs — it is a fact about
+                    this membership, and it is what the second line was for. */}
+                <div className="who">
+                  <span className="avatar" aria-hidden="true">
+                    {initials(principal.displayName ?? principal.email ?? principal.role)}
+                  </span>
+                  <span className="who-id">
+                    <span className="n">
+                      {principal.displayName ?? principal.email ?? "Signed in"}
+                    </span>
+                    <span className="r">
+                      {principal.tenantId === null
+                        ? "No firm selected"
+                        : (principal.role ?? "No role")}
+                    </span>
+                  </span>
+                </div>
+                {/* YOUR account, not the firm's roster. Everything about a person
+                    that the FIRM decides — role, grade, reporting line, access —
+                    is /admin/people behind `tenant:admin`. A password is the one
+                    fact about a login that belongs to the person holding it, so it
+                    is reached from here rather than from the map of the product,
+                    and it needs no permission at all. */}
+                <Button
+                  variant="link"
+                  icon={<Icon name="lock" size={15} />}
+                  onClick={() => {
+                    router.push("/account");
+                  }}
+                >
+                  Your account
+                </Button>
+                <Button
+                  variant="link"
+                  icon={<Icon name="signout" size={15} />}
+                  onClick={() => void signOut()}
+                >
+                  Sign out
+                </Button>
+              </div>
+            </>
+          )}
         </aside>
 
         <div className="main">
@@ -884,7 +900,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   the state that should not happen — a session pointed at a
                   tenant row that has gone — because a bar that silently drops
                   the firm is worse than one showing a uuid. */}
-              {principal.tenantId !== null && (
+              {principal !== null && principal.tenantId !== null && (
                 <>
                   {" · "}
                   {principal.tenantName === null ? (
@@ -894,7 +910,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 </>
               )}
-              {principal.commercialVisibility === true && " · fees visible"}
+              {principal?.commercialVisibility === true && " · fees visible"}
             </p>
             <ThemeSwitch />
           </header>

@@ -159,6 +159,26 @@ html {
   gap: 2px;
   min-width: 0;
 }
+/* THE LIST SCROLLS, NOT THE SIDEBAR. With the sidebar as the scroller, opening
+   a group pushed the account block under the window's bottom edge: all groups
+   open is 1,881px of sidebar in a 734px pane, and "Sign out" was 100px below
+   the fold with no bar to say so. Now the brand, the search box and the
+   account block stay put and only the links move. The list keeps 6rem, so a
+   window too short even for that scrolls the sidebar as a whole, as before.
+
+   The 4px of padding, taken back by the margin, is room for the focus ring,
+   which a scroller would otherwise clip at its edges. */
+.sidebar > .nav {
+  flex: 1 1 auto;
+  min-height: 6rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+  margin: calc(-1 * var(--s-1));
+  padding: var(--s-1);
+}
+.sidebar > .nav::-webkit-scrollbar {
+  display: none;
+}
 
 /* ── The search box ─────────────────────────────────────────────────────── */
 
@@ -326,6 +346,13 @@ html {
   flex-direction: column;
   gap: var(--s-2);
 }
+/* "Your account" and "Sign out" on one left edge, the avatar's. Stretched
+   across the column, a button centres what it holds, so the two links sat at
+   two different indents set by the lengths of their words. */
+.sidebar-foot > .btn[data-variant="link"] {
+  justify-content: flex-start;
+  padding: 0 var(--s-2);
+}
 .who {
   display: flex;
   align-items: center;
@@ -386,6 +413,20 @@ html {
   flex-direction: column;
 }
 
+/* THE TOP BAR IS GLASS TOO, on the sidebar's line. A full-width band from the
+   window's top edge met a sidebar floating a step in and a step down in a
+   notch: the band's square corner sat in the sidebar's gutter, above its
+   rounded top. Now both panes start at the same height, with the same radius
+   and the same glass, and the gap between them is the gutter around them.
+
+   The header stays sticky at 0, one gutter plus `--topbar-h` tall; the bar is
+   its `::before`, and its `::after` is the page's own ground laid back over
+   the gutter, so a scrolled page never shows above or beside the bar. That
+   ground is the body's exactly, by construction: the same fixed, full-window
+   box with the same background, clipped to the header's corner of the window.
+   Not `background-attachment: fixed`, for the reasons the ground itself gives
+   (base.css). The side padding puts the crumb on the page's own left edge
+   (12px of gutter + 28px = the page's 2.5rem). */
 .topbar {
   position: sticky;
   top: 0;
@@ -394,10 +435,31 @@ html {
   align-items: center;
   justify-content: space-between;
   gap: var(--s-4);
-  padding: 0.875rem 2.5rem;
-  background: var(--topbar-bg);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
+  height: calc(var(--s-3) + var(--topbar-h));
+  padding: var(--s-3) calc(var(--s-3) + 1.75rem) 0;
+}
+.topbar::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-color: var(--paper);
+  background-image: var(--aurora);
+  background-size: cover;
+  clip-path: inset(0 0 calc(100% - var(--s-3) - var(--topbar-h)) var(--sidebar-w));
+}
+.topbar::before {
+  content: "";
+  position: absolute;
+  inset: var(--s-3) var(--s-3) 0;
+  z-index: -1;
+  background: var(--glass-sheen), var(--glass-side);
+  border: 1px solid var(--glass-rim);
+  border-radius: var(--r-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
 }
 .crumb {
   font-size: var(--t-sm);
@@ -649,6 +711,15 @@ html {
   .nav-link {
     flex: none;
   }
+  /* In the strip the list is a row of the bar's own scroller, not a column
+     scrolling on its own. */
+  .sidebar > .nav {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+  }
   .nav {
     flex-direction: row;
     gap: var(--s-1);
@@ -692,11 +763,22 @@ html {
   .who .who-id {
     display: none;
   }
-  .topbar,
   .main > main,
   .page {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
+  }
+  /* Folded, the bar is a second strip under the first and scrolls away with
+     it. Held at the top it would need its ground laid over the strip above it
+     to hide what passes through the gutter, and on a phone the window's height
+     is the scarce thing anyway. The crumb lines up with the strip's contents. */
+  .topbar {
+    position: relative;
+    padding-left: calc(var(--s-3) + 1.25rem);
+    padding-right: calc(var(--s-3) + 1.25rem);
+  }
+  .topbar::after {
+    content: none;
   }
   .main > main,
   .page {

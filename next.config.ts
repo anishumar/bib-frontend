@@ -83,6 +83,12 @@ const config: NextConfig = {
    */
   output: "standalone",
   reactStrictMode: true,
+  /**
+   * The dev server's "N" badge, bottom-RIGHT. At its default bottom-left it
+   * sat on the sidebar's "Sign out", which is now always at the bottom of the
+   * window, and took the clicks meant for it. Development only.
+   */
+  devIndicators: { position: "bottom-right" },
   typedRoutes: true,
   /**
    * `x-powered-by: Next.js` off.
