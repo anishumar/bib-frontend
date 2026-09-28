@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, codeLabel } from "@/lib/api/client";
 import type {
@@ -411,9 +412,9 @@ export default function PartyPage() {
                 Restore
               </Button>
             )}
-            {/* An archived client is refused a proposal by the API (0305), so
-                it is not offered one. */}
-            {canWrite && profile.party.archivedAt === null && (
+            {/* An archived client is refused a proposal by the API (0305), and
+                so is one of the firm's own companies, so neither is offered one. */}
+            {canWrite && profile.party.archivedAt === null && !profile.party.isOwnCompany && (
               <LinkButton
                 variant="secondary"
                 href={`/engagement-letters/new?clientPartyId=${partyId}`}
@@ -421,7 +422,7 @@ export default function PartyPage() {
                 New engagement letter
               </LinkButton>
             )}
-            {canWrite && profile.party.archivedAt === null && (
+            {canWrite && profile.party.archivedAt === null && !profile.party.isOwnCompany && (
               <LinkButton variant="primary" href={`/proposals/new?clientPartyId=${partyId}`}>
                 New proposal
               </LinkButton>
@@ -472,6 +473,23 @@ export default function PartyPage() {
       )}
 
       <ErrorNotice error={error} />
+
+      {/* Opened by a link or a bookmark: the page still reads, and says why it
+          offers no proposal or letter. */}
+      {profile.party.isOwnCompany && (
+        <Notice>
+          <p>
+            {profile.party.displayName} is one of your own companies, not a client. Its details
+            are on{" "}
+            {permissions.includes("tenant:admin") ? (
+              <Link href={"/admin/firm#companies" as Route}>Your firm</Link>
+            ) : (
+              "Your firm"
+            )}
+            .
+          </p>
+        </Notice>
+      )}
 
       {/* First, because "who at the firm looks after this client" is the
           question somebody opening a client page most often has, and until

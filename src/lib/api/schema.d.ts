@@ -20827,6 +20827,8 @@ export interface components {
             kind: "organization" | "person";
             displayName: string;
             archivedAt: string | null;
+            /** @description One of the firm's OWN companies: the firm itself, or a company on Our companies (`crm.is_firm_entity`, 0313). Such a party is never a client: a proposal, an engagement letter, a lead and an invoice all refuse it. Listed all the same, so a screen that may name the firm (a task about it) still can; the client screens hide it. */
+            isOwnCompany: boolean;
         };
         UpdateParty: {
             displayName?: string;
