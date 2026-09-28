@@ -45,6 +45,7 @@ export { useSwapFocus } from "./swap-focus";
 export { useAppearFocus } from "./appear-focus";
 export { scrollBelowBar } from "./below-bar";
 export { Stat, Strip } from "./stat";
+export { CountUp, type Figure } from "./count-up";
 export {
   Table,
   TableWrap,

@@ -63,6 +63,65 @@ export function addDecimals(amounts: readonly string[]): string | null {
 }
 
 /**
+ * A decimal string AT ITS OWN SCALE, as whole units in a `bigint`: "-25000.0000"
+ * is -250000000n at scale 4. Signed, because a month of billing can be net
+ * negative once a credit note lands in it. Null for anything that is not a
+ * plain decimal. This is what a count-up and a chart's geometry work on, so an
+ * amount is never a JS number, not even for an animation. (`toMinorUnits` is
+ * the same idea for what a person TYPES, two places at most, and refuses the
+ * API's four-place strings.)
+ */
+export function scaledUnits(amount: string): { units: bigint; scale: number } | null {
+  const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount);
+  if (m === null) return null;
+  const fraction = m[3] ?? "";
+  const magnitude = BigInt(`${m[2] ?? "0"}${fraction}`);
+  return { units: m[1] === "-" ? -magnitude : magnitude, scale: fraction.length };
+}
+
+/** The other direction: whole units at `scale` back to the decimal string
+ *  `formatMoney` takes, with the same number of places. */
+export function fromScaledUnits(units: bigint, scale: number): string {
+  const negative = units < BigInt(0);
+  const digits = (negative ? -units : units).toString();
+  const sign = negative ? "-" : "";
+  if (scale === 0) return `${sign}${digits}`;
+  const padded = digits.padStart(scale + 1, "0");
+  return `${sign}${padded.slice(0, -scale)}.${padded.slice(-scale)}`;
+}
+
+/**
+ * Several amounts on ONE scale, so they can be compared and summed exactly:
+ * `["1.5", "20"]` -> `{ units: [15n, 200n], scale: 1 }`. Null if any is not a
+ * plain decimal.
+ */
+export function commonUnits(
+  amounts: readonly string[],
+): { units: bigint[]; scale: number } | null {
+  const parsed: { units: bigint; scale: number }[] = [];
+  for (const a of amounts) {
+    const p = scaledUnits(a);
+    if (p === null) return null;
+    parsed.push(p);
+  }
+  const scale = Math.max(0, ...parsed.map((p) => p.scale));
+  return {
+    units: parsed.map((p) => p.units * BigInt(10) ** BigInt(scale - p.scale)),
+    scale,
+  };
+}
+
+/**
+ * `part` as a share of `whole` in PER MILLE, 0 to 1000, worked out on `bigint`.
+ * A chart's geometry is drawn from this, never from money as a JS number: the
+ * result is a proportion, and a whole number up to 1000 is exact.
+ */
+export function perMille(part: bigint, whole: bigint): number {
+  if (whole === BigInt(0)) return 0;
+  return Number((part * BigInt(1000)) / whole);
+}
+
+/**
  * An amount somebody is TYPING, grouped so they can see they typed five lakh
  * and not fifty, with no currency. Null while it is not yet a plain decimal.
  *

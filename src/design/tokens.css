@@ -111,6 +111,11 @@
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
   --dur: 140ms;
+  /* THE ONE LONGER DURATION, and it is deliberate (Wave 5): a headline figure
+     counting up from nothing once, when it first appears. `<CountUp>` reads
+     it. Long enough to see the number arrive, short enough that nobody waits
+     for it; a chart drawing itself in uses twice `--dur`. */
+  --dur-count: 500ms;
 
   /* ── Layers ──────────────────────────────────────────────────────────── */
   --z-sticky: 10;

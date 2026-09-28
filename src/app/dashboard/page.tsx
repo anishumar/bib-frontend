@@ -169,6 +169,7 @@ export default function DashboardPage() {
         <div className="mt-3">
           <Stat
             value={formatMoney(overview.mrr.monthly, cur)}
+            figure={{ amount: overview.mrr.monthly, currency: cur }}
             note={
               <>
                 from {overview.mrr.countedEngagements} engagement
@@ -272,6 +273,7 @@ export default function DashboardPage() {
         <div className="mt-3">
           <Stat
             value={formatMoney(overview.receivables.outstanding, cur)}
+            figure={{ amount: overview.receivables.outstanding, currency: cur }}
             note={
               overview.dsoDays === null ? (
                 // NULL is not zero. See the file header.

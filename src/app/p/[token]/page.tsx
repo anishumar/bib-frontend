@@ -346,6 +346,7 @@ function FrequencyTotals({ shared }: { shared: SharedProposal }) {
           <Stat
             label={only === null ? "Total" : `${FREQUENCY_WORDS[only]} total`}
             value={formatMoney(shared.totals.net, shared.currency)}
+            figure={{ amount: shared.totals.net, currency: shared.currency }}
             /* "0.00" is no discount too: the wire sends a decimal string, and
                comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
             {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
@@ -360,6 +361,7 @@ function FrequencyTotals({ shared }: { shared: SharedProposal }) {
               key={g.frequency ?? "none"}
               label={g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`}
               value={formatMoney(g.net, shared.currency)}
+              figure={{ amount: g.net, currency: shared.currency }}
             />
           ))
         )}

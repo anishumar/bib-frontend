@@ -39,8 +39,10 @@
   cursor: pointer;
   white-space: nowrap;
   text-align: center;
+  /* Transform and shadow are the quiet motion below (Wave 5). */
   transition: background var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .btn:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--btn-bg-hover);
@@ -166,6 +168,26 @@
   flex: none;
 }
 
+/* QUIET MOTION (Wave 5, "decent, not bold"). Under the pointer a button rises
+   one pixel onto a small shadow; pressed, it settles back and gives a little
+   (`scale(.98)`), quicker than it rose. Transform and shadow only: no shine,
+   no glow, no colour beyond what hover already does, and never a width or a
+   height. A button that cannot be pressed, or is busy, stays still. A `link`
+   button is text and does not move; a `ghost` one rises without a shadow,
+   because it has no ground for a shadow to sit under. */
+.btn:hover:not(:disabled):not([aria-disabled="true"]):not([data-loading="true"]):not([data-variant="link"]) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.btn[data-variant="ghost"]:hover:not(:disabled):not([aria-disabled="true"]):not([data-loading="true"]) {
+  box-shadow: none;
+}
+.btn:active:not(:disabled):not([aria-disabled="true"]):not([data-loading="true"]):not([data-variant="link"]) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+  transition-duration: var(--dur-fast);
+}
+
 /* ── Spinner ──────────────────────────────────────────────────────────────
    Also the button's loading state, which is why it inherits `currentColor`. */
 
@@ -189,6 +211,13 @@
     animation: none;
     border-top-color: currentColor;
     opacity: 0.5;
+  }
+  /* The button keeps its hover colour and loses the rise and the press. */
+  .btn,
+  .btn:hover:not(:disabled):not([aria-disabled="true"]):not([data-loading="true"]):not([data-variant="link"]),
+  .btn:active:not(:disabled):not([aria-disabled="true"]):not([data-loading="true"]):not([data-variant="link"]) {
+    transform: none;
+    transition-property: background, border-color, color;
   }
 }
 
@@ -1044,6 +1073,21 @@
   border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
 }
 .strip dd[data-tone="ok"] { color: var(--accent); }
+
+/* ── CountUp ──────────────────────────────────────────────────────────────
+   A headline figure counting up once (Wave 5). The final text holds the
+   width, invisible, and the counting text is laid over it in the same cell,
+   so nothing beside the figure moves while it counts. */
+.countup {
+  display: inline-grid;
+}
+.countup > [aria-hidden="true"] {
+  grid-area: 1 / 1;
+}
+.countup-rest {
+  visibility: hidden;
+}
+
 .strip dd small {
   font-family: var(--sans);
   font-size: var(--t-xs);

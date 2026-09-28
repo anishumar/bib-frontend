@@ -4,6 +4,7 @@ import type { JSX, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { useAppearFocus } from "@/components/ui/appear-focus";
+import { CountUp, type Figure } from "@/components/ui/count-up";
 
 /**
  * The Tailwind-native layout primitives — `src/components/ui` re-expressed in
@@ -227,6 +228,7 @@ export function Stat({
   value,
   note,
   tone,
+  figure,
 }: {
   /** Omitted when a heading above the figure already names it — an empty
    *  string would leave a real element in the flow and a gap under it. */
@@ -234,6 +236,10 @@ export function Stat({
   value: string;
   note?: ReactNode;
   tone?: "danger" | "warn" | "muted";
+  /** What `value` prints, as a figure to COUNT UP to once when it first
+   *  appears (Wave 5): `{ amount, currency }` with the API's decimal string.
+   *  `value` is still exactly what is printed at rest. */
+  figure?: Figure;
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
@@ -250,7 +256,7 @@ export function Stat({
                 : "text-ink",
         )}
       >
-        {value}
+        {figure === undefined ? value : <CountUp figure={figure} final={value} />}
       </p>
       {note !== undefined && <div className="text-sm text-muted">{note}</div>}
     </div>
