@@ -36,7 +36,7 @@ export {
 } from "./field";
 export { Icon, type IconName } from "./icon";
 export { Menu, MenuItem, MenuSeparator } from "./menu";
-export { Meta, MetaItem, NotStated, Prose, ProseGrid } from "./meta";
+export { Meta, MetaItem, NotSet, NotStated, Prose, ProseGrid } from "./meta";
 export { Notice, ErrorNotice, type NoticeTone } from "./notice";
 export { Pill, type PillTone } from "./pill";
 export { Skeleton, SkeletonText } from "./skeleton";
@@ -45,6 +45,18 @@ export { useSwapFocus } from "./swap-focus";
 export { useAppearFocus } from "./appear-focus";
 export { scrollBelowBar } from "./below-bar";
 export { Stat, Strip } from "./stat";
-export { Table, TableWrap, Th, Td, Sub, EmptyRow, type CellAlign } from "./table";
+export {
+  Table,
+  TableWrap,
+  Th,
+  Td,
+  Tr,
+  RowLink,
+  RowChevron,
+  ThChevron,
+  Sub,
+  EmptyRow,
+  type CellAlign,
+} from "./table";
 export { Tabs, TabPanel, type TabItem } from "./tabs";
 export { Tooltip } from "./tooltip";

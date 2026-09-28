@@ -1,5 +1,8 @@
-import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import type { ComponentProps, ReactNode, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { cx } from "./class-names";
+import { Icon } from "./icon";
 
 /**
  * A table, and the box it scrolls inside.
@@ -84,6 +87,84 @@ export function Td({
     >
       {children}
     </td>
+  );
+}
+
+/**
+ * A body row.
+ *
+ * `linked` makes the WHOLE ROW open the item: put exactly one `<RowLink>` in
+ * it (the first cell's main text, as a rule) and its stretched `::after`
+ * covers the row. The link stays one real link to a keyboard and a screen
+ * reader, which a row with an `onClick` would not be, and any other control
+ * in the row (a select, a button) is lifted above it by the stylesheet so it
+ * can still be used.
+ *
+ * `inactive` dims a row that is no longer in force. Prefer a pill that says
+ * the state on a new screen (the Wave 4 brief keeps closed rows at full ink);
+ * the prop exists for the screens that have not moved yet.
+ */
+export function Tr({
+  children,
+  linked = false,
+  inactive = false,
+  className,
+  ...rest
+}: {
+  children: ReactNode;
+  linked?: boolean;
+  inactive?: boolean;
+  className?: string;
+} & Omit<React.HTMLAttributes<HTMLTableRowElement>, "className">) {
+  return (
+    <tr
+      {...rest}
+      className={className}
+      {...(linked ? { "data-linked": "true" } : {})}
+      {...(inactive ? { "data-inactive": "true" } : {})}
+    >
+      {children}
+    </tr>
+  );
+}
+
+/**
+ * The one link in a `<Tr linked>` row. Its text is the row's name, so a
+ * screen reader's list of links reads as a list of the items.
+ */
+export function RowLink<T extends string>({
+  href,
+  children,
+  className,
+  ...rest
+}: {
+  /* Generic over the route, as `LinkButton` is, so a dynamic route like
+     `/leads/${id}` satisfies the typed-routes check. */
+  href: Route<T>;
+  children: ReactNode;
+  className?: string;
+} & Omit<ComponentProps<typeof Link<T>>, "href" | "className" | "children">) {
+  return (
+    <Link {...rest} href={href} className={cx("row-link", className)}>
+      {children}
+    </Link>
+  );
+}
+
+/** The quiet chevron cell at the end of a linked row, and the empty head
+ *  cell above it. Decoration: the row's link already says where it goes. */
+export function RowChevron() {
+  return (
+    <td className="row-chevron" aria-hidden="true">
+      <Icon name="chevronRight" size={18} />
+    </td>
+  );
+}
+export function ThChevron() {
+  return (
+    <th className="row-chevron">
+      <span className="sr-only">Open</span>
+    </th>
   );
 }
 

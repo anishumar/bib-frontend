@@ -21,7 +21,7 @@ body {
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--t-base);
-  line-height: 1.6;
+  line-height: var(--leading);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -96,11 +96,18 @@ textarea:focus-visible,
    they are read in COLUMNS. Lining them up is not a flourish.
 
    `tabular-nums` is the whole point: it makes 1 as wide as 8, so a column of
-   money scans as a column instead of a ragged edge. */
+   money scans as a column instead of a ragged edge.
 
-.mono,
+   IN THE SANS FACE, NOT THE MONO ONE (the Wave 4 brief, 2026-09-28). A date
+   or an amount set in a typewriter face read as machine output to the people
+   this is for, and Source Sans has tabular figures of its own. `.mono` keeps
+   the mono face for true code only: an id in a support disclosure. */
+
 time,
 .num {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--t-sm);
@@ -139,6 +146,18 @@ hr {
   border: 0;
   border-top: 1px solid var(--line);
   margin: var(--s-5) 0;
+}
+
+/* ── Placeholders ─────────────────────────────────────────────────────────
+   A placeholder is an EXAMPLE ("e.g. 10x Global FZCO"), never a value, so it
+   must not look like one: muted and italic, on every control in the product.
+   `opacity: 1` because Firefox fades placeholders on its own, and a faded
+   muted grey is under the contrast floor. */
+
+::placeholder {
+  color: var(--muted);
+  font-style: italic;
+  opacity: 1;
 }
 
 ::selection {

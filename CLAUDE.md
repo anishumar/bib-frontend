@@ -56,8 +56,10 @@ backend refused to.
 
 There is a design system, and it is the DEFAULT way to build a screen here, not a set of
 optional helpers sitting beside the old way. It is the **same design language as 10x CRM**
-(`../10xcrm`): same IBM Plex faces, same blue-green-biased neutrals, same teal accent, same
-scales. Where a token name exists in both, it means the same thing.
+(`../10xcrm`): same blue-green-biased neutrals, same teal accent, same spacing. Where a token
+name exists in both, it means the same thing. **Two things have left it on purpose (Wave 4,
+2026-09-28):** the face is Source Sans 3 rather than IBM Plex, and the type scale moved up a rung,
+both for readers over 35 (see "The Wave 4 foundation" below).
 
 ```
 src/design/     tokens.css · base.css · layout.css · components.css
@@ -79,9 +81,15 @@ The rules, in short:
   `tokens.css`). Destructive stays `--danger`, which is why the brand is plum rather than
   brick: an escalation queue puts maroon chrome around red "nobody" pills, and if those blur
   the one that stops mattering is the one that means something.
+- **The category tints are the SECOND exception, and a category tint never means good or bad.**
+  `--cat-1…--cat-4` (each with `-wash` and `-ink`) tell GROUPS apart, first the Catalogue's Depts
+  (FRC, TRC, RAA and a spare): a chip and a thin left edge. They sit where the status colours are
+  not (blue, violet, olive, orchid, all desaturated) so a Dept can never read as "done", "late"
+  or "wrong". Never use one for a state, and never use a status colour for a group.
 - **Nothing invents a value.** Type comes off the scale (`--t-xs`…`--t-2xl`, or the
-  `.text-*` classes), spacing off `--s-1`…`--s-7`, shape off `--r`/`--r-sm`. `13px`, `15px`
-  and `17px` are not on the ladder.
+  `.text-*` classes: 14, 15, 16, 16, 20, 24, 32 since Wave 4), spacing off `--s-1`…`--s-7`,
+  shape off `--r`/`--r-sm`. `12px`, `13px` and `17px` are not on the ladder, and nothing a user
+  must read is below 14.
 - **No hex values in components**, and no inline `fontSize`, `color`, `borderRadius` or
   `boxShadow`. All of these are **lint errors** — `eslint.config.mjs` names what to use
   instead in each message.
@@ -246,14 +254,109 @@ gives `h3`. **`Section` defaults to `h3`, so a page whose one section forgets `l
 `h1` → `h3`** — which is what three portal screens were doing. Read the ladder off the DOM after
 porting a screen; it is invisible in the source.
 
+## Writing for the screen (Wave 4, 2026-09-28)
+
+The people using this are staff of CA and professional-services firms, about 90% of them over
+35, at a desktop, reading figures all day, and not technical. The user's words: *"extra extra
+heading nhi chaiye … user ko samjh aye krna kya hai … ai generated nhi dikhana hai …
+placeholder text ko distinguish krna hai … har column k neeche jo description hai usko short
+and non ai generated banana hai"*. The full brief is
+`bib/prompts/entity-proposal-builder/W4-UX-BRIEF.md`; these are its rules for WORDS.
+
+**This overrides the older habit, all over this file, of "saying it on screen".** The reasoning
+a screen used to carry in a paragraph belongs HERE, in CLAUDE.md, and in the code's comments.
+The screen says what is set and what to do.
+
+1. **One primary action per screen**, in the brand colour, where the eye lands (top right, or
+   the section's head). Everything else is secondary or quiet.
+2. **The title says what the page is for** ("Your firm", "Proposals"), and no paragraph follows
+   it. No eyebrow repeating the sidebar section. If a screen needs a sentence of guidance it is
+   ONE line, placed where the user acts, not at the top.
+3. **Fewer headings.** None that repeats the page title; no card title + subtitle + hint stacked
+   up; a section heading only when the page has two or more sections.
+4. **Short, specific, active, second person**: "Add a company", "Who signs your letters". None
+   of "This is where…", "Note that…", "deliberately", "honest", "on purpose", "because…". No
+   justification sentences.
+5. **A hint is one line, about 10 words at most**, and only where the label is not enough. Most
+   fields need none.
+6. **An error says what is wrong and how to fix it**, in one sentence. The API's own message is
+   still shown verbatim where it arrives (see "What the API tells the user, we show").
+7. **A placeholder is an EXAMPLE and starts with "e.g."** ("e.g. 10x Global FZCO"). Never a
+   plausible value, never a default in disguise: prefill a box only with the real default.
+   `npm run check` enforces it inside a `<Field>` (`scripts/check-placeholders.mjs`).
+8. **An empty value reads "Not set"** (`<NotSet />`), muted italic: never a blank, never an em
+   dash, never a zero. Say it more precisely only when it helps ("Not sent", "Not yet").
+9. **Words, not codes.** "New", "Referral", "Declined", "Monthly", never `new` / `referral` /
+   `rejected` / `one_time`. A firm's own names (its Depts, services, states) are shown as the
+   firm wrote them; `codeLabel` or a words map in `client.ts` is for the product's own enums.
+10. **No em dashes** in UI text.
+
+Before and after, from the three reference screens:
+
+| Where | Before | After |
+|---|---|---|
+| `/leads`, under the title | "Every prospect the firm is talking to, the stage each one is at, and who is handling it. Capture a new lead at the bottom of the page." | Nothing. **Capture a lead** is the brand button top right, and opens the form. |
+| `/admin/firm`, Deadlines hint | "The day you went live on this system. A filing whose legal due date falls before this day is not created and is not flagged as missed, because it was handled the old way. If you leave it blank, every past deadline is treated as open: bring in four hundred clients and the first morning is four hundred filings to decide on." | "The day you started on BiB. Older deadlines are skipped." (The reasoning is in the `/admin/firm` section below.) |
+| `/leads`, filter box | label "Value at least", `placeholder="100000"`: an empty box that looked filled in | label "Value from", `placeholder="e.g. 1,00,000"`, muted italic |
+
+## The Wave 4 foundation: type, tables, pills, empty values (2026-09-28)
+
+What the three reference screens (`/leads`, `/admin/firm`, `/proposals`) are built from, and
+what every later screen reuses. **Add a prop; do not rename one**: the sweeps depend on these.
+
+- **Type.** Source Sans 3 (400/600/700, italic loaded, `latin-ext` for ₹) through `next/font`,
+  base 16px, line height 1.5 (`--leading`), and nothing a user must read below 14px: the scale is
+  `--t-xs` 14 · `--t-sm` 15 · `--t-md` 16 · `--t-base` 16 · `--t-lg` 20 · `--t-xl` 24 · `--t-2xl`
+  32. IBM Plex Mono stays for TRUE code only: money, dates, counts and references are never in
+  `.mono`. `.num` and `<time>` are the sans face with tabular figures now.
+- **Contrast.** `--ink` is 17.7:1 on a card, `--ink-2` 9.9:1, `--muted` 5.5:1, `--faint` 5.0:1;
+  in dark `--muted` is 6.4:1. **A data value is never painted `--muted` or `--faint`**: grey is
+  for labels and meta. Measured with a script, both themes, 2026-09-28.
+- **The Table** (`@/components/ui`): heads are sentence case 14/600 in `--ink-2` over one
+  `--line-strong` rule (they were 10px mono capitals in `--faint` on a grey band); cells 16px
+  full ink, rows at least 52px with a hover ground; `align="right"` is tabular figures.
+  - **A whole-row link** is `<Tr linked>` with one `<RowLink href>` in it (the row's name), plus
+    `<ThChevron />` / `<RowChevron />` at the end. The link's `::after` covers the row, so a click
+    anywhere opens the item while it stays ONE link to a keyboard; any other control in the row
+    is lifted above it. A Playwright `.click()` on another cell of such a row is refused
+    ("subtree intercepts pointer events"): that IS the link under the pointer, so walks click by
+    position (`clickAt` in `bib/demo-assets/tools/w4a-walk.mjs`).
+  - **No card-in-card:** a `<TableWrap>` that is a DIRECT child of a padded `<Card>` drops its
+    frame and runs to the card's edges, its first and last columns taking the card's padding.
+  - **No bordered select in every row:** `<Select variant="quiet">` reads as its value with a
+    frame only on hover and focus; `<Select variant="pill">` is a stage changed in place. Both
+    are native selects, and both need an `aria-label` in a row.
+  - **Free text in a cell** goes in `<span className="cell-text">` (capped at 24rem so it wraps):
+    `max-width` on the `<td>` itself is ignored.
+  - **Measure 1280, and measure `.tablewrap`.** The first pipeline hid 127px of columns at 1280
+    (its owner and stage selects) while the page reported 0 overflow. Cell padding is 10px
+    across for that reason. `bib/demo-assets/tools/w4a-cols.mjs <path>` prints each column.
+- **Pills:** a wash and a word at 14/600, no border. `<Pill dot>` is a STATE (a dot and a word:
+  "New", "Sent", "Lost"); leave the dot off a label or a count. `tone="code"` is a small outlined
+  badge for an identifier ("IN", "AE") in the sans face.
+- **Empty values:** `<NotSet />` ("Not set", muted italic). `<NotStated>` renders the same and now
+  defaults to "Not set" too.
+- **Placeholders:** muted italic everywhere (`base.css` `::placeholder` and `.input`), and an
+  "e.g." inside a `<Field>` (the check below).
+- **The placeholder check** runs in `npm run check` (`check:copy`). It parses every `.tsx` with the
+  TypeScript compiler and flags a literal `placeholder` inside a `<Field>` that does not start
+  with "e.g.". Older screens are listed in `scripts/placeholder-baseline.json` with their count
+  on 2026-09-28: a file may go down from its number, never up. **After fixing a screen, lower its
+  number** (or run `node scripts/check-placeholders.mjs --update`).
+- **Words:** `codeLabel(code)` in `client.ts` ("one_time" → "One time") for the product's own
+  enums; `PROPOSAL_STATUS_WORDS` for the one that reads differently (`rejected` → "Declined", the
+  client's own button).
+- **Category tints** `--cat-1…--cat-4` (each with `-wash` and `-ink`) for GROUPS, first the
+  Catalogue's Depts: see the colour rule above. They never mean good or bad.
+
 ## The screens, and what they are for
 
 | Route | Is |
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so. The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
-| `/admin/firm` | **the firm itself** — which company issues its letters and where it is registered, who signs for it and as what, and from which day its deadlines count + when its financial year starts. Four facts every firm sets once; all four were API-only until 2026-09-18 |
-| `/admin/companies` | **the firm's own companies** (T6.18): each one's country, the countries it quotes, the Fallback, the currency its documents start in; **Add a company** (one form, one call), Change, and the country-to-company table. Links to each company's brand marks and standard wording |
+| `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
+| `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
 | `/admin/roles` | what the firm's roles MEAN: permissions per role, published as versions |
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
@@ -704,6 +807,18 @@ firm is worse than one showing a uuid.
 
 ## `/admin/firm` — the firm on paper, and why a new firm could not set itself up (2026-09-18)
 
+**Update (Wave 4, 2026-09-28): this is "Your firm" now, and it holds all of it.** The user asked
+for the two firm pages merged. The card for the fallback company ("Which company issues your
+letters?", with its own registration form) is gone: that company is one row of the Companies
+table, and a company with no country is given one through Change. The page is four sections:
+Companies (with the country table), Signing, Deadlines and the discount limit. A section whose
+value is set shows the value with **Change**; one that is not set shows its form straight away,
+with the consequence as the field's one-line hint ("No letter can be sent until someone is
+named.", "Until this is set, every discount needs sign-off."). **The discount limit is PUBLISHED
+in the same act**, like the compliance policy: the Catalogue's old card only drafted a version,
+and the API reads the limit live and treats no published limit as ZERO, so a limit set there never
+took effect. What follows is the history of the page, and still why each fact is on it.
+
 Loading the first real firm was scripted, and the script's own comment listed **four steps that
 had no screen**: the firm's own legal entity, its signatory, a clause for its own country, and the
 compliance floor. Each one blocks something a firm cannot see coming — an unregistered issuing
@@ -954,6 +1069,11 @@ first company list hid its currency and its buttons at 1280 while the page repor
 only re-routes clients; the screen's refusal of that move is gone, and the company reads "no country
 yet" in the list.
 
+**Update (Wave 4, 2026-09-28):** this screen is part of **Your firm** (`/admin/firm`); the route
+redirects. The country table's pick SAVES (a quiet select per row, focus handed back after the
+reload), so there is no Save button per row; Add a company is a dialog; the brand and wording links
+sit behind each company's **More** menu.
+
 ## `/admin/brand` — the marks, per COMPANY
 
 Not three upload boxes. A firm with an Indian company and a US company signs on two
@@ -969,8 +1089,8 @@ today; the renderer is T3.8. A control that looks live and is inert is the "feat
 finished" this product has been caught by before, and this screen is the only place a partner
 would find out. That paragraph comes out when T3.8 lands.
 
-The company list is `GET /firm-entities` (T6.18), the same list Our companies, the prose tabs and
-the builder read. A company appears once it is added on `/admin/companies`; its link there lands
+The company list is `GET /firm-entities` (T6.18), the same list Your firm, the prose tabs and
+the builder read. A company appears once it is added on Your firm (`/admin/firm`); its link there lands
 on its card here (`#brand-entity-<partyId>`, scrolled to once the list has loaded).
 
 Setting a mark is **two calls** — the bytes become an ordinary document first, then that
@@ -1757,7 +1877,15 @@ for years, only the ES2022 type declarations do not describe it.
 
 A `null` amount is not zero and not an error: it is the fee axis. Somebody without commercial
 visibility gets the proposal with its money removed rather than a refusal, so these screens
-render an em dash and show everything else.
+say so ("Hidden" on the proposals list) and show everything else.
+
+**The shape (Wave 4, 2026-09-28), and none of it follows the reader's browser:** INR in Indian
+grouping with the rupee sign (`₹12,00,000`, never `₹1,200,000`), every other currency with its code
+in its own grouping (`AED 5,000`), and no `.00` when there are no paise (`₹25,00,000.50` keeps
+them). `formatMoney` is THE formatter for the screen; `formatMoney(null)` is "Not set". The
+builder's and the letter's `pdfMoney` / `letterMoney` are deliberately separate: they restate what
+the PDF prints, and a preview must match the paper. `previewAmount(amount, currency)` groups INR
+in lakhs too while somebody types.
 
 ## The proposal screens, and the one that has no session
 

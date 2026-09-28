@@ -197,10 +197,14 @@
    its own padding — a table, most often. */
 
 .card {
+  /* The padding as a property, so a table sitting straight in the card can
+     run to the card's edges and still line its first column up with the
+     title above it (see "No card-in-card" under Table). */
+  --card-pad: var(--s-5);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
-  padding: var(--s-5);
+  padding: var(--card-pad);
   min-width: 0;
 }
 .card[data-flush="true"] {
@@ -208,7 +212,7 @@
   overflow: hidden;
 }
 .card[data-pad="sm"] {
-  padding: var(--s-4);
+  --card-pad: var(--s-4);
 }
 .card-head {
   display: flex;
@@ -228,6 +232,14 @@
   font-weight: 600;
   line-height: 1.3;
   margin: 0;
+}
+/* A second part inside one card (the country table under the company list
+   on Your firm): its title opens a new part, spaced as one. */
+.card .card-part {
+  margin-top: var(--s-6);
+}
+.card .card-title.card-part {
+  margin-bottom: var(--s-3);
 }
 .card-foot {
   margin-top: var(--s-4);
@@ -268,6 +280,26 @@
   border: 0;
   border-radius: 0;
 }
+/* NO CARD-IN-CARD (the Wave 4 brief, 2026-09-28). A table placed straight in a
+   padded card drops its own frame and runs to the card's edges, so the card
+   is the one box and its title sits directly above the table. The first and
+   last columns take the card's padding, which keeps them in line with the
+   title. A table nested deeper than a direct child keeps its frame: it is in
+   some other container, and that one may not be a card. */
+.card:not([data-flush="true"]) > .tablewrap {
+  border: 0;
+  border-radius: 0;
+  margin-inline: calc(-1 * var(--card-pad));
+}
+.card:not([data-flush="true"]) > .tablewrap:last-child {
+  margin-bottom: calc(var(--s-2) - var(--card-pad));
+}
+.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):first-child {
+  padding-left: var(--card-pad);
+}
+.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):last-child {
+  padding-right: var(--card-pad);
+}
 
 .table {
   width: 100%;
@@ -284,30 +316,95 @@
   min-width: max-content;
   border-collapse: collapse;
   font-size: var(--t-md);
+  color: var(--ink);
 }
+/* THE HEAD IS WORDS, NOT A LABEL-MAKER STRIP (the Wave 4 brief, 2026-09-28).
+   It was 10px mono capitals in `--faint` on a grey band: the first thing the
+   user pointed at when they called these tables "ugly, underconfident, very
+   light". Now sentence case at 14/600 in the second ink, on the card's own
+   ground, with one firmer rule under it. */
 .table th {
   text-align: left;
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--faint);
-  font-weight: 400;
-  padding: var(--s-3) 1.125rem;
-  background: var(--surface-sunk);
-  border-bottom: 1px solid var(--line);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 0.625rem;
+  background: transparent;
+  border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
 }
+/* A row is 52px: enough to read a two-line cell (an opportunity over its
+   company) without the rows running together, and a comfortable target for
+   a whole-row link. `height` on a cell is a minimum, so a taller cell still
+   grows. The main value is full ink; nothing a reader must read is grey. */
 .table td {
-  padding: 0.875rem 1.125rem;
-  border-bottom: 1px solid var(--line-soft);
+  height: 3.25rem;
+  padding: var(--s-3) 0.625rem;
+  border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
 .table tbody tr:last-child td {
   border-bottom: none;
 }
 .table tbody tr:hover td {
-  background: var(--surface-sunk);
+  background: var(--surface-hover);
+}
+/* A WHOLE-ROW LINK. `<Tr linked>` marks the row and `<RowLink>` is the one
+   real link in it, usually the first cell's main text. Its `::after` is
+   stretched over the whole row, so a click anywhere on the row opens the
+   item, while the link stays ONE link to a keyboard and a screen reader
+   (a row with an onClick would be neither). Any other control in the row sits
+   above the stretched link, or it could never be clicked. */
+.table tbody tr[data-linked="true"] {
+  position: relative;
+  cursor: pointer;
+}
+.table tbody tr[data-linked="true"]:focus-within td {
+  background: var(--surface-hover);
+}
+.row-link {
+  font-weight: 600;
+  color: var(--ink);
+}
+.row-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.table tbody tr[data-linked="true"] .row-link:hover {
+  color: var(--ink);
+}
+.table tbody tr[data-linked="true"]:hover .row-link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.table tbody tr[data-linked="true"] :is(button, select, input, textarea, summary, a:not(.row-link), label, details) {
+  position: relative;
+  z-index: 1;
+}
+/* Free text in a cell (a reason, a note), on an element INSIDE the cell:
+   `max-width` on a table cell itself is ignored. `.table` is max-content
+   wide, so without a cap one long sentence widens the whole table until it
+   scrolls; with it the sentence wraps. */
+.table .cell-text {
+  display: block;
+  max-width: 24rem;
+  white-space: normal;
+}
+/* The quiet chevron at the end of a linked row: says "this opens" without
+   a word. Decoration only, so it is hidden from a screen reader. */
+.table .row-chevron {
+  width: 1.5rem;
+  padding-left: 0;
+  color: var(--muted);
+  text-align: right;
+}
+.table .row-chevron .icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+.card:not([data-flush="true"]) > .tablewrap .table .row-chevron:last-child {
+  padding-right: var(--s-3);
 }
 /* A quiet second line under something — an email under a name, a code under a
    label, the reason a value is absent.
@@ -317,22 +414,24 @@
  * container is a trap, because nothing about the name says so. */
 .sub {
   display: block;
-  color: var(--muted);
-  font-size: var(--t-xs);
-  margin-top: 0.15rem;
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+  margin-top: 0.1rem;
   line-height: 1.4;
 }
 .table td a {
-  font-weight: 500;
+  font-weight: 600;
 }
 .table td a:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-/* Numbers right, and in the mono face, so a column of them reads as a column.
-   Set by the column's `align` prop rather than by hand per cell. */
+/* Numbers right, with tabular figures in the sans face, so a column of them
+   reads as a column. Set by the column's `align` prop rather than by hand
+   per cell. */
 .table [data-align="right"] {
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .table [data-align="center"] {
   text-align: center;
@@ -360,18 +459,30 @@
    `neutral`, which existed nowhere, so a revoked membership and a live one
    rendered identically. */
 
+/* THE MOCKUP'S SHAPE (approved 2026-09-28): a wash and a word at 14/600,
+   readable from across the room, with an optional dot (`<Pill dot>`) for a
+   state. The border is gone: a pill is a ground, and a bordered chip beside
+   a bordered control read as another control. */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.375rem;
   font-size: var(--t-xs);
-  font-weight: 500;
-  padding: 0.15rem var(--s-2);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.1875rem 0.625rem;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-sunk);
+  border: 1px solid transparent;
+  background: var(--neutral-wash);
   color: var(--ink-2);
   white-space: nowrap;
+}
+.pill-dot {
+  flex: none;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 .pill[data-tone="accent"],
 .pill[data-tone="ok"] {
@@ -393,15 +504,16 @@
   background: transparent;
   color: var(--muted);
 }
-/* An identifier, not a word: a role key, a service code, a jurisdiction. */
+/* An identifier, not a word: a service code, a country ("IN", "AE"). A small
+   outlined badge in the sans face; mono is kept for true code only. */
 .pill[data-tone="code"] {
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
   border-radius: 4px;
-  padding: 0.05rem 0.3rem;
+  padding: 0 0.3125rem;
+  border-color: var(--line-strong);
   background: transparent;
-  color: var(--muted);
+  color: var(--ink-2);
 }
 
 /* ── Form controls ────────────────────────────────────────────────────────
@@ -436,7 +548,9 @@
 }
 .input::placeholder,
 .textarea::placeholder {
-  color: var(--faint);
+  color: var(--muted);
+  font-style: italic;
+  opacity: 1;
 }
 .input:hover:not(:disabled),
 .select:hover:not(:disabled),
@@ -486,7 +600,7 @@
   padding: 0.3rem var(--s-3);
   font: inherit;
   font-size: var(--t-sm);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ink-2);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -535,6 +649,54 @@
   min-height: var(--control-h-sm);
   padding: 0.25rem var(--s-2);
   font-size: var(--t-md);
+}
+/* A SELECT THAT READS AS ITS VALUE (the Wave 4 brief, 2026-09-28: "no
+   bordered dropdowns inside every row"). The value is plain text with a
+   quiet chevron; the frame appears on hover and on focus, which is when the
+   reader is about to change it. Still a native <select>, so the keyboard,
+   the phone's picker and the screen reader all keep working. */
+.select[data-variant="quiet"] {
+  width: auto;
+  max-width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 0.25rem 1.75rem 0.25rem var(--s-2);
+  margin-left: calc(-1 * var(--s-2));
+  border-color: transparent;
+  background-color: transparent;
+}
+.select[data-variant="quiet"]:hover:not(:disabled),
+.select[data-variant="quiet"]:focus-visible {
+  border-color: var(--line-strong);
+  background-color: var(--input-bg);
+}
+.select[data-variant="quiet"]:disabled {
+  background-color: transparent;
+  color: var(--ink);
+  cursor: default;
+}
+/* The same, drawn as a status pill: a stage you can change in place. The
+   pill's own shape and ground, with the chevron standing in for the dot. */
+.select[data-variant="pill"] {
+  width: auto;
+  min-height: 0;
+  padding: 0.1875rem 1.5rem 0.1875rem 0.625rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-2);
+  border-color: transparent;
+  border-radius: 999px;
+  background-color: var(--neutral-wash);
+  background-position: right 0.4375rem center;
+  background-size: 0.875rem 0.875rem;
+}
+.select[data-variant="pill"]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.select[data-variant="pill"]:disabled {
+  background-color: var(--neutral-wash);
+  color: var(--ink-2);
+  cursor: default;
 }
 
 /* A field: label, control, hint, error. One shape, so the gap between a label
@@ -594,6 +756,14 @@
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--s-4);
   align-items: start;
+}
+
+/* A BUTTON IN A ROW OF FIELDS, level with the controls rather than with the
+   labels: the row lines up the tops of its columns, so the button drops by
+   exactly one label (its line and the gap under it). Without this it sat
+   level with the labels, a control's height above where the eye expects it. */
+.field-action {
+  padding-top: calc(var(--t-sm) * var(--leading) + var(--s-2));
 }
 
 /* Checkbox and radio: the control, and a label that can be a whole sentence.
@@ -769,16 +939,17 @@
   gap: 0.2rem;
   min-width: 0;
 }
+/* The label is words at 14/600 in the second ink, never mono capitals; the
+   value is full ink at body size, because the value is what is read. */
 .meta dt {
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
 }
 .meta dd {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: var(--t-base);
+  color: var(--ink);
   min-width: 0;
 }
 /* Stacked rather than gridded, for a record with two facts — `auto-fit` would
@@ -812,13 +983,12 @@
 }
 .strip dt {
   font-size: var(--t-sm);
-  color: var(--muted);
-  font-weight: 500;
+  color: var(--ink-2);
+  font-weight: 600;
   margin-bottom: var(--s-1);
 }
 .strip dd {
   margin: 0;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--t-2xl);
   font-weight: 600;
@@ -870,7 +1040,7 @@
   padding: var(--s-2) var(--s-3);
   font: inherit;
   font-size: var(--t-md);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--muted);
   background: none;
   border: 0;
@@ -888,10 +1058,9 @@
   border-bottom-color: var(--accent);
 }
 .tab .count {
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.6875rem;
-  color: var(--faint);
+  font-size: var(--t-xs);
+  color: var(--muted);
 }
 .tab[aria-selected="true"] .count {
   color: var(--accent);
@@ -1064,7 +1233,7 @@
 
 /* The one-liner: an empty cell in a table, a list with nothing in it yet. */
 .empty {
-  color: var(--faint);
+  color: var(--muted);
   font-size: var(--t-sm);
   margin: 0;
 }
@@ -1140,16 +1309,13 @@
 
 .prose h4 {
   margin: 0 0 var(--s-1);
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  font-weight: 400;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
 }
 .prose p {
   margin: 0;
-  font-size: var(--t-md);
+  font-size: var(--t-base);
   white-space: pre-wrap;
   max-width: var(--measure);
 }
@@ -1159,19 +1325,23 @@
   gap: var(--s-4) var(--s-5);
 }
 
-/* Absent is absent. Italic and faint — never an empty cell, and never a zero.
-   Every optional field means "the firm has not stated this", and a screen
-   showing that as blank is claiming something the record does not say. */
-.unstated {
-  color: var(--faint);
+/* Absent is absent. "Not set" in muted italic (the Wave 4 brief): never an
+   empty cell, never an em dash and never a zero. Every optional field means
+   "the firm has not stated this", and a screen showing that as blank is
+   claiming something the record does not say. Italic is what keeps it from
+   reading as data; muted rather than faint keeps it readable. */
+.unstated,
+.not-set {
+  color: var(--muted);
   font-style: italic;
+  font-weight: 400;
 }
 
 /* ── Disclosure ───────────────────────────────────────────────────────── */
 
 .disclosure > summary {
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--t-md);
   list-style: none;
   display: flex;
@@ -1348,18 +1518,14 @@
 .board-col[data-tone="neutral"] .board-col-dot { background: var(--faint); }
 
 .board-col-tag {
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: var(--t-xs);
+  color: var(--muted);
 }
 
 /* The count sits NEXT TO the name rather than at the far edge — pushed right
    it stopped reading as this column's number and started reading as a control. */
 .board-col-count {
   flex: none;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--t-xs);
   color: var(--muted);
@@ -1481,11 +1647,9 @@
    measured 4.41:1, under the floor for 11px. */
 .wcard-for {
   margin: 0;
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1506,7 +1670,6 @@
   z-index: 1;
 }
 .wcard-due {
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
 .wcard-due[data-tone="danger"] { color: var(--danger); font-weight: 600; }
@@ -1537,7 +1700,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
 .wcard-prog-track {
@@ -1834,7 +1996,8 @@
   outline: none;
 }
 .chat-composer textarea::placeholder {
-  color: var(--faint);
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* The line under the box. It is the honest part of this screen: everything
@@ -1891,7 +2054,6 @@
    places on the dashboard that show a figure without a card around it.
    `tabular-nums` is the point: a figure that ticks over must not jitter. */
 .figure {
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--t-2xl);
   font-weight: 600;

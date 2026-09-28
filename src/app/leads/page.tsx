@@ -1,11 +1,11 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   api,
   apiError,
+  codeLabel,
   LEAD_SOURCES,
   LEAD_STAGES,
   colleagueLabel,
@@ -17,19 +17,26 @@ import type { Colleague, LeadRecord, LeadStage } from "@/lib/api/client";
 import {
   Button,
   Card,
-  CardTitle,
+  CardHead,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
   FieldStack,
   Input,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Select,
+  Sub,
   Table,
   TableWrap,
   Td,
   Textarea,
   Th,
+  ThChevron,
+  Tr,
 } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longInstant } from "@/lib/day";
@@ -55,25 +62,24 @@ type StageFilter = "" | "open" | "closed" | LeadStage;
 
 /** A lead's country, for a table cell: the name, with the code on hover. */
 function CountryCell({ code }: { code: string | null }) {
-  return code === null ? (
-    <span className="muted">not known</span>
-  ) : (
-    <span title={code}>{countryName(code)}</span>
+  return code === null ? <NotSet /> : <span title={code}>{countryName(code)}</span>;
+}
+
+/** A lead's estimate, for a table cell — right-aligned with tabular figures,
+ *  in lakhs for INR whatever the browser is set to (`formatMoney`). */
+function ValueCell({ value }: { value: LeadRecord["lead"]["estimatedValue"] }) {
+  return (
+    <Td align="right" className="nowrap">
+      {value === null ? <NotSet /> : formatMoney(value.amount, value.currency)}
+    </Td>
   );
 }
 
-/** A lead's estimate, for a table cell — right-aligned and tabular so a
- *  column of amounts can be read down. */
-function ValueCell({ value }: { value: LeadRecord["lead"]["estimatedValue"] }) {
-  return (
-    <Td align="right" className="num">
-      {value === null ? (
-        <span className="muted">not set</span>
-      ) : (
-        formatMoney(value.amount, value.currency)
-      )}
-    </Td>
-  );
+/** Which pill a closed stage wears: converted is done, the two unwon closes
+ *  are the red ones. The open stages are neutral: none of them is good or bad. */
+function stageTone(stage: LeadStage): "ok" | "danger" | "neutral" {
+  if (stage === "converted") return "ok";
+  return recordsLostReason(stage) ? "danger" : "neutral";
 }
 
 /**
@@ -97,11 +103,19 @@ function ValueCell({ value }: { value: LeadRecord["lead"]["estimatedValue"] }) {
  * own words, because a dropdown of five reasons produces five reasons and the
  * useful one is always the sixth. The API REQUIRES one on those two stages and
  * REFUSES one on every other, so the box appears on exactly those two.
+ *
+ * THE WAVE 4 SHAPE (2026-09-28, the approved mockup): one primary action at
+ * the top (Capture a lead, in a dialog, so the page is the pipeline and not a
+ * form under it), each table's count and total in its own header line, words
+ * for codes, and the stage and owner as selects that read as their value
+ * rather than a bordered box in every row. The whole row opens the lead.
  */
 export default function LeadsPage() {
   const router = useRouter();
   const [leads, setLeads] = useState<LeadRecord[]>([]);
   const [staff, setStaff] = useState<Colleague[]>([]);
+  // The firm's books currency: what a captured value is in, said under the box.
+  const [currency, setCurrency] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -119,20 +133,22 @@ export default function LeadsPage() {
   const [countryFilter, setCountryFilter] = useState("");
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
-  // What the capture form's value box says, for the preview under it.
+  // The capture dialog, its own refusal (shown inside it, where the reader is),
+  // and what its value box says, for the preview under it.
+  const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [captureValue, setCaptureValue] = useState("");
+  const captureForm = useId();
 
   const load = useCallback(async (): Promise<void> => {
-    const [pipeline, roster] = await Promise.all([
+    const [pipeline, roster, companies] = await Promise.all([
       api.GET("/api/v1/leads", {}),
-      // The roster needs tenant:admin, so an associate gets a 403 here and no
-      // owner dropdown. That is the API's rule and this screen does not argue
-      // with it — it simply offers what the caller can actually use.
       // The colleagues PICKER, not the roster (G3.2's gap, closed as on the work
       // board): names and rungs of active staff on `party:read`, no emails. The
       // roster is `tenant:admin`, so until 2026-09-25 nobody below
       // administrator was shown this picker at all.
       api.GET("/api/v1/tenancy/colleagues", {}),
+      api.GET("/api/v1/firm-entities", {}),
     ]);
     if (pipeline.response.status === 401) {
       router.push("/login");
@@ -145,6 +161,7 @@ export default function LeadsPage() {
     }
     setLeads(pipeline.data.leads);
     setStaff(roster.data ? [...roster.data.colleagues] : []);
+    setCurrency(companies.data?.reportingCurrency ?? null);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -204,21 +221,13 @@ export default function LeadsPage() {
   /**
    * A WRITE FROM A ROW CONTROL — and it owes two things a plain `act` does not.
    *
-   * ## It says what happened
+   * It SAYS WHAT HAPPENED: changing a `<select>` in a table row wrote and
+   * announced nothing, and for a screen reader the row simply goes quiet.
+   * `note` is a live region on this page, so this is a sentence in it.
    *
-   * Changing a `<select>` in a table row wrote and announced nothing. The
-   * visible value IS the feedback for somebody who can see it; for a screen
-   * reader the row simply goes quiet, and for anybody the difference between
-   * "saved" and "the click did not register" is invisible. `note` is already a
-   * live region on this page — it was carrying what CAPTURE answered and
-   * nothing else — so this is the same sentence in the same place.
-   *
-   * ## It asks for focus back
-   *
-   * By handing the node to the effect above rather than focusing it here. The
-   * node survives the reload: the rows are keyed by lead id, so React
-   * reconciles rather than remounting, and the element the reader was standing
-   * in is still the element that comes back.
+   * It ASKS FOR FOCUS BACK, by handing the node to the effect above. The node
+   * survives the reload: the rows are keyed by lead id, so React reconciles
+   * rather than remounting.
    */
   async function rowAct(
     key: string,
@@ -235,10 +244,9 @@ export default function LeadsPage() {
   /**
    * Move a lead, with the reason when the stage is one that takes one.
    *
-   * `title` and `node` are for the sentence and the focus — see `rowAct`. The
-   * close-out FORM passes no node deliberately: its submit button unmounts by
-   * succeeding, so there is nothing to hand focus back to and the note is what
-   * says the write landed.
+   * The close-out FORM passes no node deliberately: its submit button unmounts
+   * by succeeding, so there is nothing to hand focus back to and the note is
+   * what says the write landed.
    */
   function move(
     leadId: string,
@@ -247,7 +255,7 @@ export default function LeadsPage() {
     node: HTMLElement | null,
     lostReason?: string,
   ): void {
-    void rowAct(leadId, node, `${title} is now ${stage}.`, async () => {
+    void rowAct(leadId, node, `${title} is now ${codeLabel(stage)}.`, async () => {
       const result = await api.POST("/api/v1/leads/{leadId}/stage", {
         params: { path: { leadId } },
         body: {
@@ -264,6 +272,7 @@ export default function LeadsPage() {
 
   async function capture(form: FormData): Promise<void> {
     setBusy("capture");
+    setCaptureError(null);
     setError(null);
     setNote(null);
     // The API deduplicates on these three, normalised. Blank ones are dropped
@@ -294,26 +303,26 @@ export default function LeadsPage() {
     });
     setBusy(null);
     if (result.error) {
-      setError(apiError(result.error).message);
+      // Inside the dialog, where the reader is. The page's own notice sits
+      // behind the backdrop and would say it to nobody.
+      setCaptureError(apiError(result.error).message);
       return;
     }
-    // The form clears itself after its action; the preview under the value
-    // box would otherwise go on describing a number that is no longer there.
     setCaptureValue("");
+    setCapturing(false);
     // 201 created something; 200 landed on what was already there. Saying so is
     // the whole point of capture answering two codes.
     setNote(
       result.data.merged
         ? // The merge is right — a firm holds one live opportunity per client —
           // but the title typed above was thrown away, and saying so is the
-          // whole point of the API returning it. Silence here would put the bug
-          // back on the screen after it was fixed underneath.
+          // whole point of the API returning it.
           result.data.discardedTitle
-          ? `We already had an open opportunity with them, so this capture was added to it. The title "${result.data.discardedTitle}" was not kept; it is still called "${result.data.lead.title}". Rename it, or close it before opening the next one.`
-          : "We already had an open opportunity with them, so this capture was added to it."
+          ? `We already had an open lead for them, so this was added to it. It keeps its name "${result.data.lead.title}", not "${result.data.discardedTitle}".`
+          : "We already had an open lead for them, so this was added to it."
         : result.data.matchedExistingParty
-          ? "They were already a client on record, so a new opportunity was opened against that record."
-          : "New prospect, new opportunity.",
+          ? "They were already on record, so a new lead was opened for them."
+          : "Lead captured.",
     );
     await load();
   }
@@ -336,7 +345,7 @@ export default function LeadsPage() {
     }
     if (valueFiltered) {
       // A lead with no value cannot be "at least" anything, so a value bound
-      // hides it — and the count line below says so, so it is not a mystery.
+      // hides it — and the count line says so, so it is not a mystery.
       const v =
         l.lead.estimatedValue === null ? null : toMinorUnits(l.lead.estimatedValue.amount);
       if (v === null) return false;
@@ -361,8 +370,8 @@ export default function LeadsPage() {
     (stageFilter !== "" && stageFilter !== "closed" && !TERMINAL_STAGES.includes(stageFilter as LeadStage));
 
   // What the open opportunities on screen could be worth, added in exact
-  // minor units and grouped by currency — one line per currency, never a sum
-  // across two.
+  // minor units and grouped by currency — one figure per currency, never a
+  // sum across two.
   const openTotals = new Map<string, bigint>();
   for (const l of shownOpen) {
     const v = l.lead.estimatedValue;
@@ -371,342 +380,318 @@ export default function LeadsPage() {
     openTotals.set(v.currency, (openTotals.get(v.currency) ?? BigInt(0)) + units);
   }
   const unvaluedOpen = shownOpen.filter((l) => l.lead.estimatedValue === null).length;
+  const capturedPreview =
+    currency === null
+      ? previewAmount(cleanAmount(captureValue))
+      : previewAmount(cleanAmount(captureValue), currency) === null
+        ? null
+        : formatMoney(cleanAmount(captureValue), currency);
 
   return (
     <Page>
       <PageHeader
-        eyebrow="Commercial"
         title="Pipeline"
-        lede="Every prospect the firm is talking to, the stage each one is at, and who is handling it. Capture a new lead at the bottom of the page."
-        aside={<Pill tone="quiet">{open.length}</Pill>}
+        aside={
+          <Button
+            onClick={() => {
+              setCaptureError(null);
+              setCapturing(true);
+            }}
+          >
+            Capture a lead
+          </Button>
+        }
       />
       <ErrorNotice error={error} />
       {note !== null && (
-        /* What capture ANSWERED — created, merged, or landed on a party the
-           firm already had. A live region, because it is the outcome of a
-           submit: somebody who cannot see a paragraph appear above the form
-           they are still standing in is otherwise told nothing at all. */
-        <p className="muted text-md" role="status" aria-live="polite">
+        /* What a write ANSWERED: a stage, an owner, or what capture did. A live
+           region, because somebody who cannot see a sentence appear is
+           otherwise told nothing at all. */
+        <p className="text-md" role="status" aria-live="polite">
           {note}
         </p>
       )}
 
       {leads.length > 0 && (
-        <Card>
-          <CardTitle level={2}>Filter</CardTitle>
-          <FieldStack>
-            <FieldRow>
-              <Field label="Stage">
-                <Select
-                  value={stageFilter}
-                  onChange={(e) => {
-                    setStageFilter(e.target.value as StageFilter);
-                  }}
-                >
-                  <option value="">Every stage</option>
-                  <option value="open">Open only</option>
-                  <option value="closed">Closed only</option>
-                  {LEAD_STAGES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Country">
-                <CountryFilter
-                  leads={leads}
-                  value={countryFilter}
-                  onChange={setCountryFilter}
-                />
-              </Field>
-              <Field
-                label="Value at least"
-                error={min.bad ? "Numbers only, like 500000." : null}
-                hint={min.units === null ? undefined : previewAmount(fromMinorUnits(min.units))}
+        <div className="stack tight">
+          <FieldRow>
+            <Field label="Stage">
+              <Select
+                value={stageFilter}
+                onChange={(e) => {
+                  setStageFilter(e.target.value as StageFilter);
+                }}
               >
-                <Input
-                  inputMode="decimal"
-                  value={minValue}
-                  placeholder="100000"
-                  onChange={(e) => {
-                    setMinValue(e.target.value);
-                  }}
-                />
-              </Field>
-              <Field
-                label="Value at most"
-                error={max.bad ? "Numbers only, like 2500000." : null}
-                hint={max.units === null ? undefined : previewAmount(fromMinorUnits(max.units))}
+                <option value="">All stages</option>
+                <option value="open">Open only</option>
+                <option value="closed">Closed only</option>
+                {LEAD_STAGES.map((st) => (
+                  <option key={st} value={st}>
+                    {codeLabel(st)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Country">
+              <CountryFilter leads={leads} value={countryFilter} onChange={setCountryFilter} />
+            </Field>
+            <Field
+              label="Value from"
+              error={min.bad ? "Numbers only, e.g. 500000." : null}
+              hint={min.units === null ? undefined : previewAmount(fromMinorUnits(min.units), currency ?? undefined)}
+            >
+              <Input
+                inputMode="decimal"
+                value={minValue}
+                placeholder="e.g. 1,00,000"
+                onChange={(e) => {
+                  setMinValue(e.target.value);
+                }}
+              />
+            </Field>
+            <Field
+              label="Value up to"
+              error={max.bad ? "Numbers only, e.g. 2500000." : null}
+              hint={max.units === null ? undefined : previewAmount(fromMinorUnits(max.units), currency ?? undefined)}
+            >
+              <Input
+                inputMode="decimal"
+                value={maxValue}
+                placeholder="e.g. 25,00,000"
+                onChange={(e) => {
+                  setMaxValue(e.target.value);
+                }}
+              />
+            </Field>
+          </FieldRow>
+          {/* A live region that is always there and says something only while
+              a filter is on: the count is what a filter ANSWERED. */}
+          <div className="cluster">
+            <p className="text-sm" role="status" aria-live="polite">
+              {filtering
+                ? `Showing ${String(shownOpen.length + shownClosed.length)} of ${String(leads.length)}.` +
+                  (valueFiltered ? " Leads with no value are hidden." : "")
+                : ""}
+            </p>
+            {filtering && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStageFilter("");
+                  setCountryFilter("");
+                  setMinValue("");
+                  setMaxValue("");
+                }}
               >
-                <Input
-                  inputMode="decimal"
-                  value={maxValue}
-                  placeholder="2500000"
-                  onChange={(e) => {
-                    setMaxValue(e.target.value);
-                  }}
-                />
-              </Field>
-            </FieldRow>
-            <div className="cluster">
-              {/* A live region: the count is what a filter ANSWERED, and
-                  somebody who cannot see the tables shrink is otherwise told
-                  nothing. */}
-              <p className="muted text-sm" role="status" aria-live="polite">
-                Showing {shownOpen.length + shownClosed.length} of {leads.length}{" "}
-                {leads.length === 1 ? "opportunity" : "opportunities"}.
-                {valueFiltered ? " Opportunities with no value set are hidden while a value filter is on." : ""}
-              </p>
-              {filtering && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setStageFilter("");
-                    setCountryFilter("");
-                    setMinValue("");
-                    setMaxValue("");
-                  }}
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          </FieldStack>
-        </Card>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {!onlyClosed && (
-      <Card>
-        <CardTitle level={2}>Open</CardTitle>
-        {open.length > 0 && openTotals.size > 0 && (
-          <p className="muted text-md">
-            Could be worth{" "}
-            {[...openTotals.entries()]
-              .map(([currency, units]) => formatMoney(fromMinorUnits(units), currency))
-              .join(" + ")}
-            {unvaluedOpen > 0
-              ? `, plus ${String(unvaluedOpen)} with no value set.`
-              : "."}
-          </p>
-        )}
-        {open.length === 0 ? (
-          <p className="muted">
-            Nothing in the pipeline yet. Capture a lead below.
-          </p>
-        ) : shownOpen.length === 0 ? (
-          <p className="muted">No open opportunity matches these filters.</p>
-        ) : (
-          <TableWrap>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Opportunity</Th>
-                  <Th>Country</Th>
-                  <Th align="right">Value</Th>
-                  <Th>Source</Th>
-                  <Th>Stage</Th>
-                  <Th>Owner</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {shownOpen.map((l) => {
-                  const closingThis = closing?.leadId === l.lead.id ? closing : null;
-                  return (
-                    <Fragment key={l.lead.id}>
-                      <tr>
-                        <Td>
-                          {/* What the opportunity IS, over who it is with. Two live
-                              opportunities for one client used to render as the same
-                              company twice, because the party was all a row had.
-
-                              THE TITLE LINKS TO THE OPPORTUNITY'S OWN PAGE, which is
-                              where its notes, where the prospect is, what was quoted
-                              from it and its history live — four columns cannot hold
-                              those, and until that page existed the row was the only
-                              view of a lead there was. */}
-                          <div>
-                            <Link href={`/leads/${l.lead.id}`}>{l.lead.title}</Link>
-                          </div>
-                          {/* The party links too, because the lead IS the party and
-                              everything else known about them is there. Two links,
-                              two destinations, two different names. */}
-                          <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
-                            {l.party.displayName}
-                          </Link>
-                        </Td>
-                        <Td>
-                          <CountryCell code={l.lead.jurisdiction} />
-                        </Td>
-                        <ValueCell value={l.lead.estimatedValue} />
-                        <Td className="muted">{l.lead.source}</Td>
-                        <Td>
-                          <Select
-                            /* A control in a table cell has no <label> over it —
-                               the column heading is not one. Without this the row
-                               announces "combo box, new" four times over with no
-                               statement of WHICH lead or WHICH column. */
-                            aria-label={`Stage of ${l.lead.title}`}
-                            // While a close is being written the select shows the
-                            // stage being moved TO, not the stored one — the
-                            // request has not gone yet and snapping back would
-                            // look like the choice was refused.
-                            value={closingThis?.stage ?? l.lead.stage}
-                            disabled={busy !== null}
-                            onChange={(e) => {
-                              const stage = e.target.value as LeadStage;
-                              if (recordsLostReason(stage)) {
-                                setClosing({ leadId: l.lead.id, stage });
-                                return;
-                              }
-                              setClosing(null);
-                              // The node is captured from the event: after the
-                              // reload it is still this element, and it is
-                              // where the reader was standing.
-                              move(l.lead.id, l.lead.title, stage, e.currentTarget);
-                            }}
-                          >
-                            {LEAD_STAGES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </Select>
-                        </Td>
-                        <Td>
-                          <Select
-                            aria-label={`Owner of ${l.lead.title}`}
-                            value={l.owner?.userId ?? ""}
-                            disabled={busy !== null || staff.length === 0}
-                            onChange={(e) => {
-                              // THE SAME SILENT WRITE AS THE STAGE BESIDE IT,
-                              // and it was not on the board — one of these two
-                              // was named and they are one defect. Whose desk a
-                              // lead sits on is exactly the sort of change
-                              // somebody makes twice by mistake when nothing
-                              // said it worked the first time.
-                              const node = e.currentTarget;
-                              const ownerId = e.target.value;
-                              const who =
-                                ownerId === ""
-                                  ? "on nobody's desk"
-                                  : `with ${
-                                      (() => {
-                                        const c = staff.find((m) => m.userId === ownerId);
-                                        return c === undefined ? "somebody else" : colleagueLabel(c);
-                                      })()
-                                    }`;
-                              void rowAct(
-                                l.lead.id,
-                                node,
-                                `${l.lead.title} is now ${who}.`,
-                                () =>
+        <Card>
+          <CardHead
+            level={2}
+            title={
+              <>
+                Open <Pill>{shownOpen.length}</Pill>
+              </>
+            }
+            aside={
+              openTotals.size > 0 ? (
+                <p className="text-md">
+                  <span className="muted">Total value </span>
+                  <strong className="num">
+                    {[...openTotals.entries()]
+                      .map(([cur, units]) => formatMoney(fromMinorUnits(units), cur))
+                      .join(" + ")}
+                  </strong>
+                  {unvaluedOpen > 0 && (
+                    <span className="muted">
+                      {`, ${String(unvaluedOpen)} with no value`}
+                    </span>
+                  )}
+                </p>
+              ) : undefined
+            }
+          />
+          {open.length === 0 ? (
+            <p className="muted">No leads yet. Capture the first one with the button above.</p>
+          ) : shownOpen.length === 0 ? (
+            <p className="muted">No open lead matches these filters.</p>
+          ) : (
+            <TableWrap>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Opportunity</Th>
+                    <Th>Country</Th>
+                    <Th align="right">Value</Th>
+                    <Th>Source</Th>
+                    <Th>Stage</Th>
+                    <Th>Owner</Th>
+                    <ThChevron />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shownOpen.map((l) => {
+                    const closingThis = closing?.leadId === l.lead.id ? closing : null;
+                    return (
+                      <Fragment key={l.lead.id}>
+                        <Tr linked>
+                          <Td>
+                            {/* What the opportunity IS, over who it is with. The
+                                title is the row's one link: the lead's own page
+                                holds its notes, its quotes and its history, and
+                                the client is one click on from there. */}
+                            <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
+                            <Sub>{l.party.displayName}</Sub>
+                          </Td>
+                          <Td>
+                            <CountryCell code={l.lead.jurisdiction} />
+                          </Td>
+                          <ValueCell value={l.lead.estimatedValue} />
+                          <Td>{codeLabel(l.lead.source)}</Td>
+                          <Td>
+                            <Select
+                              variant="pill"
+                              /* A control in a table cell has no <label> over it:
+                                 the column heading is not one. */
+                              aria-label={`Stage of ${l.lead.title}`}
+                              // While a close is being written the select shows
+                              // the stage being moved TO, not the stored one.
+                              value={closingThis?.stage ?? l.lead.stage}
+                              disabled={busy !== null}
+                              onChange={(e) => {
+                                const stage = e.target.value as LeadStage;
+                                if (recordsLostReason(stage)) {
+                                  setClosing({ leadId: l.lead.id, stage });
+                                  return;
+                                }
+                                setClosing(null);
+                                move(l.lead.id, l.lead.title, stage, e.currentTarget);
+                              }}
+                            >
+                              {LEAD_STAGES.map((s) => (
+                                <option key={s} value={s}>
+                                  {codeLabel(s)}
+                                </option>
+                              ))}
+                            </Select>
+                          </Td>
+                          <Td>
+                            <Select
+                              variant="quiet"
+                              aria-label={`Owner of ${l.lead.title}`}
+                              value={l.owner?.userId ?? ""}
+                              disabled={busy !== null || staff.length === 0}
+                              onChange={(e) => {
+                                const node = e.currentTarget;
+                                const ownerId = e.target.value;
+                                const found = staff.find((m) => m.userId === ownerId);
+                                const who =
+                                  ownerId === ""
+                                    ? "unassigned"
+                                    : `with ${found === undefined ? "somebody else" : colleagueLabel(found)}`;
+                                void rowAct(l.lead.id, node, `${l.lead.title} is now ${who}.`, () =>
                                   api.PUT("/api/v1/leads/{leadId}/owner", {
                                     params: { path: { leadId: l.lead.id } },
-                                    body: {
-                                      ownerUserId: ownerId === "" ? null : ownerId,
-                                    },
+                                    body: { ownerUserId: ownerId === "" ? null : ownerId },
                                   }),
-                              );
-                            }}
-                          >
-                            {/* Unassigned is a real state — it is the queue somebody
-                                works from — so it is an option, not an absence. */}
-                            <option value="">unassigned</option>
-                            {staff.map((m) => (
-                              <option key={m.userId} value={m.userId}>
-                                {colleagueLabel(m)}
-                              </option>
-                            ))}
-                          </Select>
-                        </Td>
-                      </tr>
-                      {closingThis !== null && (
-                        <tr>
-                          <Td colSpan={6}>
-                            <form
-                              action={(form) => {
-                                move(
-                                  l.lead.id,
-                                  l.lead.title,
-                                  closingThis.stage,
-                                  // NOTHING TO HAND FOCUS BACK TO: this form's
-                                  // submit unmounts by succeeding, and the note
-                                  // is what says the write landed.
-                                  null,
-                                  String(form.get("lostReason") ?? "").trim(),
                                 );
                               }}
                             >
-                              <FieldStack>
-                                {/* The sentence under the box used to be a loose
-                                    paragraph BELOW the buttons, which is nowhere:
-                                    it explained the box to anybody who could see
-                                    it and to nobody who could not. As `hint` it
-                                    becomes the field's `aria-describedby`, read
-                                    out with the box it is about. */}
-                                <Field
-                                  label={
-                                    closingThis.stage === "lost"
-                                      ? "Why did it go elsewhere?"
-                                      : "What happened to it?"
-                                  }
-                                  hint="Required, in your own words. Write what actually happened, so it is useful to read back next quarter."
-                                >
-                                  <Textarea
-                                    name="lostReason"
-                                    rows={2}
-                                    required
-                                    autoFocus
-                                    placeholder={
-                                      closingThis.stage === "lost"
-                                        ? "Went with their existing auditor on price."
-                                        : "Three calls and two emails, no reply since June."
-                                    }
-                                  />
-                                </Field>
-                                {/* A `cluster` and not a bare pair of buttons: the
-                                    stack is a flex COLUMN, and a button laid
-                                    straight into it stretches the width of the
-                                    card. */}
-                                <div className="cluster">
-                                  <Button type="submit" disabled={busy !== null}>
-                                    Close as {closingThis.stage}
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={busy !== null}
-                                    onClick={() => {
-                                      setClosing(null);
-                                    }}
-                                  >
-                                    Keep it open
-                                  </Button>
-                                </div>
-                              </FieldStack>
-                            </form>
+                              {/* Unassigned is a real state — it is the queue
+                                  somebody works from — so it is an option. */}
+                              <option value="">Unassigned</option>
+                              {staff.map((m) => (
+                                <option key={m.userId} value={m.userId}>
+                                  {colleagueLabel(m)}
+                                </option>
+                              ))}
+                            </Select>
                           </Td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </TableWrap>
-        )}
-      </Card>
+                          <RowChevron />
+                        </Tr>
+                        {closingThis !== null && (
+                          <tr>
+                            <Td colSpan={7}>
+                              <form
+                                action={(form) => {
+                                  move(
+                                    l.lead.id,
+                                    l.lead.title,
+                                    closingThis.stage,
+                                    // NOTHING TO HAND FOCUS BACK TO: this form's
+                                    // submit unmounts by succeeding.
+                                    null,
+                                    String(form.get("lostReason") ?? "").trim(),
+                                  );
+                                }}
+                              >
+                                <FieldStack>
+                                  <Field
+                                    label={
+                                      closingThis.stage === "lost"
+                                        ? "Why did it go elsewhere?"
+                                        : "What happened to it?"
+                                    }
+                                    hint="In your own words, so it is useful next quarter."
+                                  >
+                                    <Textarea
+                                      name="lostReason"
+                                      rows={2}
+                                      required
+                                      autoFocus
+                                      placeholder={
+                                        closingThis.stage === "lost"
+                                          ? "e.g. Went with their existing auditor on price."
+                                          : "e.g. Three calls and two emails, no reply since June."
+                                      }
+                                    />
+                                  </Field>
+                                  <div className="cluster">
+                                    <Button type="submit" disabled={busy !== null}>
+                                      Close as {codeLabel(closingThis.stage)}
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      disabled={busy !== null}
+                                      onClick={() => {
+                                        setClosing(null);
+                                      }}
+                                    >
+                                      Keep it open
+                                    </Button>
+                                  </div>
+                                </FieldStack>
+                              </form>
+                            </Td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </TableWrap>
+          )}
+        </Card>
       )}
 
       {closed.length > 0 && !onlyOpen && (
         <Card>
-          <CardTitle level={2}>Closed</CardTitle>
-          {/* This table had no `thead` at all. Four columns of somebody's
-              record, and nothing said which was the stage, which was the
-              reason and which was the date — a screen reader announces the
-              cells with no column to hang them on, and so does a person. */}
+          <CardHead
+            level={2}
+            title={
+              <>
+                Closed <Pill>{shownClosed.length}</Pill>
+              </>
+            }
+          />
           <TableWrap>
             <Table>
               <thead>
@@ -715,27 +700,27 @@ export default function LeadsPage() {
                   <Th>Country</Th>
                   <Th align="right">Value</Th>
                   <Th>Stage</Th>
-                  <Th>Why</Th>
-                  <Th>Closed</Th>
+                  <Th>Reason</Th>
+                  <Th>Closed on</Th>
+                  <ThChevron />
                 </tr>
               </thead>
               <tbody>
                 {shownClosed.length === 0 && (
                   <tr>
-                    <Td colSpan={6} className="muted">
-                      No closed opportunity matches these filters.
+                    <Td colSpan={7} className="muted">
+                      No closed lead matches these filters.
                     </Td>
                   </tr>
                 )}
                 {shownClosed.map((l) => (
-                  <tr key={l.lead.id} data-inactive="true">
+                  /* FULL INK, and the pill says the state (the Wave 4 brief):
+                     a closed lead was dimmed to 55%, which made its value and
+                     its reason the hardest things on the page to read. */
+                  <Tr key={l.lead.id} linked>
                     <Td>
-                      <div>
-                        <Link href={`/leads/${l.lead.id}`}>{l.lead.title}</Link>
-                      </div>
-                      <Link className="text-sm muted" href={`/clients/${l.party.id}`}>
-                        {l.party.displayName}
-                      </Link>
+                      <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
+                      <Sub>{l.party.displayName}</Sub>
                     </Td>
                     <Td>
                       <CountryCell code={l.lead.jurisdiction} />
@@ -745,30 +730,25 @@ export default function LeadsPage() {
                       {/* `lost` and `abandoned` render as themselves. Collapsing
                           them into one word would throw away the only signal that
                           separates a pricing problem from a follow-up one. */}
-                      <Pill tone={recordsLostReason(l.lead.stage) ? "danger" : "neutral"}>
-                        {l.lead.stage}
+                      <Pill dot tone={stageTone(l.lead.stage)}>
+                        {codeLabel(l.lead.stage)}
                       </Pill>
                     </Td>
                     {/* WHY, in the closer's own words. Null on a converted lead is
-                        right; null on a closed-unwon one means it was closed
-                        before anybody was asked, which is a different silence. */}
-                    <Td className="text-sm">
-                      {l.lead.lostReason ??
-                        (recordsLostReason(l.lead.stage) ? (
-                          <span className="muted">no reason recorded</span>
-                        ) : (
-                          ""
-                        ))}
+                        right and shows nothing; null on a closed-unwon one means
+                        it was closed before anybody was asked. */}
+                    <Td>
+                      <span className="cell-text">
+                        {l.lead.lostReason ?? (recordsLostReason(l.lead.stage) ? <NotSet /> : null)}
+                      </span>
                     </Td>
                     {/* `closed_at` is a `timestamptz` — an INSTANT, so it is
-                        PARSED and not split. `.slice(0, 10)` was wrong twice: it
-                        printed `2026-09-02` where every other date on the product
-                        reads `02 Sep 2026`, and it printed the UTC day, which is
-                        the day before for anything closed after 05:30 IST. */}
-                    <Td className="muted">
-                      {l.lead.closedAt === null ? "" : longInstant(l.lead.closedAt)}
+                        PARSED and not split (the reader's own day). */}
+                    <Td className="nowrap">
+                      {l.lead.closedAt === null ? <NotSet /> : longInstant(l.lead.closedAt)}
                     </Td>
-                  </tr>
+                    <RowChevron />
+                  </Tr>
                 ))}
               </tbody>
             </Table>
@@ -776,80 +756,90 @@ export default function LeadsPage() {
         </Card>
       )}
 
-      <Card>
-        <CardTitle level={2}>Capture a lead</CardTitle>
-        <p className="muted text-md">
-          Give at least one way to reach them. Email, phone and PAN are used to recognise a
-          prospect already on record, so the same company does not end up with two records.
-        </p>
+      <Dialog
+        open={capturing}
+        size="lg"
+        onClose={() => {
+          setCapturing(false);
+        }}
+        title="Capture a lead"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setCapturing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form={captureForm} disabled={busy !== null}>
+              {busy === "capture" ? "Capturing…" : "Capture"}
+            </Button>
+          </>
+        }
+      >
         <form
+          id={captureForm}
           action={(form) => {
             void capture(form);
           }}
         >
-          {/* The gaps down this form were three hand-written margins — one on
-              each row and none under the last, which is exactly what a stack
-              already does. `.select` is `width: 100%` in the design system, so
-              the inline width on Source styled nothing either. */}
           <FieldStack>
+            <ErrorNotice error={captureError} />
             <FieldRow>
               <Field label="Company">
-                <Input name="name" required />
+                <Input name="name" required autoFocus placeholder="e.g. Desert Rose LLC" />
               </Field>
               <Field label="Opportunity">
-                <Input name="title" placeholder="FY26 statutory audit" required />
+                <Input name="title" placeholder="e.g. FY26 statutory audit" required />
               </Field>
               <Field label="Source">
                 <Select name="source">
                   {LEAD_SOURCES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {codeLabel(s)}
                     </option>
                   ))}
                 </Select>
               </Field>
             </FieldRow>
+            <div>
+              <FieldRow>
+                <Field label="Email">
+                  <Input name="email" type="email" placeholder="e.g. accounts@desertrose.ae" />
+                </Field>
+                <Field label="Phone">
+                  <Input name="phone" placeholder="e.g. +91 98200 12345" />
+                </Field>
+                <Field label="PAN">
+                  <Input name="pan" placeholder="e.g. AAACL1234M" />
+                </Field>
+              </FieldRow>
+              <p className="field-hint">Give at least one, so a repeat is spotted.</p>
+            </div>
             <FieldRow>
-              <Field label="Email">
-                <Input name="email" type="email" />
-              </Field>
-              <Field label="Phone">
-                <Input name="phone" />
-              </Field>
-              <Field label="PAN">
-                <Input name="pan" placeholder="AAACL1234M" />
-              </Field>
-            </FieldRow>
-            <FieldRow>
-              <Field label="Country" optional hint="Where the prospect is. Leave it if nobody knows yet.">
+              <Field label="Country" optional>
                 <CountrySelect name="jurisdiction" defaultValue="" />
               </Field>
               <Field
                 label="Could be worth"
                 optional
-                hint={
-                  previewAmount(cleanAmount(captureValue)) ??
-                  "Your best estimate in the firm's currency. Numbers only."
-                }
+                hint={capturedPreview ?? (currency === null ? undefined : `In ${currency}.`)}
               >
                 <Input
                   name="estimatedValue"
                   inputMode="decimal"
-                  placeholder="500000"
+                  placeholder="e.g. 5,00,000"
                   onChange={(e) => {
                     setCaptureValue(e.target.value);
                   }}
                 />
               </Field>
             </FieldRow>
-            <div className="cluster">
-              <Button type="submit" disabled={busy !== null}>
-                {busy === "capture" ? "Capturing…" : "Capture"}
-              </Button>
-            </div>
           </FieldStack>
         </form>
-      </Card>
+      </Dialog>
     </Page>
   );
 }
@@ -887,7 +877,7 @@ function CountryFilter({
         onChange(e.target.value);
       }}
     >
-      <option value="">Every country</option>
+      <option value="">All countries</option>
       {present.map((code) => (
         <option key={code} value={code}>
           {countryName(code)}

@@ -157,11 +157,19 @@ export interface SelectProps
      collide with the control-height scale every other control uses. */
   extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "className" | "size"> {
   size?: ControlSize;
+  /**
+   * `quiet` reads as its value, with a frame only on hover and focus: the
+   * select for a table row (the brief: no bordered dropdowns in every row).
+   * `pill` is the same drawn as a status pill, for a stage changed in place.
+   * Both stay a native `<select>`, and both need an `aria-label` in a row,
+   * where no `<label>` sits over them.
+   */
+  variant?: "quiet" | "pill";
   className?: string;
   ref?: Ref<HTMLSelectElement>;
 }
 
-export function Select({ size = "md", className, ...rest }: SelectProps) {
+export function Select({ size = "md", variant, className, ...rest }: SelectProps) {
   const field = useFieldWiring();
   return (
     <select
@@ -171,6 +179,7 @@ export function Select({ size = "md", className, ...rest }: SelectProps) {
       {...rest}
       className={cx("select", className)}
       data-size={size}
+      {...(variant === undefined ? {} : { "data-variant": variant })}
     />
   );
 }

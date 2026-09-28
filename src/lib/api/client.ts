@@ -441,6 +441,17 @@ export function readRoleBody(body: Record<string, unknown> | undefined): RoleBod
 export type ProposalSummary =
   paths["/api/v1/proposals"]["get"]["responses"][200]["content"]["application/json"]["proposals"][number];
 
+/** A proposal's status in words. `rejected` reads "Declined" because that is
+ *  the client's own button on the link they were sent (0085); the rest are
+ *  the code in sentence case. A status added on the API is a compile error. */
+export const PROPOSAL_STATUS_WORDS: Readonly<Record<ProposalSummary["proposal"]["status"], string>> = {
+  draft: "Draft",
+  sent: "Sent",
+  accepted: "Accepted",
+  rejected: "Declined",
+  expired: "Expired",
+};
+
 /** One proposal in full: its lines, each with the catalogue version it was
  *  PINNED to, and the totals the database computed. */
 export type ProposalRecord =
@@ -668,39 +679,70 @@ export function readServiceBody(body: Record<string, unknown> | undefined): Serv
 }
 
 /**
- * An amount, for a person to read.
+ * An amount, for a person to read. THE one money formatter for the screen.
  *
  * The API sends money as a decimal STRING and this app keeps it one all the way
  * to the screen. `Intl.NumberFormat.format` accepts a decimal string and
  * formats it EXACTLY; `format(Number(amount))` would route it through the one
  * JavaScript type that cannot hold 1499.50, undoing at the last possible moment
  * the thing the string exists for.
+ *
+ * THE SHAPE (the Wave 4 brief, 2026-09-28), and none of it follows the
+ * reader's browser, because a partner in Mumbai with an English (US) browser
+ * still counts in lakhs:
+ *   - INR in Indian grouping with the rupee sign: `₹12,00,000`, never
+ *     `₹1,200,000`;
+ *   - every other currency with its code, in its own grouping: `AED 5,000`;
+ *   - no `.00` when there are no paise; two places when there are
+ *     (`₹25,00,000.50`).
+ *
+ * `null` is "Not set": the value was never given. (A fee hidden from somebody
+ * without commercial visibility is also null on the wire; a screen that can
+ * tell the two apart says which.)
  */
 export function formatMoney(amount: string | null, currency: string): string {
-  if (amount === null) return "not stated";
-  const formatter = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-    // A quote is read to the minor unit; the extra places the API stores are
-    // for per-unit rates, not for a total on a page.
-    maximumFractionDigits: 2,
-  });
+  if (amount === null) return "Not set";
   const exact = asNumericLiteral(amount);
-  if (exact !== null) return formatter.format(exact);
-  // NOT `Number(amount)`, which is what this used to be.
+  // NOT `Number(amount)`, which is what this used to fall back to.
   //
   // The fallback is only reached by a value that is not a decimal at all, which
   // the API's own schema refuses — so it is either a bug on the wire or a
-  // string like "1.0e3" or "12,50". Routing that through the one JavaScript
-  // type that cannot hold 1499.50, on the last line of the function whose whole
-  // job is to avoid it, produces a number that LOOKS right and is not, with no
-  // sign to the reader that anything happened. `Number("12,50")` is NaN and
-  // rendered "₹NaN"; `Number("1.0e3")` silently became a thousand.
-  //
-  // So it renders the value it was given, marked with the currency and nothing
-  // else. An amount a person can see is wrong is worth more than one they
-  // cannot.
-  return `${currency} ${amount}`;
+  // string like "1.0e3" or "12,50". `Number("12,50")` is NaN and rendered
+  // "₹NaN"; `Number("1.0e3")` silently became a thousand. So it renders the
+  // value it was given, marked with the currency and nothing else. An amount a
+  // person can see is wrong is worth more than one they cannot.
+  if (exact === null) return `${currency} ${amount}`;
+  // Paise are shown only when there are some: "12.50" keeps them, "12.00"
+  // and "12" do not. Read off the string, never off a number.
+  const places = /\.\d*[1-9]/.test(amount) ? 2 : 0;
+  if (currency === "INR") {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: places,
+      maximumFractionDigits: 2,
+    }).format(exact);
+  }
+  const figure = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: places,
+    maximumFractionDigits: 2,
+  }).format(exact);
+  return `${currency} ${figure}`;
+}
+
+/**
+ * A fixed PRODUCT code as words: "referral" -> "Referral", "one_time" ->
+ * "One time", "private_limited" -> "Private limited".
+ *
+ * Only for the product's own closed sets (a lead's source and stage, a
+ * frequency, a status) where no better word is written down. A firm's own
+ * names, its Depts, its services, its process states, arrive from the API as
+ * the firm wrote them and are shown as they are. A code on screen in its raw
+ * lowercase ("new", "retainer") reads as a system talking to itself.
+ */
+export function codeLabel(code: string): string {
+  const words = code.replace(/[_-]+/g, " ").trim();
+  return words === "" ? code : `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
 /**

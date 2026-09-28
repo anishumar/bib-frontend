@@ -29,18 +29,26 @@ import { cx } from "./class-names";
  */
 export type PillTone = "neutral" | "ok" | "warn" | "danger" | "quiet" | "code";
 
+/**
+ * `dot` draws the mockup's status shape (approved 2026-09-28): a dot and a
+ * word, so a state reads before the word does. Use it for a STATE ("New",
+ * "Sent", "Lost"); leave it off for a label or a count.
+ */
 export function Pill({
   children,
   tone = "neutral",
+  dot = false,
   className,
   ...rest
 }: {
   children: ReactNode;
   tone?: PillTone;
+  dot?: boolean;
   className?: string;
 } & Omit<React.HTMLAttributes<HTMLSpanElement>, "className">) {
   return (
     <span {...rest} className={cx("pill", className)} data-tone={tone}>
+      {dot && <span className="pill-dot" aria-hidden="true" />}
       {children}
     </span>
   );

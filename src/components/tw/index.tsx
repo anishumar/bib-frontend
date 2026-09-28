@@ -109,13 +109,13 @@ export function PageHeader({
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
         {eyebrow !== undefined && (
-          <p className="mb-1 text-xs uppercase tracking-[0.11em] text-faint">{eyebrow}</p>
+          <p className="mb-1 text-xs font-semibold text-muted">{eyebrow}</p>
         )}
         <h1 className={cn("text-2xl font-semibold text-ink", titleMono === true && "mono")}>
           {title}
         </h1>
         {lede !== undefined && (
-          <div className="mt-2 max-w-[var(--measure)] text-sm text-muted">{lede}</div>
+          <div className="mt-2 max-w-[var(--measure)] text-base text-ink-2">{lede}</div>
         )}
       </div>
       {actions !== undefined && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
@@ -150,7 +150,7 @@ export function Section({
           <Heading className="text-lg font-semibold text-ink">
             {title}
             {count !== undefined && (
-              <span className="mono ml-2 text-sm font-normal text-faint">{count}</span>
+              <span className="ml-2 text-sm font-normal tabular-nums text-muted">{count}</span>
             )}
           </Heading>
           {lede !== undefined && (
@@ -240,7 +240,7 @@ export function Stat({
       {label !== undefined && <p className="text-sm text-muted">{label}</p>}
       <p
         className={cn(
-          "mono text-2xl",
+          "text-2xl font-semibold tabular-nums",
           tone === "danger"
             ? "text-danger"
             : tone === "warn"
@@ -289,8 +289,10 @@ export function Table({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
-/** Column heads are the product's small-caps mono, which is how a head reads
- *  as a LABEL rather than as another row of data. */
+/** Column heads are words: sentence case at 14/600 in the second ink over one
+ *  firmer rule (the Wave 4 brief, 2026-09-28). They were small-caps mono in
+ *  `faint`, which the user called "ugly, underconfident, very light". Same
+ *  treatment as `.table th` in the other vocabulary. */
 export function Th({
   children,
   align = "left",
@@ -302,7 +304,7 @@ export function Th({
     <th
       scope="col"
       className={cn(
-        "mono border-b border-line px-4 py-3 text-xs font-normal uppercase tracking-[0.11em] text-faint",
+        "whitespace-nowrap border-b border-line-strong px-2.5 py-2.5 text-xs font-semibold text-ink-2",
         align === "right" ? "text-right" : "text-left",
       )}
     >
@@ -328,7 +330,7 @@ export function Td({
     <td
       {...(colSpan === undefined ? {} : { colSpan })}
       className={cn(
-        "border-b border-line-soft px-4 py-3 align-top text-ink",
+        "border-b border-line px-2.5 py-3 align-top text-ink",
         align === "right" ? "text-right" : "text-left",
         className,
       )}
@@ -340,7 +342,7 @@ export function Td({
 
 /** The second line in a cell — a qualifier, not a value. */
 export function Sub({ children }: { children: ReactNode }): JSX.Element {
-  return <span className="mt-0.5 block text-xs text-muted">{children}</span>;
+  return <span className="mt-0.5 block text-sm text-ink-2">{children}</span>;
 }
 
 // ── Small pieces ───────────────────────────────────────────────────────────
@@ -356,23 +358,27 @@ export function Sub({ children }: { children: ReactNode }): JSX.Element {
 export function Pill({
   children,
   tone = "neutral",
+  dot = false,
 }: {
   children: ReactNode;
   tone?: "neutral" | "ok" | "warn" | "danger";
+  /** A STATE drawn the mockup's way: a dot and a word (see `ui/pill.tsx`). */
+  dot?: boolean;
 }): JSX.Element {
   return (
     <span
       className={cn(
-        "inline-block shrink-0 rounded-sm px-2 py-0.5 text-xs",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold",
         tone === "ok"
           ? "bg-ok-wash text-ok-ink"
           : tone === "warn"
             ? "bg-warn-wash text-warn-ink"
             : tone === "danger"
               ? "bg-danger-wash text-danger"
-              : "bg-surface-sunk text-muted",
+              : "bg-neutral-wash text-ink-2",
       )}
     >
+      {dot && <span className="size-[0.4375rem] shrink-0 rounded-full bg-current" aria-hidden="true" />}
       {children}
     </span>
   );
@@ -424,7 +430,7 @@ export function Notice({
     >
       <div className="min-w-0 max-w-[var(--measure)]">
         {eyebrow !== undefined && (
-          <p className="mono mb-0.5 text-xs uppercase tracking-[0.11em] opacity-80">{eyebrow}</p>
+          <p className="mb-0.5 text-xs font-semibold opacity-80">{eyebrow}</p>
         )}
         {children}
       </div>

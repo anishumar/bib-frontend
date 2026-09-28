@@ -90,12 +90,14 @@ missing; add it to `tokens.css` instead.
 
 ### Type
 
-Base is **16px**. The scale is `--t-xs` (12), `--t-sm` (13), `--t-md` (14),
-`--t-base` (16), `--t-lg` (18), `--t-xl` (24), `--t-2xl` (32).
+Base is **16px**, line height 1.5 (`--leading`), face Source Sans 3. The scale is `--t-xs`
+(14), `--t-sm` (15), `--t-md` (16), `--t-base` (16), `--t-lg` (20), `--t-xl` (24), `--t-2xl`
+(32): it moved up a rung on 2026-09-28 (the Wave 4 brief), and nothing a user must read is below
+14.
 
 As classes: `.text-xs`, `.text-sm`, `.text-md`, `.text-lg`. Body needs none.
 
-`13px`, `15px` and `17px` are not on the ladder. The linter says so.
+`12px`, `13px` and `17px` are not on the ladder. The linter says so.
 
 ### Spacing
 

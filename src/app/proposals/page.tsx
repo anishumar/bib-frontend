@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { api, apiError, formatMoney } from "@/lib/api/client";
+import { api, apiError, formatMoney, PROPOSAL_STATUS_WORDS } from "@/lib/api/client";
 import type { ProposalSummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -11,14 +10,20 @@ import {
   Card,
   ErrorNotice,
   LinkButton,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Sub,
   Table,
   TableWrap,
   Td,
   Th,
+  ThChevron,
+  Tr,
   type PillTone,
 } from "@/components/ui";
+import { longInstant } from "@/lib/day";
 
 /**
  * What the firm has quoted, and to whom.
@@ -27,10 +32,15 @@ import {
  * the API's shape rather than this screen's choice, and it is why thirty
  * proposals cost one request instead of thirty-one.
  *
- * Money renders as an em dash for somebody without commercial visibility. The
- * API sends null rather than refusing the row, because "you may not see the
- * fee" and "there is no proposal" are different answers a person acts on
+ * Money reads "Hidden" for somebody without commercial visibility. The API
+ * sends null rather than refusing the row, because "you may not see the fee"
+ * and "there is no proposal" are different answers a person acts on
  * differently — so the client and the status are here either way.
+ *
+ * THE WAVE 4 SHAPE (2026-09-28): New proposal is the one brand button, the
+ * whole row opens the proposal, the status is a pill with a dot in words
+ * ("Declined", never `rejected`), and the reference is plain text rather than
+ * a typewriter code.
  */
 export default function ProposalsPage() {
   const router = useRouter();
@@ -67,14 +77,11 @@ export default function ProposalsPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Commercial"
         title="Proposals"
-        lede="Every quote the firm is drafting or has sent, and whether the client has opened it."
         aside={
-          <>
-            <Pill tone="quiet">{proposals.length}</Pill>
-            <LinkButton href="/proposals/new">New proposal</LinkButton>
-          </>
+          <LinkButton href="/proposals/new" variant="primary">
+            New proposal
+          </LinkButton>
         }
       />
 
@@ -83,8 +90,7 @@ export default function ProposalsPage() {
       {proposals.length === 0 ? (
         <Card>
           <Empty title="Nothing quoted yet" icon="proposals">
-            A proposal is the priced document a prospect receives. Start the first one with New
-            proposal.
+            Start the first one with New proposal.
           </Empty>
         </Card>
       ) : (
@@ -92,60 +98,76 @@ export default function ProposalsPage() {
           <Table>
             <thead>
               <tr>
-                <Th>Ref</Th>
                 <Th>Proposal</Th>
-                <Th>Client</Th>
+                <Th>Ref</Th>
+                <Th>Issued by</Th>
                 <Th>Status</Th>
                 <Th align="right">Total</Th>
+                <Th>Sent on</Th>
                 <Th>Opened</Th>
+                <ThChevron />
               </tr>
             </thead>
             <tbody>
               {proposals.map((p) => (
-                <tr key={p.proposal.id}>
-                  {/* The firm's own number for the document, first: it is what
-                      a client quotes back and what an audit cites. */}
+                <Tr key={p.proposal.id} linked>
+                  {/* What it is, over who it is for: the client by NAME, from
+                      the API's joined read model, never a column of uuids. */}
                   <Td>
-                    <Link href={`/proposals/${p.proposal.id}`} className="mono">
-                      {p.proposal.ref}
-                    </Link>
+                    <RowLink href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</RowLink>
+                    <Sub>{p.party.displayName}</Sub>
                   </Td>
+                  {/* The firm's own number for the document: what a client
+                      quotes back and what an audit cites. */}
+                  <Td className="nowrap">{p.proposal.ref}</Td>
+                  <Td>{p.issuingEntity?.displayName ?? <NotSet />}</Td>
                   <Td>
-                    <Link href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</Link>
-                    <Sub>
-                      {p.lineCount} {p.lineCount === 1 ? "line" : "lines"}
-                    </Sub>
+                    <Pill dot tone={toneOf(p.proposal.status)}>
+                      {PROPOSAL_STATUS_WORDS[p.proposal.status]}
+                    </Pill>
                   </Td>
-                  {/* The client by NAME. The API returns a joined read model, so
-                      a list of quotes is not a column of uuids. */}
-                  <Td>{p.party.displayName}</Td>
-                  <Td>
-                    <Pill tone={toneOf(p.proposal.status)}>{p.proposal.status}</Pill>
-                  </Td>
-                  <Td align="right">
-                    <span className="mono">{formatMoney(p.totals.net, p.totals.currency)}</span>
-                  </Td>
-                  {/* The TRACK half of send/track: has the client looked at it. */}
-                  <Td>
-                    {p.proposal.viewCount === 0 ? (
-                      <span className="empty">not yet</span>
+                  <Td align="right" className="nowrap">
+                    {p.totals.net === null ? (
+                      <NotSet>Hidden</NotSet>
                     ) : (
-                      <span className="mono">{p.proposal.viewCount}×</span>
+                      formatMoney(p.totals.net, p.totals.currency)
+                    )}
+                    {p.totals.unpricedLineCount > 0 && (
+                      <Sub>{`+ ${String(p.totals.unpricedLineCount)} to be agreed`}</Sub>
                     )}
                   </Td>
-                </tr>
+                  <Td className="nowrap">
+                    {p.proposal.sentAt === null ? (
+                      <NotSet>Not sent</NotSet>
+                    ) : (
+                      longInstant(p.proposal.sentAt)
+                    )}
+                  </Td>
+                  {/* The TRACK half of send/track: has the client looked at it. */}
+                  <Td className="nowrap">
+                    {p.proposal.viewCount === 0 ? (
+                      <NotSet>Not yet</NotSet>
+                    ) : p.proposal.viewCount === 1 ? (
+                      "Once"
+                    ) : (
+                      `${String(p.proposal.viewCount)} times`
+                    )}
+                  </Td>
+                  <RowChevron />
+                </Tr>
               ))}
             </tbody>
           </Table>
         </TableWrap>
       )}
-
     </Page>
   );
 }
 
-/** Which pill a status wears. `rejected` and `expired` are the same kind of
- *  fact — this one is not going anywhere — and the rest are neutral. */
+/** Which pill a status wears. Accepted is done; declined and expired are the
+ *  same kind of fact (this one is not going anywhere); draft and sent are
+ *  neither good nor bad. */
 function toneOf(status: ProposalSummary["proposal"]["status"]): PillTone {
+  if (status === "accepted") return "ok";
   return status === "rejected" || status === "expired" ? "danger" : "neutral";
 }

@@ -155,7 +155,7 @@ function StandardProse() {
 
   if (!loaded) return <Loading label="Loading the standard wording" />;
 
-  // The tab lives in the URL (`?company=`), so a link from Our companies lands
+  // The tab lives in the URL (`?company=`), so a link from Your firm lands
   // on the right one and a reload keeps it.
   const asked = params.get("company");
   const tab = asked !== null && companies.some((c) => c.partyId === asked) ? asked : DEFAULT;
@@ -209,7 +209,7 @@ function StandardProse() {
             <p className="muted" style={{ maxWidth: "70ch" }}>
               What {company.name}&rsquo;s documents carry, kind by kind. Where it has no wording of
               its own, it uses the Default wording, shown here as it prints.{" "}
-              <Link href="/admin/companies">Our companies</Link> says which clients it quotes.
+              <Link href="/admin/firm">Your firm</Link> says which clients it quotes.
             </p>
           )}
           {BLOCK_KINDS.map((kind) => {

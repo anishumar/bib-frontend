@@ -176,7 +176,23 @@
   --color-faint: var(--faint);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+  --color-neutral-wash: var(--neutral-wash);
   --color-overlay: var(--overlay);
+
+  /* Category tints (Wave 4): GROUPS, never status. See tokens.css. */
+  --color-cat-1: var(--cat-1);
+  --color-cat-1-wash: var(--cat-1-wash);
+  --color-cat-1-ink: var(--cat-1-ink);
+  --color-cat-2: var(--cat-2);
+  --color-cat-2-wash: var(--cat-2-wash);
+  --color-cat-2-ink: var(--cat-2-ink);
+  --color-cat-3: var(--cat-3);
+  --color-cat-3-wash: var(--cat-3-wash);
+  --color-cat-3-ink: var(--cat-3-ink);
+  --color-cat-4: var(--cat-4);
+  --color-cat-4-wash: var(--cat-4-wash);
+  --color-cat-4-ink: var(--cat-4-ink);
 
   /* Brand — whose product this is. Not a status. */
   --color-brand: var(--brand);

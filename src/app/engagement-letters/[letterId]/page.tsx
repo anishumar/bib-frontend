@@ -1191,7 +1191,7 @@ export default function LetterPage() {
             // standing signatory, because the letter has none until it is sent.
             <p className="text-md text-muted">
               {standing === null
-                ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one under The firm itself."
+                ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one on Your firm."
                 : `When sent, this letter carries the firm's signature block as it is now: ${
                     standing.displayName ?? "the named account"
                   }, ${standing.title}. Changing the signatory later does not change this letter.`}

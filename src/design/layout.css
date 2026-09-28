@@ -116,7 +116,7 @@ html {
   min-width: 0;
 }
 .brand b {
-  font-size: 0.9375rem;
+  font-size: var(--t-sm);
   font-weight: 600;
   letter-spacing: -0.015em;
   overflow: hidden;
@@ -218,7 +218,7 @@ html {
 .nav-link[aria-current="page"] {
   background: var(--brand-wash);
   color: var(--brand-ink);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* A top-level row: a group's head, or a section that holds one screen.
@@ -229,14 +229,14 @@ html {
    the one nobody looks at. */
 .nav-top {
   text-align: left;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ink-2);
 }
 .nav-group-head {
   border: 0;
   background: none;
   font: inherit;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
 }
 /* The section you are IN, whether or not it is open. Closed, this is the only
@@ -266,10 +266,9 @@ html {
   white-space: nowrap;
 }
 .nav-link .count {
-  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.6875rem;
-  color: var(--faint);
+  font-size: var(--t-xs);
+  color: var(--muted);
 }
 /* `--brand-ink`, the same token the LABEL beside it already uses. `--brand` is
    the plum for a ground or an edge; as 11px text on `--brand-wash` it measures
@@ -398,7 +397,7 @@ html {
 }
 .crumb b {
   color: var(--ink);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* The page canvas. ONE definition of how wide a page is and how far its
@@ -524,18 +523,16 @@ html {
   flex-wrap: wrap;
 }
 .eyebrow {
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--faint);
-  margin: 0 0 0.4rem;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 var(--s-1);
 }
 .lede {
-  margin: var(--s-3) 0 0;
+  margin: var(--s-2) 0 0;
   max-width: var(--main-w-narrow);
-  color: var(--muted);
-  font-size: 0.9375rem;
+  color: var(--ink-2);
+  font-size: var(--t-base);
 }
 
 /* ── Section ──────────────────────────────────────────────────────────────

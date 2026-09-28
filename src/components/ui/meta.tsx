@@ -59,7 +59,17 @@ export function MetaItem({
  * repeated per field: absent has exactly one rendering, written here once.
  */
 export function NotStated({ children }: { children?: ReactNode }) {
-  return <span className="unstated">{children ?? "not stated"}</span>;
+  return <span className="unstated">{children ?? "Not set"}</span>;
+}
+
+/**
+ * THE empty value (the Wave 4 brief, 2026-09-28): "Not set", muted italic,
+ * in a read view or a table cell. Never a blank and never an em dash, so
+ * "nothing here" cannot be taken for data. `NotStated` is the same thing
+ * with room for a more precise phrase; reach for this one first.
+ */
+export function NotSet({ children }: { children?: ReactNode }) {
+  return <span className="not-set">{children ?? "Not set"}</span>;
 }
 
 /**

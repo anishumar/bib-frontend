@@ -40,12 +40,16 @@ export function fromMinorUnits(units: bigint): string {
 }
 
 /**
- * An amount somebody is TYPING, grouped the way their browser groups numbers
- * ("5,00,000" in India), with no currency — so they can see they typed five
- * lakh and not fifty. Null while it is not yet a plain decimal.
+ * An amount somebody is TYPING, grouped so they can see they typed five lakh
+ * and not fifty, with no currency. Null while it is not yet a plain decimal.
+ *
+ * Pass the `currency` when it is known: INR is then grouped in lakhs
+ * ("5,00,000") whatever the browser is set to, as `formatMoney` does. Without
+ * it the browser's own grouping is used, which is what this always did.
  */
-export function previewAmount(amount: string): string | null {
+export function previewAmount(amount: string, currency?: string): string | null {
   if (!PLAIN_DECIMAL.test(amount)) return null;
   const exact = amount as `${number}`;
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(exact);
+  const locale = currency === "INR" ? "en-IN" : currency === undefined ? undefined : "en-US";
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(exact);
 }

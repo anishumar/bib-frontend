@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "api:generate": "openapi-typescript http://localhost:8080/openapi.json -o src/lib/api/schema.d.ts",
-    "check": "npm run typecheck && npm run lint"
+    "check:copy": "node scripts/check-placeholders.mjs",
+    "check": "npm run typecheck && npm run lint && npm run check:copy"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

@@ -39,24 +39,31 @@
 
 :root {
   /* ── Type ────────────────────────────────────────────────────────────────
-     IBM Plex, self-hosted by `next/font` in the root layout — which is what
-     defines `--font-sans` and `--font-mono`. The fallbacks after them are not
-     decoration: they are what renders while the face loads and if it never
-     does. */
-  --sans: var(--font-sans), "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+     Source Sans 3, self-hosted by `next/font` in the root layout, which is
+     what defines `--font-sans`. Chosen for the people who use this all day:
+     90% of them are over 35, at a desktop, reading figures (the Wave 4 brief,
+     2026-09-28). It has tabular figures and its latin-ext subset carries the
+     rupee sign. IBM Plex Mono stays loaded for TRUE code only (an id in a
+     support disclosure), never for money, dates or counts. The fallbacks are
+     what renders while the face loads and if it never does. */
+  --sans: var(--font-sans), "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   --mono: var(--font-mono), "IBM Plex Mono", "SF Mono", Consolas, monospace;
 
   /* One type scale, so a size is CHOSEN FROM A LIST rather than invented.
-     Base is 16px: this is read all day beside spreadsheets and PDFs, and
-     shaving it to 14 buys density nobody asked for at the cost of legibility.
-     A screen that reaches for 15px or 17px has left the system. */
-  --t-xs: 0.75rem;    /* 12 — eyebrows, table heads, tags */
-  --t-sm: 0.8125rem;  /* 13 — helper text, metadata */
-  --t-md: 0.875rem;   /* 14 — dense controls, table cells */
+     Base is 16px and NOTHING A USER MUST READ IS BELOW 14. The whole ladder
+     moved up one rung on 2026-09-28: the 10, 11, 12 and 13px rungs were table
+     heads, labels and hints, which are exactly what a reader over 35 squints
+     at. A screen that reaches for 13px or 17px has left the system. */
+  --t-xs: 0.875rem;   /* 14 — pills, table heads, labels over a value */
+  --t-sm: 0.9375rem;  /* 15 — hints, a second line in a cell, metadata */
+  --t-md: 1rem;       /* 16 — table cells, tabs, dense controls */
   --t-base: 1rem;     /* 16 — body, form controls */
-  --t-lg: 1.125rem;   /* 18 — card and section headings */
+  --t-lg: 1.25rem;    /* 20 — card and section headings */
   --t-xl: 1.5rem;     /* 24 — page subheads */
   --t-2xl: 2rem;      /* 32 — page title */
+  /* Body leading. 1.5 is the brief's number: enough air for a long line of a
+     letter clause, not so much that a table row stops reading as one row. */
+  --leading: 1.5;
 
   /* ── Spacing ─────────────────────────────────────────────────────────────
      Vertical rhythm as a decision rather than a habit. Related things sit at
@@ -143,6 +150,12 @@
   --faint: #62727c;
   --line: #e4e8ea;
   --line-soft: #eef1f2;
+  /* The rule under a table's head row: one step firmer than a row rule, so
+     the head reads as a head without a grey band behind it. */
+  --line-strong: #d3d9dc;
+  /* The ground of a NEUTRAL pill: a state that is not good or bad ("New",
+     "Draft"). A wash, not a border, so it reads from across the room. */
+  --neutral-wash: #eef1f2;
 
   /* The firm's own colour. `--accent-ink` is the READABLE one — accent as
      text, on paper or on its own wash. */
@@ -213,6 +226,31 @@
      spent on decoration. */
   --ok: var(--accent);
   --ok-wash: var(--accent-wash);
+
+  /* ── Category tints ──────────────────────────────────────────────────────
+     A SECOND, DELIBERATE EXCEPTION to "colour means status", beside the
+     brand. Four quiet hues that tell GROUPS apart (the Catalogue's Depts:
+     FRC, TRC, RAA and a spare), used on a chip and a thin left edge.
+
+     They never mean good or bad. That is why the hues sit where the status
+     colours are not: blue, violet, olive and orchid, all desaturated, none of
+     them teal (`--ok`), amber (`--warn`), red (`--danger`) or the maroon
+     brand. Three tokens each, like the status tones:
+       --cat-N       the edge and the dot
+       --cat-N-wash  a chip's ground
+       --cat-N-ink   text on that ground (4.5:1 or better) */
+  --cat-1: #5a82b8;
+  --cat-1-wash: #eaf0f8;
+  --cat-1-ink: #2b4d7d;
+  --cat-2: #8b76c0;
+  --cat-2-wash: #f0edf8;
+  --cat-2-ink: #513d88;
+  --cat-3: #8c8a3f;
+  --cat-3-wash: #f1f1e1;
+  --cat-3-ink: #52531f;
+  --cat-4: #b06ea6;
+  --cat-4-wash: #f7ecf4;
+  --cat-4-ink: #7b3a71;
 
   /* ── Component grounds ───────────────────────────────────────────────────
      Named separately because they diverge between themes. Writing a colour at
@@ -307,6 +345,8 @@
     --faint: #86949c;
     --line: #253238;
     --line-soft: #1b262b;
+    --line-strong: #31414a;
+    --neutral-wash: #1d2a30;
 
     --accent: #3fa593;
     --accent-ink: #8fd9c6;
@@ -337,6 +377,19 @@
 
     --ok: var(--accent);
     --ok-wash: var(--accent-wash);
+
+    --cat-1: #6f9fd0;
+    --cat-1-wash: #172738;
+    --cat-1-ink: #a9c8ea;
+    --cat-2: #a08cd6;
+    --cat-2-wash: #231e38;
+    --cat-2-ink: #c9bdf0;
+    --cat-3: #a7a55c;
+    --cat-3-wash: #252613;
+    --cat-3-ink: #d2d091;
+    --cat-4: #c785bd;
+    --cat-4-wash: #321b2e;
+    --cat-4-ink: #e8b8e0;
 
     /* Inverted: on a dark ground the loud button is the light one. */
     --btn-bg: var(--brand);
@@ -375,6 +428,8 @@
   --faint: #86949c;
   --line: #253238;
   --line-soft: #1b262b;
+  --line-strong: #31414a;
+  --neutral-wash: #1d2a30;
 
   --accent: #3fa593;
   --accent-ink: #8fd9c6;
@@ -396,6 +451,19 @@
 
   --ok: var(--accent);
   --ok-wash: var(--accent-wash);
+
+  --cat-1: #6f9fd0;
+  --cat-1-wash: #172738;
+  --cat-1-ink: #a9c8ea;
+  --cat-2: #a08cd6;
+  --cat-2-wash: #231e38;
+  --cat-2-ink: #c9bdf0;
+  --cat-3: #a7a55c;
+  --cat-3-wash: #252613;
+  --cat-3-ink: #d2d091;
+  --cat-4: #c785bd;
+  --cat-4-wash: #321b2e;
+  --cat-4-ink: #e8b8e0;
 
   --btn-bg: var(--brand);
   --btn-ink: var(--brand-on);

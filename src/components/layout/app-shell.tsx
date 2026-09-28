@@ -209,14 +209,11 @@ const GROUPS: NavGroup[] = [
     label: "The firm",
     icon: "people",
     items: [
-      /* The firm on paper: which company it is, who signs for it, and from
-         which day its deadlines count. Four facts every firm sets once, and
-         until this screen existed all four were reachable only by API. */
-      { href: "/admin/firm", label: "The firm itself", icon: "structure", needs: "tenant:admin" },
-      /* The firm's own companies and which one quotes clients from which
-         country (T6.18). Beside the firm itself because it IS the firm on
-         paper, only plural. */
-      { href: "/admin/companies", label: "Our companies", icon: "clients", needs: "tenant:admin" },
+      /* The firm on paper, ONE link (the Wave 4 brief, 2026-09-28): its
+         companies and which one quotes which country, who signs, from which
+         day deadlines count, and the discount limit. It was two links, "The
+         firm itself" and "Our companies", and the first repeated the second. */
+      { href: "/admin/firm", label: "Your firm", icon: "structure", needs: "tenant:admin" },
       { href: "/admin/people", label: "People", icon: "people", needs: "tenant:admin" },
       { href: "/admin/roles", label: "Roles", icon: "roles", needs: "tenant:admin" },
       { href: "/admin/grades", label: "Grades", icon: "grades", needs: "tenant:admin" },

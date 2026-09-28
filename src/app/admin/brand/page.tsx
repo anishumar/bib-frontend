@@ -91,7 +91,7 @@ export default function BrandPage() {
 
     // The firm's own companies, from `GET /firm-entities` (T6.18): the firm
     // itself and every company the issuing rule names, which is the same set
-    // the brand-asset routes accept and the same list Our companies, the
+    // the brand-asset routes accept and the same list Your firm, the
     // proposal builder and the Standard prose tabs read. One list, so no two
     // screens can disagree about which companies the firm has.
     const firm = await api.GET("/api/v1/firm-entities", {});
@@ -122,7 +122,7 @@ export default function BrandPage() {
     })();
   }, [load]);
 
-  // Our companies links here as `#brand-entity-<id>`. The browser looks for
+  // Your firm links here as `#brand-entity-<id>`. The browser looks for
   // that anchor on arrival, before the list has loaded, and finds nothing; so
   // once the companies are drawn, go to the one the link named.
   useEffect(() => {
@@ -242,7 +242,7 @@ export default function BrandPage() {
           <p className="muted">
             Your firm has no issuing companies yet, so there is nothing to give a logo to. A
             company appears here once it is added on{" "}
-            <Link href="/admin/companies">Our companies</Link>. The same list decides which
+            <Link href="/admin/firm">Your firm</Link>. The same list decides which
             company issues a proposal or an engagement letter.
           </p>
         </Card>

@@ -1,65 +1,75 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { ConfigEntry } from "@/lib/api/client";
+import type { ConfigEntry, FirmEntity, FirmEntityPreference } from "@/lib/api/client";
 import {
   Button,
   Card,
+  CardHead,
   CardTitle,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
+  FieldStack,
   Input,
+  Menu,
+  MenuItem,
   Meta,
   MetaItem,
-  NotStated,
-  Pill,
+  Notice,
+  NotSet,
   Select,
+  Sub,
   Table,
   TableWrap,
   Td,
+  Textarea,
   Th,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
+import { CountrySelect } from "@/components/country-select";
+import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 
 /**
- * The firm on paper — four facts every firm sets once, and until this screen
- * existed all four were reachable only through the API:
+ * YOUR FIRM: the firm on paper, on one page (the Wave 4 brief, 2026-09-28).
+ * It was two, "The firm itself" and "Our companies", and the first carried a
+ * card for the fallback company that repeated the second. The user asked for
+ * them merged: *"agr ye dono pages merge hojaye or simplified hojaye woh jada
+ * better hai"*.
  *
- *   1. WHICH COMPANY issues its letters, and where that company is registered.
- *      A governing-law clause is refused on a letter issued by an entity with
- *      no registered jurisdiction (G1.8), so an unregistered firm cannot sign
- *      a single engagement.
- *   2. WHO SIGNS for it, and with what title. One signatory for the whole
- *      firm, printed on every letter.
- *   3. FROM WHICH DAY its deadlines count (`compliance_policy.missedFromOn`).
- *      A firm onboarding four hundred clients whose filings were made in Excel
- *      would otherwise open to hundreds of MISSED rows on its first morning.
- *   4. WHEN ITS FINANCIAL YEAR STARTS (`fiscalYearStartMonth`). Quarterly and
- *      annual services spawn nothing until the firm says.
+ * Four things every firm sets once, and until these screens existed each was
+ * reachable only through the API:
  *
- * Every write goes through the same route the setup script used, so a firm
- * that sets itself up here is indistinguishable from one a script set up.
+ *   1. COMPANIES (T6.18): the firm's own legal entities, and which one quotes
+ *      clients from which country. A new proposal's issuer defaults from that
+ *      table and can be changed before sending (D4). Adding a company is ONE
+ *      call (`POST /firm-entities`): the company, its country and its row in
+ *      the table, in one transaction. A company's country does not move once
+ *      recorded (JURISDICTION_FIXED), so Change offers it only to a company
+ *      with none. A company stays the firm's with no country routed to it
+ *      (0313), so any row can be given to any company.
+ *   2. SIGNING: one signatory for the whole firm, printed on every letter.
+ *      Nobody named means no letter can be sent.
+ *   3. DEADLINES: from which day deadlines count (`missedFromOn`) and when the
+ *      financial year starts. A firm onboarding four hundred clients would
+ *      otherwise open to hundreds of MISSED rows on its first morning, and
+ *      quarterly and annual services spawn nothing until the month is set.
+ *      Published in the same act: a draft floor governs nothing.
+ *   4. THE DISCOUNT LIMIT, moved here from the Catalogue: what anybody may
+ *      take off without `proposal:approve`. The API reads it LIVE and a firm
+ *      with no PUBLISHED limit has a limit of ZERO, so it is published in the
+ *      same act too. (The Catalogue's card saved a draft and left it, so a
+ *      limit set there never took effect.)
+ *
+ * The reasoning lives here and in CLAUDE.md, not on the screen: each section
+ * says what is set and offers the change, in as few words as it can.
  */
-
-interface FirmEntity {
-  readonly id: string;
-  readonly displayName: string;
-  readonly jurisdiction: string | null;
-}
-
-interface Registration {
-  readonly jurisdiction: string;
-  readonly entityType: string;
-  readonly incorporatedOn: string | null;
-  readonly financialYearEnd: string | null;
-  readonly status: string;
-}
 
 interface Signatory {
   readonly userId: string;
@@ -94,11 +104,16 @@ const MONTHS = [
   "December",
 ];
 
-/** The published `default` policy off the registry list, or null when the
- *  firm has never published one — which is a real state, not an error. */
+/** The published entry `key` off a registry list, or null when the firm has
+ *  never published one, which is a real state, not an error. */
+function published(entries: readonly ConfigEntry[], key: string): ConfigEntry | null {
+  const entry = entries.find((e) => e.entry.key === key);
+  return entry === undefined || entry.published === null ? null : entry;
+}
+
 function policyOf(entries: readonly ConfigEntry[]): Policy | null {
-  const entry = entries.find((e) => e.entry.key === "default");
-  if (entry === undefined || entry.published === null) return null;
+  const entry = published(entries, "default");
+  if (entry?.published == null) return null;
   const body = entry.published.body as Record<string, unknown>;
   const floor = body["missedFromOn"];
   const month = body["fiscalYearStartMonth"];
@@ -109,54 +124,88 @@ function policyOf(entries: readonly ConfigEntry[]): Policy | null {
   };
 }
 
+/** Define-then-publish on a firm that has no entry, or draft-then-publish the
+ *  next version on one that has. Both registry rows here (the compliance
+ *  policy and the discount limit) only govern once PUBLISHED, so a screen
+ *  that stopped at the draft would look set while nothing read it. */
+async function publishConfig(
+  kind: "compliance_policy" | "policy",
+  key: string,
+  exists: boolean,
+  body: Record<string, unknown>,
+): Promise<{ error?: unknown }> {
+  if (!exists) {
+    const defined = await api.POST("/api/v1/config/{kind}", {
+      params: { path: { kind } },
+      body: { key, body },
+    });
+    if (defined.error) return defined;
+    return api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
+      params: { path: { kind, key, version: 1 } },
+    });
+  }
+  const drafted = await api.POST("/api/v1/config/{kind}/{key}/versions", {
+    params: { path: { kind, key } },
+    body: { body },
+  });
+  const version = drafted.data?.version;
+  if (drafted.error || version === undefined) return drafted;
+  return api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
+    params: { path: { kind, key, version } },
+  });
+}
+
 export default function FirmPage() {
   const router = useRouter();
-  const [entity, setEntity] = useState<FirmEntity | null>(null);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [entities, setEntities] = useState<FirmEntity[]>([]);
+  const [preferences, setPreferences] = useState<FirmEntityPreference[]>([]);
   const [signatory, setSignatory] = useState<Signatory | null>(null);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
   const [policy, setPolicy] = useState<Policy | null>(null);
-  const [policyKnown, setPolicyKnown] = useState(false);
+  const [policyExists, setPolicyExists] = useState(false);
+  const [limit, setLimit] = useState<string | null>(null);
+  const [limitExists, setLimitExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<FirmEntity | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [prefs, sig, roster, policies] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies] = await Promise.all([
+      api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/firm-signatory", {}),
       api.GET("/api/v1/tenancy/members", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "compliance_policy" } } }),
+      api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
     ]);
-    if (prefs.response.status === 401) {
+    if (list.response.status === 401) {
       router.push("/login");
       return;
     }
-    if (prefs.error) {
-      setError(apiError(prefs.error).message);
+    if (list.error) {
+      setError(apiError(list.error).message);
       setLoaded(true);
       return;
     }
-    // The firm's own company is the one the `*` fallback preference names.
-    // Every firm has that row from the day it is provisioned, so this is the
-    // one read that can always find the issuing entity without a search.
-    const fallback =
-      prefs.data.preferences.find((p) => p.clientJurisdiction === "*") ?? prefs.data.preferences[0] ?? null;
-    const firm = fallback === null ? null : fallback.firmEntity;
-    setEntity(firm);
-    if (firm !== null) {
-      const profile = await api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId: firm.id } } });
-      setRegistrations(profile.data?.legalEntities ?? []);
-    }
+    setEntities(list.data.entities);
+    setPreferences(prefs.data?.preferences ?? []);
     setSignatory(sig.data?.signatory ?? null);
     setColleagues(
       (roster.data?.members ?? [])
         .filter((m) => m.membership.audience === "STAFF" && m.membership.isActive)
         .map((m) => ({ userId: m.membership.userId, displayName: m.displayName, email: m.email })),
     );
-    setPolicy(policyOf(policies.data?.entries ?? []));
-    setPolicyKnown(!policies.error);
-    setError(null);
+    const complianceEntries = compliance.data?.entries ?? [];
+    setPolicy(policyOf(complianceEntries));
+    setPolicyExists(complianceEntries.some((e) => e.entry.key === "default"));
+    const policyEntries = policies.data?.entries ?? [];
+    const discount = published(policyEntries, "discount");
+    const max = discount?.published?.body["maxDiscountPercent"];
+    setLimit(max === undefined || max === null ? null : String(max));
+    setLimitExists(policyEntries.some((e) => e.entry.key === "discount"));
     setLoaded(true);
   }, [router]);
 
@@ -166,251 +215,653 @@ export default function FirmPage() {
     })();
   }, [load]);
 
-  /** Every write funnels through here, so one place owns the busy flag, the
-   *  error and the reload. The API's refusal is shown verbatim — it is the
-   *  whole explanation. */
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  /** Every write goes through here: one busy flag, the API's refusal shown
+   *  word for word, and a reload so every section agrees. Cleared BEFORE the
+   *  call, so a second press says what IT did. */
+  async function act(
+    key: string,
+    call: () => Promise<{ error?: unknown }>,
+    done: string,
+  ): Promise<boolean> {
     setBusy(key);
     setError(null);
+    setNotice(null);
     const result = await call();
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(null);
-      return;
+      return false;
     }
     await load();
+    setNotice(done);
     setBusy(null);
+    return true;
   }
 
-  function register(form: FormData): void {
-    if (entity === null) return;
-    const partyId = entity.id;
-    const incorporatedOn = String(form.get("incorporatedOn") ?? "").trim();
-    const financialYearEnd = String(form.get("financialYearEnd") ?? "").trim();
-    void act("register", () =>
-      api.POST("/api/v1/parties/organizations/{partyId}/legal-entities", {
-        params: { path: { partyId } },
-        body: {
-          jurisdiction: String(form.get("jurisdiction") ?? "").trim().toUpperCase(),
-          entityType: String(form.get("entityType") ?? "").trim(),
-          ...(incorporatedOn === "" ? {} : { incorporatedOn }),
-          ...(financialYearEnd === "" ? {} : { financialYearEnd }),
-        },
-      }),
-    );
-  }
-
-  function nameSignatory(form: FormData): void {
-    void act("signatory", () =>
-      api.PUT("/api/v1/tenancy/firm-signatory", {
-        body: {
-          userId: String(form.get("userId") ?? ""),
-          title: String(form.get("title") ?? "").trim(),
-        },
-      }),
-    );
-  }
-
-  /** Publish the policy: define `default` on a firm that has none, or draft the
-   *  next version on one that has, then put it in force in the same act. A
-   *  draft floor governs nothing, and a screen that left one lying around
-   *  would look set while every sweep ignored it. */
-  function publishPolicy(form: FormData): void {
-    const floor = String(form.get("missedFromOn") ?? "").trim();
-    const month = Number(form.get("fiscalYearStartMonth") ?? 0);
-    const body = {
-      missedFromOn: floor === "" ? null : floor,
-      fiscalYearStartMonth: month >= 1 && month <= 12 ? month : null,
-    };
-    void act("policy", async () => {
-      if (policy === null) {
-        const defined = await api.POST("/api/v1/config/{kind}", {
-          params: { path: { kind: "compliance_policy" } },
-          body: { key: "default", body },
-        });
-        if (defined.error) return defined;
-        return api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
-          params: { path: { kind: "compliance_policy", key: "default", version: 1 } },
-        });
-      }
-      const drafted = await api.POST("/api/v1/config/{kind}/{key}/versions", {
-        params: { path: { kind: "compliance_policy", key: "default" } },
-        body: { body },
-      });
-      const version = drafted.data?.version;
-      if (drafted.error || version === undefined) return drafted;
-      return api.POST("/api/v1/config/{kind}/{key}/versions/{version}/publish", {
-        params: { path: { kind: "compliance_policy", key: "default", version } },
-      });
-    });
-  }
-
-  if (!loaded) return <Loading />;
+  if (!loaded) return <Loading label="Loading your firm" />;
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="The firm"
-        title="The firm itself"
-        lede="Set up the basics of your firm: which company issues your letters, who signs them,
-        the date your deadlines are tracked from, and when your financial year starts. Every
-        engagement letter and every calendar entry uses these."
-      />
+      <PageHeader title="Your firm" />
       <ErrorNotice error={error} />
+      {notice !== null && <Notice tone="ok">{notice}</Notice>}
 
-      <IssuingEntity
-        entity={entity}
-        registrations={registrations}
-        busy={busy === "register"}
-        onRegister={register}
-      />
+      <Card id="companies">
+        <CardHead
+          level={2}
+          title="Companies"
+          aside={
+            <Button
+              onClick={() => {
+                setError(null);
+                setNotice(null);
+                setAdding(true);
+              }}
+            >
+              Add a company
+            </Button>
+          }
+        />
+        <CompanyTable
+          entities={entities}
+          onEdit={(e) => {
+            setError(null);
+            setNotice(null);
+            setEditing(e);
+          }}
+        />
+        <Routing
+          entities={entities}
+          preferences={preferences}
+          busy={busy}
+          onSet={(country, entity) =>
+            act(
+              `route:${country}`,
+              () =>
+                api.POST("/api/v1/firm-entities/preferences", {
+                  body: { clientJurisdiction: country, firmEntityPartyId: entity.partyId },
+                }),
+              country === "*"
+                ? `Every other country is now quoted by ${entity.name}.`
+                : `Clients in ${countryName(country)} are now quoted by ${entity.name}.`,
+            )
+          }
+        />
+      </Card>
 
-      <SignatoryCard
+      <SigningCard
         signatory={signatory}
         colleagues={colleagues}
         busy={busy === "signatory"}
-        onName={nameSignatory}
+        onName={(userId, title) =>
+          act(
+            "signatory",
+            () => api.PUT("/api/v1/tenancy/firm-signatory", { body: { userId, title } }),
+            "Signatory saved. New letters carry this name.",
+          )
+        }
       />
 
-      <PolicyCard policy={policy} known={policyKnown} busy={busy === "policy"} onPublish={publishPolicy} />
+      <DeadlinesCard
+        policy={policy}
+        busy={busy === "policy"}
+        onSave={(body) =>
+          act(
+            "policy",
+            () => publishConfig("compliance_policy", "default", policyExists, body),
+            "Deadlines saved.",
+          )
+        }
+      />
+
+      <DiscountCard
+        limit={limit}
+        busy={busy === "discount"}
+        onSave={(max) =>
+          act(
+            "discount",
+            () => publishConfig("policy", "discount", limitExists, { maxDiscountPercent: max }),
+            `Discounts up to ${max}% no longer need sign-off.`,
+          )
+        }
+      />
+
+      {adding && (
+        <AddCompany
+          entities={entities}
+          busy={busy === "add"}
+          onClose={() => setAdding(false)}
+          onAdd={async (body) => {
+            const ok = await act(
+              "add",
+              () => api.POST("/api/v1/firm-entities", { body }),
+              `${body.name} is added. New clients in ${countryName(body.jurisdiction)} are quoted by it.`,
+            );
+            if (ok) setAdding(false);
+          }}
+        />
+      )}
+
+      {editing !== null && (
+        <EditCompany
+          key={editing.partyId}
+          entity={editing}
+          busy={busy === "edit"}
+          onClose={() => setEditing(null)}
+          onSave={async (body) => {
+            const ok = await act(
+              "edit",
+              () =>
+                api.PATCH("/api/v1/firm-entities/{entityPartyId}", {
+                  params: { path: { entityPartyId: editing.partyId } },
+                  body,
+                }),
+              `${body.name ?? editing.name} is saved.`,
+            );
+            if (ok) setEditing(null);
+          }}
+        />
+      )}
     </Page>
   );
 }
 
-// ── 1. Which company issues the letters ──────────────────────────────────────
+// ── Companies ───────────────────────────────────────────────────────────────
 
-function IssuingEntity({
-  entity,
-  registrations,
-  busy,
-  onRegister,
+function CompanyTable({
+  entities,
+  onEdit,
 }: {
-  entity: FirmEntity | null;
-  registrations: readonly Registration[];
-  busy: boolean;
-  onRegister: (form: FormData) => void;
+  entities: readonly FirmEntity[];
+  onEdit: (entity: FirmEntity) => void;
 }) {
-  const hintId = useId();
+  const router = useRouter();
   return (
-    <Card>
-      <CardTitle level={2}>Which company issues your letters?</CardTitle>
-      {/* This card is the FALLBACK company only. The firm's other companies,
-          and which one quotes which country, live on their own screen. */}
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        The company below issues for every country that has no company of its own. Your
-        firm&rsquo;s other companies, and which one quotes clients from which country, are on{" "}
-        <Link href="/admin/companies">Our companies</Link>.
-      </p>
-      {entity === null ? (
-        <p className="muted">
-          No issuing company is on file. Every firm gets one when its account is created, so
-          please tell whoever set the firm up.
-        </p>
-      ) : (
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Company</Th>
+            <Th>Registered in</Th>
+            <Th>Documents in</Th>
+            <Th>
+              <span className="sr-only">Actions</span>
+            </Th>
+          </tr>
+        </thead>
+        <tbody>
+          {entities.map((e) => (
+            <tr key={e.partyId}>
+              <Td>
+                <strong>{e.name}</strong>
+                {/* The firm's own words for it, as typed ("Private Limited"). */}
+                {e.entityType !== null && <Sub>{e.entityType}</Sub>}
+              </Td>
+              <Td>{e.jurisdiction === null ? <NotSet /> : countryName(e.jurisdiction)}</Td>
+              {/* The currency a document this company issues STARTS in (D1),
+                  from the API's one copy of that table. */}
+              <Td>{e.defaultCurrency}</Td>
+              <Td align="right">
+                <div className="cluster" style={{ justifyContent: "flex-end" }}>
+                  <Button variant="secondary" size="sm" aria-label={`Change ${e.name}`} onClick={() => onEdit(e)}>
+                    Change
+                  </Button>
+                  {/* The company's own logo and wording live on their own
+                      screens; these jump straight to its part of each. */}
+                  <Menu
+                    trigger={
+                      <span className="btn" data-variant="ghost" data-size="sm" aria-label={`More for ${e.name}`}>
+                        More
+                      </span>
+                    }
+                  >
+                    <MenuItem onClick={() => router.push(`/admin/brand#brand-entity-${e.partyId}`)}>
+                      Logo and signature
+                    </MenuItem>
+                    <MenuItem onClick={() => router.push(`/admin/document-blocks?company=${e.partyId}`)}>
+                      Standard wording
+                    </MenuItem>
+                  </Menu>
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </TableWrap>
+  );
+}
+
+/** The address as the firm typed it: one printed line per row, blank rows
+ *  dropped. Stored now, not printed yet (D15). */
+function linesOf(raw: FormDataEntryValue | null): string[] {
+  return String(raw ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l !== "");
+}
+
+interface NewCompany {
+  name: string;
+  jurisdiction: string;
+  entityType: string;
+  registeredAddress?: { lines: string[] };
+}
+
+function AddCompany({
+  entities,
+  busy,
+  onClose,
+  onAdd,
+}: {
+  entities: readonly FirmEntity[];
+  busy: boolean;
+  onClose: () => void;
+  onAdd: (body: NewCompany) => Promise<void>;
+}) {
+  const formId = useId();
+  const [country, setCountry] = useState("");
+  // Said BEFORE the press, not after the refusal: each country has one company
+  // here, and adding a second would move every future client there without
+  // anybody deciding it (COUNTRY_ALREADY_SERVED).
+  const served =
+    country === "" ? null : (entities.find((e) => e.routedCountries.includes(country)) ?? null);
+
+  function submit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const lines = linesOf(form.get("address"));
+    void onAdd({
+      name: String(form.get("name") ?? "").trim(),
+      jurisdiction: country,
+      entityType: String(form.get("entityType") ?? "").trim(),
+      ...(lines.length === 0 ? {} : { registeredAddress: { lines } }),
+    });
+  }
+
+  return (
+    <Dialog
+      open
+      size="lg"
+      onClose={onClose}
+      title="Add a company"
+      footer={
         <>
-          <Meta>
-            <MetaItem label="The company">{entity.displayName}</MetaItem>
-            <MetaItem label="Registered in">
-              {entity.jurisdiction === null ? (
-                <NotStated>nowhere yet</NotStated>
-              ) : (
-                <Pill tone="code">{entity.jurisdiction}</Pill>
-              )}
-            </MetaItem>
-          </Meta>
-          {/* The consequence, said before the form and not after the refusal:
-              a letter can name a governing law only once the company issuing
-              it is registered somewhere. Until then every engagement letter —
-              typed or imported — is refused, and the import report says so
-              on every row. */}
-          {registrations.length === 0 ? (
-            <p className="muted" style={{ maxWidth: "62ch" }}>
-              <strong>Not registered anywhere yet.</strong> An engagement letter can only say
-              which country&rsquo;s law governs it once the issuing company is registered in a
-              country. Until this is filled in, no letter can go out and every imported
-              engagement is rejected. One line is enough: the country, and what kind of company
-              it is.
-            </p>
-          ) : (
-            <TableWrap>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Country</Th>
-                    <Th>Kind of company</Th>
-                    <Th>Incorporated</Th>
-                    <Th>FY ends</Th>
-                    <Th>Status</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations.map((r) => (
-                    <tr key={`${r.jurisdiction}-${r.entityType}`}>
-                      <Td>
-                        <Pill tone="code">{r.jurisdiction}</Pill>
-                      </Td>
-                      <Td className="mono">{r.entityType}</Td>
-                      <Td className="muted">{r.incorporatedOn === null ? "not stated" : longDay(r.incorporatedOn)}</Td>
-                      <Td className="muted">{r.financialYearEnd ?? "not stated"}</Td>
-                      <Td className="muted">{r.status}</Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </TableWrap>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={busy} disabled={served !== null}>
+            Add the company
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit}>
+        <FieldStack>
+          <FieldRow>
+            <Field label="Legal name" hint="As it prints on a document.">
+              <Input name="name" required maxLength={300} autoComplete="off" autoFocus placeholder="e.g. 10x Global FZCO" />
+            </Field>
+            <Field label="Registered in">
+              <CountrySelect
+                name="jurisdiction"
+                blankLabel="Choose a country"
+                required
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+              />
+            </Field>
+            <Field label="Kind of company">
+              <Input name="entityType" required maxLength={100} autoComplete="off" placeholder="e.g. Private Limited, FZE, Inc." />
+            </Field>
+          </FieldRow>
+          <Field label="Registered address" optional hint="One line per row. Not printed on documents yet.">
+            <Textarea name="address" rows={3} placeholder="e.g. Office 12, Dubai Silicon Oasis" />
+          </Field>
+          {served !== null && (
+            <Notice tone="warn">
+              <p>
+                {served.name} already quotes clients from {countryName(country)}. To change that,
+                pick another company for {countryName(country)} in the country table.
+              </p>
+            </Notice>
           )}
-          <form
-            action={(form) => {
-              onRegister(form);
-            }}
-          >
-            <FieldRow>
-              <Field label="Country">
-                <Input
-                  name="jurisdiction"
-                  maxLength={2}
-                  placeholder="IN"
-                  required
-                  aria-describedby={hintId}
-                  style={{ textTransform: "uppercase" }}
-                />
-              </Field>
-              <Field label="Kind of company">
-                <Input name="entityType" placeholder="llp" required aria-describedby={hintId} />
-              </Field>
-              <Field label="Incorporated" optional>
-                <Input name="incorporatedOn" type="date" />
-              </Field>
-              {/* MM-DD, never a full date: a financial year ends on a day in the
-                  calendar, not in one particular year. */}
-              <Field label="FY ends" optional>
-                <Input name="financialYearEnd" placeholder="03-31" pattern="[0-9]{2}-[0-9]{2}" />
-              </Field>
-            </FieldRow>
-            <p className="field-hint" id={hintId}>
-              The country is a two-letter code, such as <span className="mono">IN</span>,{" "}
-              <span className="mono">AE</span> or <span className="mono">US</span>. The kind of
-              company is in your own words: <span className="mono">llp</span>,{" "}
-              <span className="mono">private_limited</span>, <span className="mono">partnership</span>.
-              A firm with companies in more than one country adds each of the others on{" "}
-              <Link href="/admin/companies">Our companies</Link>, which is also where you choose
-              which company quotes clients from which country.
+        </FieldStack>
+      </form>
+    </Dialog>
+  );
+}
+
+interface CompanyChange {
+  name?: string;
+  entityType?: string;
+  jurisdiction?: string;
+  registeredAddress?: { lines: string[] } | null;
+}
+
+function EditCompany({
+  entity,
+  busy,
+  onClose,
+  onSave,
+}: {
+  entity: FirmEntity;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (body: CompanyChange) => Promise<void>;
+}) {
+  const formId = useId();
+  // Only a company with NO country recorded may be given one; a recorded one
+  // does not move. Until a country is chosen the API takes no type and no
+  // address either, so those two wait for it rather than failing on Save.
+  const needsCountry = entity.jurisdiction === null;
+  const [country, setCountry] = useState("");
+  const waiting = needsCountry && country === "";
+  const [unchanged, setUnchanged] = useState(false);
+
+  function submit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "").trim();
+    const entityType = String(form.get("entityType") ?? "").trim();
+    const lines = linesOf(form.get("address"));
+    const before = entity.registeredAddress?.lines ?? [];
+
+    // Only what CHANGED is sent. Sending all three every time would record an
+    // edit on the company's history that changed nothing.
+    const body: CompanyChange = {};
+    if (name !== entity.name) body.name = name;
+    if (needsCountry) {
+      if (country !== "") {
+        body.jurisdiction = country;
+        body.entityType = entityType;
+        if (lines.length > 0) body.registeredAddress = { lines };
+      }
+    } else {
+      if (entityType !== (entity.entityType ?? "")) body.entityType = entityType;
+      if (lines.join("\n") !== before.join("\n")) {
+        body.registeredAddress = lines.length === 0 ? null : { lines };
+      }
+    }
+    if (Object.keys(body).length === 0) {
+      setUnchanged(true);
+      return;
+    }
+    void onSave(body);
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Change ${entity.name}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={busy}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} onChange={() => setUnchanged(false)}>
+        <FieldStack>
+          <Field label="Legal name">
+            <Input name="name" required maxLength={300} defaultValue={entity.name} />
+          </Field>
+          {needsCountry ? (
+            <Field label="Registered in" hint="Set once. It cannot be changed later.">
+              <CountrySelect
+                name="jurisdiction"
+                blankLabel="Not recorded yet"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+              />
+            </Field>
+          ) : (
+            <Meta layout="list">
+              <MetaItem label="Registered in">{countryName(entity.jurisdiction ?? "")}</MetaItem>
+            </Meta>
+          )}
+          <Field label="Kind of company" hint={waiting ? "Choose the country first." : undefined}>
+            <Input
+              name="entityType"
+              maxLength={100}
+              required={!waiting}
+              disabled={waiting}
+              defaultValue={entity.entityType ?? ""}
+              placeholder="e.g. Private Limited"
+            />
+          </Field>
+          <Field label="Registered address" optional hint="One line per row. Clear it to remove it.">
+            <Textarea
+              name="address"
+              rows={4}
+              disabled={waiting}
+              defaultValue={(entity.registeredAddress?.lines ?? []).join("\n")}
+            />
+          </Field>
+          {unchanged && (
+            <p className="field-hint" role="status">
+              Nothing has changed yet.
             </p>
-            <div className="cluster">
-              <Button type="submit" loading={busy}>
-                {registrations.length === 0 ? "Register the company" : "Register in another country"}
+          )}
+        </FieldStack>
+      </form>
+    </Dialog>
+  );
+}
+
+// ── Which company quotes which country ─────────────────────────────────────
+
+function Routing({
+  entities,
+  preferences,
+  busy,
+  onSet,
+}: {
+  entities: readonly FirmEntity[];
+  preferences: readonly FirmEntityPreference[];
+  busy: string | null;
+  onSet: (country: string, entity: FirmEntity) => Promise<boolean>;
+}) {
+  const [newCountry, setNewCountry] = useState("");
+  const [newCompany, setNewCompany] = useState("");
+  // Focus goes back to the select that changed once the reload has landed:
+  // it is disabled while the write runs, and a disabled control loses focus.
+  const restoreTo = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (busy !== null) return;
+    const node = restoreTo.current;
+    restoreTo.current = null;
+    node?.focus();
+  }, [busy]);
+
+  // Countries by NAME, and "Everywhere else" last: it answers for whatever
+  // the rows above it do not.
+  const rows = [...preferences].sort((a, b) => {
+    if (a.clientJurisdiction === "*") return 1;
+    if (b.clientJurisdiction === "*") return -1;
+    return countryName(a.clientJurisdiction).localeCompare(countryName(b.clientJurisdiction));
+  });
+  const byId = (id: string): FirmEntity | undefined => entities.find((e) => e.partyId === id);
+  const already = rows.find((r) => r.clientJurisdiction === newCountry) ?? null;
+
+  return (
+    <>
+      <CardTitle className="card-part">Who quotes which country</CardTitle>
+      {/* A pick SAVES: the row's select reads as its value, and choosing
+          another company is the act. There is no delete behind this table, so
+          none is offered: a country is pointed at another company instead. */}
+      <TableWrap>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Clients from</Th>
+              <Th>Quoted by</Th>
+              <Th>Documents in</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const country = r.clientJurisdiction;
+              const label = country === "*" ? "Everywhere else" : countryName(country);
+              return (
+                <tr key={r.id}>
+                  <Td>
+                    {country === "*" ? (
+                      <>
+                        <strong>Everywhere else</strong>
+                        <Sub>Any country not listed</Sub>
+                      </>
+                    ) : (
+                      label
+                    )}
+                  </Td>
+                  <Td>
+                    <Select
+                      variant="quiet"
+                      aria-label={`Company that quotes clients from ${label}`}
+                      value={r.firmEntityPartyId}
+                      disabled={busy !== null}
+                      onChange={(e) => {
+                        const entity = byId(e.target.value);
+                        if (entity === undefined) return;
+                        restoreTo.current = e.currentTarget;
+                        void onSet(country, entity);
+                      }}
+                    >
+                      {entities.map((e) => (
+                        <option key={e.partyId} value={e.partyId}>
+                          {e.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Td>
+                  <Td>{byId(r.firmEntityPartyId)?.defaultCurrency ?? <NotSet />}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </TableWrap>
+
+      <form
+        className="card-part"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void (async () => {
+            const entity = byId(newCompany);
+            if (newCountry === "" || entity === undefined) return;
+            const ok = await onSet(newCountry, entity);
+            if (ok) {
+              setNewCountry("");
+              setNewCompany("");
+            }
+          })();
+        }}
+      >
+        <fieldset className="fieldset" aria-label="Add a country">
+          <FieldRow>
+            <Field label="Add a country">
+              <CountrySelect
+                name="clientJurisdiction"
+                blankLabel="Choose a country"
+                required
+                value={newCountry}
+                onChange={(e) => setNewCountry(e.target.value)}
+              />
+            </Field>
+            <Field label="Quoted by">
+              <Select
+                name="firmEntityPartyId"
+                required
+                value={newCompany}
+                onChange={(e) => setNewCompany(e.target.value)}
+              >
+                <option value="" disabled>
+                  Choose a company
+                </option>
+                {entities.map((e) => (
+                  <option key={e.partyId} value={e.partyId}>
+                    {e.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="field-action">
+              <Button type="submit" variant="secondary" loading={busy === `route:${newCountry}`}>
+                Add
               </Button>
             </div>
-          </form>
-        </>
-      )}
+          </FieldRow>
+          {already !== null && (
+            <p className="field-hint" role="status">
+              Already listed. Adding it again moves it to the company you pick.
+            </p>
+          )}
+        </fieldset>
+      </form>
+    </>
+  );
+}
+
+// ── Signing ─────────────────────────────────────────────────────────────────
+
+/** A section whose value is set once and changed rarely. Set: the value,
+ *  and a Change that swaps it for the form (with a Cancel). Not set: the form
+ *  straight away, because there is nothing to read, only something to do,
+ *  and a "Not set" line over an empty form says the same thing twice. */
+function SetOnce({
+  title,
+  isSet,
+  view,
+  form,
+}: {
+  title: string;
+  isSet: boolean;
+  view: ReactNode;
+  form: (close: (() => void) | null) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const changing = isSet && open;
+  return (
+    <Card>
+      <CardHead
+        level={2}
+        title={title}
+        aside={
+          isSet && !open ? (
+            <Button variant="secondary" size="sm" onClick={() => setOpen(true)} aria-label={`Change ${title.toLowerCase()}`}>
+              Change
+            </Button>
+          ) : undefined
+        }
+      />
+      {isSet && !open ? view : form(changing ? () => setOpen(false) : null)}
     </Card>
   );
 }
 
-// ── 2. Who signs ─────────────────────────────────────────────────────────────
+/** The form's buttons: Save, and Cancel while changing a value that is set. */
+function SaveCancel({ busy, close }: { busy: boolean; close: (() => void) | null }) {
+  return (
+    <div className="field-action cluster">
+      <Button type="submit" variant="secondary" loading={busy}>
+        Save
+      </Button>
+      {close !== null && (
+        <Button variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+      )}
+    </div>
+  );
+}
 
-function SignatoryCard({
+function SigningCard({
   signatory,
   colleagues,
   busy,
@@ -419,151 +870,177 @@ function SignatoryCard({
   signatory: Signatory | null;
   colleagues: readonly Colleague[];
   busy: boolean;
-  onName: (form: FormData) => void;
+  onName: (userId: string, title: string) => Promise<boolean>;
 }) {
-  const current = signatory === null ? null : colleagues.find((c) => c.userId === signatory.userId) ?? null;
+  const current = signatory === null ? null : (colleagues.find((c) => c.userId === signatory.userId) ?? null);
   return (
-    <Card>
-      <CardTitle level={2}>Who signs for the firm?</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        One signature on every engagement letter the firm issues, whichever of its companies
-        issues it. Naming someone new changes the name on letters drafted from then on. A
-        letter already signed keeps the name it was signed with.
-      </p>
-      <Meta>
-        <MetaItem label="Signs today">
-          {signatory === null ? (
-            <NotStated>nobody named yet, so no letter can be sent</NotStated>
-          ) : (
-            <span>
-              {signatory.displayName ?? current?.email ?? signatory.userId}
-              {" · "}
-              <span className="muted">{signatory.title}</span>
-            </span>
-          )}
-        </MetaItem>
-      </Meta>
-      <form
-        action={(form) => {
-          onName(form);
-        }}
-      >
-        <FieldRow>
-          <Field label="Who">
-            <Select name="userId" required defaultValue={signatory?.userId ?? ""}>
-              <option value="" disabled>
-                Choose a colleague
-              </option>
-              {colleagues.map((c) => (
-                <option key={c.userId} value={c.userId}>
-                  {c.displayName ?? c.email}
-                  {c.displayName === null ? "" : ` · ${c.email}`}
+    <SetOnce
+      title="Signing"
+      isSet={signatory !== null}
+      view={
+        <Meta layout="list">
+          <MetaItem label="Signs your letters">
+            {signatory === null ? (
+              <NotSet />
+            ) : (
+              `${signatory.displayName ?? current?.email ?? signatory.userId}, ${signatory.title}`
+            )}
+          </MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void (async () => {
+              const ok = await onName(String(form.get("userId") ?? ""), String(form.get("title") ?? "").trim());
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldRow>
+            <Field label="Who" hint={signatory === null ? "No letter can be sent until someone is named." : undefined}>
+              <Select name="userId" required defaultValue={signatory?.userId ?? ""}>
+                <option value="" disabled>
+                  Choose a colleague
                 </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Signs as" hint="The title printed under the signature.">
-            <Input name="title" placeholder="Managing Partner" required defaultValue={signatory?.title ?? ""} />
-          </Field>
-        </FieldRow>
-        <div className="cluster">
-          <Button type="submit" loading={busy}>
-            {signatory === null ? "Name the signatory" : "Change the signatory"}
-          </Button>
-        </div>
-      </form>
-    </Card>
+                {colleagues.map((c) => (
+                  <option key={c.userId} value={c.userId}>
+                    {c.displayName ?? c.email}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Signs as" hint="Printed under the signature.">
+              <Input name="title" required defaultValue={signatory?.title ?? ""} placeholder="e.g. Managing Partner" />
+            </Field>
+            <SaveCancel busy={busy} close={close} />
+          </FieldRow>
+        </form>
+      )}
+    />
   );
 }
 
-// ── 3. From which day deadlines count, and when the year starts ─────────────
+// ── Deadlines ───────────────────────────────────────────────────────────────
 
-function PolicyCard({
+function DeadlinesCard({
   policy,
-  known,
   busy,
-  onPublish,
+  onSave,
 }: {
   policy: Policy | null;
-  known: boolean;
   busy: boolean;
-  onPublish: (form: FormData) => void;
+  onSave: (body: { missedFromOn: string | null; fiscalYearStartMonth: number | null }) => Promise<boolean>;
 }) {
-  const floorHint = useId();
-  const monthHint = useId();
+  const isSet = policy !== null && (policy.missedFromOn !== null || policy.fiscalYearStartMonth !== null);
   return (
-    <Card>
-      <CardTitle level={2}>From which day do your deadlines count?</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        Two facts the compliance calendar needs from you. Each change is saved as a new version,
-        so you can always see what was set at any point in the past.
-      </p>
-      <Meta>
-        <MetaItem label="Deadlines count from">
-          {policy === null || policy.missedFromOn === null ? (
-            <NotStated>{known ? "not set, so every past deadline is asked about" : "not read"}</NotStated>
-          ) : (
-            longDay(policy.missedFromOn)
-          )}
-        </MetaItem>
-        <MetaItem label="Financial year starts in">
-          {policy === null || policy.fiscalYearStartMonth === null ? (
-            <NotStated>not set, so quarterly and annual work is not created</NotStated>
-          ) : (
-            MONTHS[policy.fiscalYearStartMonth - 1]
-          )}
-        </MetaItem>
-        {policy !== null && (
-          <MetaItem label="In force">
-            <Pill tone="ok">v{policy.version}</Pill>
+    <SetOnce
+      title="Deadlines"
+      isSet={isSet}
+      view={
+        <Meta>
+          <MetaItem label="Count from">
+            {policy?.missedFromOn == null ? <NotSet /> : longDay(policy.missedFromOn)}
           </MetaItem>
-        )}
-      </Meta>
-      <form
-        action={(form) => {
-          onPublish(form);
-        }}
-      >
-        <FieldRow>
-          <Field label="Deadlines count from" optional>
-            <Input
-              name="missedFromOn"
-              type="date"
-              defaultValue={policy?.missedFromOn ?? ""}
-              aria-describedby={floorHint}
-            />
-          </Field>
-          <Field label="Financial year starts in">
-            <Select
-              name="fiscalYearStartMonth"
-              defaultValue={String(policy?.fiscalYearStartMonth ?? 0)}
-              aria-describedby={monthHint}
+          <MetaItem label="Financial year starts">
+            {policy?.fiscalYearStartMonth == null ? <NotSet /> : MONTHS[policy.fiscalYearStartMonth - 1]}
+          </MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const floor = String(form.get("missedFromOn") ?? "").trim();
+            const month = Number(form.get("fiscalYearStartMonth") ?? 0);
+            void (async () => {
+              const ok = await onSave({
+                missedFromOn: floor === "" ? null : floor,
+                fiscalYearStartMonth: month >= 1 && month <= 12 ? month : null,
+              });
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldRow>
+            <Field label="Count from" optional hint="The day you started on BiB. Older deadlines are skipped.">
+              <Input name="missedFromOn" type="date" defaultValue={policy?.missedFromOn ?? ""} />
+            </Field>
+            <Field label="Financial year starts" hint="April for an Indian firm.">
+              <Select name="fiscalYearStartMonth" defaultValue={String(policy?.fiscalYearStartMonth ?? 0)}>
+                <option value="0">Not set</option>
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={String(i + 1)}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <SaveCancel busy={busy} close={close} />
+          </FieldRow>
+        </form>
+      )}
+    />
+  );
+}
+
+// ── The discount limit ─────────────────────────────────────────────────────
+
+function DiscountCard({
+  limit,
+  busy,
+  onSave,
+}: {
+  limit: string | null;
+  busy: boolean;
+  onSave: (max: string) => Promise<boolean>;
+}) {
+  return (
+    <SetOnce
+      title="Discount limit"
+      isSet={limit !== null}
+      view={
+        <Meta layout="list">
+          <MetaItem label="Without sign-off">
+            {limit === null ? <NotSet /> : `Up to ${limit}% off`}
+          </MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void (async () => {
+              const ok = await onSave(String(form.get("maxDiscountPercent") ?? "").trim());
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldRow>
+            <Field
+              label="Most off without sign-off (%)"
+              hint={
+                limit === null
+                  ? "Until this is set, every discount needs sign-off."
+                  : "Above this, someone who approves proposals signs off."
+              }
             >
-              <option value="0">not set</option>
-              {MONTHS.map((m, i) => (
-                <option key={m} value={String(i + 1)}>
-                  {m}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </FieldRow>
-        <p className="field-hint" id={floorHint}>
-          The day you went live on this system. A filing whose legal due date falls before this
-          day is not created and is not flagged as missed, because it was handled the old way.
-          If you leave it blank, every past deadline is treated as open: bring in four hundred
-          clients and the first morning is four hundred filings to decide on.
-        </p>
-        <p className="field-hint" id={monthHint}>
-          April for an Indian firm. This is what makes a quarter run April to June rather than
-          January to March. Quarterly and annual services create no work until this is set.
-        </p>
-        <div className="cluster">
-          <Button type="submit" loading={busy}>
-            {policy === null ? "Publish" : "Publish a new version"}
-          </Button>
-        </div>
-      </form>
-    </Card>
+              <Input
+                name="maxDiscountPercent"
+                inputMode="decimal"
+                required
+                defaultValue={limit ?? ""}
+                placeholder="e.g. 15"
+              />
+            </Field>
+            <SaveCancel busy={busy} close={close} />
+          </FieldRow>
+        </form>
+      )}
+    />
   );
 }
