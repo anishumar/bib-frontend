@@ -5,7 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { CountrySelect } from "@/components/country-select";
-import { api, apiError, formatCount, formatMoney, readServiceBody } from "@/lib/api/client";
+import {
+  api,
+  apiError,
+  formatCount,
+  formatMoney,
+  PROPOSAL_STATUS_WORDS,
+  readServiceBody,
+} from "@/lib/api/client";
 import type { ConfigEntry, ProposalRecord } from "@/lib/api/client";
 import { Documents } from "@/lib/ui/documents";
 import type { GroupCompany } from "@/lib/group";
@@ -20,14 +27,17 @@ import {
   FieldStack,
   Input,
   LinkButton,
+  NotSet,
   Notice,
   Pill,
   Select,
+  Sub,
   Table,
   TableWrap,
   Td,
   Textarea,
   Th,
+  type PillTone,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { longDay } from "@/lib/day";
@@ -198,16 +208,22 @@ export default function ProposalPage() {
       {/* The tab carries the reference for the same reason the header does: it
           is how a person names this document to anybody else. */}
       <title>{`${proposal.ref} · ${proposal.title}`}</title>
+      {/* THE WAVE 4 SHAPE (2026-09-28): the reference is plain text in the
+          line under the title (it was a typewriter eyebrow), the status a pill
+          in words, and the header's buttons full size. */}
       <PageHeader
-        eyebrow={<span className="mono">{proposal.ref}</span>}
         title={<>{proposal.title}</>}
         lede={
-          <>
-            {record.party.displayName} ·{" "}
-            <Pill tone={deleted ? "danger" : "neutral"}>{deleted ? "deleted" : proposal.status}</Pill>
-            {/* `valid_until` is a `date` column, so it is SPLIT and never parsed. */}
-            {proposal.validUntil !== null && ` · valid until ${longDay(proposal.validUntil)}`}
-          </>
+          <span className="cluster tight">
+            <span>
+              {record.party.displayName} · {proposal.ref}
+              {/* `valid_until` is a `date` column, so it is SPLIT and never parsed. */}
+              {proposal.validUntil !== null && ` · valid until ${longDay(proposal.validUntil)}`}
+            </span>
+            <Pill dot tone={deleted ? "danger" : statusTone(proposal.status)}>
+              {deleted ? "Deleted" : PROPOSAL_STATUS_WORDS[proposal.status]}
+            </Pill>
+          </span>
         }
         /* There is no history table: the ledger IS this proposal's timeline,
            scoped to this document, which is why it cannot live in the sidebar.
@@ -216,14 +232,18 @@ export default function ProposalPage() {
            (T6.18), on its services: the catalogue by country, ticked. */
         aside={
           <div className="cluster">
+            {permissions.includes("ledger:read") && (
+              <LinkButton variant="ghost" href={`/audit?type=proposal&id=${proposalId}`}>
+                History
+              </LinkButton>
+            )}
             {isDraft && canWrite && (
-              <LinkButton size="sm" href={`/proposals/${proposalId}/build?step=services`}>
+              <LinkButton href={`/proposals/${proposalId}/build?step=services`}>
                 Edit in the builder
               </LinkButton>
             )}
             {!deleted && (
               <Button
-                size="sm"
                 variant={isDraft ? "primary" : "secondary"}
                 onClick={() => {
                   const panel = document.getElementById(`send-${proposalId}`);
@@ -233,11 +253,6 @@ export default function ProposalPage() {
               >
                 {isDraft ? "Send" : "Where it stands"}
               </Button>
-            )}
-            {permissions.includes("ledger:read") && (
-              <LinkButton size="sm" href={`/audit?type=proposal&id=${proposalId}`}>
-                History
-              </LinkButton>
             )}
           </div>
         }
@@ -250,8 +265,7 @@ export default function ProposalPage() {
 
       {proposal.deletedAt !== null && (
         <DeletedNotice what="This draft" deletedAt={proposal.deletedAt} deletedBy={record.deletedBy}>
-          It never went out. It is not on the list of proposals, its number {proposal.ref} is not
-          used again, and nothing about it changes.
+          It never went out. Its number {proposal.ref} is not used again.
         </DeletedNotice>
       )}
 
@@ -324,28 +338,19 @@ export default function ProposalPage() {
         canWrite={canWrite && !deleted}
         title="Proposal PDF"
         renderable="proposal"
-        emptyHint="No PDF yet. Generate one to read the proposal as the client will, or to send it with the link."
+        emptyHint="Generate one to read it as the client will."
       />
 
       <DeleteMistake
         title="Made by mistake?"
         intro={
-          <p className="muted">
-            A draft that should never have been started can be deleted. Nobody outside the firm has
-            seen it.
-          </p>
+          <p className="muted">Delete a draft started by mistake. Nobody outside the firm has seen it.</p>
         }
         label="Delete this draft"
         consequence={
           <>
-            <p>
-              {proposal.ref} leaves the list of proposals, and its number is not used again. Its
-              files stay where they are.
-            </p>
-            <p>
-              The page stays readable from its link, and the audit trail records that you deleted
-              it. This cannot be undone.
-            </p>
+            <p>{proposal.ref} leaves the list, and its number is not used again.</p>
+            <p>The audit trail records that you deleted it. This cannot be undone.</p>
           </>
         }
         name={proposal.ref}
@@ -411,7 +416,7 @@ function ServicesAndPrices({
     <Card>
       <details className="disclosure">
         <summary>
-          {isDraft ? "Services and prices: add, remove, compare with the list price" : "Services and prices"}
+          {isDraft ? "Services and list prices: add or remove" : "Services and list prices"}
         </summary>
         <div className="stack">
           {/* Seven columns of money, wrapped so the page never scrolls sideways. */}
@@ -434,37 +439,36 @@ function ServicesAndPrices({
                 {lines.map((l) => (
                   <tr key={l.id}>
                     <Td>
-                      <div>{l.description}</div>
+                      {l.description}
+                      {/* The firm's own code and the catalogue version the line
+                          is pinned to, never the service's system key. */}
                       {l.service !== null && (
-                        <div className="mono muted">
-                          {l.service.key}@{l.service.version}
-                        </div>
+                        <Sub>
+                          {l.service.ref === null ? "" : `${l.service.ref} · `}catalogue version{" "}
+                          {l.service.version}
+                        </Sub>
                       )}
                     </Td>
-                    <Td align="right" className="mono">
-                      {formatCount(l.quantity)}
-                    </Td>
+                    <Td align="right">{formatCount(l.quantity)}</Td>
                     {/* When the catalogue prices in another currency the two
                         columns are NOT comparable, and the screen says so. */}
-                    <Td align="right" className="mono muted">
+                    <Td align="right" className="nowrap">
                       {l.service?.listPrice ? (
                         <>
                           {formatMoney(l.service.listPrice.amount, l.service.listPrice.currency)}
-                          {l.service.listPrice.currency !== l.currency && (
-                            <div className="text-xs">not comparable</div>
-                          )}
+                          {l.service.listPrice.currency !== l.currency && <Sub>Other currency</Sub>}
                         </>
                       ) : (
-                        "no list price"
+                        <NotSet>No list price</NotSet>
                       )}
                     </Td>
-                    <Td align="right" className="mono">
+                    <Td align="right" className="nowrap">
                       {formatMoney(l.unitAmount, l.currency)}
                     </Td>
-                    <Td align="right" className="mono">
-                      {l.discountPercent === null ? "none" : `${formatCount(l.discountPercent)}%`}
+                    <Td align="right">
+                      {l.discountPercent === null ? <NotSet>None</NotSet> : `${formatCount(l.discountPercent)}%`}
                     </Td>
-                    <Td align="right" className="mono">
+                    <Td align="right" className="nowrap">
                       {formatMoney(l.net, l.currency)}
                     </Td>
                     <Td align="right">
@@ -501,7 +505,7 @@ function ServicesAndPrices({
               Gross {formatMoney(totals.gross, totals.currency)} · discount{" "}
               {formatMoney(totals.discount, totals.currency)}
             </div>
-            <div className="mono text-lg">{formatMoney(totals.net, totals.currency)}</div>
+            <div className="num text-lg strong">{formatMoney(totals.net, totals.currency)}</div>
           </div>
 
           {isDraft && (
@@ -510,15 +514,12 @@ function ServicesAndPrices({
                 onAdd(form);
               }}
             >
-              <CardTitle>Quote a service</CardTitle>
+              <CardTitle className="card-part">Quote a service</CardTitle>
               <FieldStack>
                 <FieldRow>
                   {/* PREFILLED AND EDITABLE, not locked: the wording is
                       routinely tailored per client and the price negotiated. */}
-                  <Field
-                    label="From the catalogue"
-                    hint="Fills in the wording and the list price below. You can change either. The line keeps what you enter, even if the catalogue changes later."
-                  >
+                  <Field label="From the catalogue" hint="Fills the wording and list price. You can change both.">
                     <Select
                       name="serviceVersionId"
                       required
@@ -678,9 +679,7 @@ function WriteItUp({
   return (
     <Card>
       <CardTitle level={2}>Write it up as an engagement letter</CardTitle>
-      <p className="muted">
-        Every service, price and piece of wording comes across. You choose the terms in the letter.
-      </p>
+      <p className="muted">Services, prices and wording come across. You pick the terms.</p>
 
       {nothingToCarry ? (
         <Notice tone="warn" eyebrow="Nothing to carry">
@@ -763,7 +762,7 @@ function WriteItUp({
               />
               {advanceRequired && (
                 <Field label="How much">
-                  <Input name="advanceAmount" inputMode="decimal" required placeholder="e.g. 25000" />
+                  <Input name="advanceAmount" inputMode="decimal" required placeholder="e.g. 25,000" />
                 </Field>
               )}
 
@@ -817,4 +816,11 @@ function WriteItUp({
       )}
     </Card>
   );
+}
+
+/** Which pill a status wears, as on the proposals list: accepted is done,
+ *  declined and expired are the same kind of fact, draft and sent neither. */
+function statusTone(status: ProposalRecord["proposal"]["status"]): PillTone {
+  if (status === "accepted") return "ok";
+  return status === "rejected" || status === "expired" ? "danger" : "neutral";
 }

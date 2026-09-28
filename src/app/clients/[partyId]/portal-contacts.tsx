@@ -12,9 +12,11 @@ import {
   FieldRow,
   FieldStack,
   Input,
+  NotSet,
   Notice,
   Pill,
   Select,
+  Sub,
   Table,
   TableWrap,
   Td,
@@ -487,12 +489,9 @@ export function PortalContactsPanel({
 
   return (
     <Card>
-      <CardTitle level={2}>Who at {clientName} can see this</CardTitle>
-      <p className="muted">
-        A contact signs in to the client portal and sees this company&rsquo;s filings, documents
-        and invoices, and nothing else. Access is given one company at a time. Use Give another
-        company to let the same person see a group company too.
-      </p>
+      {/* Wave 4: the paragraph that explained the portal under this title is
+          gone; what a contact sees is in CLAUDE.md, and the rows say the rest. */}
+      <CardTitle level={2}>Portal access</CardTitle>
 
       <ErrorNotice error={error} />
       {outcome !== null && (
@@ -508,12 +507,7 @@ export function PortalContactsPanel({
       )}
 
       {live.length === 0 ? (
-        <p className="muted">
-          Nobody at {clientName} can see this yet.{" "}
-          {canGrant
-            ? "Invite their first contact below. The invitation and the access are set up together."
-            : "You need permission to grant portal access to invite them."}
-        </p>
+        <p className="muted">Nobody at {clientName} can sign in to the portal yet.</p>
       ) : (
         <TableWrap>
           <Table>
@@ -532,9 +526,7 @@ export function PortalContactsPanel({
                 <tr key={g.id}>
                   <Td>
                     {g.contactDisplayName ?? g.contactEmail}
-                    {g.contactDisplayName !== null && (
-                      <div className="muted text-xs">{g.contactEmail}</div>
-                    )}
+                    {g.contactDisplayName !== null && <Sub>{g.contactEmail}</Sub>}
                   </Td>
                   <Td>
                     {/* A DIFFERENT FACT FROM THE DATES, and the reason this
@@ -543,16 +535,24 @@ export function PortalContactsPanel({
                         so a contact can be fully granted and completely stuck —
                         which is the exact state the resend was built for. */}
                     {g.contactAccepted ? (
-                      <Pill tone="ok">Signed in</Pill>
+                      <Pill dot tone="ok">
+                        Signed in
+                      </Pill>
                     ) : (
-                      <Pill tone="warn">Invited, not signed in yet</Pill>
+                      <Pill dot tone="warn">
+                        Not signed in yet
+                      </Pill>
                     )}
                   </Td>
-                  <Td className="muted">{longDay(g.validFrom)}</Td>
+                  <Td className="nowrap">{longDay(g.validFrom)}</Td>
                   {/* Half-open: the first day NOT in force. */}
-                  <Td className="muted">{g.validTo === null ? "open" : longDay(g.validTo)}</Td>
-                  <Td className="muted">
-                    {g.grantedByDisplayName ?? g.grantedByEmail ?? "account closed"}
+                  <Td className="nowrap">
+                    {g.validTo === null ? <NotSet>Ongoing</NotSet> : longDay(g.validTo)}
+                  </Td>
+                  <Td>
+                    {g.grantedByDisplayName ?? g.grantedByEmail ?? (
+                      <NotSet>Account closed</NotSet>
+                    )}
                   </Td>
                   <Td>
                     {canGrant && (
@@ -663,16 +663,15 @@ export function PortalContactsPanel({
                     ) : (
                       <strong>{seesToday.join(", ")}</strong>
                     )}
-                    {queued.length > 0 && <> today, and {String(queued.length)} more from a later date</>}. They
-                    keep the same login and password. This adds a company, not a new account.
+                    {queued.length > 0 && <> today, and {String(queued.length)} more from a later date</>}.
+                    Same login; this adds a company.
                   </p>
 
                   {offerable.length === 0 ? (
                     <Notice tone="neutral" eyebrow="Nothing left to give">
                       <p>
-                        Every company recorded in {clientName}&rsquo;s group is already open to{" "}
-                        {granting.contactEmail}. To give access to a company that is not in this
-                        group, open that company&rsquo;s own page and invite them there.
+                        Every company in {clientName}&rsquo;s group is already open to{" "}
+                        {granting.contactEmail}. For any other company, invite them from its page.
                       </p>
                     </Notice>
                   ) : (
@@ -686,7 +685,7 @@ export function PortalContactsPanel({
                     >
                       <Field
                         label="Which company"
-                        hint={`Only companies recorded under Relationships as part of ${clientName}'s group are offered: a parent, a subsidiary or a shareholder in force today.`}
+                        hint={`${clientName}'s group, from Relationships below.`}
                       >
                         {/* NO PRE-SELECTED COMPANY. The first option is an empty
                             disabled placeholder, so opening this panel and
@@ -754,10 +753,14 @@ export function PortalContactsPanel({
                 {ended.map((g) => (
                   <tr key={g.id}>
                     <Td>{g.contactDisplayName ?? g.contactEmail}</Td>
-                    <Td className="muted">{longDay(g.validFrom)}</Td>
-                    <Td className="muted">{g.validTo === null ? "open" : longDay(g.validTo)}</Td>
-                    <Td className="muted">
-                      {g.grantedByDisplayName ?? g.grantedByEmail ?? "account closed"}
+                    <Td className="nowrap">{longDay(g.validFrom)}</Td>
+                    <Td className="nowrap">
+                      {g.validTo === null ? <NotSet>Ongoing</NotSet> : longDay(g.validTo)}
+                    </Td>
+                    <Td>
+                      {g.grantedByDisplayName ?? g.grantedByEmail ?? (
+                        <NotSet>Account closed</NotSet>
+                      )}
                     </Td>
                   </tr>
                 ))}
@@ -768,36 +771,29 @@ export function PortalContactsPanel({
       )}
 
       {canGrant && (
+        /* No heading of its own (Wave 4): the rule above it and the button's
+           words say what it does. The login, the access and the email are one
+           act, and they set their own password. */
         <form
-          style={{ marginTop: "var(--s-5)" }}
+          className="card-foot"
+          aria-label={`Invite somebody at ${clientName}`}
           action={(form) => {
             void invite(form);
           }}
         >
           <FieldStack>
-            <CardTitle level={3}>Invite somebody at {clientName}</CardTitle>
             <FieldRow>
-              <Field
-                label="Their email"
-                hint="The invitation is emailed here, and this is the address they will sign in with. It cannot be changed later from this screen."
-              >
-                <Input name="email" type="email" required />
+              <Field label="Their email" hint="They sign in with this. It cannot change later.">
+                <Input name="email" type="email" required placeholder="e.g. asha@kaverifoods.in" />
               </Field>
-              <Field
-                label="Their name (optional)"
-                hint="Used only if this email address does not already have a login."
-              >
-                <Input name="displayName" />
+              <Field label="Their name" optional>
+                <Input name="displayName" placeholder="e.g. Asha Verma" />
               </Field>
             </FieldRow>
             <div className="cluster">
-              <Button type="submit" loading={busy}>
-                {busy ? "Inviting…" : "Invite and grant access"}
+              <Button type="submit" variant="secondary" loading={busy}>
+                {busy ? "Inviting…" : "Invite to the portal"}
               </Button>
-              <p className="field-hint">
-                This creates their login, gives them access to {clientName} and emails the
-                invitation. They set their own password; the firm never sees it.
-              </p>
             </div>
           </FieldStack>
         </form>

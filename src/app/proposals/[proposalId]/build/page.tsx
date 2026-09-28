@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { api } from "@/lib/api/client";
+import { api, PROPOSAL_STATUS_WORDS } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import { Notice, Pill } from "@/components/ui";
 import { Page, PageHeader } from "@/components/tw";
@@ -84,19 +84,19 @@ function Builder() {
   return (
     <Page>
       <title>{`${proposal.ref} · ${proposal.title}`}</title>
+      {/* Wave 4: no typewriter eyebrow; the facts are one line under the
+          title, and a sent proposal's status is a pill in words. */}
       <PageHeader
-        eyebrow={
-          <span>
-            <span className="mono">{proposal.ref}</span> · {record.party.displayName}
-          </span>
-        }
         title={proposal.title}
         lede={
           <span>
-            Issued by {record.issuingEntity.displayName} in {proposal.currency}.{" "}
+            {record.party.displayName} · {proposal.ref} · issued by{" "}
+            {record.issuingEntity.displayName} in {proposal.currency}.{" "}
             {!isDraft && (
               <>
-                <Pill tone="neutral">{proposal.deletedAt === null ? proposal.status : "deleted"}</Pill>{" "}
+                <Pill dot tone={proposal.deletedAt === null ? "neutral" : "danger"}>
+                  {proposal.deletedAt === null ? PROPOSAL_STATUS_WORDS[proposal.status] : "Deleted"}
+                </Pill>{" "}
               </>
             )}
             <Link href={`/proposals/${proposal.id}` as Route}>Open the proposal page</Link>

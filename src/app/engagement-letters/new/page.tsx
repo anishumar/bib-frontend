@@ -25,7 +25,7 @@ function NewLetter() {
   return (
     <Page>
       <title>New engagement letter</title>
-      <PageHeader eyebrow="New engagement letter" title="Who is it for?" />
+      <PageHeader title="New engagement letter" />
       <Stepper current="client" proposalId={null} kind={LETTER_BUILDER} />
       <LetterClientStep draft={null} prefillClientId={search.get("clientPartyId")} />
     </Page>

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { api, apiError, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
+import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 import type { LetterSummary } from "@/lib/api/client";
 import {
@@ -11,12 +11,18 @@ import {
   ErrorNotice,
   LinkButton,
   Pill,
+  RowChevron,
+  RowLink,
+  Sub,
   Table,
   TableWrap,
   Td,
   Th,
+  ThChevron,
+  Tr,
+  type PillTone,
 } from "@/components/ui";
-import { Loading } from "@/components/states";
+import { Empty, Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 
 /**
@@ -66,78 +72,80 @@ export default function LettersPage() {
 
   return (
     <Page>
+      {/* THE WAVE 4 SHAPE (2026-09-28), the proposals list's: New engagement
+          letter is the one brand button, the whole row opens the letter, the
+          client sits under the title, the status is a pill in words. */}
       <PageHeader
-        eyebrow="Commercial"
         title="Engagement letters"
-        lede="What each client has signed, and what is still a draft."
         aside={
-          <div className="cluster">
-            <Pill tone="quiet">{letters.length}</Pill>
-            <LinkButton href="/engagement-letters/new">New engagement letter</LinkButton>
-          </div>
+          <LinkButton href="/engagement-letters/new" variant="primary">
+            New engagement letter
+          </LinkButton>
         }
       />
       <ErrorNotice error={error} />
 
-      <Card>
-        {letters.length === 0 ? (
-          <p className="muted">
-            No engagement letters yet.
-          </p>
-        ) : (
-          <TableWrap>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Ref</Th>
-                  <Th>Letter</Th>
-                  <Th>Client</Th>
-                  <Th>Issued by</Th>
-                  <Th>Status</Th>
-                  <Th align="right">Value</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {letters.map((l) => (
-                  <tr key={l.letter.id}>
-                    {/* The number, first, because it is what somebody arrives
-                        holding. */}
-                    <Td className="mono">
-                      <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.ref}</Link>
-                    </Td>
-                    <Td>
-                      <Link href={`/engagement-letters/${l.letter.id}`}>{l.letter.title}</Link>
-                      <div className="muted text-sm">
-                        {l.lineCount} {l.lineCount === 1 ? "service" : "services"}
-                        {l.letter.advanceRequired && " · advance required"}
-                        {l.letter.effectiveFrom !== null && ` · from ${longDay(l.letter.effectiveFrom)}`}
-                      </div>
-                    </Td>
-                    <Td>{l.party.displayName}</Td>
-                    {/* WHO is bound, and WHERE the law is — the two questions the
-                        jurisdiction alone could never answer, side by side. */}
-                    <Td>
-                      {l.issuingEntity.displayName}
-                      <div className="mono muted text-sm">
-                        {l.letter.jurisdiction}
-                      </div>
-                    </Td>
-                    <Td>
-                      <Pill tone={l.letter.status === "withdrawn" ? "danger" : "neutral"}>
-                        {l.letter.status}
-                      </Pill>
-                    </Td>
-                    <Td align="right" className="mono">
-                      {formatMoney(l.totals.net, l.totals.currency)}
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableWrap>
-        )}
-      </Card>
-
+      {letters.length === 0 ? (
+        <Card>
+          <Empty title="No engagement letters yet" icon="proposals">
+            Start one with New engagement letter.
+          </Empty>
+        </Card>
+      ) : (
+        <TableWrap>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Letter</Th>
+                <Th>Ref</Th>
+                <Th>Issued by</Th>
+                <Th>Status</Th>
+                <Th align="right">Value</Th>
+                <ThChevron />
+              </tr>
+            </thead>
+            <tbody>
+              {letters.map((l) => (
+                <Tr key={l.letter.id} linked>
+                  <Td>
+                    <RowLink href={`/engagement-letters/${l.letter.id}`}>{l.letter.title}</RowLink>
+                    <Sub>
+                      {l.party.displayName} · {l.lineCount}{" "}
+                      {l.lineCount === 1 ? "service" : "services"}
+                      {l.letter.advanceRequired && " · advance required"}
+                      {l.letter.effectiveFrom !== null && ` · from ${longDay(l.letter.effectiveFrom)}`}
+                    </Sub>
+                  </Td>
+                  {/* The number is what somebody arrives holding: the string a
+                      client quotes back and an invoice narrates. */}
+                  <Td className="nowrap">{l.letter.ref}</Td>
+                  {/* WHO is bound, and WHERE the law is — the two questions the
+                      jurisdiction alone could never answer, side by side. */}
+                  <Td>
+                    {l.issuingEntity.displayName}
+                    <Sub>{countryName(l.letter.jurisdiction)}</Sub>
+                  </Td>
+                  <Td>
+                    <Pill dot tone={letterTone(l.letter.status)}>
+                      {codeLabel(l.letter.status)}
+                    </Pill>
+                  </Td>
+                  <Td align="right" className="nowrap">
+                    {formatMoney(l.totals.net, l.totals.currency)}
+                  </Td>
+                  <RowChevron />
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrap>
+      )}
     </Page>
   );
+}
+
+/** Signed is done, withdrawn is over; a draft and a sent letter are neither. */
+function letterTone(status: LetterSummary["letter"]["status"]): PillTone {
+  if (status === "signed") return "ok";
+  return status === "withdrawn" ? "danger" : "neutral";
 }

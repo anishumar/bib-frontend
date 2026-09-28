@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader, useSession } from "@/components/layout";
@@ -12,18 +11,23 @@ import {
   Icon,
   LinkButton,
   Card,
-  CardHead,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
+  FieldStack,
   Input,
   Pill,
+  RowChevron,
+  RowLink,
   TabPanel,
   Table,
   TableWrap,
   Tabs,
   Td,
   Th,
+  ThChevron,
+  Tr,
 } from "@/components/ui";
 
 /**
@@ -34,6 +38,10 @@ import {
  * row, and which of them a party IS depends on the relationships and
  * opportunities attached to it, not on a type column. That is why this list
  * shows organizations and people together rather than splitting them.
+ *
+ * THE WAVE 4 SHAPE (2026-09-28): Add a client is the one brand button and opens
+ * the form in a dialog (it sat under the whole list before); the whole row opens
+ * the client; the kind is a word ("Company", "Person"), never the model's code.
  */
 export default function ClientsPage() {
   const router = useRouter();
@@ -42,8 +50,10 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<"organization" | "person">("organization");
   const kindTabs = useId();
+  const addForm = useId();
   // Whose book to show. `mine` reads the assignments (G3.2) rather than
   // filtering the party list, because "my clients" is a fact about who was put
   // in charge — not a property of the party row.
@@ -118,26 +128,36 @@ export default function ClientsPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Commercial"
         title="Clients"
-        lede="Every company and person your firm keeps a record for. Switch to My clients to see the
-        ones you look after."
         aside={
-          <span className="cluster">
-            <Pill tone="quiet">{parties.length}</Pill>
+          <>
             {/* Loading the firm's existing book from a spreadsheet is an
                 administrator's act — the API gates it on tenant:admin — so the
                 door is offered only to somebody it will open for. */}
             {session?.permissions.includes("tenant:admin") === true && (
-              <LinkButton href="/clients/import" size="sm" icon={<Icon name="upload" size={14} />}>
+              <LinkButton
+                href="/clients/import"
+                variant="secondary"
+                icon={<Icon name="upload" size={16} />}
+              >
                 Bring in the book
               </LinkButton>
             )}
-          </span>
+            <Button
+              onClick={() => {
+                setError(null);
+                setAdding(true);
+              }}
+            >
+              Add a client
+            </Button>
+          </>
         }
       />
 
-      <ErrorNotice error={error} />
+      {/* A refusal of the add form is shown inside the dialog, where it was
+          pressed; this one is the list's own. */}
+      <ErrorNotice error={adding ? null : error} />
 
       {/* Two questions, not one filter over one list: "everyone the firm
           stores" and "the clients I was put in charge of". The second is only
@@ -159,8 +179,7 @@ export default function ClientsPage() {
           mine.length === 0 ? (
             <Card>
               <Empty title="No clients on your book" icon="clients">
-                You are not the Key Manager or SPOC for any client yet. Both are set on the
-                client’s own page, under Account team.
+                You are not the Key Manager or SPOC for any client yet.
               </Empty>
             </Card>
           ) : (
@@ -168,33 +187,35 @@ export default function ClientsPage() {
               <Table>
                 <thead>
                   <tr>
-                    <Th>Name</Th>
+                    <Th>Client</Th>
                     <Th>Your role</Th>
+                    <ThChevron />
                   </tr>
                 </thead>
                 <tbody>
                   {mine.map((c) => (
-                    <tr key={c.clientPartyId}>
+                    <Tr key={c.clientPartyId} linked>
                       <Td>
                         <span className="cluster tight">
-                          <Link href={`/clients/${c.clientPartyId}`}>{c.displayName}</Link>
+                          <RowLink href={`/clients/${c.clientPartyId}`}>{c.displayName}</RowLink>
                           {/* Archived clients are shown and marked, not dropped:
                               somebody still holds them, and hiding that makes
                               the book look smaller than the record says. */}
-                          {c.archivedAt !== null && <Pill tone="danger">archived</Pill>}
+                          {c.archivedAt !== null && (
+                            <Pill dot tone="danger">
+                              Archived
+                            </Pill>
+                          )}
                         </span>
                       </Td>
+                      {/* One row per client with every role collected — a
+                          partner is commonly the Key Manager AND a Dept's SPOC
+                          on the same client. */}
                       <Td>
-                        {/* One row per client with every role collected — a
-                            partner is commonly the Key Manager AND a Dept's
-                            SPOC on the same client. */}
-                        <span className="muted">
-                          {c.roles
-                            .map((r) => (r === "key_manager" ? "Key Manager" : "SPOC"))
-                            .join(" · ")}
-                        </span>
+                        {c.roles.map((r) => (r === "key_manager" ? "Key Manager" : "SPOC")).join(", ")}
                       </Td>
-                    </tr>
+                      <RowChevron />
+                    </Tr>
                   ))}
                 </tbody>
               </Table>
@@ -203,8 +224,7 @@ export default function ClientsPage() {
         ) : parties.length === 0 ? (
           <Card>
             <Empty title="Nobody in the book yet" icon="clients">
-              A client is a company or a person your firm keeps a record for. Add the first one
-              using the form below.
+              Add the first one with Add a client.
             </Empty>
           </Card>
         ) : (
@@ -214,18 +234,25 @@ export default function ClientsPage() {
                 <tr>
                   <Th>Name</Th>
                   <Th>Kind</Th>
+                  <ThChevron />
                 </tr>
               </thead>
               <tbody>
                 {parties.map((p) => (
-                  <tr key={p.id}>
+                  <Tr key={p.id} linked>
                     <Td>
-                      <Link href={`/clients/${p.id}`}>{p.displayName}</Link>
+                      <span className="cluster tight">
+                        <RowLink href={`/clients/${p.id}`}>{p.displayName}</RowLink>
+                        {p.archivedAt !== null && (
+                          <Pill dot tone="danger">
+                            Archived
+                          </Pill>
+                        )}
+                      </span>
                     </Td>
-                    <Td>
-                      <Pill tone="quiet">{p.kind}</Pill>
-                    </Td>
-                  </tr>
+                    <Td>{p.kind === "organization" ? "Company" : "Person"}</Td>
+                    <RowChevron />
+                  </Tr>
                 ))}
               </tbody>
             </Table>
@@ -233,65 +260,87 @@ export default function ClientsPage() {
         )}
       </TabPanel>
 
-      <Card>
-        <CardHead title="Add to the book" level={2} />
-        {/* Organization and person are different rows with different fields, so
-            this is a real choice rather than a toggle over one form. */}
-        <Tabs
-          id={kindTabs}
-          label="What kind of record"
-          value={kind}
-          onChange={setKind}
-          tabs={[
-            { value: "organization", label: "Organization" },
-            { value: "person", label: "Person" },
-          ]}
-        />
-
-        <form
-          action={(form) => {
-            void create(form);
-          }}
-        >
-          <TabPanel tabsId={kindTabs} value={kind}>
-            <div className="stack" style={{ marginTop: "var(--s-4)" }}>
+      <Dialog
+        open={adding}
+        size="lg"
+        onClose={() => {
+          setAdding(false);
+        }}
+        title="Add a client"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setAdding(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form={addForm} loading={busy}>
+              Add
+            </Button>
+          </>
+        }
+      >
+        <FieldStack>
+          <ErrorNotice error={error} />
+          {/* Organization and person are different rows with different fields,
+              so this is a real choice rather than a toggle over one form. */}
+          <Tabs
+            id={kindTabs}
+            label="What kind of record"
+            value={kind}
+            onChange={setKind}
+            tabs={[
+              { value: "organization", label: "Company" },
+              { value: "person", label: "Person" },
+            ]}
+          />
+          <form
+            id={addForm}
+            action={(form) => {
+              void create(form);
+            }}
+          >
+            <TabPanel tabsId={kindTabs} value={kind}>
               {kind === "organization" ? (
                 <FieldRow>
                   <Field label="Legal name">
-                    <Input name="legalName" required />
+                    <Input
+                      name="legalName"
+                      required
+                      autoFocus
+                      placeholder="e.g. Kaveri Foods Pvt Ltd"
+                    />
                   </Field>
                   <Field label="Trade name" optional>
-                    <Input name="tradeName" />
+                    <Input name="tradeName" placeholder="e.g. Kaveri Foods" />
                   </Field>
                   <Field label="Industry" optional>
-                    <Input name="industry" />
+                    <Input name="industry" placeholder="e.g. Food processing" />
                   </Field>
                   <Field label="Website" optional>
-                    <Input name="website" />
+                    <Input name="website" placeholder="e.g. kaverifoods.in" />
                   </Field>
                 </FieldRow>
               ) : (
                 <FieldRow>
                   <Field label="Full name">
-                    <Input name="fullName" required />
+                    <Input name="fullName" required autoFocus placeholder="e.g. Asha Verma" />
                   </Field>
                   <Field label="Nationality" optional>
-                    <Input name="nationality" />
+                    <Input name="nationality" placeholder="e.g. IN" />
                   </Field>
                   <Field label="Date of birth" optional>
                     <Input name="dateOfBirth" type="date" />
                   </Field>
                 </FieldRow>
               )}
-              <div>
-                <Button type="submit" loading={busy}>
-                  Add
-                </Button>
-              </div>
-            </div>
-          </TabPanel>
-        </form>
-      </Card>
+            </TabPanel>
+          </form>
+        </FieldStack>
+      </Dialog>
     </Page>
   );
 }

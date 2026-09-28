@@ -11,6 +11,7 @@ import {
   FieldRow,
   FieldStack,
   Input,
+  NotSet,
   Notice,
   Pill,
   Select,
@@ -249,18 +250,14 @@ export function AccountTeamPanel({
           {stale.length === 1
             ? `${stale[0]?.holderName ?? stale[0]?.holderEmail} is still the ${roleLabel(
                 stale[0]?.role ?? "spoc",
-              ).toLowerCase()} on this client and no longer works at the firm.`
-            : `${stale.length} people on this account team no longer work at the firm.`}{" "}
-          The row stays as the record of who looked after the client. Assign somebody else
-          below, then end this one.
+              )} here and has left the firm.`
+            : `${stale.length} people on this account team have left the firm.`}{" "}
+          Assign somebody else below, then end the old row.
         </Notice>
       )}
 
       {team.inForce.length === 0 ? (
-        <p className="muted">
-          Nobody was assigned to this client on {longDay(asOf)}. A Key Manager owns the whole
-          relationship; a SPOC is the contact for one Dept or team.
-        </p>
+        <p className="muted">Nobody was assigned to this client on {longDay(asOf)}.</p>
       ) : (
         <TableWrap>
           <Table>
@@ -277,8 +274,8 @@ export function AccountTeamPanel({
             <tbody>
               {team.inForce.map((a) => (
                 <tr key={a.id}>
-                  <Td>
-                    <Pill>{roleLabel(a.role)}</Pill>
+                  <Td className="nowrap">
+                    <strong>{roleLabel(a.role)}</strong>
                   </Td>
                   <Td>
                     {a.holderName ?? a.holderEmail}
@@ -288,18 +285,20 @@ export function AccountTeamPanel({
                     {showingToday && !a.holderIsActiveStaff && (
                       <>
                         {" "}
-                        <Pill tone="warn">no longer at the firm</Pill>
+                        <Pill dot tone="warn">
+                          Left the firm
+                        </Pill>
                       </>
                     )}
                   </Td>
-                  <Td className="muted">
-                    {a.axis === null ? "whole relationship" : a.axis.name}
-                  </Td>
-                  <Td className="muted">{longDay(a.validFrom)}</Td>
+                  <Td>{a.axis === null ? "Whole client" : a.axis.name}</Td>
+                  <Td className="nowrap">{longDay(a.validFrom)}</Td>
                   {/* Half-open: the first day NOT in force, which is why this
-                      column is "until" and an open row says "open". */}
-                  <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
-                  <Td>
+                      column is "until" and an open row says so in words. */}
+                  <Td className="nowrap">
+                    {a.validTo === null ? <NotSet>Ongoing</NotSet> : longDay(a.validTo)}
+                  </Td>
+                  <Td align="right">
                     {showingToday && a.validTo === null && (
                       /* NAMED BY THE ROW. Cobalt Foods has four people on it and
                          every button said only "End today" — and the holder's
@@ -314,7 +313,7 @@ export function AccountTeamPanel({
                         disabled={busy}
                         aria-label={`End today: ${roleLabel(a.role)}, ${
                           a.holderName ?? a.holderEmail
-                        }, ${a.axis === null ? "whole relationship" : a.axis.name}`}
+                        }, ${a.axis === null ? "Whole client" : a.axis.name}`}
                         onClick={() => {
                           void end(a);
                         }}
@@ -349,11 +348,13 @@ export function AccountTeamPanel({
               <tbody>
                 {past.map((a) => (
                   <tr key={a.id}>
-                    <Td className="muted">{roleLabel(a.role)}</Td>
-                    <Td className="muted">{a.holderName ?? a.holderEmail}</Td>
-                    <Td className="muted">{a.axis?.name ?? "whole relationship"}</Td>
-                    <Td className="muted">{longDay(a.validFrom)}</Td>
-                    <Td className="muted">{a.validTo === null ? "open" : longDay(a.validTo)}</Td>
+                    <Td className="nowrap">{roleLabel(a.role)}</Td>
+                    <Td>{a.holderName ?? a.holderEmail}</Td>
+                    <Td>{a.axis?.name ?? "Whole client"}</Td>
+                    <Td className="nowrap">{longDay(a.validFrom)}</Td>
+                    <Td className="nowrap">
+                      {a.validTo === null ? <NotSet>Ongoing</NotSet> : longDay(a.validTo)}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -363,13 +364,14 @@ export function AccountTeamPanel({
       )}
 
       {canAssign && (
+        /* No heading of its own (Wave 4): a rule above it and the button's
+           word say what it is. */
         <form
-          style={{ marginTop: "var(--s-5)" }}
+          className="card-foot"
           action={(form) => {
             void assign(form);
           }}
         >
-          <h3 className="text-md" style={{ marginBottom: "var(--s-2)" }}>Put somebody in charge</h3>
           <FieldStack>
             <FieldRow>
               {/* The sentence that used to sit loose above the button belongs
@@ -380,8 +382,8 @@ export function AccountTeamPanel({
                 label="Role"
                 hint={
                   role === "key_manager"
-                    ? "Assigning a new Key Manager is a handover. The current one is ended on this date, and both stay on record."
-                    : "A Dept can have more than one SPOC, so this adds one. End the outgoing SPOC separately with End today."
+                    ? "A handover: the current Key Manager ends on this date."
+                    : "Adds a SPOC. End the outgoing one on its row."
                 }
               >
                 <Select
@@ -427,7 +429,7 @@ export function AccountTeamPanel({
               </Field>
             </FieldRow>
             <div className="cluster">
-              <Button type="submit" loading={busy}>
+              <Button type="submit" variant="secondary" loading={busy}>
                 {busy ? "Saving…" : "Assign"}
               </Button>
             </div>

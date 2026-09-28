@@ -11,6 +11,7 @@ import {
   PAYMENT_METHOD_LABELS,
   api,
   apiError,
+  codeLabel,
   formatCount,
   formatMoney,
   perPeriod,
@@ -31,6 +32,7 @@ import {
   Input,
   Meta,
   MetaItem,
+  NotSet,
   Select,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
@@ -184,19 +186,39 @@ export default function InvoicePage() {
           were: the tab strip is how a person finds their way back. */}
       <title>{`${invoice.number} · ${record.party.displayName}`}</title>
 
+      {/* THE WAVE 4 SHAPE (2026-09-28): the number in the sans face (it was
+          the typewriter), the status a pill in words under it, and Issue — a
+          draft's one committing act — the brand button where the eye lands.
+          It is still offered only to an administrator (it uses a number). */}
       <PageHeader
-        eyebrow="Commercial"
-        /* The number IS the identifier, so it keeps the mono face the rest of
-           the product gives an identifier — `PageHeader` applies it here
-           rather than taking markup, since an h1 has exactly one job. */
         title={invoice.number}
-        titleMono
+        lede={
+          <span className="flex flex-wrap items-center gap-2">
+            {record.party.displayName}
+            {/* `ok`, not `accent`. Same word, different meaning under
+                Tailwind — see the note in tailwind.css. */}
+            <Pill dot tone={invoice.status === "cancelled" ? "danger" : issued ? "ok" : "neutral"}>
+              {codeLabel(invoice.status)}
+            </Pill>
+          </span>
+        }
         actions={
-          /* `ok`, not `accent`. Same word, different meaning under Tailwind —
-             see the note in tailwind.css. */
-          <Pill tone={invoice.status === "cancelled" ? "danger" : issued ? "ok" : "neutral"}>
-            {invoice.status}
-          </Pill>
+          draft && mayAdmin ? (
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void act(() =>
+                  // The date printed on the tax invoice: today where the
+                  // person issuing it is, not Greenwich's day.
+                  api.POST("/api/v1/invoices/{invoiceId}/issue", {
+                    params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                  }),
+                )
+              }
+            >
+              Issue
+            </Button>
+          ) : undefined
         }
       />
 
@@ -210,17 +232,20 @@ export default function InvoicePage() {
               issue their own INV/2026-27/0001, so the number alone is not an
               identifier without this. */}
           <MetaItem label="Charged by">{record.entity.displayName}</MetaItem>
-          <MetaItem label="Issued">{invoice.issuedOn === null ? "not yet" : longDay(invoice.issuedOn)}</MetaItem>
-          <MetaItem label="Due">{invoice.dueOn === null ? "no date" : longDay(invoice.dueOn)}</MetaItem>
+          <MetaItem label="Issued">
+            {invoice.issuedOn === null ? <NotSet>Not yet</NotSet> : longDay(invoice.issuedOn)}
+          </MetaItem>
+          <MetaItem label="Due">
+            {invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(invoice.dueOn)}
+          </MetaItem>
           <MetaItem label="Series">
-            <span className="mono">
-              FY {invoice.financialYear}–{String((invoice.financialYear + 1) % 100).padStart(2, "0")} · #
-              {invoice.sequenceNumber}
-            </span>
+            FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")},
+            number {invoice.sequenceNumber}
           </MetaItem>
           <MetaItem label="Rate">
-            <span className="mono">
-              {invoice.fxRate} on {longDay(invoice.fxRateDate)}
+            <span className="num">
+              {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
+              {longDay(invoice.fxRateDate)}
             </span>
           </MetaItem>
         </Meta>
@@ -232,25 +257,24 @@ export default function InvoicePage() {
           <CardTitle level={2}>What is owed</CardTitle>
           <Meta>
             <MetaItem label="Invoiced">
-              <span className="mono">{formatMoney(balance.invoiced, balance.currency)}</span>
+              <span className="num">{formatMoney(balance.invoiced, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Paid">
-              <span className="mono">{formatMoney(balance.paid, balance.currency)}</span>
+              <span className="num">{formatMoney(balance.paid, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Credited">
-              <span className="mono">{formatMoney(balance.credited, balance.currency)}</span>
+              <span className="num">{formatMoney(balance.credited, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Outstanding">
               {/* A NEGATIVE outstanding is not an error: the client overpaid, or
                   settled two invoices with one transfer. The API records what
                   actually arrived rather than what was tidy, and so does this. */}
-              <strong className="mono">{formatMoney(balance.outstanding, balance.currency)}</strong>
+              <strong className="num">{formatMoney(balance.outstanding, balance.currency)}</strong>
             </MetaItem>
           </Meta>
           {Number(balance.outstanding) < 0 && (
             <p className="max-w-[var(--measure)] text-sm text-muted">
-              More has been received than was billed. This is an overpayment, or one transfer
-              that settled more than this invoice.
+              More received than billed: an overpayment, or one transfer for several invoices.
             </p>
           )}
         </Card>
@@ -260,9 +284,7 @@ export default function InvoicePage() {
       <Card>
         <CardTitle level={2}>Lines</CardTitle>
         {record.lines.length === 0 ? (
-          <p className="text-sm text-muted">
-            No lines yet. An invoice cannot be issued until it has at least one line.
-          </p>
+          <p className="text-sm text-muted">No lines yet. It needs one before it can be issued.</p>
         ) : (
           <TableWrap>
         <Table>
@@ -281,24 +303,22 @@ export default function InvoicePage() {
               {record.lines.map((l) => (
                 <tr key={l.id}>
                   <Td>{l.description}</Td>
-                  <Td align="right" className="mono">
-                    {formatCount(l.quantity)}
-                  </Td>
-                  <Td align="right" className="mono">
+                  <Td align="right">{formatCount(l.quantity)}</Td>
+                  <Td align="right" className="nowrap">
                     {formatMoney(l.unitAmount, l.currency)}
                   </Td>
                   {/* A discount is a price, so the fee axis takes it too — an
                       em dash rather than "0%", which would be a figure this
                       reader was not shown rather than one that is true. */}
-                  <Td align="right" className="mono">
-                    {l.discountPercent === null ? "none" : `${formatCount(l.discountPercent)}%`}
+                  <Td align="right">
+                    {l.discountPercent === null ? <NotSet>None</NotSet> : `${formatCount(l.discountPercent)}%`}
                   </Td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
-                  <Td align="right" className="mono">
+                  <Td align="right" className="nowrap">
                     {formatCount(l.taxPercent)}% · {formatMoney(l.tax, l.currency)}
                   </Td>
-                  <Td align="right" className="mono">
+                  <Td align="right" className="nowrap">
                     {formatMoney(l.net, l.currency)}
                   </Td>
                   {draft && (
@@ -333,7 +353,7 @@ export default function InvoicePage() {
                 <Td align="right" className="label">
                   Tax
                 </Td>
-                <Td align="right" className="mono">
+                <Td align="right" className="nowrap">
                   {formatMoney(record.totals.tax, record.totals.currency)}
                 </Td>
                 {draft && <Td />}
@@ -343,7 +363,7 @@ export default function InvoicePage() {
                 <Td align="right" className="label">
                   Total
                 </Td>
-                <Td align="right" className="mono">
+                <Td align="right" className="nowrap">
                   <strong>{formatMoney(record.totals.total, record.totals.currency)}</strong>
                 </Td>
                 {draft && <Td />}
@@ -392,7 +412,7 @@ export default function InvoicePage() {
               {billable.length > 0 && (
                 <Field
                   label="What is this for?"
-                  hint="Picks up the wording and the price this client agreed in the engagement letter. Everything below can still be edited, since an invoice usually bills one period rather than the whole contract."
+                  hint="Fills the agreed wording and price. Edit them for one period."
                 >
                   <Select
                     name="engagementId"
@@ -428,7 +448,7 @@ export default function InvoicePage() {
               )}
               {chosen !== null && (
                 <p className="field-hint">
-                  From <span className="mono">{chosen.letterRef}</span>
+                  From {chosen.letterRef}
                   {/* ONE FEE FOR SEVERAL SERVICES (0083). Its figure is the
                       whole section's, so it is named and never prefilled: four
                       services of a 5,000 retainer are billed 5,000, not 20,000. */}
@@ -456,6 +476,7 @@ export default function InvoicePage() {
                     name="description"
                     defaultValue={chosen?.description ?? ""}
                     required
+                    placeholder="e.g. Monthly bookkeeping, October"
                   />
                 </Field>
                 <Field label="Qty">
@@ -472,6 +493,7 @@ export default function InvoicePage() {
                     name="unitAmount"
                     defaultValue={chosen?.unitAmount ?? ""}
                     required
+                    placeholder="e.g. 50000"
                   />
                 </Field>
                 <Field label="Discount %">
@@ -486,7 +508,7 @@ export default function InvoicePage() {
                 </Field>
               </FieldRow>
               <div className="cluster">
-                <Button type="submit" disabled={busy}>
+                <Button type="submit" variant="secondary" disabled={busy}>
                   Add line
                 </Button>
               </div>
@@ -499,28 +521,14 @@ export default function InvoicePage() {
       <Card>
         <CardTitle level={2}>The document</CardTitle>
         {!mayAdmin && (draft || issued) && (
+          /* Both use up a number in the series. */
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Only a firm administrator can issue or cancel an invoice, because both use up a
-            number in the series.
+            Only a firm administrator can issue or cancel an invoice.
           </p>
         )}
+        {/* Issue moved to the page header (Wave 4); Cancel stays here, away
+            from it. */}
         <div className="cluster">
-          {draft && mayAdmin && (
-            <Button
-              disabled={busy}
-              onClick={() =>
-                void act(() =>
-                  // The date printed on the tax invoice: today where the
-                  // person issuing it is, not Greenwich's day.
-                  api.POST("/api/v1/invoices/{invoiceId}/issue", {
-                    params: { path: { invoiceId }, query: { asOf: browserDay() } },
-                  }),
-                )
-              }
-            >
-              Issue
-            </Button>
-          )}
           {(draft || issued) && mayAdmin && (
             /* SAYS WHICH CANCEL, because the other one on this screen is
                nothing like it. Open the Documents dialog and there are two
@@ -545,8 +553,7 @@ export default function InvoicePage() {
         </div>
         {invoice.status === "cancelled" && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Cancelled. It keeps its number so the series stays unbroken. To replace it, raise a
-            new invoice.
+            Cancelled. It keeps its number; raise a new invoice to replace it.
           </p>
         )}
 
@@ -557,14 +564,18 @@ export default function InvoicePage() {
           <Meta>
             <MetaItem label="IRN">
               {invoice.irn === null ? (
-                <span className="unstated">not registered</span>
+                <NotSet>Not registered</NotSet>
               ) : (
                 <span className="mono">{invoice.irn}</span>
               )}
             </MetaItem>
           </Meta>
           {invoice.irn === null && (
+            /* Behind a disclosure (Wave 4): recorded once per invoice. */
+            <details style={{ marginTop: "var(--s-3)" }}>
+              <summary>Record the e-invoice reference</summary>
             <form
+              style={{ marginTop: "var(--s-3)" }}
               action={(form) => {
                 void act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/irn", {
@@ -583,14 +594,15 @@ export default function InvoicePage() {
                 <FieldRow>
                   <Field
                     label="Record the e-invoice reference"
-                    hint="The IRN you received from the e-invoice portal (IRP). It cannot be changed once recorded."
+                    hint="The IRN from the e-invoice portal. It cannot change later."
                   >
-                    <Input name="irn" required />
+                    <Input name="irn" required placeholder="e.g. 7d3c1f0a9b8e…" />
                   </Field>
                 </FieldRow>
                 <div className="cluster">
                   <Button
                     type="submit"
+                    variant="secondary"
                     disabled={busy}
                     /* SAYS WHAT IT RECORDS. This button sits in the same card
                        as "Cancel", which VOIDS the invoice and keeps its number
@@ -607,6 +619,7 @@ export default function InvoicePage() {
                 </div>
               </FieldStack>
             </form>
+            </details>
           )}
         </div>
       </Card>
@@ -630,13 +643,13 @@ export default function InvoicePage() {
             <tbody>
               {payments.map((p) => (
                 <tr key={p.id}>
-                  <Td className="mono">{longDay(p.receivedOn)}</Td>
+                  <Td className="nowrap">{longDay(p.receivedOn)}</Td>
                   <Td>{PAYMENT_METHOD_LABELS[p.method]}</Td>
-                  <Td className="mono muted">{p.reference ?? "none"}</Td>
+                  <Td>{p.reference ?? <NotSet>None</NotSet>}</Td>
                   {/* A NEGATIVE payment is a reversal — a bounced cheque — and
                       it is a row of its own beside the original rather than the
                       original edited away. Both are shown, which is the point. */}
-                  <Td align="right" className="mono">
+                  <Td align="right" className="nowrap">
                     {formatMoney(p.amount, p.currency)}
                   </Td>
                 </tr>
@@ -672,8 +685,8 @@ export default function InvoicePage() {
             <fieldset className="fieldset" aria-label="Record a payment">
               <FieldStack>
                 <FieldRow>
-                  <Field label="Amount" hint="Enter a negative amount to reverse a payment.">
-                    <Input name="amount" required />
+                  <Field label="Amount" hint="A negative amount reverses a payment.">
+                    <Input name="amount" required placeholder="e.g. 25000" />
                   </Field>
                   <Field label="Received">
                     <Input name="receivedOn" type="date" defaultValue={today} required />
@@ -687,11 +700,11 @@ export default function InvoicePage() {
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Bank reference">
-                    <Input name="reference" />
+                  <Field label="Bank reference" optional>
+                    <Input name="reference" placeholder="e.g. NEFT 44120" />
                   </Field>
-                  <Field label="Note">
-                    <Input name="note" />
+                  <Field label="Note" optional>
+                    <Input name="note" placeholder="e.g. Part payment" />
                   </Field>
                 </FieldRow>
                 <div className="cluster">
@@ -731,15 +744,15 @@ export default function InvoicePage() {
                 <tr key={c.id}>
                   {/* Its OWN series, keyed separately from the invoice one — a
                       credit note is a distinct legal document. */}
-                  <Td className="mono">{c.number}</Td>
-                  <Td className="mono">{longDay(c.issuedOn)}</Td>
+                  <Td className="nowrap">{c.number}</Td>
+                  <Td className="nowrap">{longDay(c.issuedOn)}</Td>
                   <Td>
                     {CREDIT_REASON_LABELS[c.reason]}
                     {c.note !== null && (
                       <div className="text-sm text-muted">{c.note}</div>
                     )}
                   </Td>
-                  <Td align="right" className="mono">
+                  <Td align="right" className="nowrap">
                     {formatMoney(c.amount, c.currency)}
                   </Td>
                 </tr>
@@ -750,8 +763,12 @@ export default function InvoicePage() {
         )}
 
         {issued && mayAdmin && (
+          /* Behind a disclosure (Wave 4): rare, and a second open "Amount"
+             form under the payments one. */
+          <details style={{ marginTop: "var(--s-4)" }}>
+            <summary>Issue a credit note</summary>
           <form
-            style={{ marginTop: "var(--s-4)" }}
+            style={{ marginTop: "var(--s-3)" }}
             action={(form) => {
               const note = String(form.get("creditNote") ?? "");
               void act(() =>
@@ -770,14 +787,14 @@ export default function InvoicePage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Amount">
-                    <Input name="creditAmount" required />
+                    <Input name="creditAmount" required placeholder="e.g. 10000" />
                   </Field>
                   {/* The reason is mandatory and closed because without it the
                       numbers always reconcile and WHY money came off does
                       not. */}
                   <Field
                     label="Why"
-                    hint="Choose a category, so credit notes can be totalled by reason later. Put the details under Particulars."
+                    hint="A category, so credits total by reason."
                   >
                     <Select name="reason" required>
                       {CREDIT_REASONS.map((r) => (
@@ -787,18 +804,19 @@ export default function InvoicePage() {
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Particulars">
-                    <Input name="creditNote" />
+                  <Field label="Particulars" optional>
+                    <Input name="creditNote" placeholder="e.g. Late delivery of the draft report" />
                   </Field>
                 </FieldRow>
                 <div className="cluster">
-                  <Button type="submit" disabled={busy}>
+                  <Button type="submit" variant="secondary" disabled={busy}>
                     Issue credit note
                   </Button>
                 </div>
               </FieldStack>
             </fieldset>
           </form>
+          </details>
         )}
         {issued && !mayAdmin && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
@@ -824,15 +842,16 @@ export default function InvoicePage() {
             <tbody>
               {chased.map((a) => (
                 <tr key={a.id}>
-                  <Td className="mono">{a.step}</Td>
-                  <Td>{a.action.replace("_", " ")}</Td>
-                  <Td className="text-sm text-muted">{a.afterDays} days after the due date</Td>
+                  <Td>{a.step}</Td>
+                  <Td>{codeLabel(a.action)}</Td>
+                  <Td>{a.afterDays} days after the due date</Td>
                   <Td>
                     {/* `ok`, not `accent`. `accent` is shadcn's neutral hover
                         ground; the status teal is `ok`, and `components/tw`'s
                         `Pill` has no `accent` tone at all — this was a raw
                         `<span>` and so nothing caught it. */}
                     <Pill
+                      dot
                       tone={
                         a.state === "rejected"
                           ? "danger"
@@ -841,7 +860,7 @@ export default function InvoicePage() {
                             : "neutral"
                       }
                     >
-                      {a.state.replace("_", " ")}
+                      {codeLabel(a.state)}
                     </Pill>
                   </Td>
                 </tr>
@@ -850,8 +869,7 @@ export default function InvoicePage() {
           </Table>
         </TableWrap>
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Reminders are sent automatically, step by step. Credit hold and legal action are
-            never applied automatically; they wait for a partner’s decision on{" "}
+            Credit hold and legal action wait for a partner on{" "}
             <Link href="/receivables">Receivables</Link>.
           </p>
         </Card>
@@ -865,7 +883,7 @@ export default function InvoicePage() {
         partyId={invoice?.partyId ?? undefined}
         canWrite={permissions.includes("party:write")}
         renderable="invoice"
-        emptyHint="Nothing attached yet. A remittance advice, a signed challan, or the issued copy of this invoice belongs here."
+        emptyHint="Upload a remittance advice, a challan or the issued copy."
       />
     </Page>
   );

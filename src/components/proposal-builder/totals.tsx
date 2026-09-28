@@ -22,7 +22,7 @@ export function FrequencyTotals({ record }: { record: ProposalRecord }) {
       <strong>
         {count} {count === 1 ? "service" : "services"}
       </strong>
-      {sentence !== null && <span className="mono text-muted"> · {sentence}</span>}
+      {sentence !== null && <span className="tabular-nums text-ink-2"> · {sentence}</span>}
     </span>
   );
 }

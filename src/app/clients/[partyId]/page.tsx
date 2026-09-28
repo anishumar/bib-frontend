@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type {
   ConfigEntry,
   IdentifierType,
@@ -27,6 +27,7 @@ import {
   FieldStack,
   Input,
   LinkButton,
+  NotSet,
   Notice,
   Pill,
   Select,
@@ -367,29 +368,23 @@ export default function PartyPage() {
 
   return (
     <Page>
+      {/* THE WAVE 4 SHAPE (2026-09-28): New proposal is the page's one brand
+          button, the letter beside it is secondary, Archive is quiet; no
+          eyebrow; the subtype facts are one line under the name, and the kind
+          reads as a word, never the model's code. */}
       <PageHeader
-        eyebrow="Commercial"
         title={<>{profile.party.displayName}</>}
         aside={
           <>
             {/* The state, where the action to change it is. The book already
                 rendered this pill and could not set it. */}
-            {profile.party.archivedAt !== null && <Pill tone="danger">archived</Pill>}
-            {/* An archived client is refused a proposal by the API (0305), so
-                it is not offered one. */}
-            {canWrite && profile.party.archivedAt === null && (
-              <LinkButton size="sm" href={`/proposals/new?clientPartyId=${partyId}`}>
-                New proposal
-              </LinkButton>
-            )}
-            {canWrite && profile.party.archivedAt === null && (
-              <LinkButton size="sm" href={`/engagement-letters/new?clientPartyId=${partyId}`}>
-                New engagement letter
-              </LinkButton>
+            {profile.party.archivedAt !== null && (
+              <Pill dot tone="danger">
+                Archived
+              </Pill>
             )}
             {canWrite && (
               <Button
-                size="sm"
                 variant={profile.party.archivedAt === null ? "destructive-quiet" : "secondary"}
                 loading={archiving}
                 onClick={() => void setArchived(profile.party.archivedAt === null)}
@@ -397,29 +392,50 @@ export default function PartyPage() {
                 {profile.party.archivedAt === null ? "Archive" : "Restore"}
               </Button>
             )}
+            {/* An archived client is refused a proposal by the API (0305), so
+                it is not offered one. */}
+            {canWrite && profile.party.archivedAt === null && (
+              <LinkButton
+                variant="secondary"
+                href={`/engagement-letters/new?clientPartyId=${partyId}`}
+              >
+                New engagement letter
+              </LinkButton>
+            )}
+            {canWrite && profile.party.archivedAt === null && (
+              <LinkButton variant="primary" href={`/proposals/new?clientPartyId=${partyId}`}>
+                New proposal
+              </LinkButton>
+            )}
           </>
         }
-      />
-      {/* The subtype detail. The display name prefers a trade name, so the LEGAL
-          name is a different fact and worth showing when they differ — it is
-          what goes on an engagement letter. */}
-      <p className="muted">
-        {profile.organization !== null
-          ? [
-              profile.organization.legalName === profile.party.displayName
-                ? null
-                : profile.organization.legalName,
-              profile.organization.industry,
-              profile.organization.website,
-            ]
-              .filter((v): v is string => v !== null && v !== "")
-              .join(" · ") || "organization"
-          : profile.person !== null
-            ? [profile.person.nationality, profile.person.dateOfBirth]
+      >
+        {/* The subtype detail. The display name prefers a trade name, so the
+            LEGAL name is a different fact and worth showing when they differ —
+            it is what goes on an engagement letter. */}
+        <p className="lede">
+          {profile.organization !== null
+            ? [
+                profile.organization.legalName === profile.party.displayName
+                  ? null
+                  : profile.organization.legalName,
+                profile.organization.industry,
+                profile.organization.website,
+              ]
                 .filter((v): v is string => v !== null && v !== "")
-                .join(" · ") || "person"
-            : profile.party.kind}
-      </p>
+                .join(" · ") || "Company"
+            : profile.person !== null
+              ? [
+                  profile.person.nationality,
+                  profile.person.dateOfBirth === null ? null : longDay(profile.person.dateOfBirth),
+                ]
+                  .filter((v): v is string => v !== null && v !== "")
+                  .join(" · ") || "Person"
+              : profile.party.kind === "organization"
+                ? "Company"
+                : "Person"}
+        </p>
+      </PageHeader>
 
       <ErrorNotice error={error} />
 
@@ -467,11 +483,9 @@ export default function PartyPage() {
         <Card>
           <CardTitle level={2}>Registered</CardTitle>
           {profile.legalEntities.length === 0 ? (
-            <p className="muted measure">
-              No country of registration yet. Compliance rules are matched by
-              country, so until this is filled in no filings will appear for
-              this client. <Link href="/calendar">The calendar</Link> lists it
-              under Not covered.
+            <p className="muted">
+              Not registered yet, so <Link href="/calendar">the calendar</Link> shows no filings
+              for it.
             </p>
           ) : (
           <TableWrap>
@@ -479,24 +493,30 @@ export default function PartyPage() {
               <thead>
                 <tr>
                   <Th>Country</Th>
-                  <Th>Type</Th>
+                  <Th>Kind of company</Th>
                   <Th>Incorporated</Th>
-                  <Th>FY end</Th>
+                  <Th>Year ends</Th>
                   <Th>Status</Th>
                 </tr>
               </thead>
               <tbody>
                 {profile.legalEntities.map((e) => (
                   <tr key={`${e.jurisdiction}-${e.entityType}`}>
-                    <Td className="mono">{e.jurisdiction}</Td>
-                    <Td>{e.entityType}</Td>
-                    <Td className="muted">{e.incorporatedOn === null ? "not set" : longDay(e.incorporatedOn)}</Td>
+                    <Td>
+                      <Pill tone="code">{e.jurisdiction}</Pill>
+                    </Td>
+                    <Td>{codeLabel(e.entityType)}</Td>
+                    <Td className="nowrap">
+                      {e.incorporatedOn === null ? <NotSet /> : longDay(e.incorporatedOn)}
+                    </Td>
                     {/* MM-DD: a financial year ends on a date in the calendar,
                         not in a particular year. */}
-                    <Td className="muted">{e.financialYearEnd ?? "not set"}</Td>
+                    <Td className="nowrap">
+                      {e.financialYearEnd === null ? <NotSet /> : yearEnds(e.financialYearEnd)}
+                    </Td>
                     <Td>
-                      <Pill tone={e.status === "active" ? "neutral" : "danger"}>
-                        {e.status}
+                      <Pill dot tone={e.status === "active" ? "ok" : "danger"}>
+                        {codeLabel(e.status)}
                       </Pill>
                     </Td>
                   </tr>
@@ -508,26 +528,31 @@ export default function PartyPage() {
 
           {/* The write that had no caller. Offered on `party:write`, the same
               permission the identifier form below takes — registering a company
-              is a fact about a client, not an administrative act. */}
+              is a fact about a client, not an administrative act. OPEN while
+              there is no registration (it is why the calendar is empty), behind
+              a disclosure once there is one. */}
           {permissions.includes("party:write") && (
+            <details className="card-foot" open={profile.legalEntities.length === 0}>
+              <summary>
+                {profile.legalEntities.length === 0 ? "Register it" : "Register in another country"}
+              </summary>
             <form
-              className="card-foot"
+              style={{ marginTop: "var(--s-3)" }}
               action={(form) => {
                 void registerEntity(form);
               }}
             >
-              <p className="eyebrow">Register it</p>
               <FieldStack>
                 <FieldRow>
-                  {/* The paragraph below explains BOTH of these and neither on
-                      its own, so it stays outside the fields and they point at
-                      it by hand — `Field`'s own `hint` would have had to say it
+                  {/* The line below explains BOTH of these and neither on its
+                      own, so it stays outside the fields and they point at it
+                      by hand — `Field`'s own `hint` would have had to say it
                       twice, once under each. */}
                   <Field label="Country">
                     <Input
                       name="jurisdiction"
                       maxLength={2}
-                      placeholder="IN"
+                      placeholder="e.g. IN"
                       required
                       aria-describedby={registerHintId}
                       style={{ textTransform: "uppercase" }}
@@ -536,7 +561,7 @@ export default function PartyPage() {
                   <Field label="Kind of company">
                     <Input
                       name="entityType"
-                      placeholder="private_limited"
+                      placeholder="e.g. private_limited"
                       required
                       aria-describedby={registerHintId}
                     />
@@ -546,28 +571,27 @@ export default function PartyPage() {
                   </Field>
                   {/* MM-DD, never a full date: a financial year ends on a day in
                       the calendar, not in one particular year. */}
-                  <Field label="FY ends" optional>
+                  <Field label="Year ends" optional hint="Month and day.">
                     <Input
                       name="financialYearEnd"
-                      placeholder="03-31"
+                      placeholder="e.g. 03-31"
                       pattern="[0-9]{2}-[0-9]{2}"
                     />
                   </Field>
                 </FieldRow>
+                {/* Compliance rules match the country exactly, and the kind of
+                    company narrows them: the codes must be the rules' own. */}
                 <p className="field-hint" id={registerHintId}>
-                  Compliance rules are matched by country, and the kind of company
-                  narrows which rules apply. Use the same codes your rules use:{" "}
-                  <span className="mono">IN</span> and{" "}
-                  <span className="mono">private_limited</span> are what the built-in
-                  India rules look for.
+                  Use the codes your compliance rules use.
                 </p>
                 <div className="cluster">
-                  <Button type="submit" loading={busy}>
+                  <Button type="submit" variant="secondary" loading={busy}>
                     Register
                   </Button>
                 </div>
               </FieldStack>
             </form>
+            </details>
           )}
         </Card>
       )}
@@ -575,11 +599,7 @@ export default function PartyPage() {
       <Card>
         <CardTitle level={2}>Identifiers</CardTitle>
         {profile.identifiers.length === 0 ? (
-          <p className="muted">
-            None yet. Add a PAN, GSTIN or email so this client is recognised the
-            next time they come in as a lead, instead of a duplicate record being
-            created.
-          </p>
+          <p className="muted">None yet. A PAN or email here stops duplicate leads.</p>
         ) : (
           <TableWrap>
             <Table>
@@ -594,25 +614,76 @@ export default function PartyPage() {
               <tbody>
                 {profile.identifiers.map((i) => (
                   <tr key={i.id}>
-                    <Td>
-                      {i.type}
+                    <Td className="nowrap">
+                      {identifierWord(i.type)}
                       {i.isPrimary && (
                         <>
                           {" "}
-                          <Pill>primary</Pill>
+                          <Pill>Main</Pill>
                         </>
                       )}
                     </Td>
                     {/* Stored normalised by the API — uppercase, unspaced — which
                         is what makes two captures of one company match. */}
-                    <Td className="mono">{i.value}</Td>
-                    <Td className="muted">{i.jurisdiction ?? "not set"}</Td>
-                    <Td className="muted">{longDay(i.validFrom)}</Td>
+                    <Td>{i.value}</Td>
+                    <Td>
+                      {i.jurisdiction === null ? <NotSet /> : <Pill tone="code">{i.jurisdiction}</Pill>}
+                    </Td>
+                    <Td className="nowrap">{longDay(i.validFrom)}</Td>
                   </tr>
                 ))}
               </tbody>
             </Table>
           </TableWrap>
+        )}
+
+        {/* One card for the list and the form that adds to it (Wave 4): the
+            form was a card of its own, titled, at the foot of the page. */}
+        {canWrite && (
+          <details className="card-foot" open={profile.identifiers.length === 0}>
+            <summary>Add an identifier</summary>
+            <form
+              style={{ marginTop: "var(--s-3)" }}
+              action={(form) => {
+                void addIdentifier(form);
+              }}
+            >
+              <FieldStack>
+                <FieldRow>
+                  <Field label="Type">
+                    <Select name="type">
+                      {IDENTIFIER_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {identifierWord(t)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Value">
+                    <Input name="value" required placeholder="e.g. AAACK1234M" />
+                  </Field>
+                  <Field label="Country" optional>
+                    <Input name="jurisdiction" maxLength={2} placeholder="e.g. IN" />
+                  </Field>
+                  {/* This field and the account team's "From" BOTH hardcoded
+                      `id="validFrom"`, and both render on this page — so the
+                      document carried the id twice and clicking THIS label put
+                      the cursor in the other card's input. `Field` generates its
+                      id with `useId`, which is why the whole class of bug goes
+                      away rather than this one instance of it. */}
+                  <Field label="Valid from">
+                    <Input name="validFrom" type="date" defaultValue={today} required />
+                  </Field>
+                </FieldRow>
+                <Checkbox label="The main one of its type" name="isPrimary" />
+                <div className="cluster">
+                  <Button type="submit" variant="secondary" loading={busy}>
+                    {busy ? "Adding…" : "Add it"}
+                  </Button>
+                </div>
+              </FieldStack>
+            </form>
+          </details>
         )}
       </Card>
 
@@ -624,20 +695,15 @@ export default function PartyPage() {
         <CardTitle level={2} ref={relCardRef} tabIndex={-1}>
           Relationships
         </CardTitle>
-        <p className="muted">
-          Who owns this company, who signs for it, and which other companies it is grouped
-          with. Each relationship has a start and an end date, because compliance asks who
-          was a director on a particular day. Read every row as a sentence beginning{" "}
-          <strong>{profile.party.displayName}</strong>.
-        </p>
         {profile.relationships.length === 0 ? (
-          <p className="muted">
-            None recorded.{" "}
-            {canWrite
-              ? "Record a shareholding or a parent company here. This list is also where the client portal picks the group companies a contact may be given access to."
-              : "You need permission to edit clients to record one."}
-          </p>
+          <p className="muted">None recorded.</p>
         ) : (
+          <>
+          {/* The one line the table needs: its rows are predicates, and the
+              subject is this page's party. */}
+          <p className="muted">
+            Each row reads as a sentence starting with {profile.party.displayName}.
+          </p>
           <TableWrap>
             <Table>
               <thead>
@@ -664,17 +730,19 @@ export default function PartyPage() {
                         {r.counterparty.displayName}
                       </Link>
                     </Td>
-                    <Td className="muted">{longDay(r.relationship.validFrom)}</Td>
+                    <Td className="nowrap">{longDay(r.relationship.validFrom)}</Td>
                     {/* Half-open, like every other date range in this product:
                         `validTo` is the first day NOT in force. An open
                         relationship has no end at all, which is a different fact
                         from one that ended today. */}
-                    <Td className="muted">
-                      {r.relationship.validTo === null
-                        ? "open"
-                        : longDay(r.relationship.validTo)}
+                    <Td className="nowrap">
+                      {r.relationship.validTo === null ? (
+                        <NotSet>Ongoing</NotSet>
+                      ) : (
+                        longDay(r.relationship.validTo)
+                      )}
                     </Td>
-                    <Td>
+                    <Td align="right">
                       {canWrite && r.relationship.validTo === null && (
                         /* NAMED BY THE ROW, not by the word on it. A company
                            with four directors draws four buttons saying "End
@@ -703,6 +771,7 @@ export default function PartyPage() {
               </tbody>
             </Table>
           </TableWrap>
+          </>
         )}
 
         {ending !== null && (
@@ -743,7 +812,7 @@ export default function PartyPage() {
                 <div style={{ maxWidth: "16rem" }}>
                 <Field
                   label="The first day it is no longer in force"
-                  hint="Enter the first day it no longer applies. A director who resigned on the 12th is ended on the 12th, and the 11th was their last day. It must be after the day the relationship began, and it cannot be changed once saved."
+                  hint="e.g. the day they resigned. Cannot be changed later."
                 >
                   <Input type="date" name="endValidTo" defaultValue={today} required />
                 </Field>
@@ -770,7 +839,7 @@ export default function PartyPage() {
         )}
 
         {canWrite && types.length > 0 && (
-          <details style={{ marginTop: "var(--s-4)" }}>
+          <details className="card-foot">
             {/* THE DISCLOSURE AND THE BUTTON INSIDE IT ARE TWO ACTIONS, and
                 naming both "Record a relationship" only moves the collision.
                 The summary opens a form; the button writes the row. */}
@@ -793,10 +862,7 @@ export default function PartyPage() {
               <fieldset className="fieldset" aria-label="A new relationship">
               <FieldStack>
                 <FieldRow>
-                  <Field
-                    label="The other party"
-                    hint="Any company or person on your firm's books, other than this one."
-                  >
+                  <Field label="The other party">
                     {/* CONTROLLED, because the sentences below NAME what is
                         chosen here. No pre-selected party: a relationship
                         recorded against whoever happened to sort first is a
@@ -823,10 +889,7 @@ export default function PartyPage() {
                   </Field>
                 </FieldRow>
 
-                <Field
-                  label="How they are related"
-                  hint="Each option is a sentence naming both parties. Pick the one that is true."
-                >
+                <Field label="How they are related" hint="Pick the sentence that is true.">
                   {/* DIRECTION IS NOT A SEPARATE QUESTION. Asking for it as a
                       radio or an arrow is asking somebody to translate a fact
                       they know into a field order they do not — and getting it
@@ -852,33 +915,27 @@ export default function PartyPage() {
                 </Field>
 
                 <FieldRow>
-                  <Field
-                    label="From"
-                    hint="The day it became true, such as the incorporation date, a share transfer or a board resolution. Use today only if it happened today."
-                  >
+                  <Field label="From" hint="The day it became true, e.g. a share transfer.">
                     <Input type="date" name="relValidFrom" defaultValue={today} required />
                   </Field>
                   <Field
-                    label="Until (optional)"
-                    hint="The first day it is no longer true (not the last day it was). Leave it empty if it still stands."
+                    label="Until"
+                    optional
+                    hint="Only for one already over. End an open one on its row."
                   >
                     <Input type="date" name="relValidTo" />
                   </Field>
                 </FieldRow>
 
                 <div className="cluster">
-                  <Button type="submit" loading={relBusy}>
+                  {/* TWO DIFFERENT ACTS, and Until's hint says which one this
+                      is. Filling in Until records a relationship that was
+                      already over when the firm heard about it. Closing one
+                      that is still open is the row's own "End it" — it writes
+                      `party_relationship.ended`, and it happens once. */}
+                  <Button type="submit" variant="secondary" loading={relBusy}>
                     {relBusy ? "Recording…" : "Record it"}
                   </Button>
-                  {/* TWO DIFFERENT ACTS, and the form says which one it is.
-                      Filling in Until records a relationship that was already
-                      over when the firm heard about it. Closing one that is
-                      still open is the row's own "End it" — it writes
-                      `party_relationship.ended`, and it happens once. */}
-                  <p className="field-hint">
-                    <em>Until</em> is for one that has already ended. To close a relationship
-                    that is still open, use <em>End it</em> on its row above.
-                  </p>
                 </div>
               </FieldStack>
               </fieldset>
@@ -887,49 +944,6 @@ export default function PartyPage() {
         )}
       </Card>
 
-      <Card>
-        <CardTitle level={2}>Attach an identifier</CardTitle>
-        <form
-          action={(form) => {
-            void addIdentifier(form);
-          }}
-        >
-          <FieldStack>
-            <FieldRow>
-              <Field label="Type">
-                <Select name="type">
-                  {IDENTIFIER_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Value">
-                <Input name="value" required />
-              </Field>
-              <Field label="Country" optional>
-                <Input name="jurisdiction" maxLength={2} placeholder="IN" />
-              </Field>
-              {/* This field and the account team's "From" BOTH hardcoded
-                  `id="validFrom"`, and both render on this page — so the
-                  document carried the id twice and clicking THIS label put the
-                  cursor in the other card's input. `Field` generates its id
-                  with `useId`, which is why the whole class of bug goes away
-                  rather than this one instance of it. */}
-              <Field label="Valid from">
-                <Input name="validFrom" type="date" defaultValue={today} required />
-              </Field>
-            </FieldRow>
-            <Checkbox label="This is the main one of its type for this client." name="isPrimary" />
-            <div className="cluster">
-              <Button type="submit" loading={busy}>
-                {busy ? "Attaching…" : "Attach"}
-              </Button>
-            </div>
-          </FieldStack>
-        </form>
-      </Card>
       {/* The client's file. `partyId` is passed so every document carries the
           column the client portal's record scope (Gate 4) will filter on —
           adding it later would mean backfilling a fact nobody recorded. */}
@@ -938,7 +952,7 @@ export default function PartyPage() {
         subjectRef={partyId}
         partyId={partyId}
         canWrite={canWrite}
-        emptyHint="Nothing on file yet. Upload the documents you would otherwise have to go looking for, such as a PAN card, a certificate of incorporation or a board resolution."
+        emptyHint="Upload a PAN card, incorporation certificate or board resolution."
       />
     </Page>
   );
@@ -969,6 +983,23 @@ const IDENTIFIER_TYPES = [
   "phone",
   "other",
 ] as const satisfies readonly IdentifierType[];
+
+/** An identifier type in words: the acronyms in capitals, the rest as words. */
+function identifierWord(type: string): string {
+  return type === "email" || type === "phone" || type === "passport" || type === "other"
+    ? codeLabel(type)
+    : type.toUpperCase();
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** A financial year's last day, "03-31" -> "31 Mar": a day in the calendar,
+ *  not in one particular year, so no year is printed. */
+function yearEnds(mmdd: string): string {
+  const [mm = "", dd = ""] = mmdd.split("-");
+  const month = MONTHS[Number(mm) - 1];
+  return month === undefined ? mmdd : `${String(Number(dd))} ${month}`;
+}
 
 /**
  * One relationship as a PREDICATE, read from this party's end.

@@ -78,19 +78,15 @@ export function FeeGroups({
   return (
     <Card>
       <CardTitle level={2}>Sections and fees</CardTitle>
+      {/* ONE LINE (Wave 4). A section prints as a part of Annexure 1 and one
+          row of the Summary of Fees ("B. Ongoing recurring services, USD 5,000
+          per month" across four companies); its services carry no price of
+          their own, and services priced on their own print last. */}
       <p className="text-md text-muted">
-        A section is one fee for the services in it, such as &ldquo;B. Ongoing recurring
-        services, USD 5,000 per month&rdquo; for accounting, tax and payroll across four
-        companies. It prints as a section of Annexure 1 and as one row of the Summary of Fees,
-        and the services in it carry no price of their own. Services priced on their own print
-        last, each with a row of its own.
+        {groups.length === 0
+          ? "No sections, so each service is priced on its own."
+          : "A section is one fee for the services in it."}
       </p>
-
-      {groups.length === 0 && (
-        <p className="text-sm text-muted">
-          No sections yet, so every service on this letter is priced on its own.
-        </p>
-      )}
 
       {groups.map((g) => {
         const covered = lines.filter((l) => l.feeGroupId === g.id);
@@ -122,7 +118,7 @@ export function FeeGroups({
               {g.code}. {g.title}
             </div>
             <div className="text-md">
-              <span className="mono">{groupFee(g)}</span> ·{" "}
+              <span className="tabular-nums">{groupFee(g)}</span> ·{" "}
               {BILLING_FREQUENCY_LABELS[g.billingFrequency]}
               {g.paymentTerms !== null && <> · {g.paymentTerms}</>}
             </div>
@@ -131,7 +127,7 @@ export function FeeGroups({
                 be sent, which the API says in words if it is tried. */}
             <div className="text-sm text-muted">
               {covered.length === 0 ? (
-                <Pill tone="warn">covers no services yet</Pill>
+                <Pill tone="warn">Covers no services yet</Pill>
               ) : (
                 <>
                   Covers {covered.length} service{covered.length === 1 ? "" : "s"}:{" "}
@@ -202,6 +198,10 @@ export function FeeGroups({
       })}
 
       {editable && editing === null && (
+        /* Behind a disclosure (Wave 4): eight boxes stood open under every
+           letter, used once per section. */
+        <details className="card-foot">
+          <summary>Add a section</summary>
         <GroupForm
           group={null}
           busy={busy}
@@ -231,6 +231,7 @@ export function FeeGroups({
             )
           }
         />
+        </details>
       )}
     </Card>
   );
@@ -288,13 +289,12 @@ function GroupForm({
         className="fieldset"
         aria-label={adding ? "Add a section" : `Editing section ${group.code}, ${group.title}`}
       >
-        {adding && <h3 className="eyebrow">Add a section</h3>}
         <div className="field-row mb-4">
           <Field label="Title" hint="The section's heading on the letter.">
             <Input
               name="groupTitle"
               defaultValue={group?.title ?? ""}
-              placeholder="Ongoing recurring services"
+              placeholder="e.g. Ongoing recurring services"
               required
             />
           </Field>
@@ -311,7 +311,7 @@ function GroupForm({
             label="Fee"
             hint={
               adding
-                ? "Per billing period: 5000 on a monthly section is 5,000 a month."
+                ? "Per billing period, e.g. 5,000 a month."
                 : group.amount === null
                   ? "Hidden from you. Leave blank to keep it."
                   : "Per billing period."
@@ -328,7 +328,7 @@ function GroupForm({
             <Input
               name="groupPaymentTerms"
               defaultValue={group?.paymentTerms ?? ""}
-              placeholder="40% advance, 60% on completion"
+              placeholder="e.g. 40% advance, 60% on completion"
             />
           </Field>
         </div>
@@ -336,7 +336,7 @@ function GroupForm({
           <Field
             label="In the Summary of Fees"
             optional
-            hint="What its row says. Left blank, it names the title and the services."
+            hint="Its row's words. Blank names the title and services."
           >
             <Textarea name="groupFeeDescription" rows={2} defaultValue={group?.feeDescription ?? ""} />
           </Field>
@@ -348,14 +348,14 @@ function GroupForm({
           <Field
             label="Deliverables"
             optional
-            hint="For the section as a whole. Start a line with - for a bullet."
+            hint="For the whole section. Start a line with - for a bullet."
           >
             <Textarea name="groupDeliverables" rows={3} defaultValue={group?.deliverables ?? ""} />
           </Field>
           <Field
             label="Client's responsibilities"
             optional
-            hint="For the section as a whole. Each service's own stay with the service."
+            hint="For the whole section. Services keep their own."
           >
             <Textarea
               name="groupClientObligations"
@@ -462,7 +462,7 @@ export function LineFee({
                 <Input name="ownPrice" inputMode="decimal" />
               </Field>
               <Field label="Or why it has none">
-                <Input name="ownNote" placeholder="As mutually agreed" />
+                <Input name="ownNote" placeholder="e.g. As mutually agreed" />
               </Field>
             </div>
             <div className="cluster mt-2">

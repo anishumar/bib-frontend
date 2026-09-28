@@ -20,7 +20,7 @@ export function LetterTotals({ record }: { record: LetterRecord }) {
       {withheld ? (
         <span className="text-muted"> · fees not shown to you</span>
       ) : (
-        sentence !== null && <span className="mono text-muted"> · {sentence}</span>
+        sentence !== null && <span className="tabular-nums text-ink-2"> · {sentence}</span>
       )}
     </span>
   );

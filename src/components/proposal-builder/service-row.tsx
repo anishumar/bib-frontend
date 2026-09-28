@@ -166,7 +166,7 @@ export function ServiceRow<L extends RowLine>({
               tick(e.target.checked);
             }}
           />
-          <span className="mono w-12 shrink-0 pt-px text-sm text-muted">{service.ref ?? ""}</span>
+          <span className="w-12 shrink-0 pt-px text-md tabular-nums text-ink-2">{service.ref ?? ""}</span>
           <span className="min-w-0 flex-1 text-md text-ink">{service.name}</span>
         </label>
         <span className="ml-auto text-right text-md">
@@ -319,7 +319,7 @@ function PriceLabel({
     const per = line.billingFrequency === null ? "" : ` ${FREQUENCY_WORDS[line.billingFrequency]}`;
     const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : ` × ${formatCount(line.quantity)}`;
     return (
-      <span className="mono">
+      <span className="tabular-nums">
         {pdfMoney(line.unitAmount, line.currency)}
         {per}
         {qty}
@@ -328,7 +328,7 @@ function PriceLabel({
   }
   if (service.listPrice !== null && service.listPrice.currency === currency) {
     return (
-      <span className="mono">
+      <span className="tabular-nums">
         {pdfMoney(service.listPrice.amount, service.listPrice.currency)}
         {service.recurrence === null ? "" : ` ${FREQUENCY_WORDS[service.recurrence]}`}
       </span>
@@ -430,7 +430,7 @@ function Details({
               label={`Fee (${currency})`}
               hint={
                 service.listPrice === null
-                  ? "No list price in the catalogue. Leave it empty for no fixed fee, and say why below."
+                  ? "No list price. Empty means no fixed fee; say why below."
                   : service.listPrice.currency === currency
                     ? `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}.`
                     : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
@@ -490,8 +490,8 @@ function Details({
             optional={fee.trim() !== ""}
             hint={
               fee.trim() === ""
-                ? "Required when there is no fixed fee: it is printed where the fee would be."
-                : "Printed beside the fee, for example \"plus statutory fees at actuals\"."
+                ? "Required with no fixed fee. Printed in its place."
+                : "Printed beside the fee."
             }
           >
             <Input
@@ -539,7 +539,7 @@ function Details({
                 </div>
                 {own === null ? (
                   <p className={cn("text-md", std === null && "text-muted")}>
-                    {std ?? "The catalogue says nothing here."}
+                    {std ?? "Not set in the catalogue."}
                   </p>
                 ) : (
                   <Textarea

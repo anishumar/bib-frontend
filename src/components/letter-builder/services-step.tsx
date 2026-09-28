@@ -258,14 +258,14 @@ export function LetterServicesStep({
                     <section key={g.code ?? "none"} aria-label={g.name}>
                       <h3 className="border-b border-line pb-2 pt-3 text-md font-semibold text-ink">
                         {g.code !== null && g.code !== g.name && (
-                          <span className="mono mr-2 text-sm text-muted">{g.code}</span>
+                          <span className="mr-2 text-sm text-ink-2">{g.code}</span>
                         )}
                         {g.name}
                       </h3>
                       {g.teams.map((t) => (
                         <div key={t.code ?? "none"}>
                           {t.name !== null && (
-                            <h4 className="pt-3 text-xs uppercase tracking-wide text-faint">{t.name}</h4>
+                            <h4 className="pt-3 text-sm font-semibold text-ink-2">{t.name}</h4>
                           )}
                           <ul>
                             {t.services.map((s) => {

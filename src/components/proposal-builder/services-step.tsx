@@ -165,11 +165,10 @@ export function ServicesStep({
     <div className="flex flex-col gap-6">
       <Card>
         <CardTitle level={2}>Services</CardTitle>
-        <p className="mt-1 text-sm text-muted">
-          Tick a service to add it at its list price. A service priced in another currency, or
-          with no list price, asks for the fee first. Details changes the fee, how often it is
-          billed and the wording, for this proposal only.
-        </p>
+        {/* One line (Wave 4). A service priced in another currency, or with
+            no list price, asks for the fee first; Details changes the fee,
+            frequency and wording for this proposal only. */}
+        <p className="mt-1 text-sm text-muted">Tick a service to add it at its list price.</p>
 
         {countries.length === 0 ? (
           <p className="mt-4 text-muted">
@@ -202,14 +201,14 @@ export function ServicesStep({
                     <section key={g.code ?? "none"} aria-label={g.name}>
                       <h3 className="border-b border-line pb-2 pt-3 text-md font-semibold text-ink">
                         {g.code !== null && g.code !== g.name && (
-                          <span className="mono mr-2 text-sm text-muted">{g.code}</span>
+                          <span className="mr-2 text-sm text-ink-2">{g.code}</span>
                         )}
                         {g.name}
                       </h3>
                       {g.teams.map((t) => (
                         <div key={t.code ?? "none"}>
                           {t.name !== null && (
-                            <h4 className="pt-3 text-xs uppercase tracking-wide text-faint">
+                            <h4 className="pt-3 text-sm font-semibold text-ink-2">
                               {t.name}
                             </h4>
                           )}

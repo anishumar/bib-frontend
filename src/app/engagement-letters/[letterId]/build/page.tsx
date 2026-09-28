@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { api } from "@/lib/api/client";
+import { api, codeLabel } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import { Notice, Pill } from "@/components/ui";
 import { Page, PageHeader } from "@/components/tw";
@@ -80,19 +80,19 @@ function Builder() {
   return (
     <Page>
       <title>{`${letter.ref} · ${letter.title}`}</title>
+      {/* Wave 4: no typewriter eyebrow; the facts are one line under the
+          title, and a sent letter's status is a pill in words. */}
       <PageHeader
-        eyebrow={
-          <span>
-            <span className="mono">{letter.ref}</span> · {record.party.displayName}
-          </span>
-        }
         title={letter.title}
         lede={
           <span>
-            Issued by {record.issuer.name} in {letter.currency}.{" "}
+            {record.party.displayName} · {letter.ref} · issued by {record.issuer.name} in{" "}
+            {letter.currency}.{" "}
             {!isDraft && (
               <>
-                <Pill tone="neutral">{letter.deletedAt === null ? letter.status : "deleted"}</Pill>{" "}
+                <Pill dot tone={letter.deletedAt === null ? "neutral" : "danger"}>
+                  {letter.deletedAt === null ? codeLabel(letter.status) : "Deleted"}
+                </Pill>{" "}
               </>
             )}
             <Link href={`/engagement-letters/${letter.id}` as Route}>Open the letter page</Link>

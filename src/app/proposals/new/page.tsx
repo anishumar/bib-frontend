@@ -27,11 +27,9 @@ function NewProposal() {
   return (
     <Page>
       <title>New proposal</title>
-      <PageHeader
-        eyebrow="New proposal"
-        title="Who is it for?"
-        lede="The client, which of your companies offers it, and the currency. Next saves a draft and takes you to the services."
-      />
+      {/* Wave 4: the title says what the page is; "Who is it for?" is the
+          first card's own question, so it is not said twice. */}
+      <PageHeader title="New proposal" />
       <Stepper current="client" proposalId={null} />
       <ClientStep
         draft={null}

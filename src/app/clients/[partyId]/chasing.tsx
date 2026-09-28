@@ -12,6 +12,7 @@ import {
   FieldRow,
   FieldStack,
   Input,
+  NotSet,
   Notice,
   Table,
   TableWrap,
@@ -217,18 +218,15 @@ export function ChasingPanel({
 
   return (
     <Card>
-      <CardTitle level={2}>Reminders to this client</CardTitle>
+      <CardTitle level={2}>Reminders</CardTitle>
+      {/* ONE LINE (Wave 4): the firm's ladder, or that there is none. What a
+          freeze does NOT do sits beside the button that sets one. */}
       <p className="muted">
-        When {clientName} owes the firm an answer or a document, they are reminded
         {rungs.length === 0 ? (
-          <>
-            {" "}
-            automatically once the firm publishes a reminder ladder. None is published yet, so
-            nobody is being chased, and stopping reminders here would change nothing.
-          </>
+          <>No reminder ladder is published, so nobody is chased.</>
         ) : (
           <>
-            {": "}
+            In the client portal:{" "}
             {rungs.map((r, i) => (
               <span key={r.key}>
                 {i > 0 ? (i === rungs.length - 1 ? " and " : ", ") : ""}
@@ -236,18 +234,9 @@ export function ChasingPanel({
                 {r.afterDays === 1 ? "day" : "days"}
               </span>
             ))}
-            . The reminder appears in their client portal. Nothing is emailed yet.
+            .
           </>
         )}
-      </p>
-      {/* WHAT A FREEZE DOES NOT DO, above the control that sets one. The same
-          shape /admin/verification uses for maker≠checker: the consequence is
-          stated before the button, because "freeze the client" reads like
-          stopping work and it is nothing of the sort. */}
-      <p className="muted">
-        Stopping reminders stops <strong>only</strong> the reminders. Work and invoices carry on.{" "}
-        {clientName} keeps their portal access and can still reply, and your own team is still
-        alerted about late work through the escalation ladder.
       </p>
 
       <ErrorNotice error={error} />
@@ -261,10 +250,14 @@ export function ChasingPanel({
 
       {live === undefined ? (
         <>
-          <p className="muted">
-            Reminders are going out as normal.
-            {!canFreeze && " Only a firm administrator can stop them."}
-          </p>
+          {/* "As normal" only when there IS a ladder: with none, the line
+              above already says nobody is chased. */}
+          {(rungs.length > 0 || !canFreeze) && (
+            <p className="muted">
+              {rungs.length > 0 && "Reminders are going out as normal."}
+              {!canFreeze && " Only a firm administrator can stop them."}
+            </p>
+          )}
           {canFreeze &&
             (opening ? (
               <div ref={formRef} tabIndex={-1}>
@@ -278,18 +271,16 @@ export function ChasingPanel({
                       "From"; without a name here there would be a third. */}
                   <fieldset className="fieldset" aria-label="Stop chasing this client">
                     <FieldStack>
-                      <CardTitle level={3}>Stop chasing {clientName}</CardTitle>
-                      <Field
-                        label="Why"
-                        hint="Required. Write it so that somebody reading this months later understands why this client was not chased. The reason is shown here only, not in the audit trail."
-                      >
-                        <Textarea name="freezeReason" rows={3} required />
+                      <Field label="Why" hint="For whoever reads this later. Not in the audit trail.">
+                        <Textarea
+                          name="freezeReason"
+                          rows={3}
+                          required
+                          placeholder="e.g. Partner agreed a pause while their CFO changes"
+                        />
                       </Field>
                       <FieldRow>
-                        <Field
-                          label="First day frozen"
-                          hint="Today, unless the decision was made earlier and you are recording it now."
-                        >
+                        <Field label="First day frozen" hint="Today, unless it was decided earlier.">
                           <Input
                             type="date"
                             name="freezeFrom"
@@ -298,8 +289,9 @@ export function ChasingPanel({
                           />
                         </Field>
                         <Field
-                          label="Until (optional)"
-                          hint="The first day reminders start again (not the last day they are stopped). Leave it empty to keep them stopped until somebody lifts it."
+                          label="Until"
+                          optional
+                          hint="First day they restart. Empty keeps them stopped."
                         >
                           <Input type="date" name="freezeUntil" />
                         </Field>
@@ -333,6 +325,10 @@ export function ChasingPanel({
                 >
                   Stop chasing this client
                 </Button>
+                {/* WHAT A FREEZE DOES NOT DO, beside the control that sets
+                    one: "freeze the client" reads like stopping work, and it
+                    is nothing of the sort. */}
+                <span className="field-hint">Stops reminders only. Work, invoices and portal carry on.</span>
               </div>
             ))}
         </>
@@ -395,7 +391,7 @@ export function ChasingPanel({
               <tbody>
                 {over.map((f) => (
                   <tr key={f.freezeId}>
-                    <Td className="muted">{longDay(f.validFrom)}</Td>
+                    <Td className="nowrap">{longDay(f.validFrom)}</Td>
                     {/* HALF-OPEN, so this is the day chasing RESUMED — and when
                         it equals the day it started, the freeze was in force on
                         no day at all. That is a real record rather than a broken
@@ -403,16 +399,20 @@ export function ChasingPanel({
                         after somebody stops and restarts on an afternoon. Two
                         identical dates in two columns reads as a freeze that
                         lasted a day, which is the opposite of what happened. */}
-                    <Td className="muted">
-                      {f.validTo === null
-                        ? "open"
-                        : f.validTo === f.validFrom
-                          ? "lifted the same day"
-                          : longDay(f.validTo)}
+                    <Td className="nowrap">
+                      {f.validTo === null ? (
+                        <NotSet>Ongoing</NotSet>
+                      ) : f.validTo === f.validFrom ? (
+                        "Lifted the same day"
+                      ) : (
+                        longDay(f.validTo)
+                      )}
                     </Td>
-                    <Td>{f.reason}</Td>
-                    <Td className="muted">{f.setByName ?? "account closed"}</Td>
-                    <Td className="muted">{f.liftedByName ?? "account closed"}</Td>
+                    <Td>
+                      <span className="cell-text">{f.reason}</span>
+                    </Td>
+                    <Td>{f.setByName ?? <NotSet>Account closed</NotSet>}</Td>
+                    <Td>{f.liftedByName ?? <NotSet>Account closed</NotSet>}</Td>
                   </tr>
                 ))}
               </tbody>

@@ -141,13 +141,15 @@ export function DocumentBlocks({
           ? "The letter's own wording"
           : "Exclusions, notes and team"}
       </CardTitle>
+      {/* ONE LINE (Wave 4). They were copied from the firm's standard text
+          when the document was drafted and belong to it from then on: Standard
+          prose changes the next document, never this one. The terms are the
+          clauses, from the clause library. */}
       <p className="muted text-md">
-        These are this document&rsquo;s own {listed}. They were copied from your firm&rsquo;s
-        standard text when the document was drafted, and belong to this document from then on.
-        Changing the standard text on Standard prose affects the next document, never this one.
-        The terms themselves are the clauses, which come from the clause library.
+        {editable
+          ? `Its own ${listed}, copied from your standard prose. Changes stay here.`
+          : frozenNote}
       </p>
-      {!editable && <p className="muted text-md">{frozenNote}</p>}
 
       <ErrorNotice error={error} />
 
@@ -161,9 +163,7 @@ export function DocumentBlocks({
           <div key={kind} className="mb-4">
             <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
             {mine.length === 0 ? (
-              <p className="muted text-md">
-                Nothing. This document carries no {BLOCK_KIND_LABELS[kind].toLowerCase()}.
-              </p>
+              <p className="muted text-md">None on this document.</p>
             ) : (
               <ul className={cx("mt-1 pl-[18px]", prose ? "list-none" : "list-disc")}>
                 {mine.map((b) =>
@@ -310,6 +310,10 @@ export function DocumentBlocks({
             )}
 
             {may && (
+              /* Behind a disclosure (Wave 4): one open form per kind put five
+                 add forms on every draft letter. */
+              <details style={{ marginTop: "var(--s-2)" }}>
+                <summary className="text-md">{prose ? "Add a paragraph" : "Add a line"}</summary>
               <form
                 style={{ marginTop: "var(--s-3)" }}
                 action={(form) => {
@@ -340,9 +344,18 @@ export function DocumentBlocks({
                     <FieldRow>
                       <Field label={prose ? "A new paragraph" : "A new line"}>
                         {prose ? (
-                          <Textarea name={`${kind}-body`} rows={3} required />
+                          <Textarea
+                            name={`${kind}-body`}
+                            rows={3}
+                            required
+                            placeholder="e.g. Thank you for choosing us."
+                          />
                         ) : (
-                          <Input name={`${kind}-body`} required />
+                          <Input
+                            name={`${kind}-body`}
+                            required
+                            placeholder="e.g. Statutory fees are not included."
+                          />
                         )}
                       </Field>
                       <Field label="Order">
@@ -369,6 +382,7 @@ export function DocumentBlocks({
                   </FieldStack>
                 </fieldset>
               </form>
+              </details>
             )}
           </div>
         );
