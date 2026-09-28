@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useId, useState } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import type {
   Colleague,
@@ -85,15 +86,40 @@ import { longDay } from "@/lib/day";
  * list is whole-row links, and a long routing note wraps in its cell: before,
  * one "Raised by hand with no Dept…" sentence made the Whose desk column so wide
  * that Due, State and Priority sat 1168px off the right edge at 1280.
+ *
+ * ── A DATED LIST FIRST, AND THE PLACE IS IN THE URL (V1.2, 2026-09-28) ──────
+ *
+ * It opened as the board, one column per state, and at 1440 the fifth column
+ * (Blocked) was off the right edge: the walk found a critical, late GSTR-3B
+ * waiting on the client in exactly that column. So it opens as the LIST now,
+ * overdue first and then by due date, and being stuck is a flag on the row
+ * (the state in danger tone with its reason, or "Waiting on" another task),
+ * never a column somebody has to scroll to. The board is one click away.
+ * `?tab=&view=` hold the place, so Back from a task lands where you were.
  */
 export default function WorkItemsPage() {
+  // `useSearchParams` suspends during prerender; the boundary is the
+  // framework's requirement, and it shows the page's own loading line.
+  return (
+    <Suspense fallback={<Loading label="Loading the board" />}>
+      <WorkBoardPage />
+    </Suspense>
+  );
+}
+
+const TABS = ["mine", "unassigned", "checks", "escalated", "all"] as const;
+type BoardTab = (typeof TABS)[number];
+type BoardView = "board" | "list";
+
+function WorkBoardPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [items, setItems] = useState<WorkItem[]>([]);
   const [checks, setChecks] = useState<WorkItemCheckRow[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
-  const [tab, setTab] = useState<"mine" | "unassigned" | "checks" | "escalated" | "all">(
-    "mine",
-  );
+  const askedTab = params.get("tab");
+  const tab: BoardTab = TABS.find((t) => t === askedTab) ?? "mine";
   /** T4.5's queue. A different KIND of row from the three tabs beside it — the
    *  record that somebody was TOLD about work, not the work. */
   const [escalations, setEscalations] = useState<Escalation[]>([]);
@@ -110,9 +136,22 @@ export default function WorkItemsPage() {
   /**
    * BOARD OR LIST, and it is a VIEW rather than another tab: the tabs are
    * different QUESTIONS, this is the same question drawn two ways, and a tab
-   * would have left "Mine, as a board" nowhere to live.
+   * would have left "Mine, as a board" nowhere to live. The LIST by default.
    */
-  const [view, setView] = useState<"board" | "list">("board");
+  const view: BoardView = params.get("view") === "board" ? "board" : "list";
+  /** Tab and view live in the URL: `replace`, so switching is not a history
+   *  entry of its own, and Back from a task returns to this exact place. */
+  const place = useCallback(
+    (next: { tab?: BoardTab; view?: BoardView }): void => {
+      const q = new URLSearchParams();
+      q.set("tab", next.tab ?? tab);
+      q.set("view", next.view ?? view);
+      router.replace(`${pathname}?${q.toString()}` as Route, { scroll: false });
+    },
+    [router, pathname, tab, view],
+  );
+  const setTab = useCallback((t: BoardTab) => { place({ tab: t }); }, [place]);
+  const setView = useCallback((v: BoardView) => { place({ view: v }); }, [place]);
   const [raising, setRaising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -189,7 +228,10 @@ export default function WorkItemsPage() {
   // filtered by this, but the notice has to say what waits on the reader.
   const mineToCheck = checks.filter((c) => c.viewer.eligible).length;
   const unassigned = items.filter((i) => i.assignee === null);
-  const shown = tab === "mine" ? mine : tab === "unassigned" ? unassigned : items;
+  const shown = datedOrder(
+    tab === "mine" ? mine : tab === "unassigned" ? unassigned : items,
+    localToday,
+  );
   // Rank -> the firm's name for it, from the grades its active staff hold.
   const gradeNames = new Map<number, string>();
   for (const c of staff) {
@@ -355,7 +397,27 @@ export default function WorkItemsPage() {
   );
 }
 
-type BoardTab = "mine" | "unassigned" | "checks" | "escalated" | "all";
+/**
+ * OVERDUE FIRST, THEN BY DUE DATE (V1.2). Late work at the top, oldest first;
+ * then the rest by date; work with no due date last. Priority breaks a tie
+ * (the RANK, 1 = most urgent), then the title, so the order never shuffles
+ * between two loads of the same board.
+ */
+function datedOrder(list: readonly WorkItem[], today: string): WorkItem[] {
+  const late = (i: WorkItem): boolean =>
+    i.dueOn !== null && i.dueOn < today && !i.state.isTerminal;
+  return [...list].sort((a, b) => {
+    const byLate = Number(late(b)) - Number(late(a));
+    if (byLate !== 0) return byLate;
+    if (a.dueOn !== b.dueOn) {
+      if (a.dueOn === null) return 1;
+      if (b.dueOn === null) return -1;
+      return a.dueOn < b.dueOn ? -1 : 1;
+    }
+    if (a.priority.rank !== b.priority.rank) return a.priority.rank - b.priority.rank;
+    return a.title.localeCompare(b.title);
+  });
+}
 
 /** Neither queue tab reaches these — each writes its own empty state. */
 function emptyTitle(tab: BoardTab): string {
@@ -409,19 +471,21 @@ function WorkRow({ item, today }: { item: WorkItem; today: string }) {
         )}
         {/* WHY IT IS STUCK, under the task rather than in the State column: a
             reason is free text, and a third wrapped column is what the list
-            cannot fit at 1280. */}
+            cannot fit at 1280. In the danger tone, with the State pill beside
+            it: this pair IS the Blocked flag the board's hidden fifth column
+            used to be (V1.2). */}
         {item.state.isBlocked && item.blockedReason !== null && (
           <Sub>
-            <span className="cell-text" data-size="narrow">
+            <span className="cell-text tone-danger" data-size="narrow">
               {item.blockedReason}
             </span>
           </Sub>
         )}
         {/* What this item is WAITING ON, because "why has nobody started this"
-            is what a board is asked. */}
+            is what a board is asked. Warn, not danger: held up, not wrong. */}
         {item.blockedByOpen.length > 0 && (
           <Sub>
-            <span className="cell-text" data-size="narrow">
+            <span className="cell-text tone-warn" data-size="narrow">
               Waiting on {item.blockedByOpen.map((b) => b.title).join(", ")}
             </span>
           </Sub>

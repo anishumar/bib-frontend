@@ -1455,7 +1455,17 @@ firm's own words. **They are two screens because they answer two questions**, an
 firm that has published no process still has work: ad hoc work has no job at all and is still
 owned, still due and still reviewable.
 
-**IT IS A BOARD BY DEFAULT, AND THE COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states
+**IT OPENS AS A DATED LIST (V1.2, 2026-09-28), AND THE BOARD IS ONE CLICK AWAY.** It opened as
+the board, and at 1440 the fifth column (Blocked) sat off the right edge: the v1.5 walk found
+Ananya's critical, late "GSTR-3B - Cobalt Logistics - July", waiting on the client, in exactly
+that column. The list is sorted overdue first (oldest first), then by due date, no due date
+last, rank then title breaking ties (`datedOrder`). Being stuck is a FLAG ON THE ROW: the state
+pill in danger tone with its reason under the task in danger, and "Waiting on <task>" in warn.
+**Tab and view are in the URL** (`?tab=mine|unassigned|checks|escalated|all&view=list|board`,
+written with `replace`), so Back from a task lands on the same place. `/client-requests` opens
+on Mine for the same reason (its tab is still local state).
+
+**THE BOARD VIEW'S COLUMNS ARE THE FIRM'S OWN ROWS (T6.1).** 0050 made states
 rows precisely so a firm could rename "Blocked" to "Stuck" without a deploy, and a board with
 hardcoded columns takes that back on the screen where it shows most. The columns come from
 `GET /work-vocabulary` — `party:read`, the same permission the board itself needs — ordered by
