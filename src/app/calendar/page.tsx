@@ -14,7 +14,7 @@ import type {
 import { Cluster, Page, PageHeader, Stack } from "@/components/layout";
 import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
-import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
+import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, NotSet, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
 
 /**
@@ -57,6 +57,14 @@ import { browserDay, longDay } from "@/lib/day";
  * "the software is broken", and only one of those is anybody's to fix. Every
  * coverage row names a reason and none of them is an error — most advisory work
  * legitimately has no compliance rule at all.
+ *
+ * ── THE WAVE 4 SHAPE (2026-09-28) ───────────────────────────────────────────
+ *
+ * No eyebrow and no lede: the paragraphs that explained where rows come from,
+ * why a coverage gap is not an error and why a decision needs a reason are one
+ * line each now, placed where the reader acts, and the reasoning is here and in
+ * CLAUDE.md. Dates and periods are the sans face (no mono); states are pills
+ * with a dot, in sentence case.
  */
 export default function CalendarPage() {
   const router = useRouter();
@@ -135,11 +143,7 @@ export default function CalendarPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="Delivery"
-        title="Compliance calendar"
-        lede="Every filing each client company owes, and by when. The rows are worked out from your compliance rules and the engagements you hold, so nobody types a filing in by hand."
-      />
+      <PageHeader title="Compliance calendar" />
 
       <ErrorNotice error={error} />
 
@@ -170,7 +174,6 @@ export default function CalendarPage() {
           <Cluster gap="loose">
             <Checkbox
               label="Include filed and resolved"
-              note="Filed and resolved rows are hidden unless you tick this."
               checked={includeSettled}
               onChange={(e) => { setIncludeSettled(e.target.checked); }}
             />
@@ -224,7 +227,7 @@ export default function CalendarPage() {
               <Empty title="Nothing is on the calendar" icon="calendar">
                 {gaps.length > 0
                   ? `${String(gaps.length)} live ${gaps.length === 1 ? "engagement" : "engagements"} produced no filings.`
-                  : "No live engagement has a filing that can work out a date yet. A filing reaches a client once it is added, in the Catalogue, to a service that client bought."}
+                  : "A filing reaches a client once it is on a service they bought, in the Catalogue."}
               </Empty>
               <Cluster align="end">
                 {gaps.length > 0 ? (
@@ -307,24 +310,22 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         {row.ruleUnconfirmed && (
           <Sub>
             <Tooltip text={`Rule pack ${row.rulePack}`}>
-              <Pill tone="warn">unconfirmed rule</Pill>
+              <Pill tone="warn">Unconfirmed rule</Pill>
             </Tooltip>
           </Sub>
         )}
       </Td>
       <Td>
-        {row.entityName ?? <span className="empty">no company</span>}
+        {row.entityName ?? <NotSet />}
         {/* The CLIENT under the entity, because a group of four companies files
             four sets of returns and the rows would otherwise be identical. */}
         {row.clientName !== null && row.clientName !== row.entityName && (
           <Sub>{row.clientName}</Sub>
         )}
       </Td>
-      <Td>
-        <span className="mono">{row.periodLabel}</span>
-      </Td>
-      <Td>
-        <span className={lateInternally ? "mono tone-danger" : "mono"}>
+      <Td className="nowrap">{row.periodLabel}</Td>
+      <Td className="nowrap">
+        <span className={lateInternally ? "tone-danger" : undefined}>
           {longDay(row.internalTargetOn)}
         </span>
         {row.workItemId !== null && (
@@ -334,19 +335,19 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
                 eleven identical entries going to eleven different work items
                 tell them nothing. The visible words do not change. */}
             <Link href={`/work-items/${row.workItemId}`} aria-label={`${about}: open on the work board`}>
-              on the board &rarr;
+              On the board
             </Link>
           </Sub>
         )}
       </Td>
-      <Td>
-        <span className={lateLegally ? "mono tone-danger" : "mono"}>
+      <Td className="nowrap">
+        <span className={lateLegally ? "tone-danger" : undefined}>
           {longDay(row.statutoryDueOn)}
-          {lateLegally && " · missed"}
         </span>
+        {lateLegally && <Sub>Missed</Sub>}
       </Td>
       <Td>
-        <Pill tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "ok"}>
+        <Pill dot tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "ok"}>
           {row.stateName}
         </Pill>
         {/* WHEN, not just that. A row that says only "Filed" is one somebody
@@ -356,10 +357,8 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
             forever, and this cell is where that shows. */}
         {row.filedOn !== null && (
           <Sub>
-            <span className="mono">
-              {longDay(row.filedOn)}
-              {row.filedOn > row.statutoryDueOn ? " · late" : ""}
-            </span>
+            {`Filed ${longDay(row.filedOn)}`}
+            {row.filedOn > row.statutoryDueOn ? ", late" : ""}
           </Sub>
         )}
       </Td>
@@ -382,8 +381,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
     return (
       <Card>
         <Empty title="Everything is covered" icon="check">
-          Every live engagement produces filings. Every service your firm delivers carries a
-          filing that can work out a date.
+          Every live engagement produces filings.
         </Empty>
       </Card>
     );
@@ -399,10 +397,10 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
 
   return (
     <Stack>
-      <p className="lede">
-        These engagements are live, but the calendar produced nothing for them.{" "}
-        <strong>None of this is an error.</strong> Most advisory work has no compliance rule and
-        never will. What matters is the ones that should have one.
+      {/* SAID OUT LOUD, in one line: none of these is an error, and most
+          advisory work legitimately owes no filing at all. */}
+      <p className="text-md">
+        Live engagements with no filings. Not an error: most advisory work has none.
       </p>
       {[...byReason.entries()]
         .sort((a, b) => REASON_ORDER.indexOf(a[0]) - REASON_ORDER.indexOf(b[0]))
@@ -411,7 +409,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
             <CardHead
               level={2}
               title={REASONS[reason].title}
-              aside={<Pill tone="quiet">{rows.length}</Pill>}
+              aside={<Pill>{rows.length}</Pill>}
             />
             <p className="field-hint">{REASONS[reason].what}</p>
             <TableWrap>
@@ -428,19 +426,19 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
               <tbody>
                 {rows.map((g) => (
                   <tr key={g.engagementId}>
-                    <Td>{g.clientName ?? <span className="empty">no client</span>}</Td>
-                    <Td>{g.entityName ?? <span className="empty">no company</span>}</Td>
+                    <Td>{g.clientName ?? <NotSet />}</Td>
+                    <Td>{g.entityName ?? <NotSet />}</Td>
                     <Td>
                       {g.serviceName ?? (
                         <Tooltip text="The catalogue entry this engagement was quoted from could not be found">
-                          <span className="unstated">service not found</span>
+                          <NotSet>Service not found</NotSet>
                         </Tooltip>
                       )}
                     </Td>
                     <Td>
                       {g.jurisdiction === null ? (
-                        <Tooltip text="This company has no registered country, so no rule can match it">
-                          <span className="unstated">none</span>
+                        <Tooltip text="No registered country, so no rule can match it">
+                          <NotSet />
                         </Tooltip>
                       ) : (
                         <Pill tone="code">{g.jurisdiction}</Pill>
@@ -471,7 +469,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                           href={`/admin/obligation-rules?rules=${g.blockedRuleIds.join(",")}`}
                         >
                           {g.blockedRuleIds.length} rule
-                          {g.blockedRuleIds.length === 1 ? "" : "s"} &rarr;
+                          {g.blockedRuleIds.length === 1 ? "" : "s"}
                         </LinkButton>
                       )}
                     </Td>
@@ -490,9 +488,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                 {REASONS[reason].where !== null && (
                   <>
                     {" "}
-                    <Link href={REASONS[reason].where.href}>
-                      {REASONS[reason].where.label} &rarr;
-                    </Link>
+                    <Link href={REASONS[reason].where.href}>{REASONS[reason].where.label}</Link>
                   </>
                 )}
               </p>
@@ -538,47 +534,36 @@ interface ReasonCopy {
 const REASONS: Record<CoverageReason, ReasonCopy> = {
   entity_not_registered: {
     title: "This company has no registered country",
-    what:
-      "A rule matches a company by its registered country. A company that has not been " +
-      "registered as a legal entity matches no rule at all.",
+    what: "A filing matches a company by its registered country.",
     fix: "Register the company with its country and entity type.",
     where: { href: "/clients", label: "Open the book" },
   },
   rules_need_a_formula: {
     title: "A filing on this service cannot work out a date yet",
-    what:
-      "The rule describes its timing in words the system cannot turn into a date, such as " +
-      "\"within a statutory period after the AGM\" or \"7 working days\". " +
-      "Each rule says exactly what it is waiting for.",
+    what: "Its timing is in words, not a date. Each rule says what it needs.",
     // "and confirm it": answering a shipped rule leaves it unconfirmed, and an
     // unconfirmed rule still puts nothing on the calendar.
-    fix: "Clear these first. Each needs one fact: answer it and confirm it, and the filings start appearing.",
+    fix: "Clear these first: answer each rule's one fact, then confirm it.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_unconfirmed: {
     title: "A filing could work out the dates, but nobody has confirmed it",
-    what:
-      "A filing on this service can work out its dates, but it is marked as not yet checked " +
-      "against the law. Until somebody confirms it, it puts nothing on the calendar.",
+    what: "Not yet checked against the law, so it adds nothing yet.",
     // The LIBRARY, not the catalogue. Adding a filing to a service confirms
     // it, so this state means somebody unticked it afterwards, and the tick is
     // on the library's row.
-    fix: "Tick it as confirmed in the library once somebody has checked it.",
+    fix: "Confirm it in the rules once someone has checked it.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   rules_retired: {
     title: "Every filing on this service has been retired",
-    what:
-      "Somebody switched these rules off. Filings they already produced still stand, but " +
-      "nothing new is generated.",
-    fix: "Reactivate one in the library, or add its replacement to the service in the Catalogue.",
+    what: "Past filings stand; nothing new is added.",
+    fix: "Reactivate one in the rules, or add its replacement in the Catalogue.",
     where: { href: "/admin/obligation-rules", label: "Open the rules" },
   },
   no_rule_for_jurisdiction: {
     title: "A filing is on this service, but not for this country",
-    what:
-      "The filings on this service are written for a different country from the one this " +
-      "company is registered in.",
+    what: "Its filings are for a different country from this company's.",
     // A rule's country is part of what it IS and cannot be edited, so the old
     // "or widen the existing one" offered something no screen can do.
     fix: "Write the filing for this country on the service in the Catalogue.",
@@ -586,24 +571,19 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
   },
   nothing_due_yet: {
     title: "Covered, with nothing due in the window yet",
-    what:
-      "Filings on this service match and can work out dates, but every period so far ended " +
-      "before the engagement began. A filing due before your firm was appointed is not your " +
-      "firm's. This clears itself next period.",
+    what: "Every period so far ended before the engagement began. It clears next period.",
     fix: null,
     where: null,
   },
   no_rule_names_this_service: {
     title: "No filing is on this service",
-    what:
-      "The usual case for advisory work, an incorporation or a one-off report. Nothing " +
-      "recurring is owed to an authority, so there is nothing to generate.",
+    what: "The usual case for advisory or one-off work.",
     // A fix now, and a conditional one. Before T6.16 a rule on no service
     // reached every service, so this list really was only advisory work. Now
     // it is ALSO every service the firm has not yet given its filings, and the
     // sentence has to say where that is done without calling advisory work a
     // fault.
-    fix: "If this service does owe a filing, add it to the service in the Catalogue.",
+    fix: "If it does owe a filing, add it to the service in the Catalogue.",
     where: { href: "/catalogue", label: "Open the Catalogue" },
   },
 };
@@ -647,7 +627,7 @@ function DecisionsTab({
     return (
       <Card>
         <Empty title="Nothing is waiting on a decision" icon="check">
-          No legal deadline has passed with the filing still open. That is the good case.
+          No legal deadline has passed with a filing still open.
         </Empty>
       </Card>
     );
@@ -655,16 +635,15 @@ function DecisionsTab({
 
   return (
     <Stack>
-      <p className="lede">
-        These deadlines have passed and nothing was filed. Decide what happens to each one, and
-        write down why. <strong>The reason is what nobody remembers later</strong>, and it is
-        what answers a client who asks in eighteen months what the penalty was for.
-      </p>
+      {/* One line. The reason is what answers a client eighteen months later,
+          which is why the form asks for it (and the API and a CHECK refuse a
+          blank one). */}
+      <p className="text-md">Deadlines passed with nothing filed. Decide each one, and say why.</p>
       {options.length === 0 && (
         <Notice tone="danger">
           <p>
-            Your firm has not set up any decision options yet, so nothing here can be decided.{" "}
-            <Link href="/admin/obligation-vocabulary">Add one →</Link>
+            No decision options are set up yet.{" "}
+            <Link href="/admin/obligation-vocabulary">Add one</Link>
           </p>
         </Notice>
       )}
@@ -740,22 +719,18 @@ function DecisionLine({
         {row.authority !== null && <Sub>{row.authority}</Sub>}
         {row.ruleUnconfirmed && (
           <Sub>
-            <Pill tone="warn">unconfirmed rule</Pill>
+            <Pill tone="warn">Unconfirmed rule</Pill>
           </Sub>
         )}
       </Td>
       <Td>
-        {row.entityName ?? <span className="empty">no company</span>}
+        {row.entityName ?? <NotSet />}
         {row.clientName !== null && row.clientName !== row.entityName && (
           <Sub>{row.clientName}</Sub>
         )}
       </Td>
-      <Td>
-        <span className="mono">{row.periodLabel}</span>
-      </Td>
-      <Td>
-        <span className="mono">{longDay(row.statutoryDueOn)}</span>
-      </Td>
+      <Td className="nowrap">{row.periodLabel}</Td>
+      <Td className="nowrap">{longDay(row.statutoryDueOn)}</Td>
       <Td>
         <Pill tone="danger">
           {row.daysLate} {row.daysLate === 1 ? "day" : "days"}
@@ -770,7 +745,7 @@ function DecisionLine({
                 .filter(Boolean)
                 .join(", ")}: open the task`}
             >
-              on somebody&rsquo;s desk →
+              Open the task
             </Link>
           </Sub>
         )}
@@ -829,7 +804,7 @@ function DecisionLine({
               size="sm"
               value={reason}
               aria-label={`Reason: ${about}`}
-              placeholder="Why, for example the client sent the books late…"
+              placeholder="e.g. The client sent the books late"
               onChange={(e) => { setReason(e.target.value); }}
             />
             <Cluster gap="tight">

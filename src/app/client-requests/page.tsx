@@ -61,6 +61,15 @@
  * Taking a request back is the CLIENT's own act. "We decided you did not need
  * this" is a refusal, and a refusal is a close with a reply saying so — which
  * is why Close sits next to the reply box rather than alone.
+ *
+ * ── THE WAVE 4 SHAPE (2026-09-28) ───────────────────────────────────────
+ *
+ * Every card carried an open reply form, a document picker, a desk picker and
+ * five buttons: three requests were 2,500px. The reply box, the attachment
+ * picker and Take it are still on the row, but the form opens on **Reply**
+ * (its textarea takes focus, which is also what loads the documents), and the
+ * desk picker is the "Whose desk" line itself, a labelled quiet select. The
+ * routing notice is one line with no eyebrow.
  */
 
 import { useCallback, useEffect, useId, useState } from "react";
@@ -78,7 +87,10 @@ import {
   Field,
   ErrorNotice,
   Notice,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Select,
   TabPanel,
   Table,
@@ -87,6 +99,9 @@ import {
   Td,
   Textarea,
   Th,
+  ThChevron,
+  Tr,
+  useSwapFocus,
 } from "@/components/ui";
 import { longInstant } from "@/lib/day";
 import { ReplyLine, whereItStands } from "./thread";
@@ -195,32 +210,23 @@ export default function ClientRequestsPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="Delivery"
-        title="Client requests"
-        lede="Everything your clients have asked for through their portal and not yet finished, newest first. Reply, take a request on, or hand it to a colleague."
-      />
+      <PageHeader title="Client requests" />
 
       {/* WHAT THIS FIRM DOES WITH AN ARRIVING REQUEST, said rather than left to
           be inferred from an empty column. Under `none` a reader opening
           "Unassigned" and finding everything in it would conclude the rule was
           broken; the truth is that there is no rule, which is a setting and not
-          a fault. */}
-      <Notice
-        tone="neutral"
-        eyebrow={routing === "none" ? "Nothing is routed" : "Routed to the Key Manager"}
-      >
+          a fault. One line now (Wave 4). */}
+      <Notice tone="neutral">
         {routing === "none" ? (
           <p>
-            A new request is put on nobody&rsquo;s desk. Anyone who can work on tasks can take
-            it. A partner can change this under{" "}
+            New requests go on nobody&rsquo;s desk until someone takes them. Change this in{" "}
             <Link href="/admin/structure">Firm structure</Link>.
           </p>
         ) : (
           <p>
-            A new request goes to that client&rsquo;s Key Manager. Where a client has none, it
-            waits in <strong>Unassigned</strong> with a note saying so. Anybody can still take
-            it or hand it on.
+            New requests go to the client&rsquo;s Key Manager, or wait in{" "}
+            <strong>Unassigned</strong> when there is none.
           </p>
         )}
       </Notice>
@@ -259,8 +265,7 @@ export default function ClientRequestsPage() {
       <>
       {requests.length === 0 && (
         <Empty title="Nothing outstanding" icon="check">
-          No client has an open request. Anything raised from a client&rsquo;s portal arrives
-          here.
+          Requests your clients raise on their portal arrive here.
         </Empty>
       )}
 
@@ -270,7 +275,7 @@ export default function ClientRequestsPage() {
           icon="check"
         >
           {tab === "mine"
-            ? "Nothing here is on your desk. The other tabs have the rest."
+            ? "Nothing here is on your desk."
             : "Every open request is on somebody's desk."}
         </Empty>
       )}
@@ -317,8 +322,7 @@ function FinishedList({
   if (requests.length === 0) {
     return (
       <Empty title="Nothing has finished yet" icon="check">
-        A request that is closed or withdrawn moves here, with its whole thread. Until then it
-        is in the inbox.
+        Closed and withdrawn requests move here, with their thread.
       </Empty>
     );
   }
@@ -331,32 +335,32 @@ function FinishedList({
             <Th>Client</Th>
             <Th>How it ended</Th>
             <Th>Ended</Th>
+            <ThChevron />
           </tr>
         </thead>
         <tbody>
           {requests.map((r) => (
-            <tr key={r.requestId}>
+            <Tr key={r.requestId} linked>
               <Td>
-                <Link href={`/client-requests/${r.requestId}`}>{r.subject}</Link>
+                <span className="cell-text">
+                  <RowLink href={`/client-requests/${r.requestId}`}>{r.subject}</RowLink>
+                </span>
               </Td>
-              <Td>
-                <Link className="muted" href={`/clients/${r.clientPartyId}`}>
-                  {r.clientName}
-                </Link>
-              </Td>
+              <Td>{r.clientName}</Td>
               {/* The two endings belong to OPPOSITE SIDES — `closed` is the
                   firm, `withdrawn` is the client — which is why 0068 called the
                   columns `settled_*` and why one word for both would be the
                   wrong story about half these rows. */}
               <Td>
-                <Pill tone={r.status === "closed" ? "ok" : "quiet"}>
+                <Pill dot tone={r.status === "closed" ? "ok" : "neutral"}>
                   {r.status === "closed" ? "Closed by us" : "Withdrawn"}
                 </Pill>
               </Td>
-              <Td className="muted">
-                {r.settledAt === null ? "" : longInstant(r.settledAt)}
+              <Td className="nowrap">
+                {r.settledAt === null ? <NotSet /> : longInstant(r.settledAt)}
               </Td>
-            </tr>
+              <RowChevron />
+            </Tr>
           ))}
         </tbody>
       </Table>
@@ -382,6 +386,10 @@ function RequestCard({
   const [documents, setDocuments] = useState<readonly DocumentOption[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The reply form, open on Reply (Wave 4). Its textarea takes focus as it
+   *  opens, which is also the moment the documents load. */
+  const [replying, setReplying] = useState(false);
+  const { panel: formRef, trigger: openRef } = useSwapFocus(replying);
 
   /**
    * The client's own filed documents.
@@ -441,6 +449,7 @@ function RequestCard({
     setBusy(false);
     setBody("");
     setDocumentId("");
+    setReplying(false);
     await onChanged();
   }
 
@@ -480,10 +489,12 @@ function RequestCard({
     <Card>
       <CardHead>
         <CardTitle level={2}>{request.subject}</CardTitle>
-        <Pill tone={request.awaitingFirm ? "warn" : "ok"}>{whereItStands(request)}</Pill>
+        <Pill dot tone={request.awaitingFirm ? "warn" : "ok"}>
+          {whereItStands(request)}
+        </Pill>
       </CardHead>
       <Stack gap="tight">
-        <p className="muted">
+        <p className="text-ink-2">
           {/* The client is a LINK, because an unrouted inbox is read by
               somebody who has to work out whose this is. */}
           <Link href={`/clients/${request.clientPartyId}`}>{request.clientName}</Link>
@@ -491,23 +502,6 @@ function RequestCard({
           {longInstant(request.raisedAt)}
         </p>
         <p>{request.body}</p>
-
-        {/* WHOSE DESK — and the three answers are three different sentences.
-            A blank space here would collapse "nobody has taken it" into "the
-            rule ran and found nobody", which is T4.5's blank-name bug in a new
-            place: only one of the two is somebody's to fix. */}
-        <p className="muted">
-          {request.assignee !== null ? (
-            <>
-              With <strong>{request.assignee.displayName ?? request.assignee.email}</strong>
-              {request.assignee.userId === meUserId && <> (that is you)</>}
-            </>
-          ) : request.assignmentNote !== null ? (
-            <>Nobody yet. {request.assignmentNote}</>
-          ) : (
-            <>On nobody&rsquo;s desk</>
-          )}
-        </p>
 
         {request.replies.length > 0 && (
           <Stack gap="tight">
@@ -517,22 +511,105 @@ function RequestCard({
           </Stack>
         )}
 
+        {/* WHOSE DESK — and the three answers are three different sentences.
+            A blank here would collapse "nobody has taken it" into "the rule ran
+            and found nobody", which is T4.5's blank-name bug in a new place.
+            For somebody who may hand it on, the line IS the picker: a labelled
+            quiet select (T6.9: never a bare select in the button row), which
+            assigns on change as it always did; the rule's note sits under it. */}
+        {mayAct && roster.length > 0 ? (
+          <div className="max-w-[24rem]">
+            <Field
+              label="Whose desk"
+              {...(request.assignee === null && request.assignmentNote !== null
+                ? { hint: request.assignmentNote }
+                : {})}
+            >
+              <Select
+                variant="quiet"
+                value={request.assignee?.userId ?? ""}
+                onChange={(e) => void assign(e.target.value === "" ? null : e.target.value)}
+                disabled={busy}
+              >
+                <option value="">On nobody&rsquo;s desk</option>
+                {/* Only people who still work here: the colleagues read
+                    carries active staff alone, so a revoked membership is
+                    never offered. */}
+                {roster.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {colleagueLabel(m)}
+                    {m.userId === meUserId ? ", you" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        ) : (
+          <p className="text-ink-2">
+            {request.assignee !== null ? (
+              <>
+                With <strong>{request.assignee.displayName ?? request.assignee.email}</strong>
+                {request.assignee.userId === meUserId && <> (that is you)</>}
+              </>
+            ) : request.assignmentNote !== null ? (
+              <>Nobody yet. {request.assignmentNote}</>
+            ) : (
+              <>On nobody&rsquo;s desk</>
+            )}
+          </p>
+        )}
+
         <ErrorNotice error={error} eyebrow="That did not go through" />
 
-        {mayAct && (
-          <>
+        {mayAct && !replying && (
+          /* CLAIMING NEEDS NO ROSTER, so Take it is the control everybody with
+             `work:write` gets, beside Reply. */
+          <div className="cluster">
+            <Button
+              ref={openRef}
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setReplying(true);
+              }}
+            >
+              Reply
+            </Button>
+            {request.assignee?.userId !== meUserId && meUserId !== null && (
+              <Button variant="ghost" size="sm" onClick={() => void assign(meUserId)} disabled={busy}>
+                Take it
+              </Button>
+            )}
+            {request.assignee !== null && (
+              <Button variant="ghost" size="sm" onClick={() => void assign(null)} disabled={busy}>
+                Put it back
+              </Button>
+            )}
+            {/* Closing with NO reply is allowed and is the duplicate case —
+                two requests for the same thing, one of which gets answered. */}
+            <Button variant="ghost" size="sm" onClick={() => void close()} disabled={busy}>
+              Close without replying
+            </Button>
+          </div>
+        )}
+
+        {mayAct && replying && (
+          <div ref={formRef} tabIndex={-1} className="stack tight">
             <Field label="Your reply">
               <Textarea
                 rows={3}
                 value={body}
+                autoFocus
+                placeholder="e.g. Sending both by Thursday."
                 onFocus={() => void loadDocuments()}
                 onChange={(e) => setBody(e.target.value)}
               />
             </Field>
 
             <Field
-              label="Send them a document (optional)"
-              hint="Only documents already filed for this client. Sending one also makes it visible in their portal library."
+              label="Send them a document"
+              optional
+              hint="Their filed documents. Sending one shares it on their portal."
             >
               <Select
                 value={documentId}
@@ -563,47 +640,6 @@ function RequestCard({
               </Select>
             </Field>
 
-            {/* CLAIMING NEEDS NO ROSTER, so it is the control everybody with
-                `work:write` gets. The picker below is the extra, and it is
-                absent rather than broken for somebody who cannot read the
-                roster. */}
-            <div className="cluster">
-              {request.assignee?.userId !== meUserId && meUserId !== null && (
-                <Button variant="ghost" onClick={() => void assign(meUserId)} disabled={busy}>
-                  Take it
-                </Button>
-              )}
-              {request.assignee !== null && (
-                <Button variant="ghost" onClick={() => void assign(null)} disabled={busy}>
-                  Put it back
-                </Button>
-              )}
-            </div>
-
-            {/* THE PICKER IS A LABELLED FIELD, not a bare dropdown sitting in
-                the button row. A full-width select with no label beside two
-                small ghost buttons reads as a control that lost its label —
-                found by looking at the page, which is the only place it shows. */}
-            {roster.length > 0 && (
-              <Field label="Or hand it to somebody else">
-                <Select
-                  value={request.assignee?.userId ?? ""}
-                  onChange={(e) => void assign(e.target.value === "" ? null : e.target.value)}
-                  disabled={busy}
-                >
-                  <option value="">Nobody</option>
-                  {/* Only people who still work here: the colleagues read
-                      carries active staff alone, so a revoked membership is
-                      never offered. */}
-                  {roster.map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {colleagueLabel(m)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            )}
-
             <div className="cluster">
               <Button onClick={() => void reply(false)} disabled={busy || body.trim() === ""}>
                 Send
@@ -620,13 +656,16 @@ function RequestCard({
               >
                 Send and close
               </Button>
-              {/* Closing with NO reply is allowed and is the duplicate case —
-                  two requests for the same thing, one of which gets answered. */}
-              <Button variant="ghost" onClick={() => void close()} disabled={busy}>
-                Close without replying
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setReplying(false);
+                }}
+              >
+                Cancel
               </Button>
             </div>
-          </>
+          </div>
         )}
       </Stack>
     </Card>

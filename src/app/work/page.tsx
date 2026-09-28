@@ -12,8 +12,10 @@ import {
   Card,
   CardTitle,
   ErrorNotice,
-  LinkButton,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Sub,
   TabPanel,
   Table,
@@ -21,6 +23,9 @@ import {
   Tabs,
   Td,
   Th,
+  ThChevron,
+  Tr,
+  type PillTone,
 } from "@/components/ui";
 
 /**
@@ -79,6 +84,14 @@ import {
  * filtered to what the viewer can act on would hide that six filings have been
  * waiting a week because nobody senior enough has looked. So every row carries
  * the viewer's own verdict, and the ones they cannot take say why.
+ *
+ * ── THE WAVE 4 SHAPE (2026-09-28) ───────────────────────────────────────────
+ *
+ * No eyebrow and no lede (what upcoming means is on the row: "Opens 1 Oct").
+ * The whole row opens the job, where ten "Open" buttons sat before. The
+ * engine's states read as words with a dot ("Waiting on someone", in warn: a
+ * job waiting on a person is held up, not wrong), and a check in the queue
+ * names its client, looked up from the jobs this page already holds.
  */
 export default function WorkPage() {
   const router = useRouter();
@@ -145,11 +158,7 @@ export default function WorkPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="Delivery"
-        title="Jobs"
-        lede="Every job your firm is delivering, and how far each one has got. A monthly or quarterly service gets a new job each period, shown as upcoming with the date it opens."
-      />
+      <PageHeader title="Jobs" />
 
       <ErrorNotice error={error} />
 
@@ -171,13 +180,13 @@ export default function WorkPage() {
             {mySteps.map((st) => {
               const job = jobs.find((j) => j.id === st.jobId);
               return (
-                <li key={st.id} className="text-sm">
+                <li key={st.id} className="text-md">
                   <Link href={`/work/${st.jobId}`}>{st.label}</Link>
-                  <span className="muted">
+                  <span className="text-ink-2">
                     {" "}
                     · {job?.entityName ?? "a job"}
                     {job?.periodLabel ? ` · ${job.periodLabel}` : ""}
-                    {st.status === "blocked" ? " · waiting for you" : " · waiting on an earlier step"}
+                    {st.status === "blocked" ? " · ready for you" : " · after an earlier step"}
                   </span>
                 </li>
               );
@@ -187,12 +196,11 @@ export default function WorkPage() {
       )}
       <TabPanel tabsId={tabsId} value={tab}>
       {tab === "checks" ? (
-        <CheckQueue checks={checks} />
+        <CheckQueue checks={checks} jobs={jobs} />
       ) : jobs.length === 0 ? (
         <Card>
           <Empty title="No jobs yet" icon="engine">
-            A job appears here once an engagement letter is signed and its advance payment is
-            recorded.
+            A job starts when a signed engagement begins.
           </Empty>
         </Card>
       ) : (
@@ -200,85 +208,61 @@ export default function WorkPage() {
           <Table>
             <thead>
               <tr>
-                <Th>Work</Th>
-                <Th>For</Th>
+                <Th>Job</Th>
+                <Th>Company</Th>
                 <Th>State</Th>
-                <Th>Ready since / opens</Th>
-                <Th>
-                  <span className="sr-only">Actions</span>
-                </Th>
+                <Th>Ready</Th>
+                <ThChevron />
               </tr>
             </thead>
             <tbody>
               {jobs.map((j) => (
-                <tr key={j.id}>
+                <Tr key={j.id} linked>
                   <Td>
                     {/* The services this job delivers — one for an unmerged
-                        job, several for a merged one. The team or Dept it was
-                        cut under sits beside them, because "why are there two
-                        FinCompliance cards" is only answerable if each says
-                        what is in it. */}
-                    {j.services.length === 0 ? (
-                      <span className="empty">no services listed</span>
-                    ) : (
-                      <>
-                        {j.services.map((sv) => (
-                          <div key={sv.engagementId}>{sv.serviceName}</div>
-                        ))}
-                      </>
-                    )}
-                    {/* WHICH month or quarter, on a per-period job. Twelve
-                        identical bookkeeping cards are twelve cards nobody can
+                        job, several for a merged one; the first is the row's
+                        link, so a screen reader's list of links names each job.
+                        The team or Dept it was cut under sits beside them,
+                        because "why are there two FinCompliance rows" is only
+                        answerable if each says what is in it. */}
+                    <RowLink href={`/work/${j.id}`}>
+                      {j.services[0]?.serviceName ?? "Job with no services listed"}
+                    </RowLink>
+                    {j.services.slice(1).map((sv) => (
+                      <Sub key={sv.engagementId}>{sv.serviceName}</Sub>
+                    ))}
+                    {/* WHICH month or quarter, on a per-period job: twelve
+                        identical bookkeeping rows are twelve rows nobody can
                         tell apart, and this is the one word that does. */}
                     {(j.periodLabel !== null || j.splitCode !== null) && (
                       <Sub>
-                        {j.periodLabel !== null && <Pill tone="neutral">{j.periodLabel}</Pill>}
-                        {j.periodLabel !== null && j.splitCode !== null && " "}
-                        {j.splitCode !== null && <Pill tone="code">{j.splitCode}</Pill>}
+                        {[j.periodLabel, j.splitCode].filter((x) => x !== null).join(" · ")}
                       </Sub>
                     )}
                   </Td>
                   <Td>
                     {/* The COMPANY the work is delivered to, which is the one a
                         filing belongs to — not the client who is billed. A group
-                        of four companies has four of these, and putting the
-                        billed client here would make them look identical. */}
-                    {j.entityName ?? <span className="empty">no company named</span>}
+                        of four companies has four of these. */}
+                    {j.entityName ?? <NotSet>No company named</NotSet>}
                     {j.clientName !== null && j.clientName !== j.entityName && (
-                      <Sub>billed to {j.clientName}</Sub>
+                      <Sub>Billed to {j.clientName}</Sub>
                     )}
                   </Td>
                   <Td>
                     <JobState job={j} />
                   </Td>
-                  <Td>
-                    {/* An instant, parsed and shown where the reader is (T6.9)
-                        — and for a job whose window is still ahead, the day it
-                        opens, said as such. */}
+                  <Td className="nowrap">
+                    {/* An instant, shown where the reader is (T6.9); for a job
+                        whose window is still ahead, the day it opens. */}
                     {isUpcoming(j) ? (
-                      <>
-                        <Pill tone="quiet">upcoming</Pill>
-                        <Sub>opens {longInstant(j.runnableAt)}</Sub>
-                      </>
+                      `Opens ${longInstant(j.runnableAt)}`
                     ) : (
-                      <span className="mono">{longInstant(j.runnableAt)}</span>
+                      longInstant(j.runnableAt)
                     )}
                   </Td>
-                  <Td align="right">
-                    {/* Six links reading "Open", which is a list of six
-                        identical destinations to anybody who cannot see the
-                        row they sit in. */}
-                    <LinkButton
-                      size="sm"
-                      href={`/work/${j.id}`}
-                      aria-label={`Open the ${
-                        j.services[0]?.serviceName ?? "job"
-                      } for ${j.entityName ?? "an unnamed company"}`}
-                    >
-                      Open
-                    </LinkButton>
-                  </Td>
-                </tr>
+                  <RowChevron />
+                </Tr>
               ))}
             </tbody>
           </Table>
@@ -301,13 +285,12 @@ export default function WorkPage() {
  * anywhere on this screen: the firm has not given its internal turnaround times,
  * and a deadline this product invented would be a priority the firm never set.
  */
-function CheckQueue({ checks }: { checks: StepCheck[] }) {
+function CheckQueue({ checks, jobs }: { checks: StepCheck[]; jobs: readonly Job[] }) {
   if (checks.length === 0) {
     return (
       <Card>
         <Empty title="Nothing is waiting to be checked" icon="verification">
-          A step lands here when somebody finishes it and the process says it must be reviewed.
-          Set that on Processes, and set who may review it on Who checks work.
+          A step comes here when its process says it is checked. Set that on Processes.
         </Empty>
       </Card>
     );
@@ -318,19 +301,31 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
         <thead>
           <tr>
             <Th>Step</Th>
+            <Th>Company</Th>
             <Th>Done by</Th>
-            <Th>Waiting since</Th>
-            <Th>You</Th>
-            <Th>
-              <span className="sr-only">Actions</span>
-            </Th>
+            <Th>Sent for check</Th>
+            <Th>Your part</Th>
+            <ThChevron />
           </tr>
         </thead>
         <tbody>
-          {checks.map((c) => (
-            <tr key={c.id}>
+          {checks.map((c) => {
+            // The job this check belongs to, from the list this page already
+            // holds: a check row carries only its step, and "Manager review"
+            // six times over says nothing about whose work each one is.
+            const job = jobs.find((j) => j.id === c.jobId) ?? null;
+            return (
+            <Tr key={c.id} linked>
               <Td>
-                {c.stepLabel}
+                {/* Open the JOB, not a modal: approving somebody's filing
+                    without seeing what the rest of the job did is the sign-off
+                    this feature exists to make real. */}
+                <RowLink href={`/work/${c.jobId}`}>{c.stepLabel}</RowLink>
+                {job !== null && (
+                  <Sub>
+                    {[job.services[0]?.serviceName, job.periodLabel].filter((x) => x != null).join(" · ")}
+                  </Sub>
+                )}
                 {/* HOW MUCH OF THE CHECK IS LEFT (T6.15). This queue approves
                     nothing itself, deliberately: Open goes to the job, where
                     the review points are ticked and Approve waits for them. So
@@ -340,45 +335,36 @@ function CheckQueue({ checks }: { checks: StepCheck[] }) {
                 {c.reviewPoints.length > 0 && (
                   <Sub>
                     {c.reviewPointsOpen === 0
-                      ? `all ${String(c.reviewPoints.length)} review points ticked`
-                      : `${String(c.reviewPointsOpen)} of ${String(c.reviewPoints.length)} review points still to tick, on the job`}
+                      ? `All ${String(c.reviewPoints.length)} review points ticked`
+                      : `${String(c.reviewPointsOpen)} of ${String(c.reviewPoints.length)} review points to tick`}
                   </Sub>
                 )}
               </Td>
+              <Td>{job?.entityName ?? <NotSet />}</Td>
               <Td>
                 {/* Null means a machine committed it unattended — no person made
                     it, so there is no maker to be, and anybody eligible may
-                    check it. "—" is the honest cell. */}
-                {c.submittedByName ?? <span className="unstated">done automatically</span>}
+                    check it. */}
+                {c.submittedByName ?? <NotSet>Done automatically</NotSet>}
               </Td>
-              <Td>
-                <span className="mono">{longInstant(c.submittedAt)}</span>
-              </Td>
+              <Td className="nowrap">{longInstant(c.submittedAt)}</Td>
               <Td>
                 {c.viewer.eligible ? (
-                  <Pill tone="ok">you can check this</Pill>
+                  <Pill dot tone="ok">
+                    Yours to check
+                  </Pill>
                 ) : (
-                  <span className="empty">
+                  <span className="cell-text">
                     {c.viewer.reason === null
-                      ? "not yours to check"
+                      ? "Not yours to check"
                       : CHECK_INELIGIBILITY[c.viewer.reason]}
                   </span>
                 )}
               </Td>
-              <Td align="right">
-                {/* Open the JOB, not a modal. Approving somebody's filing without
-                    seeing what the rest of the job did is the kind of sign-off
-                    this whole feature exists to make real. */}
-                <LinkButton
-                  size="sm"
-                  href={`/work/${c.jobId}`}
-                  aria-label={`Open the job holding ${c.stepLabel}`}
-                >
-                  Open
-                </LinkButton>
-              </Td>
-            </tr>
-          ))}
+              <RowChevron />
+            </Tr>
+            );
+          })}
         </tbody>
       </Table>
     </TableWrap>
@@ -408,23 +394,42 @@ function JobState({ job }: { job: Job }) {
   // sent a partner to the process editor to find v1 already in force.
   if (job.status === "pending" && isUpcoming(job)) {
     return (
-      <>
-        <Pill tone="quiet">not open yet</Pill>
-        <Sub>its process is chosen on the day it opens</Sub>
-      </>
+      <Pill dot tone="neutral">
+        Upcoming
+      </Pill>
     );
   }
   if (job.status === "pending" && job.templateVersionId === null) {
     return (
       <>
-        <Pill tone="danger">waiting for a process</Pill>
-        <Sub>no process has been published for this service yet</Sub>
+        <Pill dot tone="danger">
+          No process yet
+        </Pill>
+        <Sub>Publish one for this service on Processes</Sub>
       </>
     );
   }
   return (
-    <Pill tone={job.status === "blocked" ? "danger" : "ok"}>
-      {job.status === "blocked" ? "waiting for someone" : job.status}
+    <Pill dot tone={JOB_TONE[job.status]}>
+      {JOB_WORDS[job.status]}
     </Pill>
   );
 }
+
+/** The ENGINE's states in words. The same at every firm (they are mechanics,
+ *  not the firm's vocabulary), which is why a map here is right. `blocked`
+ *  means waiting for a person: held up, so warn, never danger. */
+const JOB_WORDS: Record<Job["status"], string> = {
+  pending: "Not started",
+  running: "In progress",
+  blocked: "Waiting on someone",
+  done: "Done",
+  cancelled: "Cancelled",
+};
+const JOB_TONE: Record<Job["status"], PillTone> = {
+  pending: "neutral",
+  running: "ok",
+  blocked: "warn",
+  done: "ok",
+  cancelled: "neutral",
+};

@@ -46,6 +46,7 @@ import {
   Pill,
   Select,
   Textarea,
+  useSwapFocus,
 } from "@/components/ui";
 import { Stack } from "@/components/layout";
 import { longInstant } from "@/lib/day";
@@ -90,6 +91,10 @@ export function ClientAsks({
   const [kind, setKind] = useState<AskKind>("document");
   const [documentKind, setDocumentKind] = useState<AskDocumentKind>("working_paper");
   const [prompt, setPrompt] = useState("");
+  /** The ask form, closed until somebody means to ask (Wave 4): it was an open
+   *  form of three fields on every task, asked of or not. */
+  const [asking, setAsking] = useState(false);
+  const { panel: formRef, trigger: openRef } = useSwapFocus(asking);
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/work-items/{workItemId}/asks", {
@@ -134,7 +139,10 @@ export function ClientAsks({
           documentKind: kind === "document" ? documentKind : null,
         },
       });
-      if (!result.error) setPrompt("");
+      if (!result.error) {
+        setPrompt("");
+        setAsking(false);
+      }
       return result;
     });
 
@@ -146,8 +154,8 @@ export function ClientAsks({
   return (
     <Card>
       <CardHead>
-        <CardTitle level={2}>Waiting on the client</CardTitle>
-        {open.length > 0 && <Pill tone="warn">{open.length} open</Pill>}
+        <CardTitle level={2}>Asked of the client</CardTitle>
+        {open.length > 0 && <Pill tone="warn">{`${String(open.length)} open`}</Pill>}
       </CardHead>
 
       <Stack gap="tight">
@@ -157,21 +165,15 @@ export function ClientAsks({
             so the ask disappears with the task. Said here rather than left for
             somebody to discover from an unanswered request. */}
         {!isClientVisible && (
-          <Notice tone="warn" eyebrow="This task is hidden from the client portal">
-            <p>
-              Anything asked here will not reach the client while &ldquo;Show this on the client
-              portal&rdquo; is off. Turn it on above, or ask on a task they can see.
-            </p>
+          <Notice tone="warn">
+            <p>Hidden from the client portal, so they will not see an ask. Turn it on above.</p>
           </Notice>
         )}
 
         <ErrorNotice error={error} eyebrow="That did not go through" />
 
         {open.length === 0 && settled.length === 0 && (
-          <p className="muted">
-            Nothing has been asked of the client on this task yet. A request goes to their
-            portal, where they can answer it.
-          </p>
+          <p className="text-md">Nothing asked yet. An ask goes to their portal.</p>
         )}
 
         {open.map((ask) => (
@@ -199,7 +201,7 @@ export function ClientAsks({
 
         {settled.length > 0 && (
           <details>
-            <summary className="muted">
+            <summary>
               {settled.length} finished{" "}
               {settled.length === 1 ? "ask" : "asks"}
             </summary>
@@ -211,7 +213,22 @@ export function ClientAsks({
           </details>
         )}
 
-        {canWrite && (
+        {canWrite && !asking && (
+          <div className="cluster">
+            <Button
+              ref={openRef}
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setAsking(true);
+              }}
+            >
+              Ask the client
+            </Button>
+          </div>
+        )}
+        {canWrite && asking && (
+          <div ref={formRef} tabIndex={-1}>
           <Stack gap="tight">
             <FieldRow>
               <Field label="What do you need?">
@@ -224,7 +241,7 @@ export function ClientAsks({
                 </Select>
               </Field>
               {kind === "document" && (
-                <Field label="File it as" hint="The client never sees or chooses this.">
+                <Field label="File it as" hint="The client never sees this.">
                   <Select
                     value={documentKind}
                     onChange={(e) => setDocumentKind(e.target.value as AskDocumentKind)}
@@ -238,26 +255,33 @@ export function ClientAsks({
                 </Field>
               )}
             </FieldRow>
-            <Field
-              label="Ask them, in your own words"
-              hint="Shown to the client word for word, with your name on it. A request carries no due date."
-            >
+            <Field label="Your words" hint="They see this word for word, with your name.">
               <Textarea
                 rows={2}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Please send the Maharashtra purchase register for July."
+                placeholder="e.g. Please send the Maharashtra purchase register for July."
               />
             </Field>
             <div className="cluster">
               <Button
+                variant="secondary"
                 onClick={() => void raise()}
                 disabled={busy !== null || prompt.trim().length === 0}
               >
-                Ask the client
+                Send the ask
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setAsking(false);
+                }}
+              >
+                Cancel
               </Button>
             </div>
           </Stack>
+          </div>
         )}
       </Stack>
     </Card>
@@ -296,7 +320,7 @@ function AskLine({
           <strong>{ask.prompt}</strong>
           <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
         </div>
-        <p className="muted">
+        <p className="text-ink-2">
           {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
           {ask.firstAnsweredAt !== null && <> · first reply {longInstant(ask.firstAnsweredAt)}</>}
           {ask.closedAt !== null && (
@@ -330,18 +354,19 @@ function AskLine({
             ladder edited in April must not restate what March's chase was
             called. */}
         {ask.chases.length > 0 && (
-          <p className="muted">
-            Reminded {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
+          <p className="text-ink-2">
+            Reminded automatically{" "}
+            {ask.chases.length === 1 ? "once" : `${String(ask.chases.length)} times`}
             {": "}
             {ask.chases
               .map((c) => `${c.rungKey} on ${longInstant(c.chasedAt)}`)
               .join(", ")}
-            . These reminders were sent automatically.
+            .
           </p>
         )}
 
         {ask.responses.map((r) => (
-          <p key={r.responseId} className="muted">
+          <p key={r.responseId} className="text-ink-2">
             <strong>{r.respondedByName ?? "Their contact"}</strong>{" "}
             {r.document !== null ? (
               <>
@@ -351,7 +376,7 @@ function AskLine({
                     the client sent it. The download route serves it as an
                     attachment and never inline, which is the one protection that
                     does exist. */}
-                <span className="muted"> · not scanned for viruses</span>
+                <span> · not scanned for viruses</span>
               </>
             ) : r.decision !== null ? (
               r.decision === "approved" ? (
@@ -377,7 +402,7 @@ function AskLine({
 
         {canWrite && onClose !== undefined && onWithdraw !== undefined && (
           <div className="cluster">
-            <Button size="sm" onClick={onClose} disabled={busy === ask.askId}>
+            <Button size="sm" variant="secondary" onClick={onClose} disabled={busy === ask.askId}>
               Got what we needed
             </Button>
             <Button

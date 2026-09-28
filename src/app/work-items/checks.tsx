@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   Field,
+  NotSet,
   Pill,
   Sub,
   Table,
@@ -74,9 +75,8 @@ export function CheckQueue({
     return (
       <Card>
         <Empty title="Nothing is waiting to be checked" icon="verification">
-          A task lands here when the person handling it sends it for review from its own page.
-          Who may check it is set on <Link href="/admin/verification">Who checks work</Link>.
-          One rule always applies: the person who did the work cannot approve it.
+          A task comes here when its owner sends it for review. Set who may check on{" "}
+          <Link href="/admin/verification">Who checks work</Link>.
         </Empty>
       </Card>
     );
@@ -91,28 +91,25 @@ export function CheckQueue({
           one worth saying out loud: a queue you cannot act on is not a queue
           you are being ignored by, and this screen is still the right place to
           see that it is not moving. */}
-      <Sub>
+      <p className="text-md">
         {mine === 0 ? (
-          <>
-            None of these are yours to check, and each row says why. They are waiting on
-            somebody else.
-          </>
+          "None of these are yours to check. Each row says why."
         ) : (
           <>
             <strong>{mine}</strong> of {checks.length}{" "}
             {mine === 1 ? "is yours" : "are yours"} to check.
           </>
         )}
-      </Sub>
+      </p>
       <TableWrap>
         <Table>
           <thead>
             <tr>
-              <Th>What</Th>
-              <Th>For</Th>
-              <Th>Made by</Th>
-              <Th>Waiting</Th>
-              <Th>You</Th>
+              <Th>Task</Th>
+              <Th>Client</Th>
+              <Th>Done by</Th>
+              <Th>Sent for check</Th>
+              <Th>Your part</Th>
             </tr>
           </thead>
           <tbody>
@@ -189,23 +186,24 @@ function CheckRow({
               bar in April never restates what was allowed in March. "No
               particular rule" is a real answer and not a blank: then maker !=
               checker is the whole of it. */}
-          <Sub>{check.policyLabel ?? "no particular rule, only that the maker cannot be the checker"}</Sub>
+          <Sub>{check.policyLabel ?? "Anyone but the maker"}</Sub>
         </Td>
         <Td>{check.clientName}</Td>
         <Td>
           {/* Null when the task was unassigned as the check opened: nobody is
               recorded as having made it, so maker != checker has nothing to
               compare and anybody otherwise eligible may check it. */}
-          {check.submittedByName ?? <span className="unstated">nobody recorded</span>}
+          {check.submittedByName ?? <NotSet>Nobody recorded</NotSet>}
         </Td>
         <Td>
-          <span className="mono">{longInstant(check.submittedAt)}</span>
+          {longInstant(check.submittedAt)}
           <Sub>{waited}</Sub>
         </Td>
         <Td>
           {check.viewer.eligible ? (
             <span className="cluster tight">
               <Button
+                variant="secondary"
                 size="sm"
                 loading={busy && !sendingBack}
                 onClick={() => {
@@ -234,7 +232,7 @@ function CheckRow({
             // 922px wide, pushed the table 600px past its wrapper, and clipped
             // the words the whole screen exists to say. Nothing typechecked
             // differently. A column holds a status; a sentence needs a line.
-            <Pill tone="quiet">not yours to check</Pill>
+            <Pill tone="quiet">Not yours</Pill>
           )}
         </Td>
       </tr>
@@ -257,10 +255,7 @@ function CheckRow({
               The API refuses a rejection without one — this asks for it in
               words first, so the refusal is never what teaches somebody. */}
           <Td colSpan={5}>
-            <Field
-              label="What has to change"
-              hint="Required. Say what needs fixing, so the person can act on it and the reason stays on record."
-            >
+            <Field label="What has to change" hint="Say what needs fixing. Required.">
               <Textarea
                 rows={2}
                 value={notes}
@@ -313,6 +308,6 @@ function daysWaiting(submittedAt: string, today: string): string {
   const [y, m, d] = today.split("-").map(Number);
   const to = Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1);
   const days = Math.round((to - from) / 86_400_000);
-  if (days <= 0) return "since today";
-  return days === 1 ? "1 day" : `${String(days)} days`;
+  if (days <= 0) return "Today";
+  return days === 1 ? "1 day ago" : `${String(days)} days ago`;
 }

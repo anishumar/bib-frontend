@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Escalation } from "@/lib/api/client";
-import { Card, Pill, Sub, Table, TableWrap, Td, Th, Tooltip } from "@/components/ui";
+import { Card, NotSet, Pill, Sub, Table, TableWrap, Td, Th, Tooltip } from "@/components/ui";
 import { Empty } from "@/components/states";
 
 /**
@@ -38,22 +38,26 @@ import { Empty } from "@/components/states";
 export function EscalationQueue({
   rows,
   ladderPublished,
+  gradeNames,
 }: {
   rows: Escalation[];
   ladderPublished: boolean;
+  /** Rank -> the firm's name for that rung, from the colleagues list (the
+   *  grades route is `tenant:admin`). A rank nobody holds today has no name
+   *  here and reads as a level number instead. */
+  gradeNames: ReadonlyMap<number, string>;
 }) {
   if (rows.length === 0) {
     return (
       <Card>
         {ladderPublished ? (
           <Empty title="Nothing has been escalated" icon="check">
-            Every open task is within your firm&rsquo;s time limits, and no filing has passed its
-            internal target date.
+            Every open task and filing is within your firm&rsquo;s limits.
           </Empty>
         ) : (
-          <Empty title="No escalation ladder published yet" icon="alert">
-            Nothing can be escalated until your firm sets its ladder: after how many days, and
-            who is told. Set it up on <Link href="/admin/escalation-ladder">Escalation ladder</Link>.
+          <Empty title="No escalation ladder yet" icon="alert">
+            Nothing is escalated until you set one up on{" "}
+            <Link href="/admin/escalation-ladder">Escalation ladder</Link>.
           </Empty>
         )}
       </Card>
@@ -69,26 +73,25 @@ export function EscalationQueue({
   return (
     <>
       {unreached > 0 && (
-        <Sub>
-          <strong>{unreached}</strong> {unreached === 1 ? "notice" : "notices"} reached nobody.
-          Those rows say why, and they are the ones to look at first.
-        </Sub>
+        <p className="text-md">
+          <strong className="tone-danger">{unreached}</strong>{" "}
+          {unreached === 1 ? "notice" : "notices"} reached nobody. Look at those first.
+        </p>
       )}
       <TableWrap>
         <Table>
           <thead>
             <tr>
-              <Th>What</Th>
-              <Th>For</Th>
-              <Th>Step</Th>
+              <Th>Task or filing</Th>
+              <Th>Client</Th>
+              <Th>Rung</Th>
               <Th>Told</Th>
-              <Th>Handled by</Th>
-              <Th align="right">Days past</Th>
+              <Th align="right">Days late</Th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <EscalationRow key={row.id} row={row} />
+              <EscalationRow key={row.id} row={row} gradeNames={gradeNames} />
             ))}
           </tbody>
         </Table>
@@ -97,7 +100,13 @@ export function EscalationQueue({
   );
 }
 
-function EscalationRow({ row }: { row: Escalation }) {
+function EscalationRow({
+  row,
+  gradeNames,
+}: {
+  row: Escalation;
+  gradeNames: ReadonlyMap<number, string>;
+}) {
   return (
     <tr>
       <Td>
@@ -107,15 +116,20 @@ function EscalationRow({ row }: { row: Escalation }) {
             href because typed routes check the literal, which is the point of
             them. */}
         {row.workItemId !== null ? (
-          <Link href={`/work-items/${row.workItemId}`}>{row.subjectTitle}</Link>
+          <span className="cell-text" data-size="narrow">
+            <Link href={`/work-items/${row.workItemId}`}>{row.subjectTitle}</Link>
+          </span>
         ) : (
-          <Link href="/calendar">{row.subjectTitle}</Link>
+          <span className="cell-text" data-size="narrow">
+            <Link href="/calendar">{row.subjectTitle}</Link>
+          </span>
         )}
-        <br />
         <Sub>{watchLabel(row.watch)}</Sub>
       </Td>
       <Td>
-        {row.clientName ?? <span className="faint">no client</span>}
+        {/* A filing has no client (it is owed by the entity), so it reads
+            "Not set" rather than borrowing the entity's name. */}
+        {row.clientName ?? <NotSet />}
         {/* The COMPANY, beneath whoever is billed. A group of four files four
             sets of returns (G0.1), and without this the queue read as wrong:
             a row titled "TDS deposit — Lakeview Logistics" over a cell saying
@@ -127,42 +141,44 @@ function EscalationRow({ row }: { row: Escalation }) {
       </Td>
       <Td>
         {/* The firm's own word for the rung, resolved from the ladder in force
-            now. Never a code: the ladder is config the firm renames. */}
-        <Pill tone="quiet">{row.rungLabel}</Pill>{" "}
-        <Tooltip
-          text={`This step fired ${String(row.afterDays)} day${row.afterDays === 1 ? "" : "s"} past the date. That number is kept on this row, so editing the ladder later does not change it.`}
-        >
-          <span className="faint mono">+{row.afterDays}d</span>
-        </Tooltip>
+            now, and its threshold AS IT WAS when it fired (snapshotted on the
+            row, so a later ladder edit never restates it). */}
+        <span className="cell-text" data-size="narrow">
+          {row.rungLabel}
+        </span>
+        <Sub>{`After ${String(row.afterDays)} ${row.afterDays === 1 ? "day" : "days"}`}</Sub>
       </Td>
       <Td>
         {row.raisedTo !== null ? (
           // The name, or the EMAIL when a firm has not set one — which is the
-          // ordinary case at a real firm and is why the API sends both. A row
-          // saying somebody was told without saying who is worse than one
-          // saying nobody was. The audit trail states the same rule.
+          // ordinary case at a real firm and is why the API sends both.
           (row.raisedTo.displayName ?? row.raisedTo.email)
         ) : row.minGradeRank !== null ? (
           // A RANK and not a person, deliberately: an escalation routed to one
           // partner dies while that partner is on leave.
-          <Tooltip text="Sent to a seniority level rather than one person, so everybody senior enough sees it.">
-            <Pill tone="ok">rank {row.minGradeRank} or above</Pill>
+          <Tooltip text="Everyone at this level or above sees it.">
+            <span>
+              {gradeNames.get(row.minGradeRank) ?? `Level ${String(row.minGradeRank)}`} or above
+            </span>
           </Tooltip>
         ) : (
           <Tooltip text={row.note ?? "Nobody could be named."}>
-            <Pill tone="danger">nobody</Pill>
+            <Pill dot tone="danger">
+              Nobody
+            </Pill>
           </Tooltip>
         )}
-      </Td>
-      <Td>
-        {row.holder !== null ? (
-          (row.holder.displayName ?? row.holder.email)
-        ) : (
-          <span className="faint">nobody</span>
-        )}
+        {/* WHOSE DESK the work is on, said only when it is not the person who
+            was told (a rung that tells the assignee would say one name twice).
+            It was its own column, and the table hid 160px at 1280. */}
+        {row.holder === null ? (
+          <Sub>Desk: nobody</Sub>
+        ) : row.holder.userId !== row.raisedToUserId ? (
+          <Sub>{`Desk: ${row.holder.displayName ?? row.holder.email}`}</Sub>
+        ) : null}
       </Td>
       <Td align="right">
-        <span className="mono">{row.daysPast}</span>
+        {row.daysPast}
       </Td>
     </tr>
   );
@@ -173,10 +189,10 @@ function EscalationRow({ row }: { row: Escalation }) {
 function watchLabel(watch: Escalation["watch"]): string {
   switch (watch) {
     case "work_item_due":
-      return "Past the turnaround the client was promised";
+      return "Past its due date";
     case "work_item_unassigned":
-      return "Nobody has picked this up";
+      return "Nobody has picked it up";
     case "obligation_target":
-      return "Past our own target date, the legal deadline is still ahead";
+      return "Past our target date";
   }
 }
