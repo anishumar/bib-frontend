@@ -20,6 +20,14 @@
  * login that belongs to the person holding it and to nobody else, including
  * their own partners. So this screen is exactly that one fact, and a second
  * card here would need to be something equally theirs.
+ *
+ * ── TECHNICAL DETAILS: WHICH BUILD IS LIVE (V0.2) ─────────────────────────
+ *
+ * Closed, and last, for support: the commit and build time the API reports on
+ * `/health`. Nobody could tell which build QA ran, or whether a migration had
+ * gone out, without asking whoever deployed it. `/health` is public and cheap,
+ * and a failure to read it hides the line rather than showing an error on a
+ * page about something else.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -29,11 +37,15 @@ import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
 import { ErrorNotice, Meta, MetaItem, NotSet } from "@/components/ui";
+import { longInstantTime } from "@/lib/day";
+
+type Build = { readonly commit: string | null; readonly builtAt: string | null };
 
 export default function AccountPage() {
   const [me, setMe] = useState<Principal | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [build, setBuild] = useState<Build | null>(null);
 
   // Its own read rather than the shell's `useSession`, because this screen
   // CHANGES what that answer is: a password change replaces the session and
@@ -56,6 +68,13 @@ export default function AccountPage() {
       await load();
     })();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await api.GET("/health", {});
+      if (data !== undefined) setBuild({ commit: data.commit, builtAt: data.builtAt });
+    })();
+  }, []);
 
   if (!loaded) return <Loading label="Reading your account" />;
 
@@ -87,6 +106,26 @@ export default function AccountPage() {
               void load();
             }}
           />
+
+          {build === null ? null : (
+            <details className="disclosure">
+              <summary>Technical details</summary>
+              <Meta>
+                <MetaItem label="Build">
+                  {build.commit === null ? (
+                    <NotSet />
+                  ) : (
+                    <span className="mono" title={build.commit}>
+                      {build.commit.slice(0, 7)}
+                    </span>
+                  )}
+                </MetaItem>
+                <MetaItem label="Built">
+                  {build.builtAt === null ? <NotSet /> : longInstantTime(build.builtAt)}
+                </MetaItem>
+              </Meta>
+            </details>
+          )}
         </Stack>
       )}
     </Page>

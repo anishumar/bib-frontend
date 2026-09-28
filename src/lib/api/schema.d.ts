@@ -4,6 +4,55 @@
  */
 
 export interface paths {
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is the process up, and which build is it */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Up. `commit` and `builtAt` are null when the image was built without them. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            status: "ok";
+                            /**
+                             * @description The git commit the running image was built from.
+                             * @example 32fbca3c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a
+                             */
+                            commit: string | null;
+                            /**
+                             * @description When the image was built, ISO-8601 UTC.
+                             * @example 2026-09-28T18:30:00Z
+                             */
+                            builtAt: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
