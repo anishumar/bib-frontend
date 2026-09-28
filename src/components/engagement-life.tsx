@@ -248,6 +248,9 @@ function EndDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // onSubmit, not a form `action`: React resets an action form's fields as
+  // soon as the action returns, so a refusal came back to an empty form and
+  // the reason had to be typed again.
   async function submit(data: FormData): Promise<void> {
     setBusy(true);
     setError(null);
@@ -300,8 +303,10 @@ function EndDialog({
       <form
         ref={form}
         className="stack"
-        action={(data) => {
-          void submit(data);
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (busy) return;
+          void submit(new FormData(event.currentTarget));
         }}
       >
         <p>
