@@ -1298,6 +1298,32 @@ export async function downloadDocument(
   return null;
 }
 
+/**
+ * A stored document's bytes, for drawing it on the page (2026-09-28): a sent
+ * proposal's PDF of record, a letter's signed copy. The same route and the same
+ * `credentials: "include"` as `downloadDocument`, for the same reasons; the
+ * route answers `attachment`, which a `fetch` does not care about.
+ */
+export async function fetchDocumentBytes(
+  documentId: string,
+  versionId?: string,
+): Promise<{ bytes: Uint8Array; error: null } | { bytes: null; error: string }> {
+  const path =
+    versionId === undefined
+      ? `/api/v1/documents/${documentId}/content`
+      : `/api/v1/documents/${documentId}/versions/${versionId}/content`;
+  const response = await fetch(`${baseUrl}${path}`, { credentials: "include" });
+  if (!response.ok) {
+    try {
+      const body: unknown = await response.json();
+      return { bytes: null, error: apiError(body).message };
+    } catch {
+      return { bytes: null, error: `the file could not be fetched (${String(response.status)})` };
+    }
+  }
+  return { bytes: new Uint8Array(await response.arrayBuffer()), error: null };
+}
+
 // ── The leadership figures (T3.7) ───────────────────────────────────────────
 
 /** MRR, receivables ageing and DSO. Every figure is derived from rows at read

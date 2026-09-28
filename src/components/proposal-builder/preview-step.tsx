@@ -3,16 +3,16 @@
 import type { Route } from "next";
 import type { ProposalRecord } from "@/lib/api/client";
 import { Button, LinkButton } from "@/components/ui";
-import { ProposalDocument, ProposalSendPanel } from "@/components/proposal-document";
+import { ProposalPdf, ProposalSendPanel } from "@/components/proposal-document";
 import { StickyFooter } from "./frame";
 import { FrequencyTotals } from "./totals";
 
 /**
  * STEP 3: the proposal as the client will read it, and sending it.
  *
- * The same two components the proposal page mounts: `<ProposalDocument>`
- * draws it in the PDF's own order and, on a draft, lets any piece be changed
- * where it is read (a scope text, a fee, an exclusion, D10), and
+ * The same two components the proposal page mounts: `<ProposalPdf>` draws
+ * the PDF itself (2026-09-28) and, on a draft, lets any piece be changed ON the
+ * page or from the "Edit" list beside it (a scope text, a fee, an exclusion), and
  * `<ProposalSendPanel>` sends it by email, on WhatsApp or as a bare link, and
  * downloads the PDF. Both read the builder's one record, so a fee changed in
  * the document is in the footer's total and in the PDF the panel sends.
@@ -29,7 +29,7 @@ export function PreviewStep({ record }: { record: ProposalRecord }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <ProposalDocument proposalId={proposalId} editable />
+      <ProposalPdf proposalId={proposalId} editable />
       <div className="w-full max-w-[900px]">
         <ProposalSendPanel proposalId={proposalId} />
       </div>

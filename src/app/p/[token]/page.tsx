@@ -2,24 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { api, apiError, BLOCK_KIND_LABELS, PROPOSAL_BLOCK_KINDS, formatCount, formatMoney } from "@/lib/api/client";
+import { api, apiError, formatMoney } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { ErrorState, Loading } from "@/components/states";
-import {
-  Button,
-  Checkbox,
-  ErrorNotice,
-  Field,
-  FieldStack,
-  Input,
-  Stat,
-  Strip,
-  Table,
-  TableWrap,
-  Td,
-  Textarea,
-  Th,
-} from "@/components/ui";
+import { Button, Checkbox, ErrorNotice, Field, FieldStack, Input, Stat, Strip, Textarea } from "@/components/ui";
+import { PdfPages } from "@/components/pdf-pages";
 import { Card, CardTitle } from "@/components/tw";
 import type { SharedProposal } from "@/lib/api/client";
 import { longDay, longInstantTime } from "@/lib/day";
@@ -47,12 +34,11 @@ import { FREQUENCY_WORDS } from "@/components/proposal-document/words";
  * staff read — not the same one with fields blanked. A field added for
  * colleagues therefore cannot arrive on this page by default.
  *
- * Since 2026-09-24 that shape carries the document's own prose — the
- * exclusions, commercial notes and team block — because the staff screen
- * calls a sent quote's wording "the record of what the client was shown",
- * and until then the client was shown the prices and none of the wording.
- * Read-only, and only the words: nothing here says which lines are the
- * firm's standard text and which were written for this client.
+ * THE PROPOSAL ITSELF IS THE PDF (2026-09-28): the pages are the PDF of
+ * record (`POST /proposals/shared/pdf`, the file the email attached), drawn
+ * with pdf.js above the answer box, where a table and a card of its wording
+ * used to imitate it. The totals per frequency stay in the answer box, so the
+ * figure the client is agreeing to sits beside the button that agrees to it.
  */
 export default function SharedProposalPage() {
   const params = useParams<{ token: string }>();
@@ -74,6 +60,9 @@ export default function SharedProposalPage() {
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  /** The PDF of record's bytes, drawn on the page and saved from here. */
+  const [pdf, setPdf] = useState<Uint8Array | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const answerCard = useRef<HTMLDivElement>(null);
   const lastUrl = useRef<string | null>(null);
 
@@ -97,6 +86,26 @@ export default function SharedProposalPage() {
       live = false;
     };
   }, [token]);
+
+  // The pages. Not for an expired proposal: the link no longer serves its PDF.
+  const status = shared?.status ?? null;
+  useEffect(() => {
+    if (status === null || status === "expired") return;
+    let live = true;
+    void api
+      .POST("/api/v1/proposals/shared/pdf", { body: { token }, parseAs: "arrayBuffer" })
+      .then((result) => {
+        if (!live) return;
+        if (result.error) {
+          setPdfError(apiError(result.error).message);
+          return;
+        }
+        setPdf(new Uint8Array(result.data as unknown as ArrayBuffer));
+      });
+    return () => {
+      live = false;
+    };
+  }, [status, token]);
 
   // Arriving from the email's button: bring the answer into view, and move
   // focus there so a keyboard or screen reader lands where the reader meant to.
@@ -138,6 +147,11 @@ export default function SharedProposalPage() {
   }
 
   async function download(filename: string): Promise<void> {
+    if (pdf !== null) {
+      // The very bytes on the page.
+      save(new Blob([pdf.slice()], { type: "application/pdf" }), filename);
+      return;
+    }
     setDownloading(true);
     setDownloadError(null);
     // POST with the token in the BODY, like the page's own read — so the link
@@ -152,7 +166,11 @@ export default function SharedProposalPage() {
       setDownloadError(apiError(result.error).message);
       return;
     }
-    const url = URL.createObjectURL(result.data as unknown as Blob);
+    save(result.data as unknown as Blob, filename);
+  }
+
+  function save(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
     if (lastUrl.current !== null) URL.revokeObjectURL(lastUrl.current);
     lastUrl.current = url;
     const link = document.createElement("a");
@@ -206,115 +224,16 @@ export default function SharedProposalPage() {
       />
       <ErrorNotice error={downloadError} />
 
-      <TableWrap>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Service</Th>
-              <Th>How often</Th>
-              <Th align="right">Qty</Th>
-              <Th align="right">Rate</Th>
-              <Th align="right">Discount</Th>
-              <Th align="right">Amount</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {shared.lines.map((l, i) => (
-              // The API returns lines in document order and gives the recipient
-              // no internal ids — deliberately — so position is the key.
-              <tr key={`${String(i)}-${l.description}`}>
-                <Td>{l.description}</Td>
-                <Td>{l.billingFrequency === null ? "Not set" : FREQUENCY_WORDS[l.billingFrequency]}</Td>
-                <Td align="right">{formatCount(l.quantity)}</Td>
-                <Td align="right">{formatMoney(l.unitAmount, shared.currency)}</Td>
-                <Td align="right">
-                  {Number(l.discountPercent) === 0 ? "None" : `${formatCount(l.discountPercent)}%`}
-                </Td>
-                <Td align="right">
-                  {l.net === null ? (l.pricingNote ?? "To be agreed") : formatMoney(l.net, shared.currency)}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </TableWrap>
-
-      {/* THE TOTAL, PER FREQUENCY (D8), as the PDF the client holds ends its
-          Summary of Fees. One figure for a month's fee and a set-up fee added
-          together ("Total ₹70,000" for ₹45,000 a month and ₹25,000 once) is a
-          number nobody is ever billed, and it was the only total this page
-          drew until the W4D walk found it. The shared read has no per-frequency
-          sum, so the nets are added here exactly as strings (`addDecimals`),
-          never as JS numbers. With one frequency the API's own total stands,
-          with its discount note. */}
-      <Strip>
-        {(() => {
-          const groups = totalsByFrequency(shared.lines);
-          if (groups === null || groups.length <= 1) {
-            const only = groups?.[0]?.frequency ?? null;
-            return (
-              <Stat
-                label={only === null ? "Total" : `${FREQUENCY_WORDS[only]} total`}
-                value={formatMoney(shared.totals.net, shared.currency)}
-                /* "0.00" is no discount too: the wire sends a decimal string, and
-                   comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
-                {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
-                  ? {
-                      note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
-                    }
-                  : {})}
-              />
-            );
-          }
-          return groups.map((g) => (
-            <Stat
-              key={g.frequency ?? "none"}
-              label={g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`}
-              value={formatMoney(g.net, shared.currency)}
-            />
-          ));
-        })()}
-      </Strip>
-      {shared.totals.unpricedLineCount > 0 && (
-        <p className="text-md">
-          Plus {String(shared.totals.unpricedLineCount)} service
-          {shared.totals.unpricedLineCount === 1 ? "" : "s"} as mutually agreed.
-        </p>
-      )}
-
-      {shared.blocks.length > 0 && (
-        <Card>
-          <CardTitle level={2}>What this quote covers</CardTitle>
-          {PROPOSAL_BLOCK_KINDS.map((kind) => {
-            const mine = shared.blocks.filter((b) => b.kind === kind);
-            // A kind the document carries nothing of is not drawn: an empty
-            // "Exclusions" heading reads as the firm asserting there are none.
-            if (mine.length === 0) return null;
-            return (
-              <div key={kind} className="mb-4">
-                <div className="label">{BLOCK_KIND_LABELS[kind]}</div>
-                <ul className="mt-1 list-disc pl-[18px]">
-                  {mine.map((b, i) => (
-                    // The API gives the recipient no ids, deliberately, so
-                    // position within the kind is the key.
-                    <li
-                      key={`${kind}-${String(i)}`}
-                      className={b.isHeading ? "text-md -ml-[18px] list-none" : "text-md"}
-                    >
-                      {b.isHeading ? <strong>{b.body}</strong> : b.body}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </Card>
+      {pdfError !== null && <ErrorNotice error={pdfError} />}
+      {shared.status !== "expired" && pdfError === null && (
+        <PdfPages data={pdf} label={`Proposal ${shared.ref}`} />
       )}
 
       {shared.status === "sent" ? (
         <div ref={answerCard} tabIndex={-1}>
           <Card>
             <CardTitle level={2}>Your answer</CardTitle>
+            <FrequencyTotals shared={shared} />
             <p className="text-md mb-3">
               Your name is recorded with your answer, and {shared.firmName} is told at once.
             </p>
@@ -399,9 +318,59 @@ export default function SharedProposalPage() {
           </Card>
         </div>
       ) : (
-        <p className="muted">{closing(shared)}</p>
+        <>
+          <FrequencyTotals shared={shared} />
+          <p className="muted">{closing(shared)}</p>
+        </>
       )}
     </Page>
+  );
+}
+
+/**
+ * THE TOTAL, PER FREQUENCY (D8), as the PDF the client holds ends its Summary
+ * of Fees. One figure for a month's fee and a set-up fee added together
+ * ("Total ₹70,000" for ₹45,000 a month and ₹25,000 once) is a number nobody is
+ * ever billed, and it was the only total this page drew until the W4D walk
+ * found it. The shared read has no per-frequency sum, so the nets are added
+ * here exactly as strings (`addDecimals`), never as JS numbers. With one
+ * frequency the API's own total stands, with its discount note.
+ */
+function FrequencyTotals({ shared }: { shared: SharedProposal }) {
+  const groups = totalsByFrequency(shared.lines);
+  const only = groups?.[0]?.frequency ?? null;
+  return (
+    <div className="mb-4 flex flex-col gap-2">
+      <Strip>
+        {groups === null || groups.length <= 1 ? (
+          <Stat
+            label={only === null ? "Total" : `${FREQUENCY_WORDS[only]} total`}
+            value={formatMoney(shared.totals.net, shared.currency)}
+            /* "0.00" is no discount too: the wire sends a decimal string, and
+               comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
+            {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
+              ? {
+                  note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
+                }
+              : {})}
+          />
+        ) : (
+          groups.map((g) => (
+            <Stat
+              key={g.frequency ?? "none"}
+              label={g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`}
+              value={formatMoney(g.net, shared.currency)}
+            />
+          ))
+        )}
+      </Strip>
+      {shared.totals.unpricedLineCount > 0 && (
+        <p className="text-md">
+          Plus {String(shared.totals.unpricedLineCount)} service
+          {shared.totals.unpricedLineCount === 1 ? "" : "s"} as mutually agreed.
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -45,7 +45,7 @@ import { Page, PageHeader, useSession } from "@/components/layout";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import {
   ClientAnswer,
-  ProposalDocument,
+  ProposalPdf,
   ProposalSendPanel,
   useProposal,
 } from "@/components/proposal-document";
@@ -59,9 +59,9 @@ interface Contact {
 /**
  * One proposal: the document the client will read, and sending it (T6.18).
  *
- * THE DOCUMENT IS THE PAGE. `<ProposalDocument>` draws the proposal in the
- * PDF's own order and, on a draft, lets every piece be changed where it is
- * read; `<ProposalSendPanel>` sits under it (email, WhatsApp, the PDF, and the
+ * THE DOCUMENT IS THE PAGE. `<ProposalPdf>` draws the proposal's own PDF
+ * (2026-09-28): a draft as Send will print it, edited on the page, and a sent
+ * one as the file the client was sent; `<ProposalSendPanel>` sits under it (email, WhatsApp, the PDF, and the
  * client's answer once it is out). Both take only the id and share one read of
  * the proposal (`useProposal`), which this page reads too, so a send turns the
  * document read-only and this page's own cards follow in the same instant.
@@ -258,19 +258,23 @@ export default function ProposalPage() {
         }
       />
 
-      {/* One column, the document's width, so every card below lines up with
-          the page it is about rather than running past it. */}
-      <div className="stack loose max-w-[900px]">
       <ErrorNotice error={error} />
 
       {proposal.deletedAt !== null && (
-        <DeletedNotice what="This draft" deletedAt={proposal.deletedAt} deletedBy={record.deletedBy}>
-          It never went out. Its number {proposal.ref} is not used again.
-        </DeletedNotice>
+        <div className="max-w-[900px]">
+          <DeletedNotice what="This draft" deletedAt={proposal.deletedAt} deletedBy={record.deletedBy}>
+            It never went out. Its number {proposal.ref} is not used again.
+          </DeletedNotice>
+        </div>
       )}
 
-      <ProposalDocument proposalId={proposalId} editable={canWrite} onChanged={changed} />
+      {/* The PDF, and on a draft its "Edit" list beside it: wider than the
+          cards below, which keep the pages' own 900px column. */}
+      <ProposalPdf proposalId={proposalId} editable={canWrite} onChanged={changed} />
 
+      {/* One column, the pages' width, so every card below lines up with the
+          document it is about rather than running past it. */}
+      <div className="stack loose max-w-[900px]">
       <ProposalSendPanel proposalId={proposalId} onChanged={changed} />
 
       {record.clientDecision !== null && <ClientAnswer answer={record.clientDecision} />}

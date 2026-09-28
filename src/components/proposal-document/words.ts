@@ -39,7 +39,21 @@ export function pdfMoney(amount: string, currency: string): string {
     minimumFractionDigits: whole ? 0 : 2,
     maximumFractionDigits: whole ? 0 : 2,
   }).format(amount as NumericLiteral);
-  return `${currency} ${formatted}`;
+  // Rupees in lakhs, as the proposal PDF prints them since 2026-09-28
+  // (`inLakhs` in render-source.ts): "INR 12,50,000".
+  return `${currency} ${currency === "INR" ? inLakhs(formatted) : formatted}`;
+}
+
+/** "1,250,000.50" to "12,50,000.50": the last three digits, then pairs. The
+ *  renderer's own `inLakhs`, word for word. */
+function inLakhs(western: string): string {
+  const negative = western.startsWith("-");
+  const [integer = "", fraction] = (negative ? western.slice(1) : western).split(".");
+  const digits = integer.replace(/,/g, "");
+  const last = digits.slice(-3);
+  const rest = digits.slice(0, -3);
+  const pairs = rest.length === 0 ? [] : (rest.match(/(\d{1,2})(?=(\d{2})*$)/g) ?? []);
+  return `${negative ? "-" : ""}${[...pairs, last].join(",")}${fraction === undefined ? "" : `.${fraction}`}`;
 }
 
 /** `proposalFee`: "INR 50,000 Yearly (note)", or the line's reason for having

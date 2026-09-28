@@ -6,13 +6,14 @@ import { Button, LinkButton } from "@/components/ui";
 import { Documents } from "@/lib/ui/documents";
 import { useSession } from "@/components/layout";
 import { StickyFooter } from "@/components/proposal-builder/frame";
-import { LetterDocument } from "./letter-document";
+import { LetterPdf } from "./letter-pdf";
 import { LetterSendPanel } from "./send-panel";
 import { LetterTotals } from "./totals";
 
 /**
- * STEP 3: the letter as the client will sign it, edited in place, and sending
- * it. The PDF panel below renders the same letter on paper.
+ * STEP 3: the letter as the client will sign it — its own PDF, edited on the
+ * page (2026-09-28) — and sending it. The files panel below keeps every PDF
+ * filed for it.
  *
  * The footer's Send takes the reader to the Send panel rather than sending: who
  * signs and where the envelope goes are the panel's to decide.
@@ -25,7 +26,7 @@ export function LetterPreviewStep({ record }: { record: LetterRecord }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <LetterDocument letterId={letterId} editable />
+      <LetterPdf letterId={letterId} editable />
       <div className="w-full max-w-[900px]">
         <LetterSendPanel letterId={letterId} />
       </div>

@@ -2352,6 +2352,52 @@ same rows. Measured (`bib/demo-assets/tools/epb-s6-walk.mjs`, 69 checks): **9 cl
 engagement letter" on a client page to Sent with 3 services and the standard terms (40+ before),
 **5** from "Write it up" to Sent.
 
+### The preview IS the PDF (2026-09-28)
+
+The user: *"I want proposal preview and EL preview exactly same as we send pdf with logos, cover
+etc, not like a receipt."* Two layouts drift, so there is one: the server's. `<ProposalDocument>`
+and `<LetterDocument>` (HTML imitations) are GONE; `<ProposalPdf>` and `<LetterPdf>` draw the PDF.
+
+- **`src/components/pdf-pages/`**: pdf.js (`pdfjs-dist`), dynamically imported on these screens
+  only (`load.ts`). The worker is bundled from `node_modules` with `new URL(…, import.meta.url)`,
+  so it is served from OUR origin: the CSP has no `worker-src`, so `script-src 'self'` applies,
+  and a CDN or `blob:` worker is refused. `useWasm: false` (the CSP grants no
+  `'wasm-unsafe-eval'`; our PDFs need none). Pages are drawn off-screen to canvases at
+  `devicePixelRatio` and swapped in whole, so the old pages stay until the new ones are ready; a
+  white sheet per page with "Page 2 of 6" under it, fitted to the column.
+- **Where the bytes come from.** A DRAFT: `POST /documents/preview` (files nothing; the API dates
+  it the day Send will and fills in the firm's signature block, so an unedited draft is Send's
+  own bytes). It is asked again 800 ms after the record last changed (`usePreview`, revision =
+  the record's JSON). A SENT proposal: its PDF of record (`sentPdf`, fetched by
+  `fetchDocumentBytes`), never a fresh render; Send files it since 2026-09-28. A sent LETTER: its
+  signed copy when one is filed (an `uploaded` PDF of kind `engagement_letter` on the letter),
+  else the preview route on its frozen rows. `/p/[token]`: `POST /proposals/shared/pdf`.
+- **Editing ON the page.** The API returns `anchors` (a key and a rectangle per page, in PDF
+  points from the top-left, e.g. `line:<id>.scope`, `fee:group:<id>`, `block:<id>`,
+  `add:commercial`). `<PdfPages>` lays an invisible `button[data-anchor]` over each (outline and
+  pencil on hover, `tabIndex=-1`); a click opens the piece's EXISTING editor in a popover under it.
+  `<PdfWorkspace>` also lists every piece in an **Edit** panel beside the pages (a `<Dialog>`
+  below `xl`), for the keyboard, screen readers, and pieces that print nothing yet (an empty
+  Background). A hotspot clicked scrolls the list to its piece; a piece hovered outlines its
+  hotspots. The pieces are built by `textPiece` / `choicePiece` / `blockPiece` / `addPiece`
+  (`proposal-document/proposal-pdf.tsx`), each over the same `EditableText` / `EditableChoice`
+  / `EditableFee` and the SAME write the imitation made (`PATCH /proposals/{id}`, `…/lines/{id}`,
+  the fee-group and document-block routes). `EditableChoice` and `EditableFee` gained
+  `initiallyEditing` / `onClose` for the popover; nothing about their writes changed.
+- **Traps.** A popover's `close` is bound to ITS anchor: an editor finishing its save after
+  another piece was clicked must not close the new one. The drawer button is wrapped in a
+  `span.xl:hidden` because `.btn` declares `display` and an unlayered class beats the utility.
+  With the company's cover artwork the proposal prints NO title (0084), so the title is edited
+  from the list. The builder's footer and rows now say INR in lakhs too (`pdfMoney` restates the
+  renderer's `inLakhs`); the letter's words stay western, as its PDF does.
+- **Brand.** One quiet line over the pages when the issuing company has no logo or no cover,
+  linking to `/admin/brand#brand-entity-<id>`.
+
+Measured by `bib/demo-assets/tools/pdf-walk.mjs` (before on the old UI, after on this one, at 1440
+and 390; shots in `bib/demo-assets/notes/pdf-preview/`): saving on the page redraws in about
+1.8-2.0 s; the proposal's preview and its PDF of record hash the same, and so do the letter's
+preview and the PDF Send renders.
+
 ## Screens are how API gaps get found
 
 `/clients` and `/leads` were built after their APIs shipped, and building them found three

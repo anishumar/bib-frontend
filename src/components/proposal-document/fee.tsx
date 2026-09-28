@@ -44,16 +44,26 @@ export function EditableFee({
   editable,
   onSave,
   children,
+  initiallyEditing = false,
+  onClose,
 }: {
   line: FeeLine;
   currency: string;
   editable: boolean;
   onSave: (change: FeeChange) => Promise<SaveOutcome>;
   children: ReactNode;
+  /** Open with the boxes already showing: a popover on the PDF (2026-09-28). */
+  initiallyEditing?: boolean;
+  /** Told when the boxes close, saved or not. */
+  onClose?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [frequency, setFrequency] = useState<BillingFrequency | "">("");
+  const [editing, setEditing] = useState(initiallyEditing);
+  const [amount, setAmount] = useState(
+    initiallyEditing && line.unitAmount !== null ? formatCount(line.unitAmount) : "",
+  );
+  const [frequency, setFrequency] = useState<BillingFrequency | "">(
+    initiallyEditing ? (line.billingFrequency ?? "") : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pencil = useRef<HTMLButtonElement>(null);
@@ -82,6 +92,7 @@ export function EditableFee({
     refocus.current = byKeyboard;
     setError(null);
     setEditing(false);
+    onClose?.();
   }
 
   async function save(byKeyboard: boolean): Promise<void> {

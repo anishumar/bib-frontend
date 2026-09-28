@@ -17144,6 +17144,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draw a PDF of one of the firm's own documents, and file nothing
+         * @description The screen's preview: the same renderer and the same rows as `render`, handed back with where each editable piece was drawn. Stores no document, attaches nothing and records no event. A draft is drawn as Send will leave it that day, so an unedited draft previews the bytes Send produces.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewDocumentRequest"];
+                };
+            };
+            responses: {
+                /** @description Drawn */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentPreview"];
+                    };
+                };
+                /** @description A character the renderer cannot draw, or an asOf that cannot be today */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such record at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing knows how to render that kind of document yet */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{documentId}/links": {
         parameters: {
             query?: never;
@@ -21630,6 +21718,49 @@ export interface components {
             kind: "engagement_letter" | "invoice" | "proposal";
             /** Format: uuid */
             subjectRef: string;
+        };
+        DocumentAnchor: {
+            /** @description Which piece of the record this is: `proposal.title`, `proposal.background`, `proposal.validUntil`, `proposal.preparedFor`, `proposal.preparedBy`, `letter.issuedOn`, `letter.addressedTo`, `letter.subject`, `letter.background`, `line:<id>.name|scope|volumeLimits|clientObligations|exclusions`, `fee:line:<id>`, `fee:group:<id>`, `section:<id>.title|intro|deliverables|clientObligations`, `block:<id>`, `add:<kind>`. */
+            key: string;
+            /** @description Counts from 1. */
+            page: number;
+            x: number;
+            /** @description From the TOP of the page, in PDF points. */
+            y: number;
+            width: number;
+            height: number;
+        };
+        DocumentPreview: {
+            reference: string;
+            mediaType: string;
+            /** @description Lower-case hex SHA-256 of the bytes. For an unedited draft, the hash of the PDF Send produces the same day. */
+            contentHash: string;
+            /** @description The PDF's bytes, base64. */
+            pdf: string;
+            pageCount: number;
+            /** @description Where each editable piece was drawn, one rectangle per page it touched. A side output of the drawing pass; nothing of it is in the PDF. */
+            anchors: components["schemas"]["DocumentAnchor"][];
+            /** @description The day a draft with no date of its own was dated on, as Send will date it; null when the document printed its own date. */
+            datedAsIfSent: string | null;
+            /** @description Whose logo and cover the pages carry. */
+            issuingEntity: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+            } | null;
+            /** @description Marks this page would draw that the issuing company has not uploaded. */
+            missingBrand: ("logo" | "proposal_cover")[];
+        };
+        PreviewDocumentRequest: {
+            /**
+             * @description What to draw — the kinds `render` takes.
+             * @enum {string}
+             */
+            kind: "engagement_letter" | "invoice" | "proposal";
+            /** Format: uuid */
+            subjectRef: string;
+            /** @description The caller's calendar day, which a draft LETTER is dated on when its drafter set no date (Send takes the same). Held to the firm's day or one either side. A proposal is dated on the firm's day whatever this says, as Send dates it. */
+            asOf?: string;
         };
         DocumentLink: {
             /** Format: uuid */

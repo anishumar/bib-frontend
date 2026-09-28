@@ -303,6 +303,8 @@ export function EditableChoice({
   onSave,
   children,
   className,
+  initiallyEditing = false,
+  onClose,
 }: {
   label: string;
   /** The chosen option's value; "" is the empty choice. */
@@ -312,8 +314,16 @@ export function EditableChoice({
   onSave: (next: string) => Promise<SaveOutcome>;
   children: ReactNode;
   className?: string;
+  /** Open with the list already showing: a popover on the PDF (2026-09-28). */
+  initiallyEditing?: boolean;
+  /** Told when the list closes, chosen or not. */
+  onClose?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditingState] = useState(initiallyEditing);
+  const setEditing = (next: boolean): void => {
+    setEditingState(next);
+    if (!next) onClose?.();
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pencil = useRef<HTMLButtonElement>(null);
