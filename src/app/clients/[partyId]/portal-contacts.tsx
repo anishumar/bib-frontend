@@ -25,6 +25,7 @@ import {
 } from "@/components/ui";
 import { browserDay, longDay, instantDay } from "@/lib/day";
 import type { GroupCompany } from "@/lib/group";
+import { ConfirmAction } from "@/components/confirm-action";
 
 /**
  * The client's OWN people, and what each of them can see (G3.4, T6.5, T7.0b).
@@ -604,17 +605,26 @@ export function PortalContactsPanel({
                             Give another company
                           </Button>
                         )}
-                        <Button
+                        <ConfirmAction
                           variant="secondary"
                           size="sm"
                           loading={acting === `end:${g.id}`}
                           aria-label={`Remove ${g.contactEmail}'s access to ${clientName}`}
-                          onClick={() => {
+                          title={`Remove ${g.contactEmail}'s access?`}
+                          confirmLabel="Remove access"
+                          destructive
+                          consequence={
+                            <p>
+                              {g.contactEmail} can no longer see {clientName} on the portal, from
+                              their next click. To let them back in, grant access again.
+                            </p>
+                          }
+                          onConfirm={() => {
                             void end(g);
                           }}
                         >
                           Remove access
-                        </Button>
+                        </ConfirmAction>
                       </div>
                     )}
                   </Td>

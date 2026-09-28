@@ -27,6 +27,7 @@ import {
   Tr,
 } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { ConfirmAction } from "@/components/confirm-action";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -166,44 +167,11 @@ export default function ReceivablesPage() {
                     </Td>
                     {mayDecide && (
                       <Td>
-                        <form
-                          action={(form) => {
-                            void decide(
-                              p.action.id,
-                              String(form.get("verdict")) === "approve",
-                              String(form.get("why") ?? ""),
-                            );
-                          }}
-                        >
-                          <div className="cluster">
-                            <Input
-                              size="sm"
-                              name="why"
-                              aria-label="Why"
-                              placeholder="e.g. Paid in full on Friday"
-                            />
-                            <Button
-                              size="sm"
-                              variant="destructive-quiet"
-                              type="submit"
-                              name="verdict"
-                              value="approve"
-                              disabled={busy}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              type="submit"
-                              name="verdict"
-                              value="reject"
-                              disabled={busy}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        </form>
+                        <DecideRow
+                          item={p}
+                          busy={busy}
+                          onDecide={(approve, why) => void decide(p.action.id, approve, why)}
+                        />
                       </Td>
                     )}
                   </tr>
@@ -281,5 +249,71 @@ export default function ReceivablesPage() {
         )}
       </Section>
     </Page>
+  );
+}
+
+/**
+ * One rung waiting for a partner: a note, Approve and Reject.
+ *
+ * Approve asks first (V1.3): it is final, and it is the firm deciding to put
+ * a client on credit hold or to go to law. Not a `<form>` any more: with
+ * Approve out of the submit buttons, Enter in the note box would have
+ * submitted the form as a Reject, so nothing here submits on Enter.
+ */
+function DecideRow({
+  item,
+  busy,
+  onDecide,
+}: {
+  item: PendingDunning;
+  busy: boolean;
+  onDecide: (approve: boolean, why: string) => void;
+}) {
+  const [why, setWhy] = useState("");
+  const step = codeLabel(item.action.action).toLowerCase();
+  return (
+    <div className="cluster">
+      <Input
+        size="sm"
+        name="why"
+        aria-label="Why"
+        placeholder="e.g. Paid in full on Friday"
+        value={why}
+        onChange={(e) => {
+          setWhy(e.target.value);
+        }}
+      />
+      <ConfirmAction
+        size="sm"
+        variant="destructive-quiet"
+        disabled={busy}
+        aria-label={`Approve ${step} for ${item.party.displayName}, ${item.invoiceNumber}`}
+        title={`Approve ${step} for ${item.party.displayName}?`}
+        confirmLabel={`Approve ${step}`}
+        destructive
+        consequence={
+          <p>
+            You approve {step} for {item.party.displayName} over {item.invoiceNumber} (
+            {formatMoney(item.outstanding, item.currency)} outstanding). The decision is final and
+            is recorded with your name.
+          </p>
+        }
+        onConfirm={() => {
+          onDecide(true, why.trim());
+        }}
+      >
+        Approve
+      </ConfirmAction>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={busy}
+        onClick={() => {
+          onDecide(false, why.trim());
+        }}
+      >
+        Reject
+      </Button>
+    </div>
   );
 }

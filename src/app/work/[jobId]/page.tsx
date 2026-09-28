@@ -10,6 +10,7 @@ import { Button, cx } from "@/components/ui";
 import { Card, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
 import { CheckLines } from "./check-lines";
+import { ConfirmAction } from "@/components/confirm-action";
 
 /**
  * One job's process, and how far it has got (T2.7).
@@ -570,15 +571,23 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                               refusal cannot disagree; the refusal is still shown
                               if one arrives, because a colleague's list is not
                               this page's to predict. */}
-                          <Button
+                          <ConfirmAction
                             disabled={busy === s.stepKey || s.subStepsOpen > 0}
                             aria-label={`Done: ${s.stepKey}`}
-                            onClick={() => {
+                            title={`Mark "${s.label}" done?`}
+                            confirmLabel="Mark it done"
+                            consequence={
+                              <p>
+                                This records that you did &ldquo;{s.label}&rdquo;. It cannot be
+                                undone. If the step is checked, it goes to the checker next.
+                              </p>
+                            }
+                            onConfirm={() => {
                               void complete(s.stepKey);
                             }}
                           >
                             Done
-                          </Button>
+                          </ConfirmAction>
                           <SubStepsLeft count={s.subStepsOpen} />
                         </>
                       ) : s.viewer.reason === "ON_ANOTHER_DESK" ? (

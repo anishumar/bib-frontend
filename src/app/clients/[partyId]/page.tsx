@@ -36,6 +36,7 @@ import {
   Td,
   Th,
 } from "@/components/ui";
+import { ConfirmAction } from "@/components/confirm-action";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
@@ -383,13 +384,29 @@ export default function PartyPage() {
                 Archived
               </Pill>
             )}
-            {canWrite && (
-              <Button
-                variant={profile.party.archivedAt === null ? "destructive-quiet" : "secondary"}
+            {/* Archive is confirmed (V1.3); Restore puts it back and is not. */}
+            {canWrite && profile.party.archivedAt === null && (
+              <ConfirmAction
+                variant="destructive-quiet"
                 loading={archiving}
-                onClick={() => void setArchived(profile.party.archivedAt === null)}
+                title={`Archive ${profile.party.displayName}?`}
+                confirmLabel="Archive"
+                destructive
+                consequence={
+                  <p>
+                    {profile.party.displayName} leaves every list and picker, and no new work
+                    is created for it. Everything already done stays on file. You can restore
+                    it later.
+                  </p>
+                }
+                onConfirm={() => void setArchived(true)}
               >
-                {profile.party.archivedAt === null ? "Archive" : "Restore"}
+                Archive
+              </ConfirmAction>
+            )}
+            {canWrite && profile.party.archivedAt !== null && (
+              <Button variant="secondary" loading={archiving} onClick={() => void setArchived(false)}>
+                Restore
               </Button>
             )}
             {/* An archived client is refused a proposal by the API (0305), so

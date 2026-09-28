@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
@@ -49,6 +49,7 @@ import {
 } from "@/components/tw";
 import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
+import { ConfirmAction } from "@/components/confirm-action";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 
@@ -113,6 +114,7 @@ export default function LetterPage() {
   const [routing, setRouting] = useState<LetterRouting | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const sendForm = useRef<HTMLFormElement>(null);
   /** What "Add all standard terms" did last: the API's own list of what went
    *  on and what was left off, with each refusal's sentence (T6.18, D6). */
   const [standardTerms, setStandardTerms] = useState<StandardClausesAdded | null>(null);
@@ -246,6 +248,8 @@ export default function LetterPage() {
   // nothing on this page may be offered for it, so it is not a draft here.
   const deleted = letter.deletedAt !== null;
   const isDraft = letter.status === "draft" && !deleted;
+  // Sending locks the terms; the confirm says so before the press (V1.3).
+  const sendConsequence = `${letter.ref} goes out and its terms are locked. To change anything after this, withdraw it and draft a new letter.`;
   const isSigned = letter.status === "signed";
   // HOW THIS LETTER IS SIGNED (0080). `sends` is the deployment's answer:
   // true means sending raises a DocuSign envelope, so the send form asks whom
@@ -1232,6 +1236,7 @@ export default function LetterPage() {
             // name starts as the addressee's because that is usually who signs,
             // and it stays editable because it often is not.
             <form
+              ref={sendForm}
               className="mt-2"
               action={(form) => {
                 void act("send", () =>
@@ -1275,9 +1280,21 @@ export default function LetterPage() {
                     the labels': neither field carries a hint, so the bottoms of
                     the three cells are the same line. */}
                 <div className="self-end">
-                  <Button type="submit" className="justify-self-start" disabled={busy !== null}>
+                  {/* Confirmed (V1.3). The form is checked first, so an empty
+                      field is pointed at before anybody confirms a send. */}
+                  <ConfirmAction
+                    className="justify-self-start"
+                    disabled={busy !== null}
+                    title={`Send ${letter.ref} for signature?`}
+                    confirmLabel="Send it"
+                    consequence={<p>{sendConsequence}</p>}
+                    beforeOpen={() => sendForm.current?.reportValidity() ?? false}
+                    onConfirm={() => {
+                      sendForm.current?.requestSubmit();
+                    }}
+                  >
                     Send for signature
-                  </Button>
+                  </ConfirmAction>
                 </div>
               </div>
             </form>
@@ -1331,9 +1348,12 @@ export default function LetterPage() {
               now sits directly above this row. */}
           <div className="cluster mt-3">
             {isDraft && !signing.sends && (
-              <Button
+              <ConfirmAction
                 disabled={busy !== null}
-                onClick={() => {
+                title={`Send ${letter.ref} for signature?`}
+                confirmLabel="Send it"
+                consequence={<p>{sendConsequence}</p>}
+                onConfirm={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
                       params: { path: { letterId }, query: { asOf: browserDay() } },
@@ -1342,17 +1362,27 @@ export default function LetterPage() {
                 }}
               >
                 Send for signature
-              </Button>
+              </ConfirmAction>
             )}
             {/* A letter the client has SEEN is withdrawn, which keeps the record
                 that it was offered. A draft nobody has seen is deleted instead,
                 at the foot of the page (0086) — so Withdraw is for `sent` only. */}
             {letter.status === "sent" && (
-              <Button
+              <ConfirmAction
                 variant="destructive-quiet"
                 size="sm"
                 disabled={busy !== null}
-                onClick={() => {
+                title={`Withdraw ${letter.ref}?`}
+                confirmLabel="Withdraw it"
+                destructive
+                consequence={
+                  <p>
+                    The client can no longer sign {letter.ref}
+                    {signing.sends ? `, and the ${providerName} envelope is cancelled` : ""}. It
+                    stays on file as withdrawn. To offer terms again, draft a new letter.
+                  </p>
+                }
+                onConfirm={() => {
                   void act("withdraw", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/withdraw", {
                       params: { path: { letterId } },
@@ -1361,7 +1391,7 @@ export default function LetterPage() {
                 }}
               >
                 Withdraw
-              </Button>
+              </ConfirmAction>
             )}
             {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
               <Button

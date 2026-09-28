@@ -36,6 +36,7 @@ import {
   Select,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
+import { ConfirmAction } from "@/components/confirm-action";
 import {
   Card,
   CardTitle,
@@ -204,9 +205,20 @@ export default function InvoicePage() {
         }
         actions={
           draft && mayAdmin ? (
-            <Button
+            // Confirmed (V1.3): issuing locks the money on a numbered tax
+            // document, and the only way back is to cancel it.
+            <ConfirmAction
               disabled={busy}
-              onClick={() =>
+              title={`Issue ${invoice.number}?`}
+              confirmLabel="Issue it"
+              consequence={
+                <p>
+                  {invoice.number} becomes a tax invoice dated {longDay(browserDay())}. Its
+                  lines and amounts are then locked. To correct it later, you cancel it and
+                  raise a new invoice.
+                </p>
+              }
+              onConfirm={() =>
                 void act(() =>
                   // The date printed on the tax invoice: today where the
                   // person issuing it is, not Greenwich's day.
@@ -217,7 +229,7 @@ export default function InvoicePage() {
               }
             >
               Issue
-            </Button>
+            </ConfirmAction>
           ) : undefined
         }
       />
@@ -566,19 +578,28 @@ export default function InvoicePage() {
                one VOIDS THE INVOICE and it keeps its number forever. Somebody
                moving between buttons by name had no way to tell them apart.
                The visible word is unchanged. */
-            <Button
+            <ConfirmAction
               variant="destructive-quiet"
               size="sm"
               disabled={busy}
               aria-label={`Cancel invoice ${invoice.number}`}
-              onClick={() =>
+              title={`Cancel ${invoice.number}?`}
+              confirmLabel="Cancel the invoice"
+              destructive
+              consequence={
+                <p>
+                  {invoice.number} is voided. It keeps this number, which cannot be used
+                  again. Raise a new invoice to replace it.
+                </p>
+              }
+              onConfirm={() =>
                 void act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/cancel", { params: { path: { invoiceId } } }),
                 )
               }
             >
               Cancel
-            </Button>
+            </ConfirmAction>
           )}
         </div>
         {invoice.status === "cancelled" && (

@@ -6,6 +6,7 @@ import { api, apiError, readRoleBody } from "@/lib/api/client";
 import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
+import { ConfirmDialog } from "@/components/confirm-action";
 import {
   Button,
   Checkbox,
@@ -60,6 +61,8 @@ export default function PeoplePage() {
   // dialog closes: "was an email sent?" is asked straight after the press.
   const [adding, setAdding] = useState(false);
   const [outcome, setOutcome] = useState<AddOutcome | null>(null);
+  // Revoking access asks first (V1.3); restoring it does not.
+  const [revoking, setRevoking] = useState<{ member: Member; from: HTMLElement | null } | null>(null);
   const { trigger: addTrigger } = useSwapFocus(adding);
 
   const load = useCallback(async (): Promise<void> => {
@@ -350,7 +353,14 @@ export default function PeoplePage() {
                         {...(m.membership.isActive ? { tone: "danger" as const } : {})}
                         disabled={busy === m.membership.id}
                         onClick={() => {
-                          setActive(m.membership.id, !m.membership.isActive);
+                          if (m.membership.isActive) {
+                            setRevoking({
+                              member: m,
+                              from: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+                            });
+                            return;
+                          }
+                          setActive(m.membership.id, true);
                         }}
                       >
                         {m.membership.isActive ? "Revoke access" : "Restore access"}
@@ -363,6 +373,26 @@ export default function PeoplePage() {
           </Table>
         </TableWrap>
         <p className="field-hint">Revoking access takes effect at once.</p>
+        <ConfirmDialog
+          open={revoking !== null}
+          onClose={() => {
+            setRevoking(null);
+          }}
+          title={`Revoke ${revoking?.member.displayName ?? revoking?.member.email ?? ""}'s access?`}
+          confirmLabel="Revoke access"
+          destructive
+          consequence={
+            <p>
+              {revoking?.member.displayName ?? revoking?.member.email} is signed out at once and
+              cannot sign in to this firm. Their work stays where it is. You can restore access
+              later.
+            </p>
+          }
+          onConfirm={() => {
+            if (revoking !== null) setActive(revoking.member.membership.id, false);
+          }}
+          returnFocusTo={revoking?.from ?? null}
+        />
       </Stack>
 
       {adding && (

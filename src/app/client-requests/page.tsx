@@ -104,6 +104,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { longInstant } from "@/lib/day";
+import { ConfirmAction } from "@/components/confirm-action";
 import { ReplyLine, whereItStands } from "./thread";
 
 interface Me {
@@ -587,9 +588,22 @@ function RequestCard({
             )}
             {/* Closing with NO reply is allowed and is the duplicate case —
                 two requests for the same thing, one of which gets answered. */}
-            <Button variant="ghost" size="sm" onClick={() => void close()} disabled={busy}>
+            <ConfirmAction
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              title="Close without replying?"
+              confirmLabel="Close it"
+              consequence={
+                <p>
+                  The request is closed and the client gets no answer from you here. Use this
+                  for a duplicate that is answered elsewhere.
+                </p>
+              }
+              onConfirm={() => void close()}
+            >
               Close without replying
-            </Button>
+            </ConfirmAction>
           </div>
         )}
 

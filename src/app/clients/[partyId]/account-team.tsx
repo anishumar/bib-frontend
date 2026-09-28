@@ -29,6 +29,7 @@ import type {
   ServiceAxis,
 } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
+import { ConfirmAction } from "@/components/confirm-action";
 
 /**
  * Who at the firm owns this client (G3.2).
@@ -307,19 +308,29 @@ export function AccountTeamPanel({
                          the row IS, and none of the three is editable here. The
                          sweep that reported this route clean ran against a
                          client with no account team at all. */
-                      <Button
+                      <ConfirmAction
                         variant="secondary"
                         size="sm"
                         disabled={busy}
                         aria-label={`End today: ${roleLabel(a.role)}, ${
                           a.holderName ?? a.holderEmail
                         }, ${a.axis === null ? "Whole client" : a.axis.name}`}
-                        onClick={() => {
+                        title={`End ${a.holderName ?? a.holderEmail}'s role today?`}
+                        confirmLabel="End it today"
+                        consequence={
+                          <p>
+                            {a.holderName ?? a.holderEmail} stops being {roleLabel(a.role)} for{" "}
+                            {clientName}
+                            {a.axis === null ? "" : ` (${a.axis.name})`} from today. New work goes to
+                            the next person in line until you name someone else.
+                          </p>
+                        }
+                        onConfirm={() => {
                           void end(a);
                         }}
                       >
                         End today
-                      </Button>
+                      </ConfirmAction>
                     )}
                   </Td>
                 </tr>
