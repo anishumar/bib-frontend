@@ -185,23 +185,17 @@ export const VERIFICATION_RULES: readonly {
   {
     value: "rank_threshold",
     label: "Anybody senior enough",
-    detail:
-      "Anybody at or above a grade you choose may check the work. Nobody waits on one " +
-      "particular person.",
+    detail: "Anybody at or above a grade you choose. Nobody waits on one person.",
   },
   {
     value: "reporting_line",
     label: "The maker's own manager",
-    detail:
-      "Only the person they report to may check it. This is the strictest rule: if that " +
-      "manager is on leave, nobody else can check the work.",
+    detail: "Only their manager. The strictest: if the manager is on leave, nobody checks.",
   },
   {
     value: "reporting_line_or_rank",
     label: "Their manager, or anybody senior enough",
-    detail:
-      "Their own manager normally, and anybody at or above a grade you choose when that " +
-      "person is away.",
+    detail: "Their manager, or a grade you choose when the manager is away.",
   },
 ];
 
@@ -1164,14 +1158,18 @@ export const BRAND_ASSET_LABELS: Readonly<Record<BrandAssetKind, string>> = {
 };
 
 export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
-  logo: "Printed at the head of what this entity issues. PNG or JPG.",
-  signature:
-    "The image that signs off a letter this entity binds. PNG, so the background is transparent and the mark sits on the line rather than in a white box.",
-  letterhead: "The full stationery, when a firm uses one instead of a bare logo.",
+  // One line each (Wave 4). A signature is a PNG so its background is clear
+  // and the mark sits on the line rather than in a white box.
+  logo: "Heads every letter, invoice and proposal. PNG or JPG.",
+  signature: "Signs engagement letters once sent. A PNG with a clear background.",
+  // The letterhead is stored and not drawn on anything yet: said on the row,
+  // because a control that looks live and is inert is the thing to avoid.
+  letterhead: "Stored only. Not printed on anything yet.",
   // WHERE the two names land is the layout's, so the artwork has to leave room
-  // for them — said here, where the person choosing the file can act on it.
+  // for them: "Prepared for" in dark text about 40% down on the right, and
+  // "Prepared by" in white about 78% down on the right.
   proposal_cover:
-    "The full first page of every proposal this entity issues: your design, with the logo and 'Proposal for Services' in it. A portrait image, PNG or JPG. 'Prepared for' prints in dark text on the right, about 40% of the way down, and 'Prepared by' in white on the right, about 78% of the way down, so leave those areas clear.",
+    "First page of each proposal. Portrait PNG or JPG; keep the right side clear 40% and 78% down.",
 };
 
 /**

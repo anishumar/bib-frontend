@@ -118,10 +118,10 @@ export function ChangePassword({
       {hasPassword ? (
         <form onSubmit={onSubmit}>
           <FieldStack>
-            <Field
-              label="Current password"
-              hint="Required, and being signed in does not stand in for it — that is what stops a stolen session turning into a permanent one."
-            >
+            {/* No hint (Wave 4). Being signed in does not stand in for the
+                current password: that stops a stolen session becoming a
+                permanent one. */}
+            <Field label="Current password">
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -135,7 +135,7 @@ export function ChangePassword({
 
             <Field
               label="New password"
-              hint="At least 12 characters. Length is the only rule — a long passphrase beats a short one with symbols."
+              hint="At least 12 characters. A long phrase works best."
             >
               <Input
                 type="password"
@@ -186,10 +186,7 @@ export function ChangePassword({
               cannot be the thing that sets the first one — see the note at the
               top of this file. */}
           <Notice tone="neutral" eyebrow="No password yet">
-            You sign in with the links this product emails you, which is why there is nothing
-            here to change. Setting a password is done from a link as well: it proves you can
-            read the mailbox, which is the only thing that can stand in for a password you do
-            not have.
+            You sign in with emailed links. To set a password, we email you a link.
           </Notice>
 
           <ErrorNotice error={error} />

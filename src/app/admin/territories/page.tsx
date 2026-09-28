@@ -13,6 +13,7 @@ import {
   Field,
   FieldRow,
   Input,
+  NotSet,
   Pill,
   Select,
   Table,
@@ -21,6 +22,8 @@ import {
   Th,
 } from "@/components/ui";
 import type { Member, TerritoryRule } from "@/lib/api/client";
+import { CountrySelect } from "@/components/country-select";
+import { countryName } from "@/lib/country";
 
 /**
  * Whose desk covers leads from a country.
@@ -106,12 +109,9 @@ export default function TerritoriesPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="The firm"
-        title="Territories"
-        lede="Give a country to a person, and every new lead from that country goes to them. Leads from any other country go round the rotation, to whoever holds the fewest open leads."
-        aside={<Pill tone="quiet">{rules.length} set</Pill>}
-      />
+      {/* No lede (Wave 4): a country given to a person sends its new leads
+          to them; the rest go round the rotation (the line under the table). */}
+      <PageHeader title="Territories" />
 
       <ErrorNotice error={error} />
 
@@ -135,26 +135,30 @@ export default function TerritoriesPage() {
               {rules.map((r) => (
                 <tr key={r.id}>
                   <Td>
-                    <Pill tone="code">{r.jurisdiction}</Pill>
+                    {countryName(r.jurisdiction)} <Pill tone="code">{r.jurisdiction}</Pill>
                   </Td>
                   {/* The roster is already loaded for the picker, so naming the
                       desk costs nothing extra here. If this list ever outgrows
                       the roster read, the join belongs in the API. */}
                   <Td>{nameOf(r.ownerUserId)}</Td>
-                  <Td>{r.note === null ? <span className="empty">none</span> : r.note}</Td>
+                  <Td>{r.note === null ? <NotSet /> : r.note}</Td>
                 </tr>
               ))}
             </tbody>
           </Table>
         </TableWrap>
       )}
+      {rules.length > 0 && (
+        <p className="field-hint">
+          Every other country goes round the rotation, to whoever has the fewest open leads.
+        </p>
+      )}
 
       <Card>
+        {/* Setting a country that has someone moves it; leads already
+            assigned under the old rule stay where they are. */}
         <CardHead title="Set a territory" level={2}>
-          <p className="lede">
-            One person per country. Setting a country that already has someone moves it to the
-            new person. Leads already assigned under the old rule stay where they are.
-          </p>
+          <p className="lede">One person per country. Setting it again moves new leads only.</p>
         </CardHead>
         <form
           action={(form) => {
@@ -163,8 +167,10 @@ export default function TerritoriesPage() {
         >
           <div className="stack">
             <FieldRow>
+              {/* A picker, not a two-letter box: the value is still the
+                  country code the API takes. */}
               <Field label="Country">
-                <Input name="jurisdiction" maxLength={2} placeholder="GB" required />
+                <CountrySelect name="jurisdiction" blankLabel="Choose a country" required />
               </Field>
               <Field label="Goes to">
                 <Select name="ownerUserId" required>
@@ -176,7 +182,7 @@ export default function TerritoriesPage() {
                 </Select>
               </Field>
               <Field label="Why" optional>
-                <Input name="note" placeholder="Ravi covers the UK" />
+                <Input name="note" placeholder="e.g. Ravi covers the UK" />
               </Field>
             </FieldRow>
             <div>

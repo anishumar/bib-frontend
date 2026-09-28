@@ -25,6 +25,7 @@ import {
   FieldStack,
   Input,
   Notice,
+  NotSet,
   Pill,
   Table,
   TableWrap,
@@ -83,7 +84,7 @@ export default function DocumentBlocksPage() {
     <Suspense
       fallback={
         <Page>
-          <PageHeader eyebrow="Documents" title="Standard prose" />
+          <PageHeader title="Standard prose" />
         </Page>
       }
     >
@@ -176,13 +177,9 @@ function StandardProse() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="Documents"
-        title="Standard prose"
-        lede="The standard wording copied onto every new proposal and engagement letter. Editing a
-        line here changes the next document only. Documents already issued keep the wording they
-        were written with. The cover letter and the acceptance print on engagement letters only."
-      />
+      {/* No lede (Wave 4). Editing a line changes the NEXT document only; one
+          already issued keeps the wording it was written with. */}
+      <PageHeader title="Standard prose" />
       <ErrorNotice error={error} />
       {notice !== null && <Notice tone="ok">{notice}</Notice>}
 
@@ -200,18 +197,8 @@ function StandardProse() {
       />
       <TabPanel tabsId={tabsId} value={tab}>
         <div className="stack">
-          {company === null ? (
-            <p className="muted" style={{ maxWidth: "70ch" }}>
-              The firm&rsquo;s own wording. Every company uses these lines for a kind until you
-              write that company&rsquo;s own on its tab.
-            </p>
-          ) : (
-            <p className="muted" style={{ maxWidth: "70ch" }}>
-              What {company.name}&rsquo;s documents carry, kind by kind. Where it has no wording of
-              its own, it uses the Default wording, shown here as it prints.{" "}
-              <Link href="/admin/firm">Your firm</Link> says which clients it quotes.
-            </p>
-          )}
+          {/* No intro line per tab (Wave 4): the table above says who uses
+              what, and each card below says it for its kind. */}
           {BLOCK_KINDS.map((kind) => {
             const key = `${tab}:${kind}`;
             const cardProps = {
@@ -271,13 +258,10 @@ function WhoUsesWhat({
   return (
     <Card>
       <CardHead title="Which wording each company uses" level={2}>
-        <p className="lede">
-          Every company uses the <strong>Default</strong> wording until you write its own. This is
-          decided kind by kind: a company can have its own commercial notes and still use the
-          Default exclusions. Once a company has its own lines of a kind, only those print on its
-          documents, and the Default lines of that kind are left out. A line marked for one country
-          prints only on documents for clients there, in either set.
-        </p>
+        {/* THE RULE (D5), per KIND: a company with its own lines of a kind
+            prints only those; otherwise the Default ones. "Only in" applies
+            inside either set. Said in CLAUDE.md; one line here. */}
+        <p className="lede">Each company uses the Default until it writes its own, kind by kind.</p>
       </CardHead>
       <TableWrap>
         <Table>
@@ -304,9 +288,9 @@ function WhoUsesWhat({
                     {hasOwn(blocks, c.partyId, kind) ? (
                       <Pill tone="neutral">Own</Pill>
                     ) : noDefault(kind) ? (
-                      <span className="unstated">none</span>
+                      <NotSet>None</NotSet>
                     ) : (
-                      <span className="muted">Default</span>
+                      "Default"
                     )}
                   </Td>
                 ))}
@@ -358,17 +342,14 @@ function DefaultKind({
           uses these lines" above "no standard lines yet" is two sentences
           disagreeing. */}
         {companies.length > 0 && anyLive && (
-          <p className="muted text-md">
+          <p className="text-md">
             {own.length === 0
               ? "Every company uses these lines."
               : `Every company uses these lines except ${names(own)}, which ${own.length === 1 ? "has its" : "have their"} own.`}
           </p>
         )}
         {!anyLive ? (
-          <p className="muted">
-            No standard lines in use, so new documents carry no {label.toLowerCase()} unless a
-            company has its own.
-          </p>
+          <p className="text-md">No lines yet. New documents carry none.</p>
         ) : (
           <LineTable
             kind={kind}
@@ -385,7 +366,7 @@ function DefaultKind({
           kind={kind}
           owner={{ kind: "default" }}
           count={lines.filter((b) => b.isActive).length}
-          startOpen={!anyLive}
+          startOpen={false}
           busy={busy}
           act={act}
         />
@@ -416,10 +397,11 @@ function names(companies: readonly FirmEntity[]): string {
 function WherePrints({ kind }: { kind: BlockKind }) {
   if ((PROPOSAL_BLOCK_KINDS as readonly BlockKind[]).includes(kind)) return null;
   return (
-    <p className="muted text-md">
+    <p className="text-md text-ink-2">
+      {/* Legal text, so nothing is written here for the firm. */}
       {kind === "cover"
-        ? "The paragraphs an engagement letter opens with, after the salutation and before the firm's signature. Engagement letters only. This is legal text, so nothing is written here for you."
-        : "What the client accepts under, just above their signature on page one. Engagement letters only."}
+        ? "Opens an engagement letter, after the salutation. Letters only."
+        : "Printed above the client's signature on page one. Letters only."}
     </p>
   );
 }
@@ -508,7 +490,7 @@ function CompanyKind({
           usesOwn ? (
             <Pill tone="neutral">{company.name}&rsquo;s own wording</Pill>
           ) : (
-            <Pill tone="quiet">Using the default wording</Pill>
+            <Pill tone="neutral">Using the default wording</Pill>
           )
         }
       />
@@ -517,10 +499,7 @@ function CompanyKind({
 
         {usesOwn ? (
           <>
-            <p className="muted text-md">
-              Only these lines print on {company.name}&rsquo;s documents. The Default {lower} are
-              not added.
-            </p>
+            <p className="text-md">Only these lines print on {company.name}&rsquo;s documents.</p>
             <LineTable
               kind={kind}
               lines={live}
@@ -540,12 +519,9 @@ function CompanyKind({
               act={act}
             />
             <div className="stack" style={{ marginTop: "var(--s-3)" }}>
-              <p className="muted text-md">
-                <strong>Go back to the default</strong> retires {company.name}&rsquo;s{" "}
-                {live.length === 1 ? "line" : `${String(live.length)} lines`} above. Its next
-                documents use the Default {lower} again. Documents already drafted keep what they
-                have.
-              </p>
+              {/* Retires the lines above; documents already drafted keep what
+                  they copied. */}
+              <p className="field-hint">New documents use the Default {lower} again.</p>
               <div className="cluster">
                 <Button
                   variant="secondary"
@@ -561,26 +537,18 @@ function CompanyKind({
         ) : (
           <>
             {inherited.length === 0 ? (
-              <p className="muted">
-                The Default has no {lower}, so {company.name}&rsquo;s documents carry none. Add a
-                line below to give {company.name} its own.
+              <p className="text-md">
+                The Default has none, so {company.name}&rsquo;s documents carry none.
               </p>
             ) : (
               <>
-                <p className="muted text-md">
-                  {company.name} has no {lower} of its own, so its documents carry the Default
-                  lines:
-                </p>
+                <p className="text-md">Uses the Default lines:</p>
                 <InheritedLines
                   lines={inherited}
                   label={`Default ${lower} used by ${company.name}`}
                 />
-                <p className="muted text-md">
-                  <strong>Write this company&rsquo;s own</strong> copies these{" "}
-                  {inherited.length === 1 ? "line" : `${String(inherited.length)} lines`} to{" "}
-                  {company.name} for you to change. From then on only {company.name}&rsquo;s own
-                  lines print on its documents for this kind.
-                </p>
+                {/* Copies these lines to the company for it to change; from
+                    then on only its own lines print for this kind. */}
                 <div className="cluster">
                   <Button
                     variant="secondary"
@@ -598,7 +566,7 @@ function CompanyKind({
                 kind={kind}
                 owner={owner}
                 count={own.length}
-                startOpen
+                startOpen={false}
                 busy={busy}
                 act={act}
               />
@@ -656,9 +624,8 @@ function Retired({
         Retired lines of {of} ({String(retired.length)})
       </summary>
       <div className="stack">
-        <p className="muted text-md">
-          Kept because documents drafted while they were in use copied them. {hint}
-        </p>
+        {/* Kept because documents drafted while they were in use copied them. */}
+        <p className="text-md">{hint}</p>
         <LineTable
           kind={kind}
           lines={retired}
@@ -692,8 +659,8 @@ function InheritedLines({ lines, label }: { lines: readonly StandardBlock[]; lab
           {[...lines]
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((b) => (
-              <tr key={b.id} className="muted">
-                <Td className="mono">{b.sortOrder}</Td>
+              <tr key={b.id}>
+                <Td>{b.sortOrder}</Td>
                 <Td>{b.isHeading ? <strong>{b.body}</strong> : b.body}</Td>
                 <Td>
                   <PrintsIn jurisdiction={b.jurisdiction} />
@@ -708,7 +675,7 @@ function InheritedLines({ lines, label }: { lines: readonly StandardBlock[]; lab
 
 function PrintsIn({ jurisdiction }: { jurisdiction: string | null }) {
   return jurisdiction === null ? (
-    <span className="muted">everywhere</span>
+    <>Everywhere</>
   ) : (
     <span title={jurisdiction}>{countryName(jurisdiction)} only</span>
   );
@@ -830,8 +797,8 @@ function LineTable({
           </thead>
           <tbody>
             {sorted.map((b) => (
-              <tr key={b.id} style={b.isActive ? undefined : { opacity: 0.55 }}>
-                <Td className="mono">{b.sortOrder}</Td>
+              <tr key={b.id}>
+                <Td>{b.sortOrder}</Td>
                 <Td>
                   {editing && b.isActive ? (
                     paragraph ? (
@@ -889,7 +856,7 @@ function LineTable({
                     </Button>
                   ) : (
                     <span className="cluster" style={{ justifyContent: "flex-end" }}>
-                      <Pill tone="danger">retired</Pill>
+                      <Pill dot tone="danger">Retired</Pill>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -1008,10 +975,8 @@ function AddLine({
                   style={{ width: 90 }}
                 />
               </Field>
-              <Field
-                label="Prints in"
-                hint="Every country, or only on documents for clients in one."
-              >
+              {/* No hint inside the row (the FieldRow rule). */}
+              <Field label="Prints in">
                 <CountrySelect name="jurisdiction" blankLabel="Every country" />
               </Field>
               <Checkbox label="Heading" name="heading" />

@@ -168,14 +168,38 @@ export default function StructurePage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow="The firm"
-        title="Firm structure"
-        lede="How your firm is organised: its Depts, its delivery teams, its time zone, and how a
-        client's work is split up. Most firms use only some of these. Fill in what your firm
-        actually uses and leave the rest empty."
-      />
+      {/* The sidebar's word (Wave 4), and no lede: most firms use only some
+          of this, and an empty list is an answer, not an unfinished form. The
+          lists come first because they are what the page is for; the three
+          settings follow. */}
+      <PageHeader title="Structure" />
       <ErrorNotice error={error} />
+
+      <AxisList
+        axis="dept"
+        title="Depts"
+        blurb="Your practice areas, e.g. FRC, TRC, RAA. A SPOC covers a Dept."
+        rows={depts}
+        busy={busy}
+        onRename={rename}
+        onReorder={reorder}
+        onSetActive={setActive}
+        onAdded={() => void load()}
+        onError={setError}
+      />
+
+      <AxisList
+        axis="team"
+        title="Delivery teams"
+        blurb="Who does the work. Separate from the Depts, not under them."
+        rows={teams}
+        busy={busy}
+        onRename={rename}
+        onReorder={reorder}
+        onSetActive={setActive}
+        onAdded={() => void load()}
+        onError={setError}
+      />
 
       {/* T6.8's inbox, and its one setting. It sits on THIS screen because it
           is the same kind of fact as the split above it — how the firm is
@@ -198,32 +222,6 @@ export default function StructurePage() {
         teamCount={teams.filter((t) => t.isActive).length}
         busy={busy === "split"}
         onChoose={chooseSplit}
-      />
-
-      <AxisList
-        axis="dept"
-        title="Depts"
-        blurb="The firm's practice areas. The dashboard splits income by Dept, and a SPOC covers a Dept. For example FRC, TRC, RAA."
-        rows={depts}
-        busy={busy}
-        onRename={rename}
-        onReorder={reorder}
-        onSetActive={setActive}
-        onAdded={() => void load()}
-        onError={setError}
-      />
-
-      <AxisList
-        axis="team"
-        title="Delivery teams"
-        blurb="The teams that actually do the work, for example FINCOMPLIANCE, VCFO CONSOLE, PAYROLL. They are separate from the Depts and not nested under them. One team often delivers work for several Depts."
-        rows={teams}
-        busy={busy}
-        onRename={rename}
-        onReorder={reorder}
-        onSetActive={setActive}
-        onAdded={() => void load()}
-        onError={setError}
       />
     </Page>
   );
@@ -274,13 +272,10 @@ function TimeZoneChooser({
     : [...COMMON_ZONES, { value: chosen, label: chosen }];
   return (
     <Card>
+      {/* Decides which month a document falls into on a client's Month by
+          month page, and which day the chaser counts from. It does NOT change
+          how any date is displayed. */}
       <CardTitle level={2}>Which calendar are your months counted on?</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        This decides which month a document falls into on a client&rsquo;s{" "}
-        <strong>Month by month</strong> page, and which day the client chaser counts from. It
-        does <strong>not</strong> change how any date is displayed. Everybody always sees dates
-        in their own local time.
-      </p>
       {/* This was a <span className="field-label"> over a bare <select>, and
           NEITHER of those is a thing: `.field-label` is defined in no
           stylesheet in the repo — it was used here and nowhere else — and the
@@ -303,10 +298,8 @@ function TimeZoneChooser({
           </Select>
         </Field>
       </div>
-      <p className="muted text-sm" id="firm-timezone-hint">
-        Changing this can move a document at the very start or end of a month onto the
-        neighbouring month&rsquo;s page, because that page is worked out when it is opened.
-        Nothing stored changes.
+      <p className="field-hint" id="firm-timezone-hint">
+        Decides a client&rsquo;s month pages. Dates still show in each reader&rsquo;s own time.
       </p>
     </Card>
   );
@@ -335,7 +328,7 @@ function WorkSplitChooser({
     {
       value: "none",
       label: "Keep it all together",
-      hint: "One client, one job, whatever they bought. What most firms want.",
+      hint: "One client, one job. What most firms want.",
       disabledBecause: null,
     },
     {
@@ -355,10 +348,7 @@ function WorkSplitChooser({
   return (
     <Card>
       <CardTitle level={2}>When a client signs, how is the work split up?</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        A client signs one engagement letter for several services. This decides whether that
-        becomes one job with everything in it, or several jobs, one per group.
-      </p>
+
       {/* The flex row, the gap, the 4px nudge on the radio and the dimming of
           a disabled option were all typed out here; `.check` does every one of
           them, and `.check input:disabled ~ *` does the dimming without the
@@ -391,19 +381,17 @@ function WorkSplitChooser({
           />
         ))}
       </fieldset>
-      <p id={`${splitId}-restates`} className="muted text-sm">
-        Changing this does not affect work already under way. That work keeps the shape it
-        started with. The next engagement is split the new way.
+      <p id={`${splitId}-restates`} className="field-hint">
+        Work already under way keeps its shape.
       </p>
       {/* Said out loud rather than left for somebody to discover. The setting is
           stored and audited today; the orchestrator that reads it is T2.7. A
           control that looks live and is not is exactly the "feature that looks
           finished" this codebase has been caught by before — a registered event
           verb with no writer — so the screen says which half exists. */}
-      <p id={`${splitId}-not-live`} className="muted text-sm">
-        <strong>Not in effect yet.</strong> Your answer is saved and will be used the moment
-        delivery scheduling goes live. Until then every signed engagement produces one job,
-        whatever is chosen here.
+      <p id={`${splitId}-not-live`} className="field-hint">
+        <strong>Not in effect yet.</strong> Saved for when delivery scheduling goes live. Until
+        then each signed engagement makes one job.
       </p>
     </Card>
   );
@@ -437,16 +425,12 @@ function AxisList({
   return (
     <Card>
       <CardTitle level={2}>{title}</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        {blurb}
-      </p>
+      <p className="lede">{blurb}</p>
 
+      {/* While the list is empty a service's field accepts any code; once
+          there is one row, only these codes are accepted. */}
       {rows.length === 0 ? (
-        <p className="muted">
-          None defined yet. While this list is empty, a service&apos;s {title.toLowerCase()}{" "}
-          field accepts any code you type. Once there is one row here, only these codes are
-          accepted.
-        </p>
+        <p>None yet. Until you add one, a service takes any code.</p>
       ) : (
         <TableWrap>
           <Table>
@@ -461,7 +445,7 @@ function AxisList({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} data-inactive={!r.isActive}>
+                <tr key={r.id}>
                   <Td>
                     <CommittedText
                       key={`${r.id}:${r.name}`}
@@ -477,7 +461,7 @@ function AxisList({
                   </Td>
                   {/* The code never changes — every published service body names
                       it and those bodies are frozen. Shown, not editable. */}
-                  <Td className="mono muted">{r.code}</Td>
+                  <Td>{r.code}</Td>
                   <Td>
                     <CommittedNumber
                       key={`${r.id}:${String(r.sortOrder)}`}
@@ -488,8 +472,8 @@ function AxisList({
                     />
                   </Td>
                   <Td>
-                    <Pill tone={r.isActive ? "ok" : "danger"}>
-                      {r.isActive ? "in use" : "retired"}
+                    <Pill dot tone={r.isActive ? "ok" : "danger"}>
+                      {r.isActive ? "In use" : "Retired"}
                     </Pill>
                   </Td>
                   <Td align="right">
@@ -589,25 +573,17 @@ function AddAxis({
           aria-label={axis === "dept" ? "Add a Dept" : "Add a delivery team"}
         >
         <div className="field-row">
-          <Field
-            id={`add-${axis}-code`}
-            label="Code"
-            hint="Permanent once set. Capital letters, spaces allowed. Services refer to it by this code."
-          >
+          <Field id={`add-${axis}-code`} label="Code">
             <Input
               name="code"
-              placeholder={axis === "dept" ? "FRC" : "FINCOMPLIANCE"}
+              placeholder={axis === "dept" ? "e.g. FRC" : "e.g. FINCOMPLIANCE"}
               required
             />
           </Field>
-          <Field
-            id={`add-${axis}-name`}
-            label="Name"
-            hint="What people see. You can change it later."
-          >
+          <Field id={`add-${axis}-name`} label="Name">
             <Input
               name="name"
-              placeholder={axis === "dept" ? "Financial Reporting & Compliance" : "FinCompliance"}
+              placeholder={axis === "dept" ? "e.g. Financial Reporting" : "e.g. FinCompliance"}
               required
             />
           </Field>
@@ -615,6 +591,10 @@ function AddAxis({
             <Input name="sortOrder" type="number" defaultValue={0} />
           </Field>
         </div>
+        {/* UNDER the row, not in a column of it (the FieldRow rule). */}
+        <p className="field-hint">
+          The code cannot change later; services refer to it. The name can.
+        </p>
         <div className="cluster" style={{ marginTop: "var(--s-4)" }}>
           <Button
             type="submit"
@@ -666,6 +646,7 @@ function CommittedText({
 
   return (
     <Input
+      variant="quiet"
       aria-label={label}
       value={draft}
       disabled={disabled}
@@ -705,6 +686,7 @@ function CommittedNumber({
   return (
     <Input
       type="number"
+      variant="quiet"
       aria-label={label}
       value={draft}
       disabled={disabled}
@@ -747,23 +729,19 @@ function RequestRoutingChooser({
     {
       value: "none",
       label: "Leave them for anyone to pick up",
-      hint: "Requests arrive on nobody's desk, and whoever gets to one first takes it. This is the default.",
+      hint: "Whoever gets to one first takes it. The default.",
     },
     {
       value: "key_manager",
       label: "Send them to the client's Key Manager",
-      hint: "If a client has no Key Manager, the request waits under Unassigned and says so. It is never guessed onto somebody else's desk.",
+      hint: "No Key Manager: it waits under Unassigned, never guessed.",
     },
   ];
 
   return (
     <Card>
       <CardTitle level={2}>When a client asks you for something, whose is it?</CardTitle>
-      <p className="muted" style={{ maxWidth: "62ch" }}>
-        Clients raise requests from their own portal: a document they cannot find, a copy of
-        something, a correction. This decides whether a request lands on a named person&rsquo;s
-        desk.
-      </p>
+
       {/* Named and DESCRIBED as a group, for the reason the work-split card
           above is: the paragraph under these options is about the choice, not
           about any one of them. */}
@@ -795,10 +773,7 @@ function RequestRoutingChooser({
         ))}
       </fieldset>
       <p id={`${routingId}-note`} className="field-hint" style={{ marginTop: "var(--s-3)" }}>
-        There is no &ldquo;send it to the SPOC&rdquo; option because a SPOC covers a Dept or a
-        delivery team, and a request does not say which service it is about, so there is no way
-        to pick one. Changing this setting does not move requests already on someone&rsquo;s
-        desk. Only new requests are routed the new way.
+        No SPOC option: a request names no service, so no Dept. Only new requests move.
       </p>
     </Card>
   );

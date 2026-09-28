@@ -490,7 +490,7 @@ export function RuleEditor({
             <Field label="Filing" error={shown.name ?? null}>
               <Input
                 value={draft.name}
-                placeholder="PF monthly return"
+                placeholder="e.g. PF monthly return"
                 onChange={(e) => { set("name", e.target.value); }}
               />
             </Field>
@@ -498,7 +498,7 @@ export function RuleEditor({
               <Input
                 value={draft.jurisdiction}
                 maxLength={2}
-                placeholder="IN"
+                placeholder="e.g. IN"
                 onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
               />
             </Field>
@@ -509,12 +509,12 @@ export function RuleEditor({
               />
             </Field>
           </FieldRow>
-          <Notice eyebrow="CANNOT BE CHANGED LATER">
-            The filing, the country and the pack <strong>identify</strong> this rule. Every
-            filing it generates points back to this row, so these three cannot change later.
-            The pack is prefilled with your firm&rsquo;s own name, kept separate from the
-            shipped <code>gst-in@…</code> pack, so reloading a shipped pack never overwrites a
-            rule you wrote.
+          {/* The pack is prefilled with the firm's own name, kept apart from the
+              shipped `gst-in@...` pack, so reloading a shipped pack never
+              overwrites a rule the firm wrote. */}
+          <Notice eyebrow="Cannot be changed later">
+            The filing, country and pack identify this rule. Every filing it makes points back
+            to them.
           </Notice>
         </>
       )}
@@ -560,20 +560,16 @@ export function RuleEditor({
            nothing, and this paragraph is replaced by a Notice once the shape
            is locked. */
         <p id={periodNoteId} className="field-hint">
-          April for India: a quarter then runs April to June. Leaving the year at January would
-          put every quarterly filing in the wrong period.
+          April for India, so a quarter runs April to June.
         </p>
       )}
 
       {/* DISABLED WITH THE SENTENCE, never silently. A partner meets an
           explanation rather than the API's 409. */}
       {shapeLocked && (
-        <Notice tone="warn" eyebrow="THE PERIOD SHAPE IS FIXED NOW">
-          These two decide where a period <strong>begins</strong>, and this rule has already
-          produced {produced} filing{produced === 1 ? "" : "s"} based on those periods.
-          Changing them now would leave every one of them without a matching period. Retire
-          this rule and write a new one instead. The retired rule still explains the filings
-          it made.
+        <Notice tone="warn" eyebrow="The period shape is fixed now">
+          This rule has made {produced} filing{produced === 1 ? "" : "s"} on these periods. To
+          change them, retire it and write a new one.
         </Notice>
       )}
 
@@ -637,7 +633,7 @@ export function RuleEditor({
             <Field label="What it is waiting for" error={shown.unresolvedReason ?? null}>
               <Input
                 value={draft.unresolvedReason}
-                placeholder="Due within a statutory period after the AGM, and no AGM date is recorded here."
+                placeholder="e.g. Due a set time after the AGM, and no AGM date is held"
                 onChange={(e) => { set("unresolvedReason", e.target.value); }}
               />
             </Field>
@@ -649,14 +645,14 @@ export function RuleEditor({
         <Field label="Filed with">
           <Input
             value={draft.authority}
-            placeholder="GST"
+            placeholder="e.g. GST"
             onChange={(e) => { set("authority", e.target.value); }}
           />
         </Field>
         <Field label="Statute grouping">
           <Input
             value={draft.module}
-            placeholder="TDS"
+            placeholder="e.g. TDS"
             aria-describedby={groupingNoteId}
             onChange={(e) => { set("module", e.target.value); }}
           />
@@ -664,7 +660,7 @@ export function RuleEditor({
         <Field label="Only for entity type" optional>
           <Input
             value={draft.entityType}
-            placeholder="private_limited"
+            placeholder="e.g. private_limited"
             aria-describedby={groupingNoteId}
             onChange={(e) => { set("entityType", e.target.value); }}
           />
@@ -675,15 +671,15 @@ export function RuleEditor({
       {/* One paragraph, TWO fields — which is exactly why it cannot be a
           `<Field hint>` and had to be wired by hand. */}
       <p id={groupingNoteId} className="field-hint">
-        <strong>Statute grouping</strong> is the law&rsquo;s grouping, such as GST, TDS or MCA.
-        It is not your firm&rsquo;s Dept. Leaving <strong>entity type</strong> blank means
-        every kind of company, which is the usual case: GST applies whatever shape a client
-        is.
+        Statute grouping is the law&rsquo;s (GST, TDS, MCA), not your Dept. Blank entity type
+        means every kind of company.
       </p>
 
       {/* THE SENTENCE A PARTNER CHECKS AGAINST THE STATUTE, before saving
           rather than after. `dueMonthOffset: 1` is not proofreadable. */}
-      <p className="mono">{describeDraft(draft)}</p>
+      <p>
+        <strong>Reads as:</strong> {describeDraft(draft)}
+      </p>
 
       {refusal}
       <Cluster>
@@ -774,14 +770,14 @@ export function Exceptions({
 
       <Stack>
         {rule.exceptions.length === 0 ? (
-          <p className="muted">None. This rule&rsquo;s own formula governs every period.</p>
+          <p>None. Every period follows the formula.</p>
         ) : (
           <Table>
             <tbody>
               {rule.exceptions.map((e) => (
                 <tr key={e.periodEndMonth}>
                   <Td>Period ending {MONTHS[e.periodEndMonth - 1] ?? "?"}</Td>
-                  <Td className="mono">
+                  <Td>
                     {e.kind === "days_after"
                       ? `${String(e.dueDaysAfter ?? 0)} days after the period ends`
                       : `the ${ordinal(e.dueDayOfMonth ?? 1)}, ${String(
@@ -855,16 +851,14 @@ export function Exceptions({
               )}
             </FieldRow>
             <p className="field-hint">
-              Choose the month the period ends in, not the month the filing is due. The due month
-              is what this exception changes.
+              The month the period ends in, not the month it is due.
             </p>
-            <Field
-              label="Why this period is different"
-              hint="Required. Without it, a partner checking the calendar cannot tell a real exception from a typo."
-            >
+            {/* Required: without it a partner checking the calendar cannot tell
+                a real exception from a typo. */}
+            <Field label="Why this period is different" hint="Required.">
               <Input
                 value={note}
-                placeholder="March is the year end, and the statute allows until the 30th."
+                placeholder="e.g. March is the year end; the law allows till the 30th"
                 onChange={(e) => { setNote(e.target.value); }}
               />
             </Field>

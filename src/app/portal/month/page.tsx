@@ -72,19 +72,16 @@ export default function PortalMonthPage() {
 
   return (
     <Page>
+      {/* The month picker sits opposite the title (Wave 4): it was a section
+          of its own, headed "Which month", above the one thing it changes. */}
       <PageHeader
-        eyebrow={firm}
         title="Month by month"
-        lede={`What ${firm} did for you, one calendar month at a time.`}
-      />
-
-      <Section title="Which month" level={2}>
-        <div className="flex flex-wrap items-center gap-2">
-            {/* THE MONTHS ARE BUILT BACKWARDS FROM TODAY, and there are
+        actions={
+            /* THE MONTHS ARE BUILT BACKWARDS FROM TODAY, and there are
                 eighteen of them. A free-text month box would make `2026-13`
                 reachable — which the API refuses rather than coerces, correctly,
                 but a refusal a client can trigger by typing is a refusal that
-                should not have been offered. */}
+                should not have been offered. */
             <select
               className="select"
               value={month}
@@ -97,8 +94,8 @@ export default function PortalMonthPage() {
                 </option>
               ))}
             </select>
-        </div>
-      </Section>
+        }
+      />
 
       {!loaded ? (
         <Loading label="Loading that month" />
@@ -112,9 +109,7 @@ export default function PortalMonthPage() {
           Nothing in a typecheck can see this sentence go stale — so when
           transport lands, this is the line to come back to. */}
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        This is a page, not an email. {firm} cannot send email or messages from this system
-        yet, so nothing about this month has been sent to you.
-        Everything here is also on your other pages as it happens.
+        This is a page, not an email. Nothing about this month was sent to you.
       </p>
     </Page>
   );
@@ -133,9 +128,7 @@ function DigestBody({ digest, firm }: { digest: PortalDigest; firm: string }) {
     // facts and only one of them means somebody should ask.
     return (
       <Empty title={`Nothing recorded in ${monthName(digest.month)}`} icon="check">
-        No filing was made, no document was added and nothing was billed in that month. If
-        you expected something, ask {firm}. A quiet month here does not always mean a quiet
-        month at their end.
+        No filing, document or invoice that month. Expected something? Ask {firm}.
       </Empty>
     );
   }
@@ -144,18 +137,18 @@ function DigestBody({ digest, firm }: { digest: PortalDigest; firm: string }) {
     <>
       <DigestSection
         title="Filed for you"
-        note="Returns and submissions made in that month. The date is when it was filed, not when it was due."
+        note="The date it was filed, not when it was due."
         rows={digest.filed}
       />
       <DigestSection
         title="Documents added"
-        note="What was put in your library. All of it is still there, under Documents."
+        note={null}
         rows={digest.documentsAdded}
       />
-      <DigestSection title="Billed" note="Invoices issued in that month." rows={digest.invoiced} />
+      <DigestSection title="Billed" note={null} rows={digest.invoiced} />
       <DigestSection
         title="What you sent back"
-        note="Requests you answered. The date is when you first replied. A second file sent later does not move it."
+        note="The date you first replied."
         rows={digest.asksAnswered}
       />
     </>
@@ -170,12 +163,13 @@ function DigestSection({
   rows,
 }: {
   title: string;
-  note: string;
+  /** One line where the date needs saying; null where the title is enough. */
+  note: string | null;
   rows: readonly PortalDigestRow[];
 }) {
   if (rows.length === 0) return null;
   return (
-    <Section title={title} count={rows.length} lede={note} level={2}>
+    <Section title={title} count={rows.length} {...(note === null ? {} : { lede: note })} level={2}>
       <TableWrap>
       <Table>
         <thead>
@@ -189,10 +183,8 @@ function DigestSection({
           {rows.map((row, i) => (
             <tr key={`${row.label}-${row.on}-${String(i)}`}>
               <Td>{row.label}</Td>
-              <Td>{row.companyName ?? <span className="text-muted">Your account</span>}</Td>
-              <Td>
-                <span className="mono">{longDay(row.on)}</span>
-              </Td>
+              <Td>{row.companyName ?? "Your account"}</Td>
+              <Td>{longDay(row.on)}</Td>
             </tr>
           ))}
         </tbody>

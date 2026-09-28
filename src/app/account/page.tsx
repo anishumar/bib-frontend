@@ -23,12 +23,12 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api/client";
+import { api, codeLabel } from "@/lib/api/client";
 import type { Principal } from "@/lib/api/client";
 import { Page, PageHeader, Stack } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
-import { ErrorNotice, Meta, MetaItem } from "@/components/ui";
+import { ErrorNotice, Meta, MetaItem, NotSet } from "@/components/ui";
 
 export default function AccountPage() {
   const [me, setMe] = useState<Principal | null>(null);
@@ -60,25 +60,23 @@ export default function AccountPage() {
   if (!loaded) return <Loading label="Reading your account" />;
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow="You"
-        title="Your account"
-        lede="Your password, and nothing else. What you may DO at this firm — your role, your grade, who checks your work — is the firm's to set, and lives under Admin."
-      />
+    <Page width="narrow">
+      {/* No lede (Wave 4). Role, grade and reporting line are the firm's and
+          live on /admin/people; this page is your password only. */}
+      <PageHeader title="Your account" />
 
       <ErrorNotice error={error} />
 
       {me === null ? null : (
         <Stack gap="tight">
           <Meta>
-            <MetaItem label="Signed in as">{me.displayName ?? me.email ?? "—"}</MetaItem>
-            <MetaItem label="Email">{me.email ?? "—"}</MetaItem>
+            <MetaItem label="Signed in as">{me.displayName ?? me.email ?? <NotSet />}</MetaItem>
+            <MetaItem label="Email">{me.email ?? <NotSet />}</MetaItem>
             {/* The FIRM, by name. An account is global — one login, however many
                 firms — so it is worth saying which one this session is acting
                 as, even though the password belongs to none of them. */}
             <MetaItem label="Firm">{me.tenantName ?? "No firm selected"}</MetaItem>
-            <MetaItem label="Role">{me.role ?? "—"}</MetaItem>
+            <MetaItem label="Role">{me.role === null ? <NotSet /> : codeLabel(me.role)}</MetaItem>
           </Meta>
 
           <ChangePassword

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import Link from "next/link";
@@ -9,21 +9,21 @@ import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
 import { Cluster, Page, PageHeader, Row, Stack } from "@/components/layout";
 import {
   Button,
-  Card,
-  Checkbox,
   ErrorNotice,
-  Field,
   Input,
   Notice,
   Pill,
   scrollBelowBar,
-  Select,
   Sub,
   Table,
   TableWrap,
+  Tabs,
+  TabPanel,
   Td,
   Th,
+  Tr,
   type PillTone,
+  type TabItem,
 } from "@/components/ui";
 import {
   bodyOf,
@@ -120,7 +120,7 @@ export default function ObligationRulesPage() {
     <Suspense
       fallback={
         <Page>
-          <PageHeader eyebrow="How work runs" title="Compliance rules" />
+          <PageHeader title="Compliance rules" />
         </Page>
       }
     >
@@ -147,8 +147,11 @@ function Rules() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Set only by an ARRIVAL at a chain whose every row is retired, so the
+   *  link lands on something. Otherwise retired rules are the Retired tab. */
   const [showRetired, setShowRetired] = useState(false);
   const [filter, setFilter] = useState<RuleCoverage | "">("");
+  const tabsId = useId();
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<RuleDraft>(draftOf(null));
   const [creating, setCreating] = useState(false);
@@ -420,8 +423,30 @@ function Rules() {
 
   const shown = rules
     .filter((r) => (focused.length === 0 ? true : focused.includes(r.id)))
-    .filter((r) => showRetired || r.isActive)
+    .filter((r) => showRetired || filter === "retired" || r.isActive)
     .filter((r) => filter === "" || r.coverage === filter);
+
+  // THE COUNTS ARE THE TABS (Wave 4). They were a paragraph of link-buttons
+  // ("10 can compute a date but no service uses them: a filing goes on the
+  // calendar only once...") above a "Show" select that did the same filtering
+  // a second way. Same filter values, one control. A tab with nothing in it is
+  // left out, except the four a partner looks for by name.
+  const count = (c: RuleCoverage): number => counts.get(c) ?? 0;
+  const filterTabs: TabItem<string>[] = [
+    { value: "all", label: "All", count: rules.filter((r) => r.isActive).length },
+    { value: "generating", label: "Producing dates", count: count("generating") },
+    { value: "unlinked", label: "Not used by a service", count: count("unlinked") },
+    ...(count("unconfirmed") > 0
+      ? [{ value: "unconfirmed", label: "Not yet confirmed", count: count("unconfirmed") }]
+      : []),
+    { value: "needs_formula", label: "Waiting on a fact", count: count("needs_formula") },
+    ...(count("event_driven") > 0
+      ? [{ value: "event_driven", label: "Event-driven", count: count("event_driven") }]
+      : []),
+    ...(count("retired") > 0
+      ? [{ value: "retired", label: "Retired", count: count("retired") }]
+      : []),
+  ];
 
   const open = editing === null ? null : (rules.find((r) => r.id === editing) ?? null);
 
@@ -437,52 +462,63 @@ function Rules() {
     return `rule-${rule.lineageId}`;
   };
 
+  // The open rule's panel carries the page's notice and refusal while it is
+  // open: it sits under its own row now, and a report at the top of a
+  // fifty-row table is a report nobody sees.
+  const messages = (
+    <>
+      <ErrorNotice error={error} />
+      {notice !== null && <Notice tone="ok">{notice}</Notice>}
+    </>
+  );
+
   return (
     <Page>
       <PageHeader
-        eyebrow="How work runs"
         title="Compliance rules"
-        lede={
-          /* THE LINE AT THE TOP IS WHERE A SERVICE IS CHOSEN, because this
-             screen used to be that place and a partner who remembers the old
-             picker will look for it here first. */
-          <>
-            What the law requires of each client, and by when: your firm&rsquo;s library of
-            compliance filings, so nobody has to type a filing in by hand. A filing reaches a
-            client only once it is added to one of your services in the{" "}
-            <Link href="/catalogue">Catalogue</Link>.
-          </>
+        aside={
+          mayWrite ? (
+            <Button
+              /* SAYS WHICH CANCEL. Open the new-rule form and there are two
+                 buttons on screen saying only "Cancel" (this one, and the
+                 form's own), and they do the same thing, which somebody moving
+                 between buttons by name has no way to know. */
+              {...(creating ? { "aria-label": "Cancel the new rule" } : {})}
+              /* IT STAYS AND A FORM APPEARS UNDER IT, so the state is
+                 announced: `aria-expanded`. See `src/design/README.md`. */
+              aria-expanded={creating}
+              variant={creating ? "secondary" : "primary"}
+              onClick={() => {
+                setEditing(null);
+                setDraft(draftOf(null));
+                setCreating((c) => !c);
+              }}
+            >
+              {creating ? "Cancel" : "Write a rule"}
+            </Button>
+          ) : undefined
         }
       />
 
       <Stack>
-        <ErrorNotice error={error} />
-        {notice !== null && <Notice tone="ok">{notice}</Notice>}
+        {open === null && messages}
 
         {focused.length > 0 && (
-          <Notice tone="ok" eyebrow="FROM THE CALENDAR">
+          <Notice tone="ok" eyebrow="From the calendar">
             <p>
-              <strong>
-                Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
-                engagement&rsquo;s calendar.
-              </strong>{" "}
-              {/* "and confirm it", because answering a shipped rule leaves it
-                  unconfirmed and it still puts nothing on the calendar. The
-                  sentence said only "give it a formula" and was half true. */}
-              Give each one a formula and confirm it, and its filings appear.
-            </p>
-            <p>
+              Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
+              engagement&rsquo;s calendar. {/* "and confirm it": answering a
+              shipped rule leaves it unconfirmed, and it still puts nothing on
+              the calendar. */}
+              Give each one a formula and confirm it.{" "}
               <Link href="/admin/obligation-rules">Show every rule</Link>
             </p>
           </Notice>
         )}
 
         {loaded && rules.length === 0 && (
-          <Notice eyebrow="NO RULES">
-            <p>
-              <strong>This firm has no compliance rules, so its calendar is empty.</strong>
-            </p>
-            <p>New firms get the India rule pack automatically. This firm was set up before that.</p>
+          <Notice eyebrow="No rules">
+            <p>This firm has no compliance rules, so its calendar is empty.</p>
             {mayWrite && (
               <p>
                 <Button onClick={() => void seed()} loading={busy}>
@@ -493,250 +529,216 @@ function Rules() {
           </Notice>
         )}
 
+        {creating && (
+          <RuleEditor
+            draft={draft}
+            onChange={setDraft}
+            rule={null}
+            creating
+            busy={busy}
+            onSave={() => void create()}
+            onCancel={() => { setCreating(false); }}
+            // The form's own refusal replaces the page's last one, which
+            // answered a different body (review).
+            onRefused={() => { setError(null); }}
+          />
+        )}
+
         {rules.length > 0 && (
           <>
-            <Notice>
-              <p>
-                <strong>{counts.get("generating") ?? 0}</strong> of these produce dates.{" "}
-                {/* A RULE NO SERVICE USES ADDS NOTHING (T6.16, decision 1).
-                    Before it, a pack row named no service and "no service"
-                    meant EVERY service, so confirming one reached every client
-                    in its country. Now every shipped rule with a formula lands
-                    here until a service in the catalogue carries it, which is
-                    also where an unconfirmed one gets confirmed. So the count
-                    is a control, and the sentence says where the fix is. */}
-                <Button
-                  variant="link"
-                  onClick={() => { setFilter(filter === "unlinked" ? "" : "unlinked"); }}
-                >
-                  {counts.get("unlinked") ?? 0} can compute a date but no service uses them
-                </Button>
-                : a filing goes on the calendar only once it is added to a service in the{" "}
-                <Link href="/catalogue">Catalogue</Link>, and adding one there confirms it.{" "}
-                {/* A rule a service uses and nobody has confirmed is still
-                    possible: somebody can untick the box below after adding it.
-                    Rare, so it is mentioned only when it is true. */}
-                {(counts.get("unconfirmed") ?? 0) > 0 && (
-                  <>
-                    <Button
-                      variant="link"
-                      onClick={() => { setFilter(filter === "unconfirmed" ? "" : "unconfirmed"); }}
-                    >
-                      {counts.get("unconfirmed") ?? 0} used by a service but not yet confirmed
-                    </Button>
-                    : nothing goes on the calendar from those until somebody here checks them
-                    against the law.{" "}
-                  </>
-                )}
-                {/* THE COUNT IS THE CONTROL. It was a number for three tasks
-                    and the list it described was four clicks away — so the one
-                    thing this screen exists to get answered was the hardest
-                    thing on it to reach. */}
-                <Button
-                  variant="link"
-                  onClick={() => { setFilter(filter === "needs_formula" ? "" : "needs_formula"); }}
-                >
-                  {counts.get("needs_formula") ?? 0} waiting on a fact
-                </Button>
-                : each one says what it still needs, and you can answer it here. And{" "}
-                <strong>{counts.get("event_driven") ?? 0}</strong>{" "}
-                {(counts.get("event_driven") ?? 0) === 1 ? "is" : "are"} triggered by an event
-                rather than by a period.
-              </p>
-              <p className="field-hint">
-                That second number is not a list of faults. Some filings never apply to your
-                clients, and it is fine to leave those rules unanswered.
-              </p>
-            </Notice>
-
-            {/* The FILTER and the one action on a line, the option under them.
-                Both in one `Cluster` pushed "Write a rule" onto its own line
-                the moment the checkbox's sentence wrapped, which reads as a
-                button somebody forgot to place. Found by looking at it. */}
-            <Row align="end">
-              {/* IN A `Field`, like every other Select in this app. A bare one
-                  is `width: 100%` by design — right inside a form, and here it
-                  filled the row and pushed the button onto its own line. The
-                  label is the other half of the fix: a filter with no label is
-                  a control a screen reader announces as "combo box". */}
-              <Field label="Show">
-                <Select
-                  value={filter}
-                  onChange={(e) => { setFilter(e.target.value as RuleCoverage | ""); }}
-                >
-                  <option value="">Every rule</option>
-                  <option value="generating">Producing dates</option>
-                  <option value="unlinked">Not used by any service</option>
-                  <option value="unconfirmed">Not yet confirmed</option>
-                  <option value="needs_formula">Waiting on a fact</option>
-                  <option value="event_driven">Event-driven</option>
-                  <option value="retired">Retired</option>
-                </Select>
-              </Field>
-              {mayWrite && (
-                <Button
-                  variant="secondary"
-                  /* SAYS WHICH CANCEL. Open the new-rule form and there are two
-                     buttons on screen saying only "Cancel" — this one at the
-                     top of the page and the form's own at the bottom of it —
-                     and they do the same thing, which somebody moving between
-                     buttons by name has no way to know. The visible word is
-                     unchanged. */
-                  {...(creating ? { "aria-label": "Cancel the new rule" } : {})}
-                  /* IT STAYS AND A FORM APPEARS UNDER IT, so the state is
-                     announced. The flipping label already says it to somebody
-                     reading; `aria-expanded` is what says it to somebody
-                     arriving on the control. See `src/design/README.md`. */
-                  aria-expanded={creating}
-                  onClick={() => {
-                    setEditing(null);
-                    setDraft(draftOf(null));
-                    setCreating((c) => !c);
-                  }}
-                >
-                  {creating ? "Cancel" : "Write a rule"}
-                </Button>
-              )}
-            </Row>
-            <Checkbox
-              checked={showRetired}
-              onChange={(e) => { setShowRetired(e.target.checked); }}
-              label="Show retired rules"
-              note="a retired rule still explains an old filing's date, so it is kept rather than deleted"
+            <Tabs
+              id={tabsId}
+              label="Which rules"
+              tabs={filterTabs}
+              value={filter === "" ? "all" : filter}
+              onChange={(v) => {
+                setFilter(v === "all" ? "" : (v as RuleCoverage));
+                setShowRetired(false);
+              }}
             />
+            {/* THE LINE AT THE TOP IS WHERE A SERVICE IS CHOSEN, because this
+                screen used to be that place and a partner who remembers the
+                old picker will look for it here first (T6.16). */}
+            <p className="field-hint">
+              {filter === "needs_formula"
+                ? "Some never apply to your clients. It is fine to leave those."
+                : filter === "unconfirmed"
+                  ? "Nothing reaches the calendar from these until somebody confirms them."
+                  : "A rule reaches clients once a service in the Catalogue uses it. "}
+              {filter !== "needs_formula" && filter !== "unconfirmed" && (
+                <Link href="/catalogue">Open the Catalogue</Link>
+              )}
+            </p>
 
-            {creating && (
-              <RuleEditor
-                draft={draft}
-                onChange={setDraft}
-                rule={null}
-                creating
-                busy={busy}
-                onSave={() => void create()}
-                onCancel={() => { setCreating(false); }}
-                // The form's own refusal replaces the page's last one, which
-                // answered a different body (review).
-                onRefused={() => { setError(null); }}
-              />
-            )}
-
-            <Card flush>
+            <TabPanel tabsId={tabsId} value={filter === "" ? "all" : filter}>
               <TableWrap>
                 <Table>
                   <thead>
                     <tr>
                       <Th>Filing</Th>
-                      <Th>Authority</Th>
                       <Th>When</Th>
                       <Th>Start early</Th>
                       <Th>Confirmed</Th>
-                      <Th />
+                      <Th>
+                        <span className="sr-only">Actions</span>
+                      </Th>
                     </tr>
                   </thead>
                   <tbody>
                     {shown.map((rule) => (
-                      <RuleRow
-                        key={rule.id}
-                        rule={rule}
-                        anchor={anchorOf(rule)}
-                        arrived={arrival?.lineageId === rule.lineageId}
-                        busy={busy}
-                        mayWrite={mayWrite}
-                        open={editing === rule.id}
-                        onOpen={() => {
-                          setCreating(false);
-                          setAmending(false);
-                          setEditing(editing === rule.id ? null : rule.id);
-                          setDraft(draftOf(rule));
-                        }}
-                        onPatch={(body, said) => void patch(rule.id, body, said)}
-                      />
+                      <Fragment key={rule.id}>
+                        <RuleRow
+                          rule={rule}
+                          anchor={anchorOf(rule)}
+                          arrived={arrival?.lineageId === rule.lineageId}
+                          busy={busy}
+                          mayWrite={mayWrite}
+                          open={editing === rule.id}
+                          onOpen={() => {
+                            setCreating(false);
+                            setAmending(false);
+                            setEditing(editing === rule.id ? null : rule.id);
+                            setDraft(draftOf(rule));
+                          }}
+                          onPatch={(body, said) => void patch(rule.id, body, said)}
+                        />
+                        {/* THE OPEN RULE, UNDER ITS OWN ROW (Wave 4). It was
+                            drawn after the whole table, so pressing Edit on
+                            row three opened a form fifty rows away, and the
+                            next Tab from the button went to row four. */}
+                        {open !== null && open.id === rule.id && (
+                          <tr>
+                            <td colSpan={5} className="bg-surface-sunk">
+                              <div className="max-w-[56rem] whitespace-normal py-2">
+                                <OpenRule
+                                  open={open}
+                                  messages={messages}
+                                  draft={draft}
+                                  setDraft={setDraft}
+                                  busy={busy}
+                                  mayWrite={mayWrite}
+                                  amending={amending}
+                                  setAmending={setAmending}
+                                  onSave={() => void patch(open.id, bodyOf(draft), "Saved.")}
+                                  onClose={() => { setEditing(null); }}
+                                  onRefused={() => { setError(null); }}
+                                  onAddException={(body) => void addException(open.id, body)}
+                                  onWithdrawException={(m) => void withdrawException(open.id, m)}
+                                  onSupersede={(body) => void supersede(open.id, body)}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </Table>
               </TableWrap>
-            </Card>
-
-            {open !== null && (
-              <Stack>
-                <div>
-                  {/* h2, NOT h3. This panel is a section of the page, and the
-                      cards inside it — Exceptions, The law changed — are
-                      `CardTitle`s, which are h3. At h3 the rule's own name
-                      ranked EQUAL to the cards under it, and the ladder went
-                      h1 -> h3 with nothing between. Neither was ever seen,
-                      because this panel only exists once a rule row is open
-                      and no sweep had opened one. */}
-                  <h2 style={{ marginBottom: 4 }}>{open.name}</h2>
-                  <p className="muted">
-                    {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
-                  </p>
-                </div>
-                {/* A CONFIRMED rule is one somebody vouched for against the
-                    statute, so editing its formula is a different act from
-                    answering an unconfirmed one — named rather than refused,
-                    because a partner correcting their own mistake is allowed. */}
-                {open.status === "confirmed" && (
-                  <Notice tone="warn" eyebrow="THIS RULE IS CONFIRMED">
-                    Somebody has checked this date against the law. If the law changed for one
-                    period only, add an exception rather than editing the formula. An exception
-                    says which period is different and leaves the others as they are.
-                  </Notice>
-                )}
-                <RuleEditor
-                  draft={draft}
-                  onChange={setDraft}
-                  rule={open}
-                  creating={false}
-                  busy={busy}
-                  onSave={() => void patch(open.id, bodyOf(draft), "Saved.")}
-                  onCancel={() => { setEditing(null); }}
-                  onRefused={() => { setError(null); }}
-                />
-                <Exceptions
-                  rule={open}
-                  busy={busy}
-                  mayWrite={mayWrite}
-                  onAdd={(body) => void addException(open.id, body)}
-                  onWithdraw={(m) => void withdrawException(open.id, m)}
-                />
-                {/* AMENDING IS OFFERED ONLY ON A RULE THAT IS STILL IN FORCE.
-                    A rule that already hands over on a day is not the one
-                    governing periods from then on, and superseding it a second
-                    time would leave two successors covering the same periods —
-                    which is two filings for one return. The API refuses it;
-                    this does not offer it, and says why instead. */}
-                {mayWrite &&
-                  (open.effectiveTo !== null ? (
-                    <Notice eyebrow="THIS RULE HANDS OVER">
-                      It governs periods up to {longDay(open.effectiveTo)}, and a later rule governs from
-                      then on. Amend that later rule instead. This row stays as it is, because it
-                      explains why the filings it produced were due when they were.
-                    </Notice>
-                  ) : amending ? (
-                    <Supersede
-                      rule={open}
-                      busy={busy}
-                      onSupersede={(body) => void supersede(open.id, body)}
-                      onCancel={() => { setAmending(false); }}
-                    />
-                  ) : (
-                    <Row>
-                      <span className="faint">
-                        Has the law itself changed from a date? That is not an edit. It keeps
-                        this rule and starts a new one.
-                      </span>
-                      <Button variant="ghost" onClick={() => { setAmending(true); }}>
-                        The law changed
-                      </Button>
-                    </Row>
-                  ))}
-              </Stack>
-            )}
+            </TabPanel>
           </>
         )}
       </Stack>
     </Page>
+  );
+}
+
+/** The open rule: its formula, its exceptions and "the law changed". */
+function OpenRule({
+  open,
+  messages,
+  draft,
+  setDraft,
+  busy,
+  mayWrite,
+  amending,
+  setAmending,
+  onSave,
+  onClose,
+  onRefused,
+  onAddException,
+  onWithdrawException,
+  onSupersede,
+}: {
+  open: ObligationRule;
+  messages: React.ReactNode;
+  draft: RuleDraft;
+  setDraft: (d: RuleDraft) => void;
+  busy: boolean;
+  mayWrite: boolean;
+  amending: boolean;
+  setAmending: (a: boolean) => void;
+  onSave: () => void;
+  onClose: () => void;
+  onRefused: () => void;
+  onAddException: (body: Record<string, unknown>) => void;
+  onWithdrawException: (periodEndMonth: number) => void;
+  onSupersede: (body: Record<string, unknown>) => void;
+}) {
+  return (
+    <Stack>
+      <div>
+        {/* h2, NOT h3. This panel is a section of the page, and the cards
+            inside it (Exceptions, The law changed) are `CardTitle`s, which are
+            h3. */}
+        <h2>{open.name}</h2>
+        <p className="sub">
+          {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
+        </p>
+      </div>
+      {messages}
+      {/* A CONFIRMED rule is one somebody vouched for against the statute, so
+          editing its formula is a different act from answering an unconfirmed
+          one: named rather than refused, because a partner correcting their
+          own mistake is allowed. */}
+      {open.status === "confirmed" && (
+        <Notice tone="warn" eyebrow="This rule is confirmed">
+          Checked against the law. If one period is different, add an exception instead.
+        </Notice>
+      )}
+      <RuleEditor
+        draft={draft}
+        onChange={setDraft}
+        rule={open}
+        creating={false}
+        busy={busy}
+        onSave={onSave}
+        onCancel={onClose}
+        onRefused={onRefused}
+      />
+      <Exceptions
+        rule={open}
+        busy={busy}
+        mayWrite={mayWrite}
+        onAdd={onAddException}
+        onWithdraw={onWithdrawException}
+      />
+      {/* AMENDING IS OFFERED ONLY ON A RULE THAT IS STILL IN FORCE. A rule
+          that already hands over on a day is not the one governing periods from
+          then on, and superseding it a second time would leave two successors
+          covering the same periods, which is two filings for one return. The
+          API refuses it; this does not offer it, and says why instead. */}
+      {mayWrite &&
+        (open.effectiveTo !== null ? (
+          <Notice eyebrow="This rule hands over">
+            It governs periods up to {longDay(open.effectiveTo)}. Amend the later rule instead.
+          </Notice>
+        ) : amending ? (
+          <Supersede
+            rule={open}
+            busy={busy}
+            onSupersede={onSupersede}
+            onCancel={() => { setAmending(false); }}
+          />
+        ) : (
+          <Row>
+            <span className="sub">Has the law itself changed from a date? That starts a new rule.</span>
+            <Button variant="ghost" onClick={() => { setAmending(true); }}>
+              The law changed
+            </Button>
+          </Row>
+        ))}
+    </Stack>
   );
 }
 
@@ -781,38 +783,43 @@ function RuleRow({
     today === null || governsToday ? null : otherRowToday(rule, today.effectiveFrom, today.dueRule);
 
   return (
-    <tr
+    <Tr
       id={anchor ?? undefined}
       // Focusable by script only, so an arrival can put focus on the row
       // without adding a Tab stop to every row of the table.
       tabIndex={anchor === null ? undefined : -1}
       data-arrived={arrived ? "true" : undefined}
-      style={rule.isActive ? undefined : { opacity: 0.55 }}
     >
       <Td>
-        {rule.name}
-        {rule.module !== null && <Sub>{rule.module}</Sub>}
-        {/* THE REASON, in place of a date. This is what a partner reads and
-            answers; without it an undated rule is indistinguishable from a
-            broken import. */}
-        {rule.unresolvedReason !== null && <p className="cell-note">{rule.unresolvedReason}</p>}
-        {rule.exceptions.length > 0 && (
-          <p className="cell-note">
-            {rule.exceptions
-              .map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`)
-              .join(" · ")}
-          </p>
-        )}
-        {/* WHERE IT IS USED (T6.16), by the service's NAME and linking to its
-            card in the catalogue, which is where it is added and removed. The
-            empty case is a SENTENCE, not a blank: a rule on no service adds
-            nothing to the calendar at all, and a blank cell would let a
-            confirmed, formula-bearing rule look as though it were working. */}
-        <p className="cell-note">
-          {rule.usedIn.length === 0 ? (
-            "Not used by any service, so it adds nothing to the calendar."
-          ) : (
-            <>
+        {/* CAPPED AT 18rem SO IT WRAPS (Wave 4). The reason sentences ran
+            unwrapped and the table hid 1,432px of its columns at 1280. */}
+        <div className="max-w-72 whitespace-normal">
+          {rule.name}
+          {/* The law's grouping, who it is filed with, and the country, on one
+              line: "Authority" was a column of its own. */}
+          <Sub>
+            {[rule.module, rule.authority, rule.jurisdiction].filter((v) => v !== null && v !== "").join(" · ")}
+          </Sub>
+          {/* THE REASON, in place of a date. This is what a partner reads and
+              answers; without it an undated rule is indistinguishable from a
+              broken import. */}
+          {rule.unresolvedReason !== null && <Sub>{rule.unresolvedReason}</Sub>}
+          {rule.exceptions.length > 0 && (
+            <Sub>
+              {rule.exceptions
+                .map((e) => `${MONTHS[e.periodEndMonth - 1] ?? "?"}: ${e.note}`)
+                .join(" · ")}
+            </Sub>
+          )}
+          {/* WHERE IT IS USED (T6.16), by the service's NAME and linking to
+              its card in the catalogue, which is where it is added and
+              removed. The empty case is words, not a blank: a rule on no
+              service adds nothing to the calendar at all. Not said twice: a
+              rule with a formula and no service already reads "Not used by a
+              service" in its pill, and one waiting on a fact makes nothing
+              whoever uses it (Wave 4, 46 identical lines on the shipped pack). */}
+          {rule.usedIn.length > 0 ? (
+            <Sub>
               Used in:{" "}
               {rule.usedIn.map((u, i) => (
                 <span key={u.serviceEntryId}>
@@ -823,80 +830,71 @@ function RuleRow({
                   </Link>
                 </span>
               ))}
-            </>
+            </Sub>
+          ) : rule.coverage !== "unlinked" && rule.coverage !== "needs_formula" ? (
+            <Sub>Not used by any service yet.</Sub>
+          ) : null}
+        </div>
+      </Td>
+      <Td>
+        <div className="max-w-56 whitespace-normal">
+          <Pill dot tone={TONE[rule.coverage]}>{LABEL[rule.coverage]}</Pill>
+          {/* The formula as a sentence, in the sans face (Wave 4). */}
+          <Sub>{describeRule(rule)}</Sub>
+          {next !== null && <Sub>{next}</Sub>}
+          {elsewhere !== null && <Sub>{elsewhere}</Sub>}
+          {rule.instanceCount > 0 && (
+            <Sub>
+              {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} made
+            </Sub>
           )}
-        </p>
-      </Td>
-      <Td>
-        {rule.authority ?? <span className="muted">not stated</span>}
-        <Sub>{rule.jurisdiction}</Sub>
-      </Td>
-      <Td>
-        <Pill tone={TONE[rule.coverage]}>{LABEL[rule.coverage]}</Pill>
-        <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
-          {describeRule(rule)}
-        </span>
-        {next !== null && (
-          <span className="mono text-xs" style={{ display: "block", margin: 0 }}>
-            {next}
-          </span>
-        )}
-        {elsewhere !== null && <Sub>{elsewhere}</Sub>}
-        {rule.instanceCount > 0 && (
-          <Sub>
-            {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} generated
-          </Sub>
-        )}
-        {/* THE WINDOW, and it is not decoration. A rule that has handed over
-            still says "producing dates" — correctly, because it governs its own
-            periods — so without this line a partner would read it as live for
-            periods it no longer covers, and go looking for a bug. */}
-        {rule.effectiveTo !== null && !handoverSaid && (
-          <Sub>hands over on {longDay(rule.effectiveTo)}</Sub>
-        )}
-        {rule.effectiveFrom !== null && <Sub>governs periods from {longDay(rule.effectiveFrom)}</Sub>}
+          {/* THE WINDOW, and it is not decoration. A rule that has handed over
+              still says "producing dates", correctly, because it governs its
+              own periods; without this line a partner would read it as live
+              for periods it no longer covers. */}
+          {rule.effectiveTo !== null && !handoverSaid && (
+            <Sub>Hands over on {longDay(rule.effectiveTo)}</Sub>
+          )}
+          {rule.effectiveFrom !== null && <Sub>Governs periods from {longDay(rule.effectiveFrom)}</Sub>}
+        </div>
       </Td>
       <Td>
         {/* T–X, and it is a BLANK rather than a guess. Every shipped rule is at
-            zero, which means the task appears on the statutory date itself —
-            visibly useless, and deliberately so: this is the firm's own working
-            practice and nobody has told us what it is. */}
-        <Input
-          type="number"
-          size="sm"
-          min={0}
-          value={lead}
-          disabled={busy || !mayWrite || rule.coverage !== "generating"}
-          onChange={(e) => { setLead(e.target.value); }}
-          onBlur={() => {
-            const n = Number(lead);
-            if (Number.isInteger(n) && n >= 0 && n !== rule.leadTimeDays) {
-              onPatch({ leadTimeDays: n }, "Lead time saved.");
-            }
-          }}
-          style={{ width: 64 }}
-          /* `title` alone was the accessible name here, and a title is the last
-             fallback the name computation reaches — it is not offered on touch,
-             many browsers never show it on keyboard focus, and a screen reader
-             may be set to ignore it. Worse, it is the SAME sentence on all 57
-             rows: tabbing down the column announced one identical phrase over
-             and over with nothing to say which rule was being changed. The
-             aria-label names the rule; the title stays as the sighted
-             mouse-user's tooltip, which is the job it is good at. */
-          aria-label={`Lead time in days for ${rule.name}`}
-          title="Days before the legal deadline that the work should start"
-        />
-        <span className="muted text-xs" style={{ whiteSpace: "nowrap" }}> days</span>
+            zero, which means the task appears on the statutory date itself:
+            this is the firm's own working practice and nobody has told us what
+            it is. Commits on blur (every commit writes an audit event). */}
+        <span className="nowrap">
+          <Input
+            type="number"
+            size="sm"
+            min={0}
+            value={lead}
+            disabled={busy || !mayWrite || rule.coverage !== "generating"}
+            onChange={(e) => { setLead(e.target.value); }}
+            onBlur={() => {
+              const n = Number(lead);
+              if (Number.isInteger(n) && n >= 0 && n !== rule.leadTimeDays) {
+                onPatch({ leadTimeDays: n }, "Lead time saved.");
+              }
+            }}
+            style={{ width: 64 }}
+            /* The aria-label names the rule: the same sentence on all 57 rows
+               told a screen reader nothing about which rule it was changing.
+               The title stays as the mouse-user's tooltip. */
+            aria-label={`Lead time in days for ${rule.name}`}
+            title="Days before the legal deadline that the work should start"
+          />{" "}
+          days
+        </span>
       </Td>
       <Td>
         {/* The moment a date stops coming from a document and starts coming
             from the firm. Everything ships unconfirmed, India included. */}
-        <label className="check">
+        <label className="check nowrap">
           <input
             type="checkbox"
-            /* Same problem, same fix: the visible text beside the box is
-               "confirmed" / "not yet", which is the VALUE and not the
-               question, and it is identical down the column. */
+            /* The visible text is the VALUE, identical down the column; the
+               label names the question and the rule. */
             aria-label={`Date checked against the statute for ${rule.name}`}
             checked={rule.status === "confirmed"}
             disabled={busy || !mayWrite}
@@ -907,36 +905,28 @@ function RuleRow({
               );
             }}
           />
-          {/* SHORT, because it wrapped to three lines beside the box and the
-              column reads as a stack of fragments. The sentence lives in the
-              tooltip; the cell says which of the two states this is. */}
           <span
-            className="muted text-xs"
-            style={{ whiteSpace: "nowrap" }}
             title={
               rule.status === "confirmed"
                 ? "A partner has checked this date against the statute."
                 : "This date came from a document, not from the firm. Tick it once somebody has checked it."
             }
           >
-            {rule.status === "confirmed" ? "confirmed" : "not yet"}
+            {rule.status === "confirmed" ? "Confirmed" : "Not yet"}
           </span>
         </label>
       </Td>
       <Td align="right">
         {mayWrite && (
           <Cluster>
-            {/* NAMED BY THE RULE. Fifty-seven of these read "Edit" and
-                fifty-seven more read "Retire" — the same shape the checkboxes
-                in this row were fixed for, and the buttons were left behind
-                because the probe only ever counted `input`/`select`/`textarea`.
-                A `<fieldset>`'s name does not get prepended to a BUTTON the way
-                a field's label does, so a group cannot rescue these. */}
+            {/* NAMED BY THE RULE: fifty-seven of these read "Edit" and
+                fifty-seven more read "Retire". */}
             <Button
               variant="ghost"
               size="sm"
               disabled={busy}
               onClick={onOpen}
+              aria-expanded={open}
               aria-label={`${open ? "Close" : "Edit"} the rule for ${rule.name}`}
               title="The formula, the exceptions, and what this rule is waiting for."
             >
@@ -959,7 +949,7 @@ function RuleRow({
           </Cluster>
         )}
       </Td>
-    </tr>
+    </Tr>
   );
 }
 
@@ -986,12 +976,12 @@ function otherRowToday(
 }
 
 const LABEL: Record<RuleCoverage, string> = {
-  generating: "producing dates",
-  needs_formula: "waiting on a fact",
-  event_driven: "event-driven",
-  unlinked: "not used by any service",
-  unconfirmed: "not yet confirmed",
-  retired: "retired",
+  generating: "Producing dates",
+  needs_formula: "Waiting on a fact",
+  event_driven: "Event-driven",
+  unlinked: "Not used by a service",
+  unconfirmed: "Not yet confirmed",
+  retired: "Retired",
 };
 
 /** Only the actionable state is toned. "Waiting on a fact" gets the accent tone

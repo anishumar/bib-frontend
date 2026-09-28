@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { ConfigEntry } from "@/lib/api/client";
 import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select, Textarea } from "@/components/ui";
-import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader } from "@/components/tw";
+import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -178,14 +178,14 @@ function BandFields({ step, onChange }: { step: StepDraft; onChange: (patch: Par
   const active = grades.filter((g) => g.isActive).sort((a, b) => a.rank - b.rank);
   return (
     <>
-      <Field label="From grade" optional hint="The most junior grade that does this step. Leave blank for no lower limit.">
+      <Field label="From grade" optional>
         <Select
           value={step.performerMin}
           onChange={(e) => {
             onChange({ performerMin: e.target.value });
           }}
         >
-          <option value="">anybody</option>
+          <option value="">Anybody</option>
           {active.map((g) => (
             <option key={g.code} value={g.code}>
               {g.name}
@@ -193,14 +193,14 @@ function BandFields({ step, onChange }: { step: StepDraft; onChange: (patch: Par
           ))}
         </Select>
       </Field>
-      <Field label="To grade" optional hint="The most senior grade that does this step. Leave blank for no upper limit.">
+      <Field label="To grade" optional>
         <Select
           value={step.performerMax}
           onChange={(e) => {
             onChange({ performerMax: e.target.value });
           }}
         >
-          <option value="">anybody</option>
+          <option value="">Anybody</option>
           {active.map((g) => (
             <option key={g.code} value={g.code}>
               {g.name}
@@ -216,17 +216,17 @@ const EXECUTORS: { value: Executor; label: string; hint: string }[] = [
   {
     value: "human",
     label: "A person",
-    hint: "Somebody does it and ticks it off. The ordinary answer.",
+    hint: "Somebody does it and ticks it off.",
   },
   {
     value: "agent",
     label: "Automatically",
-    hint: "If nothing automated exists for it yet, it waits for a person instead. The process still runs.",
+    hint: "If nothing automated exists yet, a person does it.",
   },
   {
     value: "agent_with_approval",
     label: "Automatically, then a person approves",
-    hint: "The system produces the work and a person decides whether to accept it.",
+    hint: "The system does it and a person accepts it.",
   },
 ];
 
@@ -253,13 +253,13 @@ const OPERATORS: { value: Operator; label: string; list: boolean; hint: string }
     value: "not_equals",
     label: "is not",
     list: false,
-    hint: "Everything except this one value. Use it for a step that applies to everybody but one case.",
+    hint: "Everything except this one value.",
   },
   {
     value: "in",
     label: "is one of",
     list: true,
-    hint: "Separate the values with commas. One step covers several values instead of one process per value.",
+    hint: "Separate the values with commas.",
   },
   { value: "not_in", label: "is none of", list: true, hint: "Separate the values with commas." },
 ];
@@ -391,6 +391,7 @@ export default function WorkflowsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [writing, setWriting] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/config/{kind}", {
@@ -434,19 +435,39 @@ export default function WorkflowsPage() {
 
   return (
     <Page>
+      {/* The sidebar's own word for it (Wave 4). No lede: a process is the
+          steps a job walks, in order, written once per service, and every step
+          can be done by a person, so it works with nothing automated. */}
       <PageHeader
-        eyebrow="How work runs"
-        title="How the firm works"
-        lede="A process is the list of steps a piece of work goes through, in order. Write it once
-        and every job for that service follows it. Every step can be done by a person, so this
-        works today with nothing automated."
+        title="Processes"
+        actions={
+          <Button
+            variant={writing ? "secondary" : "primary"}
+            aria-expanded={writing}
+            {...(writing ? { "aria-label": "Cancel the new process" } : {})}
+            onClick={() => {
+              setWriting((w) => !w);
+            }}
+          >
+            {writing ? "Cancel" : "Write a new process"}
+          </Button>
+        }
       />
       <ErrorNotice error={error} />
 
+      {writing && (
+        <NewTemplate
+          onClose={() => {
+            setWriting(false);
+          }}
+          onSaved={() => void load()}
+          onError={setError}
+        />
+      )}
+
       {templates.length === 0 ? (
         <p className="max-w-[64ch] text-sm text-muted">
-          No process written yet. Until there is one, a signed engagement creates work that
-          waits on the work board instead of following a process.
+          No process yet. Until there is one, signed work waits on the work board.
         </p>
       ) : (
         templates.map((t) => (
@@ -461,13 +482,6 @@ export default function WorkflowsPage() {
         ))
       )}
 
-      <NewTemplate onSaved={() => void load()} onError={setError} />
-
-      <p className="max-w-[64ch] text-sm text-muted">
-        A published process <strong>cannot be changed</strong>. A job records which version it
-        started on and keeps following that one. Editing a process never changes work already
-        under way. It changes what happens next time.
-      </p>
     </Page>
   );
 }
@@ -495,14 +509,17 @@ function TemplateCard({
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-4">
-        <CardTitle level={2}>
-          {shown.label || entry.entry.key}{" "}
-          <span className="mono muted text-xs">
-            {entry.entry.key}
-          </span>
-        </CardTitle>
-        <span className="text-sm text-muted">
-          {inForce === null ? "not in use yet" : `v${String(inForce.version)} in force`}
+        <CardTitle level={2}>{shown.label || entry.entry.key}</CardTitle>
+        {/* A state is a pill (Wave 4). The handle (`w4d-close`) was printed
+            beside the name; it is a system key, and the catalogue picks a
+            process by its name. */}
+        <span className="flex items-center gap-2">
+          {draft !== null && <Pill tone="warn">Unpublished changes</Pill>}
+          {inForce === null ? (
+            <Pill tone="neutral">Draft</Pill>
+          ) : (
+            <Pill tone="ok">In force, v{String(inForce.version)}</Pill>
+          )}
         </span>
       </div>
 
@@ -511,9 +528,8 @@ function TemplateCard({
           and a job will not touch it — which is worth saying out loud, because
           it looks finished on this screen otherwise. */}
       {draft !== null && (
-        <p className="text-sm text-muted">
-          Draft v{draft.version} is saved but <strong>not in force</strong>. No job is
-          following it.
+        <p className="text-sm text-ink-2">
+          Draft v{draft.version} is saved. No job follows it until you put it in force.
         </p>
       )}
 
@@ -552,7 +568,7 @@ function TemplateCard({
           templateKey={entry.entry.key}
           initialLabel={shown.label}
           initialSteps={shown.steps}
-          note="A change is saved as a new version. The version in force keeps running until you put the new one in force."
+          note="Saved as a new version. Work under way keeps the version it started on."
           onDone={() => {
             setEditing(false);
             onSaved();
@@ -579,6 +595,9 @@ function bandWords(min: string, max: string, grades: readonly { code: string; na
 
 function StepList({ steps }: { steps: readonly StepDraft[] }) {
   const grades = useGrades();
+  // "after collect" named the step by its HANDLE; the reader knows it by the
+  // words above it (Wave 4).
+  const nameOf = (key: string): string => steps.find((s) => s.key === key)?.label || key;
   if (steps.length === 0) return <p className="text-sm text-muted">No steps.</p>;
   return (
     /* NUMBERED. `[data-tw] ol` sets `list-style: none`, so the 1.2rem of left
@@ -589,7 +608,7 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
       {steps.map((s) => (
         <li key={s.key} className="mb-1.5">
           <strong>{s.label || s.key}</strong>{" "}
-          <span className="text-sm text-muted">
+          <span className="text-sm text-ink-2">
             · {EXECUTORS.find((e) => e.value === s.executor)?.label ?? s.executor}
             {/* WHO, in the summary (0301). The band was stored and read back
                 and the published list still said "A person" on every step —
@@ -598,7 +617,7 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
             {bandWords(s.performerMin, s.performerMax, grades) !== null && (
               <> · for {bandWords(s.performerMin, s.performerMax, grades)}</>
             )}
-            {s.dependsOn.length > 0 && <> · after {s.dependsOn.join(", ")}</>}
+            {s.dependsOn.length > 0 && <> · after {s.dependsOn.map(nameOf).join(", ")}</>}
             {s.conditionFact !== "" && (
               <>
                 {" "}
@@ -614,7 +633,7 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
             {s.verificationPolicyKey !== "" && (
               <>
                 {" "}
-                · then checked ({s.verificationPolicyKey})
+                · then checked ({codeLabel(s.verificationPolicyKey)})
               </>
             )}
           </span>
@@ -650,7 +669,7 @@ function StepLines({ step }: { step: StepDraft }) {
       <div className="text-sm">
         {subSteps.length > 0 && (
           <>
-            <p className="text-muted">Ticked by whoever does it, before it can be marked done:</p>
+            <p className="text-ink-2">Sub-steps, ticked by whoever does it:</p>
             <ul className="mb-2 ml-5 mt-1 list-disc">
               {subSteps.map((line, i) => (
                 <li key={`s-${String(i)}`}>{line}</li>
@@ -660,7 +679,7 @@ function StepLines({ step }: { step: StepDraft }) {
         )}
         {reviewPoints.length > 0 && (
           <>
-            <p className="text-muted">Ticked by whoever checks it, before it can be approved:</p>
+            <p className="text-ink-2">Review points, ticked by whoever checks it:</p>
             <ul className="ml-5 mt-1 list-disc">
               {reviewPoints.map((line, i) => (
                 <li key={`r-${String(i)}`}>{line}</li>
@@ -676,26 +695,14 @@ function StepLines({ step }: { step: StepDraft }) {
 // ── Writing one ──────────────────────────────────────────────────────────────
 
 function NewTemplate({
+  onClose,
   onSaved,
   onError,
 }: {
+  onClose: () => void;
   onSaved: () => void;
   onError: (message: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  if (!open) {
-    return (
-      <div className="cluster">
-        <Button
-          onClick={() => {
-            setOpen(true);
-          }}
-        >
-          Write a new process
-        </Button>
-      </div>
-    );
-  }
   return (
     <Card>
       <CardTitle level={2}>A new process</CardTitle>
@@ -722,19 +729,13 @@ function NewTemplate({
         ]}
         note="Saved as a draft. Nothing follows it until you put it in force."
         onDone={() => {
-          setOpen(false);
+          onClose();
           onSaved();
         }}
         onError={onError}
       />
       <div className="cluster">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setOpen(false);
-          }}
-        >
+        <Button variant="secondary" size="sm" onClick={onClose}>
           Cancel
         </Button>
       </div>
@@ -873,23 +874,20 @@ function StepEditor({
       <fieldset className="m-0 min-w-0 border-0 p-0" aria-label={scope}>
         <FieldRow>
           {templateKey === null && (
-            <Field
-              label="Short name"
-              hint="Lower case, permanent once set. A service refers to the process by this name."
-            >
+            <Field label="Short name" hint="Lower case. Cannot change later.">
               <Input
                 value={key}
-                placeholder="gst-monthly"
+                placeholder="e.g. gst-monthly"
                 onChange={(e) => {
                   setKey(e.target.value);
                 }}
               />
             </Field>
           )}
-          <Field label="Name" hint="The name people pick this process by.">
+          <Field label="Name">
             <Input
               value={label}
-              placeholder="GST monthly filing"
+              placeholder="e.g. GST monthly filing"
               onChange={(e) => {
                 setLabel(e.target.value);
               }}
@@ -1003,30 +1001,22 @@ function StepFields({
         <Field id={`${id}-label`} label="Step">
           <Input
             value={step.label}
-            placeholder="Reconcile against the books"
+            placeholder="e.g. Reconcile against the books"
             onChange={(e) => {
               onChange({ label: e.target.value });
             }}
           />
         </Field>
-        <Field
-          id={`${id}-key`}
-          label="Short name"
-          hint="Lower case. Cannot change once work has run under it."
-        >
+        <Field id={`${id}-key`} label="Short name">
           <Input
             value={step.key}
-            placeholder="reconcile"
+            placeholder="e.g. reconcile"
             onChange={(e) => {
               onChange({ key: e.target.value });
             }}
           />
         </Field>
-        <Field
-          id={`${id}-executor`}
-          label="Who does it"
-          hint={EXECUTORS.find((x) => x.value === step.executor)?.hint}
-        >
+        <Field id={`${id}-executor`} label="Who does it">
           <Select
             value={step.executor}
             onChange={(e) => {
@@ -1042,6 +1032,11 @@ function StepFields({
         </Field>
         <BandFields step={step} onChange={onChange} />
       </FieldRow>
+      {/* UNDER THE ROW, not in a column of it (the FieldRow rule). */}
+      <p className="field-hint">
+        {EXECUTORS.find((x) => x.value === step.executor)?.hint} The short name is lower case
+        and cannot change once work has run.
+      </p>
 
       {others.length > 0 && (
         <div className="mt-2">
@@ -1071,8 +1066,7 @@ function StepFields({
             {/* Wired by hand: this describes the GROUP, and `Field` — which
                 would do the wiring for us — is for one control. */}
             <p className="field-hint" id={`${id}-waits-hint`}>
-              Nothing ticked means it starts as soon as the work does. Two steps waiting for the
-              same thing both start together.
+              Nothing ticked: it starts as soon as the work does.
             </p>
           </Fieldset>
         </div>
@@ -1092,7 +1086,7 @@ function StepFields({
               onChange({ conditionFact: e.target.value as StepDraft["conditionFact"] });
             }}
           >
-            <option value="">always do it</option>
+            <option value="">Always</option>
             {FACTS.map((f) => (
               <option key={f.value} value={f.value}>
                 {f.label}
@@ -1127,12 +1121,12 @@ function StepFields({
               <Input
                 value={step.conditionValue}
                 aria-describedby={`${id}-cond-hint`}
-                placeholder={
+                placeholder={`e.g. ${
                   takesList(step.conditionOp)
                     ? (FACTS.find((f) => f.value === step.conditionFact)?.example ?? "")
                     : (FACTS.find((f) => f.value === step.conditionFact)?.example.split(",")[0] ??
                       "")
-                }
+                }`}
                 onChange={(e) => {
                   onChange({ conditionValue: e.target.value });
                 }}
@@ -1149,8 +1143,7 @@ function StepFields({
       {step.conditionFact !== "" && (
         <p className="field-hint" id={`${id}-cond-hint`} style={{ maxWidth: "62ch" }}>
           {OPERATORS.find((o) => o.value === step.conditionOp)?.hint}{" "}
-          If the service does not state this fact at all, the step is kept, whichever option is
-          chosen. A blank fact never removes a step from a process.
+          If the service does not state it, the step is kept.
         </p>
       )}
 
@@ -1164,12 +1157,12 @@ function StepFields({
           id={`${id}-substeps`}
           label="Sub-steps"
           optional
-          hint="One per line. Whoever does this step ticks each one, or marks it not applicable with a reason, before the step can be marked done."
+          hint="One per line. Ticked by the doer before it is marked done."
         >
           <Textarea
             rows={rowsFor(step.checklistText)}
             value={step.checklistText}
-            placeholder={"Bank statements\nSales data\nPurchase data"}
+            placeholder={"e.g. Bank statements\nSales data\nPurchase data"}
             onChange={(e) => {
               onChange({ checklistText: e.target.value });
             }}
@@ -1182,9 +1175,8 @@ function StepFields({
         {step.executor === "agent" && splitLines(step.checklistText).length > 0 && (
           <div className="mt-2">
             <Notice tone="warn">
-              Sub-steps are ticked by a person, and this step is done by a machine on its own.
-              Choose &ldquo;A person&rdquo; or &ldquo;Automatically, then a person approves&rdquo;
-              under Who does it, or remove the sub-steps.
+              A machine cannot tick sub-steps. Choose a person under Who does it, or remove
+              them.
             </Notice>
           </div>
         )}
@@ -1196,8 +1188,8 @@ function StepFields({
           label="When it is done, who checks it?"
           hint={
             policies.length === 0
-              ? "No rule has been put in force yet. Write one on Who checks work. Until then a step is finished by whoever does it."
-              : "Whoever does the work can never be the one who checks it. That cannot be switched off."
+              ? "No rule is in force yet. Add one on Who checks work."
+              : "The doer can never check their own work."
           }
         >
           <Select
@@ -1207,7 +1199,7 @@ function StepFields({
           {/* Nobody is the default and the honest one: it is what every process
               written before this field existed meant, and those processes must
               not start holding work for review because a new field appeared. */}
-          <option value="">nobody, it is finished when it is done</option>
+          <option value="">Nobody</option>
           {/* PUBLISHED rules only. A draft is not in force, and pointing a step
               at one would name a rule that governs nothing. */}
           {policies.map((pk) => (
@@ -1241,12 +1233,12 @@ function StepFields({
             id={`${id}-review`}
             label="Review points"
             optional
-            hint="One per line. Whoever checks this step ticks each one before they can approve it. Sending it back is always allowed."
+            hint="One per line. Ticked by the checker before approving."
           >
             <Textarea
               rows={rowsFor(step.reviewText)}
               value={step.reviewText}
-              placeholder={"P&L movements\nBalance sheet movements\nUnusual variances"}
+              placeholder={"e.g. P&L movements\nBalance sheet movements\nUnusual variances"}
               onChange={(e) => {
                 onChange({ reviewText: e.target.value });
               }}
@@ -1291,9 +1283,8 @@ function StepFields({
                   </>
                 }
               >
-                Nobody checks this step now, so nobody would tick these review points, and the
-                process cannot be saved with them. Choose who checks it above, move them to the
-                sub-steps, or remove them.
+                Nobody checks this step, so these points cannot be saved. Choose a checker, move
+                them, or remove them.
               </Notice>
             </div>
           )}

@@ -72,9 +72,8 @@ export default function ForgotPasswordPage() {
             {sent ? (
               <div className="stack tight">
                 <Notice tone="ok" eyebrow="Check your email">
-                  If that address has an account here, a link to set a new password is on its
-                  way. It works once and stops working after half an hour — and asking for
-                  another one cancels it, so use the most recent letter.
+                  If that address has an account, a reset link is on its way. It works once,
+                  for half an hour. Asking again cancels it, so open the newest email.
                 </Notice>
                 {/* Not a dead end. Somebody whose letter does not arrive has to
                     be able to try a different address without going back
@@ -93,7 +92,7 @@ export default function ForgotPasswordPage() {
                 <FieldStack>
                   <Field
                     label="Email"
-                    hint="The address the firm has for you. Nothing on this page will say whether it has an account — that is deliberate."
+                    hint="The address the firm has for you."
                   >
                     <Input
                       type="email"

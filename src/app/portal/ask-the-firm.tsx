@@ -116,8 +116,8 @@ export function AskTheFirm({
       level={2}
       lede={
         mayRequest
-          ? `Anything you need from ${firm}: a document you cannot find, a copy of something, a correction, or a call. It goes straight to their team.`
-          : `Your login can read everything here but cannot open a request. Ask your contact at ${firm} to give this address permission, or ask from a colleague's login.`
+          ? "A document, a copy, a correction or a call."
+          : `Your login cannot open a request. Ask ${firm} for access.`
       }
     >
       <div className="flex flex-col gap-3">
@@ -242,7 +242,7 @@ function NewRequest({
           <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Last year's balance sheet"
+            placeholder="e.g. Last year's balance sheet"
           />
         </Field>
 
@@ -282,6 +282,11 @@ function RequestCard({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // THE REPLY BOX OPENS ON "Add to this" (Wave 4). Open on every card it drew
+  // a box and a brand Send per request, seven brand buttons on one page, and
+  // the ones that mattered (the firm's asks above) stopped standing out.
+  const [replying, setReplying] = useState(false);
+  const { panel: replyPanel, trigger: replyTrigger } = useSwapFocus(replying);
 
   const live = request.status === "open" || request.status === "answered";
 
@@ -303,6 +308,7 @@ function RequestCard({
       return;
     }
     setNote("");
+    setReplying(false);
     await onChanged();
   }
 
@@ -345,28 +351,57 @@ function RequestCard({
             className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"
             aria-label={`Your request: ${request.subject}`}
           >
-            <Field label="Add to this">
-              <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-            </Field>
+            {replying && (
+              <div ref={replyPanel} tabIndex={-1}>
+                <Field label="Add to this">
+                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                </Field>
+              </div>
+            )}
             <div className="cluster">
-              <Button
-                aria-label={`Send your reply on ${request.subject}`}
-                onClick={() => void act("replies")}
-                disabled={busy || note.trim().length === 0}
-              >
-                Send
-              </Button>
+              {replying ? (
+                <>
+                  <Button
+                    aria-label={`Send your reply on ${request.subject}`}
+                    onClick={() => void act("replies")}
+                    disabled={busy || note.trim().length === 0}
+                  >
+                    Send
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setReplying(false);
+                      setNote("");
+                    }}
+                    disabled={busy}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  ref={replyTrigger}
+                  variant="secondary"
+                  aria-label={`Add to your request: ${request.subject}`}
+                  onClick={() => setReplying(true)}
+                >
+                  Add to this
+                </Button>
+              )}
               {/* THE CLIENT'S OWN ENDING, and the firm cannot do it for them:
                   "we decided you did not need this" is a refusal, which the
                   firm has to close with a reply saying so. */}
-              <Button
-                variant="ghost"
-                aria-label={`Never mind: withdraw ${request.subject}`}
-                onClick={() => void act("withdraw")}
-                disabled={busy}
-              >
-                Never mind
-              </Button>
+              {!replying && (
+                <Button
+                  variant="ghost"
+                  aria-label={`Never mind: withdraw ${request.subject}`}
+                  onClick={() => void act("withdraw")}
+                  disabled={busy}
+                >
+                  Never mind
+                </Button>
+              )}
             </div>
           </fieldset>
         )}

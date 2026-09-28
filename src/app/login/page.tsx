@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import { homeFor } from "@/lib/api/home";
 import { Button, Card, ErrorNotice, Field, FieldStack, Input, Notice } from "@/components/ui";
@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -64,6 +65,14 @@ export default function LoginPage() {
    * magic link from the login page."
    */
   async function sendLink(): Promise<void> {
+    // No email yet: the browser's own "fill out this field" on the box. The
+    // link used to be DISABLED until then, which drew it pale grey, and a
+    // pale link on a sign-in page reads as broken (Wave 4).
+    if (email === "") {
+      emailRef.current?.reportValidity();
+      emailRef.current?.focus();
+      return;
+    }
     setLinkBusy(true);
     setError(null);
     const { error: failed } = await api.POST("/api/v1/auth/magic-link", {
@@ -91,6 +100,7 @@ export default function LoginPage() {
               <FieldStack>
                 <Field label="Email">
                   <Input
+                    ref={emailRef}
                     type="email"
                     autoComplete="username"
                     required
@@ -117,16 +127,12 @@ export default function LoginPage() {
 
                 {linkSent ? (
                   <Notice tone="ok" eyebrow="Check your email">
-                    If that address has an account here, a sign-in link is on its way. It works
-                    once and expires.
+                    If that address has an account, a sign-in link is on its way. It works once.
                   </Notice>
                 ) : (
                   <Button
                     variant="link"
                     loading={linkBusy}
-                    /* An email is required for this and the browser will not
-                       enforce it — this is not the form's submit. */
-                    disabled={email === ""}
                     onClick={() => void sendLink()}
                   >
                     Email me a sign-in link instead

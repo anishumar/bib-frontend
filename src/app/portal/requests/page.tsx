@@ -59,11 +59,7 @@ export default function PortalRequestsPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={firm}
-        title="Requests"
-        lede={`Anything outstanding between you and ${firm}: what they need from you, and what you have asked them for.`}
-      />
+      <PageHeader title="Requests" />
 
       {/* GOOD NEWS HAS TO READ AS GOOD NEWS. `ActionCentre` renders nothing at
           all when both its lists are empty, which is right on a status page it
@@ -75,8 +71,7 @@ export default function PortalRequestsPage() {
           that failed, and neither is a state in which to claim nothing is owed. */}
       {counts.loaded && counts.awaitingYou === 0 && counts.withTheFirm === 0 && (
         <Empty title={`${firm} is not waiting on anything from you`} icon="check">
-          When they need a document, an approval or an answer, it will appear here, and the
-          menu on the left will show how many.
+          When they need something from you, it will appear here.
         </Empty>
       )}
 

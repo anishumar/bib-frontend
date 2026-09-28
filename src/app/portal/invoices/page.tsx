@@ -36,9 +36,10 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, formatMoney } from "@/lib/api/client";
+import { NotSet } from "@/components/ui";
 import type { PortalInvoice } from "@/lib/api/client";
-import { Empty, Page, PageHeader, Pill, Section, Table, TableWrap, Td, Th } from "@/components/tw";
+import { Empty, Page, PageHeader, Pill, Table, TableWrap, Td, Th } from "@/components/tw";
 import { ErrorState, Loading } from "@/components/states";
 import { usePortalSession } from "../portal-frame";
 import { browserDay, longDay } from "@/lib/day";
@@ -95,26 +96,22 @@ export default function PortalInvoicesPage() {
           money, across currencies this page cannot convert. Each row carries
           its own figure, computed in the database. */}
       <PageHeader
-        eyebrow={firm}
         title="Your invoices"
         lede={
           owing.length === 0
-            ? `Everything ${firm} has billed you, newest first. Nothing is outstanding.`
-            : `Everything ${firm} has billed you, newest first. ${
-                owing.length === 1 ? "One is" : `${String(owing.length)} are`
-              } still open. Each row shows what is left on it.`
+            ? "Nothing is outstanding."
+            : `${owing.length === 1 ? "One is" : `${String(owing.length)} are`} still open.`
         }
       />
 
       {invoices.length === 0 ? (
         <Empty title="Nothing billed yet" icon="check">
-          {firm} has not issued you an invoice. Anything they raise will appear here as
-          soon as it is issued. A draft they are still preparing will not.
+          Invoices from {firm} appear here once they are issued.
         </Empty>
       ) : (
         <>
-          <Section title="Everything billed" count={invoices.length} level={2}>
-            <TableWrap>
+          {/* No section heading (Wave 4): one table on the page, under the title. */}
+          <TableWrap>
             <Table>
               <thead>
                 <tr>
@@ -122,9 +119,9 @@ export default function PortalInvoicesPage() {
                   <Th>From</Th>
                   <Th>Issued</Th>
                   <Th>Due by</Th>
-                  <Th>Total</Th>
-                  <Th>Paid</Th>
-                  <Th>Still owing</Th>
+                  <Th align="right">Total</Th>
+                  <Th align="right">Paid</Th>
+                  <Th align="right">Still owing</Th>
                 </tr>
               </thead>
               <tbody>
@@ -133,15 +130,12 @@ export default function PortalInvoicesPage() {
                 ))}
               </tbody>
             </Table>
-            </TableWrap>
-          </Section>
+          </TableWrap>
         </>
       )}
 
       <p className="max-w-[var(--measure)] text-sm text-muted">
-        These figures are {firm}&rsquo;s own record of your account. There is no way to pay
-        from this page. Settle as you do now, and ask {firm} if a figure here does not
-        match what you hold.
+        You cannot pay from this page. Settle as you do now.
       </p>
     </Page>
   );
@@ -156,7 +150,7 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
   return (
     <tr>
       <Td>
-        <span className="mono">{inv.number}</span>
+        {inv.number}
         {cancelled && (
           <>
             {" "}
@@ -168,13 +162,13 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
         )}
       </Td>
       <Td>{inv.issuedBy}</Td>
-      <Td>{inv.issuedOn === null ? "not yet" : <span className="mono">{longDay(inv.issuedOn)}</span>}</Td>
+      <Td>{inv.issuedOn === null ? <NotSet>Not issued</NotSet> : longDay(inv.issuedOn)}</Td>
       <Td>
         {inv.dueOn === null ? (
-          "no due date"
+          <NotSet>No due date</NotSet>
         ) : (
           <>
-            <span className="mono">{longDay(inv.dueOn)}</span>
+            {longDay(inv.dueOn)}
             {overdue && (
               <>
                 {" "}
@@ -186,15 +180,15 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
       </Td>
       {/* PRINTED, NEVER COMPUTED. These arrive as decimal strings from
           `crm.invoice_balance` and are shown as they arrived. */}
-      <Td>
+      <Td align="right" className="tabular-nums">
         <Money amount={inv.total} currency={inv.currency} />
       </Td>
-      <Td>
+      <Td align="right" className="tabular-nums">
         <Money amount={inv.paid} currency={inv.currency} />
       </Td>
-      <Td>
+      <Td align="right" className="tabular-nums">
         {cancelled ? (
-          <span className="text-faint">nothing</span>
+          <NotSet>Nothing</NotSet>
         ) : (
           <Money amount={inv.outstanding} currency={inv.currency} />
         )}
@@ -204,27 +198,12 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
 }
 
 /**
- * Money, as it arrived.
- *
- * The trailing zeros are trimmed to two places for reading and NOTHING ELSE is
- * touched — no `Number()`, no `toFixed` on a float, no rounding. `numeric` in
- * the database, a decimal string on the wire, a decimal string here: 0.1 + 0.2
- * is the same on a client's screen as on a partner's, and a rounding error a
- * client can see is the worst place for one.
+ * Money, as it arrived, through THE formatter (Wave 4): INR in lakhs with the
+ * rupee sign, other currencies with their code, no ".00". `formatMoney` hands
+ * the decimal string to `Intl.NumberFormat` exactly; no `Number()` anywhere.
  */
 function Money({ amount, currency }: { amount: string; currency: string }) {
-  return (
-    <span className="mono">
-      {currency} {trimDecimals(amount)}
-    </span>
-  );
-}
-
-/** "11800.0000" → "11800.00". String surgery, never arithmetic. */
-function trimDecimals(amount: string): string {
-  const dot = amount.indexOf(".");
-  if (dot === -1) return `${amount}.00`;
-  return amount.slice(0, dot + 3).padEnd(dot + 3, "0");
+  return <>{formatMoney(amount, currency)}</>;
 }
 
 /** Whether a decimal string is zero, without parsing it as a number. */
