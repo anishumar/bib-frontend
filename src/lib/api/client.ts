@@ -145,6 +145,25 @@ export type CheckLine = JobStep["subSteps"][number];
 export type StepCheck =
   paths["/api/v1/checks"]["get"]["responses"][200]["content"]["application/json"]["checks"][number];
 
+/**
+ * One process step on the signed-in person's own desk, across jobs, with the
+ * job it belongs to (`job`: the client by id, period, services and the due day
+ * of the job's unfinished tasks; null when the job names no engagement).
+ * `status: "blocked"` is READY for this person; `pending` waits on an earlier
+ * step.
+ */
+export type MyStep =
+  paths["/api/v1/my-steps"]["get"]["responses"][200]["content"]["application/json"]["steps"][number];
+
+/**
+ * Setup readiness (V2.6): eight lines, each `done` or naming its `gaps`.
+ * `tenant:admin` only. `missing` is a closed vocabulary per line that the
+ * screen words (`lib/ui/readiness.tsx`); the API ships no sentence there.
+ */
+export type Readiness =
+  paths["/api/v1/tenancy/readiness"]["get"]["responses"][200]["content"]["application/json"];
+export type ReadinessLine = Readiness["lines"][number];
+
 /** Why one person may not check one thing. A closed set, because each one is a
  *  sentence a screen has to say out loud. */
 export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;

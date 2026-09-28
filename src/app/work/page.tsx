@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
 import type { Job, StepCheck } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import { Page, PageHeader, useNavCounts } from "@/components/layout";
 import { longInstant } from "@/lib/day";
 import { Empty, Loading } from "@/components/states";
 import {
@@ -98,6 +98,7 @@ export default function WorkPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   /** Process steps on the session user's own desk, across jobs (0301). */
   const [mySteps, setMySteps] = useState<{ id: string; jobId: string; stepKey: string; label: string; status: string }[]>([]);
+  const reportCounts = useNavCounts();
   useEffect(() => {
     let live = true;
     void api.GET("/api/v1/my-steps", {}).then((r) => {
@@ -109,11 +110,13 @@ export default function WorkPage() {
         (a, b) => Number(b.status === "blocked") - Number(a.status === "blocked") || a.label.localeCompare(b.label),
       );
       if (live) setMySteps(mine);
+      // The sidebar's count: steps on YOUR desk (V2.1).
+      if (live && r.data !== undefined) reportCounts({ "/work": mine.length });
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [reportCounts]);
   const [checks, setChecks] = useState<StepCheck[]>([]);
   const [tab, setTab] = useState<"work" | "checks">("work");
   // Shared with every `<TabPanel>` below — it is what ties a tab to the panel

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, codeLabel } from "@/lib/api/client";
-import type { ConfigEntry, FirmEntity, FirmEntityPreference } from "@/lib/api/client";
+import type { ConfigEntry, FirmEntity, FirmEntityPreference, Readiness } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -35,6 +35,7 @@ import { Page, PageHeader } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
+import { ReadinessCard } from "@/lib/ui/readiness";
 
 /**
  * YOUR FIRM: the firm on paper, on one page (the Wave 4 brief, 2026-09-28).
@@ -171,15 +172,19 @@ export default function FirmPage() {
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<FirmEntity | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/firm-signatory", {}),
       api.GET("/api/v1/tenancy/members", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "compliance_policy" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
+      // Setup readiness (V2.6), read with the rest so a save here that fixes a
+      // gap turns its line done in the same reload.
+      api.GET("/api/v1/tenancy/readiness", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -206,6 +211,7 @@ export default function FirmPage() {
     const max = discount?.published?.body["maxDiscountPercent"];
     setLimit(max === undefined || max === null ? null : String(max));
     setLimitExists(policyEntries.some((e) => e.entry.key === "discount"));
+    setReadiness(ready.data ?? null);
     setLoaded(true);
   }, [router]);
 
@@ -245,6 +251,8 @@ export default function FirmPage() {
       <PageHeader title="Your firm" />
       <ErrorNotice error={error} />
       {notice !== null && <Notice tone="ok">{notice}</Notice>}
+
+      {readiness !== null && <ReadinessCard readiness={readiness} />}
 
       <Card id="companies">
         <CardHead
@@ -815,11 +823,14 @@ function Routing({
  *  straight away, because there is nothing to read, only something to do,
  *  and a "Not set" line over an empty form says the same thing twice. */
 function SetOnce({
+  id,
   title,
   isSet,
   view,
   form,
 }: {
+  /** An anchor another screen can link to (`/admin/firm#deadlines`). */
+  id?: string;
   title: string;
   isSet: boolean;
   view: ReactNode;
@@ -828,7 +839,7 @@ function SetOnce({
   const [open, setOpen] = useState(false);
   const changing = isSet && open;
   return (
-    <Card>
+    <Card {...(id === undefined ? {} : { id })}>
       <CardHead
         level={2}
         title={title}
@@ -937,6 +948,7 @@ function DeadlinesCard({
   const isSet = policy !== null && (policy.missedFromOn !== null || policy.fiscalYearStartMonth !== null);
   return (
     <SetOnce
+      id="deadlines"
       title="Deadlines"
       isSet={isSet}
       view={

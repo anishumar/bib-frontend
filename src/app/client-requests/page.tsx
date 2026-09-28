@@ -121,7 +121,8 @@ export default function ClientRequestsPage() {
   const [routing, setRouting] = useState<string>("none");
   const [roster, setRoster] = useState<readonly Colleague[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const [tab, setTab] = useState<Tab>("all");
+  // Opens on MINE (V1.2): what somebody comes here for first is what is theirs.
+  const [tab, setTab] = useState<Tab>("mine");
   /**
    * THE ARCHIVE, and it is a SECOND read rather than a filter on the first.
    *
