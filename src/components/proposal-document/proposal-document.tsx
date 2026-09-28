@@ -53,10 +53,20 @@ type LineChange =
 type NoteKind = "team" | "exclusion" | "commercial";
 
 /** The Notes, in the order and under the headings the PDF prints them. */
-const NOTES: readonly { kind: NoteKind; title: string; noun: string }[] = [
-  { kind: "team", title: "Team Deployment", noun: "team" },
-  { kind: "exclusion", title: "General scope exclusions", noun: "exclusion" },
-  { kind: "commercial", title: "Commercials", noun: "commercial" },
+const NOTES: readonly { kind: NoteKind; title: string; noun: string; example: string }[] = [
+  { kind: "team", title: "Team Deployment", noun: "team", example: "e.g. Priya Shah leads the engagement." },
+  {
+    kind: "exclusion",
+    title: "General scope exclusions",
+    noun: "exclusion",
+    example: "e.g. Statutory fees and penalties are not included.",
+  },
+  {
+    kind: "commercial",
+    title: "Commercials",
+    noun: "commercial",
+    example: "e.g. Invoices are payable within 15 days of issue.",
+  },
 ];
 
 interface Choice {
@@ -211,19 +221,17 @@ export function ProposalDocument({
     >
       {!isDraft && !deleted && (
         <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
-          This proposal was sent, so it reads exactly as the client was shown it. A different offer
-          is a new proposal.
+          Sent, so it reads exactly as the client saw it. A new offer is a new proposal.
         </p>
       )}
       {deleted && (
         <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
-          This draft was deleted as made by mistake, so its wording no longer changes.
+          Deleted as made by mistake, so its wording no longer changes.
         </p>
       )}
       {mayEdit && (
         <p className="rounded-t-md border-b border-line bg-surface-sunk px-6 py-3 sm:px-12 text-sm text-muted">
-          Click any part with a pencil to change it for this proposal only. The catalogue and your
-          standard prose stay as they are.
+          Click any part with a pencil to change it for this proposal.
         </p>
       )}
 
@@ -231,8 +239,8 @@ export function ProposalDocument({
         {/* ── The cover ───────────────────────────────────────────────── */}
         <header className="flex flex-col gap-6 border-b border-line pb-8">
           <div className="flex flex-col gap-2">
-            <p className="text-xs uppercase tracking-[0.11em] text-faint">
-              <span className="mono">{proposal.ref}</span> · {pdfDate(record.issuedOn)}
+            <p className="text-sm text-ink-2">
+              {proposal.ref} · {pdfDate(record.issuedOn)}
             </p>
             <h2 className="text-2xl font-semibold text-brand-ink">Proposal for Services</h2>
             <EditableText
@@ -292,13 +300,11 @@ export function ProposalDocument({
               value={proposal.background}
               editable={mayEdit}
               maxLength={4000}
-              placeholder="A paragraph about the client's business."
+              placeholder="e.g. Kaveri Foods makes packaged snacks and sells across India."
               onSave={(text) => revise({ background: text === "" ? null : text })}
             >
               {proposal.background === null ? (
-                <Missing>
-                  No Background yet, so the PDF starts with the services. Click to write one.
-                </Missing>
+                <Missing>No Background yet. Click to write one.</Missing>
               ) : (
                 <p className="whitespace-pre-wrap leading-relaxed">{proposal.background}</p>
               )}
@@ -340,7 +346,7 @@ export function ProposalDocument({
             onSave={(day) => revise({ validUntil: day === "" ? null : day })}
           >
             {proposal.validUntil === null ? (
-              <Missing>No validity date, so the PDF gives none. Click to add one.</Missing>
+              <Missing>No validity date. Click to add one.</Missing>
             ) : (
               <p className="text-muted">This proposal is valid until {pdfDate(proposal.validUntil)}.</p>
             )}
@@ -359,6 +365,7 @@ export function ProposalDocument({
                     key={n.kind}
                     title={n.title}
                     noun={n.noun}
+                    example={n.example}
                     rows={rows}
                     mayEdit={mayEdit}
                     onEdit={editBlock}
@@ -422,16 +429,37 @@ const TERMS: readonly {
   override: "scopeOverride" | "volumeLimitsOverride" | "clientObligationsOverride" | "exclusionsOverride";
   heading: string | null;
   noun: string;
+  /** The box's placeholder: an example, never a default (Wave 4). */
+  example: string;
 }[] = [
-  { key: "scope", override: "scopeOverride", heading: null, noun: "scope of work" },
-  { key: "volumeLimits", override: "volumeLimitsOverride", heading: "Volume limits", noun: "volume limits" },
+  {
+    key: "scope",
+    override: "scopeOverride",
+    heading: null,
+    noun: "scope of work",
+    example: "e.g. Monthly books and GST returns for one GSTIN.",
+  },
+  {
+    key: "volumeLimits",
+    override: "volumeLimitsOverride",
+    heading: "Volume limits",
+    noun: "volume limits",
+    example: "e.g. Up to 300 invoices a month.",
+  },
   {
     key: "clientObligations",
     override: "clientObligationsOverride",
     heading: "Client's responsibilities",
     noun: "client's responsibilities",
+    example: "e.g. Bank statements by the 5th of each month.",
   },
-  { key: "exclusions", override: "exclusionsOverride", heading: "Exclusions", noun: "exclusions" },
+  {
+    key: "exclusions",
+    override: "exclusionsOverride",
+    heading: "Exclusions",
+    noun: "exclusions",
+    example: "e.g. Statutory audit and historical clean-up.",
+  },
 ];
 
 function ServiceItem({
@@ -479,7 +507,7 @@ function ServiceItem({
               value={term.text}
               editable={mayEdit}
               initiallyEditing={term.text === null}
-              placeholder={`The ${t.noun} for this proposal only.`}
+              placeholder={t.example}
               onSave={(text) => onRevise(line.id, { [t.override]: text === "" ? null : text })}
               onClose={() => {
                 setAdding(null);
@@ -500,7 +528,7 @@ function ServiceItem({
       })}
       {mayEdit && empty.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          <span>The catalogue gives none of these. Add for this proposal:</span>
+          <span>Not in the catalogue. Add:</span>
           {empty.map((t) => (
             <button
               key={t.key}
@@ -617,7 +645,7 @@ function FeesSummary({
             <col className="w-[20%]" />
           </colgroup>
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-[0.06em] text-muted">
+            <tr className="border-b border-line-strong text-left text-sm text-ink-2">
               <th className="px-2 py-2 font-semibold">Section</th>
               <th className="px-2 py-2 font-semibold">Sub Section</th>
               <th className="px-2 py-2 font-semibold">Description</th>
@@ -634,7 +662,7 @@ function FeesSummary({
                 <td className="break-words px-2 py-2">
                   {item.line.billingFrequency === null ? "Not stated" : FREQUENCY_WORDS[item.line.billingFrequency]}
                 </td>
-                <td className={cx("break-words px-2 py-2", item.line.net !== null && "mono")}>
+                <td className={cx("break-words px-2 py-2", item.line.net !== null && "tabular-nums")}>
                   {item.line.priced && item.line.net === null
                     ? "Not shown to you"
                     : summaryFee(item.line.net, item.line.pricingNote, currency)}
@@ -683,6 +711,7 @@ function FrequencyTotals({
 export function NoteList({
   title,
   noun,
+  example,
   rows,
   mayEdit,
   onEdit,
@@ -694,6 +723,8 @@ export function NoteList({
 }: {
   title: string;
   noun: string;
+  /** The new line's placeholder, an "e.g." example (Wave 4). */
+  example?: string;
   rows: readonly Pick<Block, "id" | "body" | "isHeading">[];
   /** What the document is called: "proposal" or "letter". */
   documentNoun?: string;
@@ -714,7 +745,7 @@ export function NoteList({
     <div className="flex flex-col gap-2">
       {headingLevel === 3 && <h3 className="text-lg font-semibold">{title}</h3>}
       {rows.length === 0 && !adding && (
-        <p className="text-sm text-muted">None on this {documentNoun}, so the PDF leaves this out.</p>
+        <p className="text-sm text-muted">None on this {documentNoun}.</p>
       )}
       <ul className="flex flex-col gap-1">
         {rows.map((b) => (
@@ -770,7 +801,7 @@ export function NoteList({
               value=""
               editable
               initiallyEditing
-              placeholder={`A new ${noun} line for this ${documentNoun} only.`}
+              placeholder={example ?? `e.g. A new ${noun} line`}
               onSave={onAdd}
               onClose={() => {
                 setAdding(false);

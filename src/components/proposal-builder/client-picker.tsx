@@ -72,7 +72,7 @@ export function ClientPicker({
           : {})}
         autoFocus={autoFocus}
         autoComplete="off"
-        placeholder="Start typing the client's name"
+        placeholder="e.g. Kaveri Foods"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);

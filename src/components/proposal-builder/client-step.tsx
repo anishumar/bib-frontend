@@ -533,9 +533,9 @@ export function ClientStep({
         {draft !== null ? (
           <div className="mt-3 flex flex-col gap-1">
             <p className="text-lg font-semibold">{draft.party.displayName}</p>
+            {/* A draft stays with the client it was started for. */}
             <p className="text-sm text-muted">
-              A draft stays with the client it was started for. For somebody else,{" "}
-              <Link href="/proposals/new">start a new proposal</Link>.
+              For someone else, <Link href="/proposals/new">start a new proposal</Link>.
             </p>
           </div>
         ) : (
@@ -550,7 +550,7 @@ export function ClientStep({
                   setCountry(client?.registeredIn ?? "");
                 }}
                 title="Existing client"
-                note="Somebody already in your client list."
+                note="Already in your client list."
               />
               <Choice
                 name="who"
@@ -560,7 +560,7 @@ export function ClientStep({
                   setCountry("");
                 }}
                 title="New prospect"
-                note="A company you are quoting for the first time. It becomes a lead."
+                note="Quoting for the first time. Becomes a lead."
               />
             </fieldset>
 
@@ -610,6 +610,7 @@ export function ClientStep({
                       value={prospect.company}
                       required
                       autoFocus
+                      placeholder="e.g. Kaveri Foods Pvt Ltd"
                       onChange={(e) => {
                         editProspect({ company: e.target.value });
                       }}
@@ -629,6 +630,7 @@ export function ClientStep({
                     <Input
                       value={prospect.contact}
                       required
+                      placeholder="e.g. Asha Verma"
                       onChange={(e) => {
                         editProspect({ contact: e.target.value });
                       }}
@@ -637,7 +639,7 @@ export function ClientStep({
                   <Field label="Designation" optional>
                     <Input
                       value={prospect.designation}
-                      placeholder="Finance Director"
+                      placeholder="e.g. Finance Director"
                       onChange={(e) => {
                         editProspect({ designation: e.target.value });
                       }}
@@ -650,6 +652,7 @@ export function ClientStep({
                       type="email"
                       value={prospect.email}
                       required
+                      placeholder="e.g. asha@kaverifoods.in"
                       onChange={(e) => {
                         editProspect({ email: e.target.value });
                       }}
@@ -659,7 +662,7 @@ export function ClientStep({
                     <Input
                       type="tel"
                       value={prospect.phone}
-                      placeholder="+91 98100 12345"
+                      placeholder="e.g. +91 98100 12345"
                       onChange={(e) => {
                         editProspect({ phone: e.target.value });
                       }}
@@ -681,10 +684,9 @@ export function ClientStep({
                     </Select>
                   </Field>
                 </FieldRow>
-                <p className="text-sm text-muted">
-                  Next adds them to your pipeline as a lead, with this proposal linked to it. If the
-                  email or phone is already on file, the lead they already have is used.
-                </p>
+                {/* A known email or phone reuses the lead they already have (the
+                    Notice below says so when it happens). */}
+                <p className="text-sm text-muted">Next adds them to the pipeline as a lead.</p>
                 {who === "prospect" && landed?.matched !== null && landed !== null && (
                   <Notice tone="warn" eyebrow="Already on file">
                     <p>
@@ -703,8 +705,8 @@ export function ClientStep({
                 label="Where the client is"
                 hint={
                   client.registeredIn === null
-                    ? "Decides which of your companies issues it, and which country's standard wording it carries."
-                    : "From the client's registration. Decides which of your companies issues it."
+                    ? "Decides which company issues it, and its wording."
+                    : "From the client's registration. Decides the issuer."
                 }
               >
                 <CountrySelect
@@ -730,8 +732,8 @@ export function ClientStep({
                 hint={
                   draft !== null
                     ? issuerChanged
-                      ? "Next replaces this proposal's exclusions, commercials and team with this company's standard set."
-                      : "Changing it gives the proposal that company's standard wording."
+                      ? "Next swaps in this company's standard wording."
+                      : "Changing it brings that company's standard wording."
                     : issuerPick !== null
                       ? "Chosen by you."
                       : whereKey !== null && firm?.routes.has(whereKey) === true
@@ -765,7 +767,7 @@ export function ClientStep({
                 label="Currency"
                 hint={
                   currencyLocked
-                    ? `Every service on it is priced in ${currency}. Remove them to quote in another currency.`
+                    ? `Its services are priced in ${currency}. Remove them to change it.`
                     : issuer === null
                       ? undefined
                       : currency === issuer.defaultCurrency
@@ -797,17 +799,17 @@ export function ClientStep({
                   label={`1 ${currency} is how many ${reporting}`}
                   hint={
                     draft !== null && !moneyChanged
-                      ? "The rate this proposal was quoted at. Correct it here if it was wrong."
+                      ? "The rate it was quoted at."
                       : known === undefined
-                        ? `Your books are in ${reporting}, so a ${currency} proposal records the rate it was quoted at.`
-                        : `Your last ${currency} rate, from ${known.ref} (${longDay(known.on)}). Change it if it has moved.`
+                        ? `Your books are in ${reporting}.`
+                        : `Your last rate, on ${known.ref} (${longDay(known.on)}).`
                   }
                 >
                   <Input
                     inputMode="decimal"
                     value={fxRate}
                     required
-                    placeholder="22.75"
+                    placeholder="e.g. 22.75"
                     onChange={(e) => {
                       setRatePick(e.target.value.replace(/[,\s]/g, ""));
                     }}
@@ -874,6 +876,7 @@ export function ClientStep({
                 value={title}
                 required
                 maxLength={300}
+                placeholder="e.g. Monthly books and GST"
                 onChange={(e) => {
                   setTitlePick(e.target.value);
                 }}
@@ -886,8 +889,8 @@ export function ClientStep({
                   who === "prospect" && draft === null
                     ? "The contact person above."
                     : people.length === 0
-                      ? "Nobody is recorded at this client yet, so the cover names the company. Add a person on the client's page to name them."
-                      : "Printed on the cover, and where Send offers to email it."
+                      ? "Nobody on file, so the cover names the company."
+                      : "Printed on the cover. Send emails them."
                 }
               >
                 {who === "prospect" && draft === null ? (
@@ -908,7 +911,7 @@ export function ClientStep({
                   </Select>
                 )}
               </Field>
-              <Field label="Valid until" optional hint="Leave it empty if the offer has no end date.">
+              <Field label="Valid until" optional hint="Empty if the offer has no end date.">
                 <Input
                   type="date"
                   value={validUntil}

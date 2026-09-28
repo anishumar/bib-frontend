@@ -12,6 +12,7 @@ import {
   api,
   apiError,
   clauseApplies,
+  codeLabel,
   formatCount,
   formatMoney,
   lawFits,
@@ -20,7 +21,18 @@ import {
 } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord, LetterRouting } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
-import { Button, Field, Input, LinkButton, Meta, MetaItem, Select, Textarea } from "@/components/ui";
+import {
+  Button,
+  Field,
+  Input,
+  LinkButton,
+  Meta,
+  MetaItem,
+  NotSet,
+  Select,
+  Textarea,
+} from "@/components/ui";
+import { countryName } from "@/lib/country";
 import { FeeGroups, LineFee, groupFee } from "@/components/letter-builder/fee-groups";
 import {
   Card,
@@ -298,21 +310,32 @@ export default function LetterPage() {
       {/* The reference goes in the eyebrow. This is the string a client reads
           down the phone; the uuid in the address bar is the system's name for
           the letter, not the firm's. */}
+      {/* Wave 4: the reference is plain text in the line under the title (it
+          was a typewriter eyebrow), the country a name, the status a pill in
+          words. */}
       <PageHeader
-        eyebrow={<span className="mono">{letter.ref}</span>}
         title={letter.title}
         lede={
           <>
-            {record.party.displayName} · issued by {record.issuingEntity.displayName} · country{" "}
-            {letter.jurisdiction} ·{" "}
-            <Pill tone={letter.status === "withdrawn" || deleted ? "danger" : "neutral"}>
-              {deleted ? "deleted" : letter.status}
+            {record.party.displayName} · {letter.ref} · issued by{" "}
+            {record.issuingEntity.displayName} · {countryName(letter.jurisdiction)}{" "}
+            <Pill
+              dot
+              tone={
+                letter.status === "withdrawn" || deleted
+                  ? "danger"
+                  : letter.status === "signed"
+                    ? "ok"
+                    : "neutral"
+              }
+            >
+              {deleted ? "Deleted" : codeLabel(letter.status)}
             </Pill>{" "}
             {/* WHICH DOCUMENT THE PDF IS (0083). Every letter drafted now is
                 the firm's Annexure format; one issued before it re-renders in
                 the classic layout it went out in, and says so. */}
             <Pill tone="neutral">
-              {letter.layout === "annexure" ? "Annexure format" : "classic format"}
+              {letter.layout === "annexure" ? "Annexure format" : "Classic format"}
             </Pill>
           </>
         }
@@ -320,14 +343,14 @@ export default function LetterPage() {
            is the whole firm's, so it is not a substitute. */
         actions={
           <div className="cluster">
+            <LinkButton variant="ghost" href={`/audit?type=engagement_letter&id=${letterId}`}>
+              History
+            </LinkButton>
             {isDraft && permissions.includes("party:write") && (
-              <LinkButton size="sm" variant="primary" href={`/engagement-letters/${letterId}/build?step=preview` as Route}>
+              <LinkButton variant="primary" href={`/engagement-letters/${letterId}/build?step=preview` as Route}>
                 Edit in the builder
               </LinkButton>
             )}
-            <LinkButton size="sm" href={`/audit?type=engagement_letter&id=${letterId}`}>
-              History
-            </LinkButton>
           </div>
         }
       />
@@ -336,8 +359,7 @@ export default function LetterPage() {
 
       {letter.deletedAt !== null && (
         <DeletedNotice what="This draft" deletedAt={letter.deletedAt} deletedBy={record.deletedBy}>
-          It never went out for signature. It is not on the list of letters, its number{" "}
-          {letter.ref} is not used again, and nothing about it changes.
+          It never went out for signature. Its number {letter.ref} is not used again.
         </DeletedNotice>
       )}
 
@@ -352,8 +374,7 @@ export default function LetterPage() {
       {carriedPartially && (
         <Notice tone="warn" eyebrow="Some lines did not carry">
           <p>
-            This letter was written up from a quote, and not every line came across. Every line
-            on a letter must name the company the work is for. Compare it against{" "}
+            Lines that name no company stayed behind. Compare it with{" "}
             {letter.proposalId === null ? (
               "the quote"
             ) : (
@@ -371,9 +392,11 @@ export default function LetterPage() {
         <Card>
           {record.supersededBy !== null && (
             <p className={record.supersedes === null ? "" : "mb-2"}>
-              <Pill tone="danger">superseded</Pill>{" "}
+              <Pill dot tone="danger">
+                Superseded
+              </Pill>{" "}
               Replaced by{" "}
-              <Link className="mono" href={`/engagement-letters/${record.supersededBy.id}`}>
+              <Link href={`/engagement-letters/${record.supersededBy.id}`}>
                 {record.supersededBy.ref}
               </Link>
               . <span className="text-sm text-muted">This is no longer the agreement in force.</span>
@@ -382,7 +405,7 @@ export default function LetterPage() {
           {record.supersedes !== null && (
             <p>
               Replaces{" "}
-              <Link className="mono" href={`/engagement-letters/${record.supersedes.id}`}>
+              <Link href={`/engagement-letters/${record.supersedes.id}`}>
                 {record.supersedes.ref}
               </Link>
               . <span className="text-sm text-muted">That letter stays exactly as it was signed.</span>
@@ -414,9 +437,7 @@ export default function LetterPage() {
               individual there was no individual to address. */}
           <MetaItem label="Addressed to">
             {record.addressedTo === null ? (
-              <span className="text-sm text-muted">
-                {record.party.displayName} (no individual named)
-              </span>
+              <NotSet>Nobody named</NotSet>
             ) : (
               <>
                 {record.addressedTo.displayName}
@@ -432,7 +453,7 @@ export default function LetterPage() {
           <MetaItem label="Issued by">
             {record.issuingEntity.displayName}
             <span className="mt-0.5 block text-md text-muted">
-              under {letter.jurisdiction} law
+              under {countryName(letter.jurisdiction)} law
             </span>
           </MetaItem>
           {/* The document's OWN date, distinct from when this system
@@ -442,7 +463,7 @@ export default function LetterPage() {
             {letter.issuedOn !== null ? (
               longDay(letter.issuedOn)
             ) : letter.sentAt === null ? (
-              <span className="text-sm text-muted">the day it is sent</span>
+              <NotSet>The day it is sent</NotSet>
             ) : (
               <>
                 {longInstant(letter.sentAt)}
@@ -455,7 +476,7 @@ export default function LetterPage() {
                 from the API, or the signature instant already turned into one
                 — so it prints with `longDay`, which SPLITS. */}
             {letterBegins.day === null ? (
-              <span className="text-sm text-muted">on the day it is signed</span>
+              <NotSet>The day it is signed</NotSet>
             ) : (
               longDay(letterBegins.day)
             )}
@@ -465,18 +486,19 @@ export default function LetterPage() {
           </MetaItem>
           </Meta>
         </div>
-        <h3 className="eyebrow">Background</h3>
-        {letter.background === null ? (
-          <p className="text-md text-muted">
-            None written. The letter opens straight with the services. This cannot be changed
-            after the letter is sent.
-          </p>
-        ) : (
-          // Prose, as prose: this is the paragraph the client reads first, and
-          // it is a TERM — inside the canonical content the signature commits
-          // to, not presentation around it.
-          <p className="whitespace-pre-wrap">{letter.background}</p>
-        )}
+        <Meta layout="list">
+          <MetaItem label="Background">
+            {letter.background === null ? (
+              /* The letter then opens straight with the services. */
+              <NotSet />
+            ) : (
+              // Prose, as prose: this is the paragraph the client reads first,
+              // and it is a TERM — inside the canonical content the signature
+              // commits to, not presentation around it.
+              <span className="block whitespace-pre-wrap">{letter.background}</span>
+            )}
+          </MetaItem>
+        </Meta>
       </Card>
 
       {isSigned && (
@@ -496,11 +518,11 @@ export default function LetterPage() {
               </p>
               <p>{letter.signedByName}</p>
               <p className="text-md text-muted">
-                {letter.signedByTitle ?? "capacity not recorded"}
+                {letter.signedByTitle ?? <NotSet>Capacity not recorded</NotSet>}
               </p>
               <p className="text-md text-muted">
                 {signatureDay === null ? "" : longDay(signatureDay)} ·{" "}
-                {letter.signatureMethod}
+                {letter.signatureMethod === null ? "" : codeLabel(letter.signatureMethod)}
                 {letter.signatureReference !== null && ` · ref ${letter.signatureReference}`}
               </p>
             </div>
@@ -541,8 +563,7 @@ export default function LetterPage() {
               canonical rendering and compare. */}
           <p className="mono break-all text-xs text-muted">{letter.signedContentHash}</p>
           <p className="text-sm text-muted">
-            This letter can no longer be changed. To change the terms, draft a new letter that
-            replaces this one.
+            Signed, so it cannot change. New terms mean a new letter that replaces it.
           </p>
         </Card>
       )}
@@ -584,9 +605,12 @@ export default function LetterPage() {
                     {/* WHOSE entity the work is for. One line per group company
                         is the whole reason a letter has more than one. */}
                     {l.entity !== null && <div className="text-sm text-muted">{l.entity.displayName}</div>}
+                    {/* The firm's own code and the pinned catalogue version,
+                        never the service's system key. */}
                     {l.service !== null && (
-                      <div className="mono text-muted">
-                        {l.service.key}@{l.service.version}
+                      <div className="text-sm text-muted">
+                        {l.service.ref === null ? "" : `${l.service.ref} · `}catalogue version{" "}
+                        {l.service.version}
                       </div>
                     )}
                     {/* WHAT THE LETTER PRINTS FOR IT — the four blocks as
@@ -623,17 +647,15 @@ export default function LetterPage() {
                   </Td>
                   <Td>
                     {start.day === null ? (
-                      <span className="text-sm text-muted">on signature</span>
+                      <NotSet>On signature</NotSet>
                     ) : (
                       longDay(start.day)
                     )}
-                    <div className="text-xs text-muted">
-                      {start.from}
-                    </div>
+                    {/* Where the day comes from, only when there is one: "On
+                        signature" already says it for a line with none. */}
+                    {start.day !== null && <div className="text-sm text-muted">{start.from}</div>}
                   </Td>
-                  <Td align="right" className="mono">
-                    {formatCount(l.quantity)}
-                  </Td>
+                  <Td align="right">{formatCount(l.quantity)}</Td>
                   {l.feeGroupId !== null ? (
                     // PRICED BY ITS SECTION (0083): no figure of its own to
                     // show, and a blank would read as free.
@@ -646,10 +668,10 @@ export default function LetterPage() {
                     </Td>
                   ) : (
                     <>
-                      <Td align="right" className="mono">
+                      <Td align="right" className="nowrap">
                         {formatMoney(l.unitAmount, l.currency)}
                       </Td>
-                      <Td align="right" className="mono">
+                      <Td align="right" className="nowrap">
                         {formatMoney(l.net, l.currency)}
                       </Td>
                     </>
@@ -703,7 +725,7 @@ export default function LetterPage() {
           {/* PER FREQUENCY (D8), never one mixed net: a monthly fee and a
               one-time fee added together is a number nobody is billed. Summed
               by the database, a section's fee once at its own frequency. */}
-          <div className="mono text-lg">
+          <div className="num text-lg strong">
             {(() => {
               const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
               if (withheld) return <span className="text-muted">Fees not shown to you</span>;
@@ -754,9 +776,7 @@ export default function LetterPage() {
       <Card>
         <CardTitle level={2}>Terms</CardTitle>
         {record.clauses.length === 0 ? (
-          <p className="text-sm text-muted">
-            None yet. A letter cannot be sent without terms. Add them below.
-          </p>
+          <p className="text-sm text-muted">None yet. A letter needs terms before it is sent.</p>
         ) : (
           record.clauses.map((c) => (
             <div key={c.id} className="mb-4">
@@ -764,9 +784,7 @@ export default function LetterPage() {
                 {c.title}{" "}
                 {/* The version that was PINNED. On a signed letter this is the
                     wording the client agreed to, not today's. */}
-                <span className="mono annot">
-                  {c.key}@{c.version}
-                </span>
+                <span className="annot">version {c.version}</span>
               </div>
               <div className="text-md">{c.text}</div>
               {/* WHOSE LAW, structured. The prose above prints it; these are the
@@ -825,9 +843,7 @@ export default function LetterPage() {
               </Button>
             </div>
             <p className="text-sm text-muted">
-              Every published term for {letter.jurisdiction} whose law and courts are{" "}
-              {record.issuingEntity.displayName}&apos;s. A term naming another country&apos;s law is
-              left off, and the list below says why.
+              Terms naming another country&apos;s law are left off, with the reason.
             </p>
             {standardTerms !== null && (
               <Notice tone={standardTerms.added.length > 0 ? "ok" : "info"} role="status">
@@ -876,7 +892,7 @@ export default function LetterPage() {
                 label="Add a term"
                 hint={
                   available.length === 0
-                    ? `Every published clause for ${letter.jurisdiction} is already on this letter. Write another under Documents, Standard terms.`
+                    ? "Every published term that fits is already on it. Write another under Documents, Standard terms."
                     : undefined
                 }
               >
@@ -907,8 +923,12 @@ export default function LetterPage() {
 
       {isDraft && (
         <Card>
-          <CardTitle level={2}>Agree a service</CardTitle>
+          {/* Behind a disclosure (Wave 4): a nine-box form stood open under
+              every draft; the builder's services step is the usual way in. */}
+          <details>
+            <summary className="card-title">Add a service</summary>
           <form
+            className="mt-4"
             action={(form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
               // Only the tailored blocks somebody actually wrote. An empty box
@@ -963,7 +983,7 @@ export default function LetterPage() {
             <div className="field-row mb-4">
               <Field
                 label="For which company"
-                hint={`${record.party.displayName} and the companies its client page records under it. A company missing here needs that link recorded first.`}
+                hint={`${record.party.displayName} and the companies under it.`}
               >
                 {/* UNCHOSEN, for the same reason as the party selects on the
                     list screens: this one opened on "10x Global", so a line
@@ -987,7 +1007,7 @@ export default function LetterPage() {
                   keeps its own copy of both. */}
               <Field
                 label="From the catalogue"
-                hint="Fills in the wording and the list price below. You can change either. The letter records what this client agreed."
+                hint="Fills the wording and list price. You can change both."
               >
                 <Select
                   name="serviceVersionId"
@@ -1025,7 +1045,7 @@ export default function LetterPage() {
               <div className="field-row mb-4">
                 <Field
                   label="Its fee"
-                  hint="In a section, the section's fee pays for it and it has no price of its own."
+                  hint="In a section, the section's fee pays for it."
                 >
                   <Select
                     name="feeGroupId"
@@ -1078,7 +1098,7 @@ export default function LetterPage() {
                   a single shared date and the reverse cannot: an Incorporation
                   line starts the day it is signed while the GST line beside it
                   starts next period. */}
-              <Field label="Begins" hint="Leave blank to start with the letter.">
+              <Field label="Begins" hint="Blank starts it with the letter.">
                 <Input name="effectiveFrom" type="date" />
               </Field>
             </div>
@@ -1126,22 +1146,22 @@ export default function LetterPage() {
               </div>
             </details>
             <div className="cluster">
-              <Button type="submit" disabled={busy !== null}>
+              <Button type="submit" variant="secondary" disabled={busy !== null}>
                 Add line
               </Button>
             </div>
           </form>
+          </details>
         </Card>
       )}
 
       {engagements.length > 0 && (
         <Card>
           <CardTitle level={2}>Engagements</CardTitle>
-          <p className="text-md text-muted">
-            One engagement per service line, created when the letter was signed. Work and
-            filings are scheduled from these. Each starts on its line’s date, else the letter’s
-            date, else the day of signature.
-          </p>
+          {/* One per service line, made at signing; work and filings are
+              scheduled from them. Each starts on its line's date, else the
+              letter's, else the signature day. */}
+          <p className="text-md text-muted">Made at signing, one per service.</p>
           <TableWrap>
         <Table>
             <tbody>
@@ -1156,21 +1176,18 @@ export default function LetterPage() {
                         COMMERCIAL gate, and `pending_start` is the calendar
                         narrowing it. An engagement that begins in October is
                         agreed, paid for and not started. */}
-                    <span
-                      className="pill"
-                      /* `undefined`, not `""`. An empty attribute is still an
-                         attribute; `data-tone=""` matches no rule and reads in
-                         the DOM as a tone that was set to nothing. */
-                      data-tone={
+                    <Pill
+                      dot
+                      tone={
                         e.status === "pending_advance" || e.status === "cancelled"
                           ? "danger"
-                          : undefined
+                          : "neutral"
                       }
                     >
-                      {e.state.replace("_", " ")}
-                    </span>
+                      {codeLabel(e.state)}
+                    </Pill>
                   </Td>
-                  <Td className="text-sm text-muted">from {longDay(e.effectiveFrom)}</Td>
+                  <Td className="nowrap">From {longDay(e.effectiveFrom)}</Td>
                 </tr>
               ))}
             </tbody>
@@ -1191,10 +1208,8 @@ export default function LetterPage() {
             // standing signatory, because the letter has none until it is sent.
             <p className="text-md text-muted">
               {standing === null
-                ? "The firm has not named a signatory, so this letter goes out with the firm's half of the signature block blank. Name one on Your firm."
-                : `When sent, this letter carries the firm's signature block as it is now: ${
-                    standing.displayName ?? "the named account"
-                  }, ${standing.title}. Changing the signatory later does not change this letter.`}
+                ? "No signatory named, so the firm's signature block goes out blank. Name one on Your firm."
+                : `Signed for the firm by ${standing.displayName ?? "the named account"}, ${standing.title}.`}
             </p>
           )}
 
@@ -1224,8 +1239,7 @@ export default function LetterPage() {
               }}
             >
               <p className="text-md text-muted">
-                {providerName} will email the letter to the person below, and they sign it there. It
-                is recorded here as signed a few minutes after they finish.
+                {providerName} emails them the letter to sign. It shows as signed minutes later.
               </p>
               <div className="field-row">
                 <Field label="Who signs for the client">
@@ -1234,10 +1248,17 @@ export default function LetterPage() {
                     required
                     defaultValue={record.addressedTo?.displayName ?? ""}
                     autoComplete="off"
+                    placeholder="e.g. Asha Verma"
                   />
                 </Field>
                 <Field label="Their email address">
-                  <Input name="signerEmail" type="email" required autoComplete="off" />
+                  <Input
+                    name="signerEmail"
+                    type="email"
+                    required
+                    autoComplete="off"
+                    placeholder="e.g. asha@kaverifoods.in"
+                  />
                 </Field>
                 {/* `self-end` puts the button on the inputs' line rather than
                     the labels': neither field carries a hint, so the bottoms of
@@ -1371,18 +1392,17 @@ export default function LetterPage() {
                 {/* Said plainly, because the audit trail will say it too: this
                     records an attestation by somebody at the firm, not a
                     cryptographic signature. */}
-                Record here that the client has signed, on paper or through an e-signing provider
-                the firm already uses. The audit trail records who confirmed it.
+                Signed on paper or elsewhere? Record it here. The audit trail names who confirmed it.
               </p>
               <div className="field-row">
                 <Field label="Who signed">
-                  <Input name="signedByName" required />
+                  <Input name="signedByName" required placeholder="e.g. Asha Verma" />
                 </Field>
                 <Field label="In what capacity" optional>
-                  <Input name="signedByTitle" placeholder="Director" />
+                  <Input name="signedByTitle" placeholder="e.g. Director" />
                 </Field>
-                <Field label="Reference" hint="The firm’s own note of where the paper is.">
-                  <Input name="reference" placeholder="paper-001" />
+                <Field label="Reference" hint="Your note of where the paper is.">
+                  <Input name="reference" placeholder="e.g. Signed copy in the client file" />
                 </Field>
                 <div>
                   {/* `justify-self`, and it is the grid property that matters:
@@ -1418,28 +1438,21 @@ export default function LetterPage() {
         // A deleted draft gains nothing (0086): its files stay readable.
         canWrite={permissions.includes("party:write") && !deleted}
         renderable="engagement_letter"
-        emptyHint="Nothing attached yet. Upload the signed copy of this letter here."
+        emptyHint="Upload the signed copy here."
       />
 
       <DeleteMistake
         title="Made by mistake?"
         intro={
           <p className="muted">
-            A draft that should never have been started can be deleted. Nobody outside the firm has
-            seen it. A letter that has gone to the client is withdrawn instead.
+            Delete a draft started by mistake. A letter the client has seen is withdrawn instead.
           </p>
         }
         label="Delete this draft"
         consequence={
           <>
-            <p>
-              {letter.ref} leaves the list of letters, and its number is not used again. Its files
-              stay where they are.
-            </p>
-            <p>
-              The page stays readable from its link, and the audit trail records that you deleted
-              it. This cannot be undone.
-            </p>
+            <p>{letter.ref} leaves the list, and its number is not used again.</p>
+            <p>The audit trail records that you deleted it. This cannot be undone.</p>
           </>
         }
         name={letter.ref}

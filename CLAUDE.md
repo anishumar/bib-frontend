@@ -1957,6 +1957,35 @@ and the home page offers the link only to `principal.commercialVisibility`. Note
 NOT implied by being a partner: it is a separate flag on the membership, and a partner without
 it is refused, correctly.
 
+## Wave 4 on the commercial screens (W4C, 2026-09-28)
+
+The brief (`W4-UX-BRIEF.md`) applied to clients, leads, proposals and their builder, letters and
+theirs, invoices, receivables, the dashboard and the import. **What each screen DOES is as it
+was; where things sit and how they read moved.** Walk: `bib/demo-assets/tools/w4c-commercial-walk.mjs`
+(50 checks); measure: `w4c-commercial-measure.mjs <before|after>`.
+
+- **The one brand button per screen:** Add a client (a dialog, was a card under the list), New
+  proposal (client page, lead page), New engagement letter, Raise an invoice (a dialog), Edit in
+  the builder (a draft letter), and **Issue in the invoice's header** (a draft's one committing
+  act, still only for `tenant:admin`; Cancel stayed in the document card, away from it).
+- **A form used once per record is folded, not deleted:** Register it and Add an identifier on a
+  client (OPEN while there is none: an unregistered company is why the calendar is empty), Add a
+  section, each wording kind's Add a line/paragraph (`DocumentBlocks`), Add a service on the
+  letter page, Record the e-invoice reference, Issue a credit note. The lead's three cards are one;
+  the client's "Attach an identifier" card is inside Identifiers.
+- **A long list in a cell needs `.cell-text`.** `.table` is max-content wide, so the import
+  template's SPOC column list (one unwrapped line) hid **2,124px** of the table at 1280 while the page
+  reported no overflow. Two 24rem cells plus a pill column still spilled 5px; the SPOC cell is
+  capped at 20rem.
+- **Codes in words everywhere a reader sees them:** kind (Company/Person), entity type, identifier
+  type (PAN, GSTIN, Email), stage, source, letter/invoice/engagement/dunning states, the letter's
+  country (a name), a line's catalogue pin (`H1 · catalogue version 3`, never `key@version`).
+- **`NoteList` takes an `example` prop** (the new line's "e.g." placeholder) and the proposal
+  document's four scope boxes have one each. The document's typewriter ref line and fee column are
+  the sans face now; its WORDING still restates the PDF (`words.ts`), unchanged.
+- **Gated where it was not:** the client page's identifier form is offered on `party:write`, like
+  every other write on that page (it was shown to everybody and refused by the API).
+
 ## Money never becomes a number
 
 The API sends amounts as decimal **strings**, because a JavaScript number cannot hold 1499.50

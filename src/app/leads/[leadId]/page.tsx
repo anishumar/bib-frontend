@@ -6,8 +6,10 @@ import Link from "next/link";
 import {
   api,
   apiError,
+  codeLabel,
   formatMoney,
   LEAD_STAGES,
+  PROPOSAL_STATUS_WORDS,
   colleagueLabel,
   recordsLostReason,
   TERMINAL_STAGES,
@@ -22,6 +24,7 @@ import type {
 import {
   Button,
   Card,
+  CardHead,
   CardTitle,
   ErrorNotice,
   Field,
@@ -31,17 +34,22 @@ import {
   LinkButton,
   Meta,
   MetaItem,
-  NotStated,
+  NotSet,
   Notice,
   Pill,
+  RowChevron,
+  RowLink,
   Select,
   Table,
   TableWrap,
   Td,
   Textarea,
   Th,
+  ThChevron,
+  Tr,
+  type PillTone,
 } from "@/components/ui";
-import { Empty, Loading } from "@/components/states";
+import { Loading } from "@/components/states";
 import { Page, PageHeader, useSession } from "@/components/layout";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { longInstant, longMoment } from "@/lib/day";
@@ -102,12 +110,14 @@ function sentenceFor(event: EventRecord["event"]): string {
   switch (event.verb) {
     case "lead.captured":
       return typeof p["source"] === "string"
-        ? `Captured (${p["source"]})`
+        ? `Captured (${codeLabel(p["source"])})`
         : "Captured";
     case "lead.merged":
       return "A second capture was merged into this opportunity";
     case "lead.stage_changed":
-      return from !== null && to !== null ? `Moved from ${from} to ${to}` : "Moved";
+      return from !== null && to !== null
+        ? `Moved from ${codeLabel(from)} to ${codeLabel(to)}`
+        : "Moved";
     case "lead.details_changed": {
       // Both sides travel in the payload, so the sentence can say what moved
       // without a second read. Only what CHANGED is named.
@@ -227,7 +237,7 @@ export default function LeadPage() {
   }
 
   function move(stage: LeadStage, lostReason?: string): void {
-    void act(`Moved to ${stage}.`, async () => {
+    void act(`Moved to ${codeLabel(stage)}.`, async () => {
       const result = await api.POST("/api/v1/leads/{leadId}/stage", {
         params: { path: { leadId } },
         body: {
@@ -275,29 +285,34 @@ export default function LeadPage() {
   const canPropose =
     !closed && !deleted && (session?.permissions.includes("party:write") ?? false);
 
+  // What can still be done to it: a deleted lead takes nothing, a closed one
+  // takes a corrected country or value and nothing else.
+  const canEdit = !deleted;
+  const canMove = !deleted && !closed;
+
   return (
     <Page>
+      {/* THE WAVE 4 SHAPE (2026-09-28): New proposal is the one brand button;
+          the opportunity's facts, its stage and owner, its country and value
+          and its notes are ONE card (they were three, and the first repeated
+          the other two); stage and source read as words, never codes. */}
       <PageHeader
-        eyebrow="Pipeline"
         title={lead.title}
         lede={
           <>
             An opportunity with <Link href={`/clients/${party.id}`}>{party.displayName}</Link>.
-            {deleted
-              ? " Deleted as entered by mistake, so there is nothing more to do with it."
-              : " Move it along the stages below, and draft a proposal from it when you are ready."}
+            {deleted && " Deleted as entered by mistake."}
           </>
         }
         aside={
-          <>
-            <LinkButton variant="ghost" href="/leads">The pipeline</LinkButton>
-            {/* THE PROPOSAL CARRIES THIS LEAD. The old way in was the form on
-                /proposals, which never sent a lead, so "Proposals from this
-                opportunity" below stayed empty whatever was quoted. */}
-            {canPropose && (
-              <LinkButton href={`/proposals/new?leadId=${lead.id}`}>New proposal</LinkButton>
-            )}
-          </>
+          /* THE PROPOSAL CARRIES THIS LEAD. The old way in was the form on
+             /proposals, which never sent a lead, so "Proposals from this
+             opportunity" below stayed empty whatever was quoted. */
+          canPropose ? (
+            <LinkButton variant="primary" href={`/proposals/new?leadId=${lead.id}`}>
+              New proposal
+            </LinkButton>
+          ) : undefined
         }
       />
 
@@ -312,46 +327,51 @@ export default function LeadPage() {
 
       {lead.deletedAt !== null && (
         <DeletedNotice what="This lead" deletedAt={lead.deletedAt} deletedBy={record.deletedBy}>
-          It was not marked lost: it is not in the pipeline or any of its numbers, and nothing
-          about it changes again. If the prospect turns out to be real, capture a new lead.
+          It is not counted as lost, and it cannot change again. If the prospect is real, capture
+          a new lead.
         </DeletedNotice>
       )}
 
       <Card>
-        <CardTitle level={2}>The opportunity</CardTitle>
         <Meta>
-          <MetaItem label="Stage">
-            <Pill tone={closed ? "quiet" : "ok"}>{lead.stage}</Pill>
-          </MetaItem>
-          <MetaItem label="Owner">
-            {owner === null ? (
-              /* Unassigned is a real state — it is the queue somebody works
-                 from — and saying "nobody" is not the same as saying nothing. */
-              <span className="muted">nobody</span>
-            ) : (
-              (owner.displayName ?? owner.email)
-            )}
-          </MetaItem>
-          <MetaItem label="Source">{lead.source}</MetaItem>
-          <MetaItem label="Where the prospect is">
-            {/* Null is ORDINARY here — often nobody knows at capture — and an
-                unknown country matches no territory rule, which is why the
-                assignment rotation covers it. */}
-            {lead.jurisdiction === null ? (
-              <NotStated>not known</NotStated>
-            ) : (
-              countryName(lead.jurisdiction)
-            )}
-          </MetaItem>
-          <MetaItem label="Could be worth">
-            {lead.estimatedValue === null ? (
-              <NotStated>not set</NotStated>
-            ) : (
-              <span className="num">
-                {formatMoney(lead.estimatedValue.amount, lead.estimatedValue.currency)}
-              </span>
-            )}
-          </MetaItem>
+          {!canMove && (
+            <MetaItem label="Stage">
+              <Pill dot tone={stageTone(lead.stage)}>
+                {codeLabel(lead.stage)}
+              </Pill>
+            </MetaItem>
+          )}
+          {!canMove && (
+            <MetaItem label="Owner">
+              {owner === null ? (
+                /* Unassigned is a real state — it is the queue somebody works
+                   from — and saying so is not the same as saying nothing. */
+                <NotSet>Unassigned</NotSet>
+              ) : (
+                (owner.displayName ?? owner.email)
+              )}
+            </MetaItem>
+          )}
+          <MetaItem label="Source">{codeLabel(lead.source)}</MetaItem>
+          {!canEdit && (
+            <MetaItem label="Where the prospect is">
+              {/* Null is ORDINARY here — often nobody knows at capture — and an
+                  unknown country matches no territory rule, which is why the
+                  assignment rotation covers it. */}
+              {lead.jurisdiction === null ? <NotSet /> : countryName(lead.jurisdiction)}
+            </MetaItem>
+          )}
+          {!canEdit && (
+            <MetaItem label="Could be worth">
+              {lead.estimatedValue === null ? (
+                <NotSet />
+              ) : (
+                <span className="num">
+                  {formatMoney(lead.estimatedValue.amount, lead.estimatedValue.currency)}
+                </span>
+              )}
+            </MetaItem>
+          )}
           {/* An INSTANT, parsed: `capturedAt` is a timestamptz and the day it
               fell on where the reader is standing is the answer they want. */}
           <MetaItem label="Captured">{longInstant(lead.capturedAt)}</MetaItem>
@@ -366,241 +386,235 @@ export default function LeadPage() {
              sentence on this page — a firm that cannot tell "chose a
              competitor" from "went quiet" cannot tell which of its two fixable
              failures it has. */
-          <Notice tone="warn" eyebrow="Why it did not close">
-            <p>{lead.lostReason}</p>
-          </Notice>
+          <div className="card-part">
+            <Notice tone="warn" eyebrow="Why it did not close">
+              <p>{lead.lostReason}</p>
+            </Notice>
+          </div>
         )}
 
-        {/* A card's children get no gap of their own, so a second heading
-            inside one sits ON the block above it — measured at 0px against the
-            meta row, which reads as another meta label rather than a new
-            subject. */}
-        <CardTitle style={{ marginTop: "var(--s-5)" }}>Notes</CardTitle>
-        {lead.notes === null || lead.notes.trim() === "" ? (
-          <p className="muted">
-            None. Notes come in with a capture. A second capture for the same prospect is added
-            to this opportunity rather than creating a new one.
+        {closed && !deleted && (
+          /* A converted, lost or abandoned opportunity cannot be reopened; a
+             new capture is linked to the same client record. */
+          <p className="muted card-part">
+            Closed for good. If talks restart, capture a new lead on{" "}
+            <Link href="/leads">the pipeline</Link>.
           </p>
-        ) : (
-          <p style={{ whiteSpace: "pre-wrap", maxWidth: "62ch" }}>{lead.notes}</p>
         )}
-      </Card>
 
-      {/* Open AND closed: what a deal was worth is worth correcting after it
-          closes, and the API allows it for that reason. The key remounts the
-          form on a save, so its boxes start from what was just stored. */}
-      {!deleted && (
-        <Card>
-          <CardTitle level={2}>Country and value</CardTitle>
+        {canMove && (
+          <div className="card-foot">
+            <FieldRow>
+              <Field label="Stage" hint="Lost and abandoned ask for a reason.">
+                <Select
+                  value={closing ?? lead.stage}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const stage = e.target.value as LeadStage;
+                    if (recordsLostReason(stage)) {
+                      setClosing(stage);
+                      return;
+                    }
+                    setClosing(null);
+                    move(stage);
+                  }}
+                >
+                  {LEAD_STAGES.map((s) => (
+                    <option key={s} value={s}>
+                      {codeLabel(s)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Owner"
+                hint={
+                  staff.length === 0
+                    ? "You cannot see the staff list."
+                    : "Unassigned puts it in the queue."
+                }
+              >
+                <Select
+                  value={owner?.userId ?? ""}
+                  disabled={busy || staff.length === 0}
+                  onChange={(e) => {
+                    const ownerUserId = e.target.value === "" ? null : e.target.value;
+                    const who =
+                      ownerUserId === null
+                        ? "on nobody's desk"
+                        : `with ${
+                            (() => {
+                              const c = staff.find((m) => m.userId === ownerUserId);
+                              return c === undefined ? "somebody else" : colleagueLabel(c);
+                            })()
+                          }`;
+                    void act(`Now ${who}.`, () =>
+                      api.PUT("/api/v1/leads/{leadId}/owner", {
+                        params: { path: { leadId } },
+                        body: { ownerUserId },
+                      }),
+                    );
+                  }}
+                >
+                  <option value="">Unassigned</option>
+                  {staff.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {colleagueLabel(m)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            {closing !== null && (
+              <form
+                action={(form) => {
+                  move(closing, String(form.get("lostReason") ?? "").trim());
+                }}
+              >
+                {/* Its own group: two forms are open on this card once a close
+                    begins, and "Stage" above and this box are different
+                    questions about the same lead. */}
+                <fieldset
+                  className="card"
+                  aria-label={`Closing this opportunity as ${closing}`}
+                  style={{ marginTop: "var(--s-4)" }}
+                >
+                  <Field label={`Why is it ${closing}?`} hint="Required, in your own words.">
+                    <Textarea
+                      name="lostReason"
+                      rows={3}
+                      required
+                      placeholder="e.g. Chose their existing auditor"
+                    />
+                  </Field>
+                  <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
+                    <Button type="submit" loading={busy}>
+                      {busy ? "Closing…" : `Close it as ${closing}`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setClosing(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </fieldset>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* Open AND closed: what a deal was worth is worth correcting after it
+            closes, and the API allows it for that reason. The key remounts the
+            form on a save, so its boxes start from what was just stored. */}
+        {canEdit && (
           <form
+            className={canMove ? undefined : "card-foot"}
+            style={canMove ? { marginTop: "var(--s-4)" } : undefined}
             key={`${lead.jurisdiction ?? ""}|${lead.estimatedValue?.amount ?? ""}`}
             action={(form) => {
               saveDetails(form);
             }}
           >
-            <FieldStack>
-              <FieldRow>
-                <Field
-                  label="Country"
-                  hint="Where the prospect is. Changing it does not move the opportunity to another desk."
-                >
-                  <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
-                </Field>
-                <Field
-                  label="Could be worth"
-                  hint={
-                    previewAmount(
-                      cleanAmount(
-                        typedValue ??
-                          (lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)),
-                      ),
-                    ) ?? "Your best estimate in the firm's currency. Numbers only. Leave it blank if nobody knows."
+            <FieldRow>
+              <Field label="Country" hint="Changing it does not move it to another desk.">
+                <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
+              </Field>
+              <Field
+                label="Could be worth"
+                hint={
+                  previewAmount(
+                    cleanAmount(
+                      typedValue ??
+                        (lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)),
+                    ),
+                    // Grouped as the value's own currency is (lakhs for INR).
+                    lead.estimatedValue?.currency,
+                  ) ?? "In the firm's currency. Blank if nobody knows."
+                }
+              >
+                <Input
+                  name="estimatedValue"
+                  inputMode="decimal"
+                  placeholder="e.g. 5,00,000"
+                  defaultValue={
+                    lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)
                   }
-                >
-                  <Input
-                    name="estimatedValue"
-                    inputMode="decimal"
-                    placeholder="500000"
-                    defaultValue={
-                      lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)
-                    }
-                    onChange={(e) => {
-                      setTypedValue(e.target.value);
-                    }}
-                  />
-                </Field>
-              </FieldRow>
-              <div className="cluster">
-                <Button type="submit" disabled={busy}>
+                  onChange={(e) => {
+                    setTypedValue(e.target.value);
+                  }}
+                />
+              </Field>
+              <div className="field-action">
+                <Button type="submit" variant="secondary" disabled={busy}>
                   Save
                 </Button>
               </div>
-            </FieldStack>
+            </FieldRow>
           </form>
-        </Card>
-      )}
+        )}
 
-      {deleted ? null : closed ? (
-        <Card>
-          <CardTitle level={2}>This opportunity is closed</CardTitle>
-          <p className="muted">
-            A converted, lost or abandoned opportunity cannot be reopened. If the conversation
-            starts again, capture it as a new opportunity on{" "}
-            <Link href="/leads">the pipeline</Link>. It will be linked to the same client record.
-          </p>
-        </Card>
-      ) : (
-        <Card>
-          <CardTitle level={2}>Move it on</CardTitle>
-          <FieldRow>
-            <Field
-              label="Stage"
-              hint="Converted, lost and abandoned are final. Lost and abandoned ask for a reason first."
-            >
-              <Select
-                value={closing ?? lead.stage}
-                disabled={busy}
-                onChange={(e) => {
-                  const stage = e.target.value as LeadStage;
-                  if (recordsLostReason(stage)) {
-                    setClosing(stage);
-                    return;
-                  }
-                  setClosing(null);
-                  move(stage);
-                }}
-              >
-                {LEAD_STAGES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Owner"
-              hint={
-                staff.length === 0
-                  ? "You do not have permission to see the staff list, so there is nobody to choose from here."
-                  : "Leave it unassigned to put it in the queue for somebody to pick up."
-              }
-            >
-              <Select
-                value={owner?.userId ?? ""}
-                disabled={busy || staff.length === 0}
-                onChange={(e) => {
-                  const ownerUserId = e.target.value === "" ? null : e.target.value;
-                  const who =
-                    ownerUserId === null
-                      ? "on nobody's desk"
-                      : `with ${
-                          (() => {
-                            const c = staff.find((m) => m.userId === ownerUserId);
-                            return c === undefined ? "somebody else" : colleagueLabel(c);
-                          })()
-                        }`;
-                  void act(`Now ${who}.`, () =>
-                    api.PUT("/api/v1/leads/{leadId}/owner", {
-                      params: { path: { leadId } },
-                      body: { ownerUserId },
-                    }),
-                  );
-                }}
-              >
-                <option value="">unassigned</option>
-                {staff.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {colleagueLabel(m)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </FieldRow>
-
-          {closing !== null && (
-            <form
-              action={(form) => {
-                move(closing, String(form.get("lostReason") ?? "").trim());
-              }}
-            >
-              {/* Its own group: two forms are open on this card once a close
-                  begins, and "Stage" above and this box are different questions
-                  about the same lead. */}
-              <fieldset
-                className="card"
-                aria-label={`Closing this opportunity as ${closing}`}
-                style={{ marginTop: "var(--s-4)" }}
-              >
-                <Field
-                  label={`Why is it ${closing}?`}
-                  hint="In your own words. A reason is required when an opportunity is lost or abandoned."
-                >
-                  <Textarea name="lostReason" rows={3} required />
-                </Field>
-                <div className="cluster" style={{ marginTop: "var(--s-3)" }}>
-                  <Button type="submit" loading={busy}>
-                    {busy ? "Closing…" : `Close it as ${closing}`}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setClosing(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </fieldset>
-            </form>
-          )}
-        </Card>
-      )}
+        <Meta layout="list" className="card-part">
+          <MetaItem label="Notes">
+            {lead.notes === null || lead.notes.trim() === "" ? (
+              /* Notes come in with a capture; a second capture for the same
+                 prospect is added to this opportunity rather than a new one. */
+              <NotSet />
+            ) : (
+              <span style={{ whiteSpace: "pre-wrap", maxWidth: "62ch", display: "block" }}>
+                {lead.notes}
+              </span>
+            )}
+          </MetaItem>
+        </Meta>
+      </Card>
 
       <Card>
         <CardTitle level={2}>Proposals from this opportunity</CardTitle>
         {proposals.length === 0 ? (
-          <Empty title="No proposal has been drafted from this opportunity" icon="proposals">
-            {canPropose
-              ? "Start one with New proposal at the top of this page and it will appear here."
-              : "A proposal started from an open opportunity appears here."}
-          </Empty>
+          <p className="muted">
+            None yet.{canPropose && " Start one with New proposal."}
+          </p>
         ) : (
           <TableWrap>
             <Table>
               <thead>
                 <tr>
-                  <Th>Number</Th>
-                  <Th>What was quoted</Th>
+                  <Th>Proposal</Th>
+                  <Th>Ref</Th>
                   <Th>Status</Th>
                   <Th align="right">Total</Th>
+                  <ThChevron />
                 </tr>
               </thead>
               <tbody>
                 {proposals.map((p) => (
-                  <tr key={p.proposal.id}>
+                  <Tr key={p.proposal.id} linked>
                     <Td>
-                      <Link className="mono" href={`/proposals/${p.proposal.id}`}>
-                        {p.proposal.ref}
-                      </Link>
+                      <RowLink href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</RowLink>
                     </Td>
-                    <Td>{p.proposal.title}</Td>
+                    <Td className="nowrap">{p.proposal.ref}</Td>
                     <Td>
-                      <Pill tone={p.proposal.status === "accepted" ? "ok" : "quiet"}>
-                        {p.proposal.status}
+                      <Pill dot tone={proposalTone(p.proposal.status)}>
+                        {PROPOSAL_STATUS_WORDS[p.proposal.status]}
                       </Pill>
                     </Td>
-                    {/* An em dash for a caller without commercial visibility —
+                    {/* "Hidden" for a caller without commercial visibility —
                         the API answers null rather than refusing the row, and
                         the row is still worth seeing. */}
-                    <Td align="right">
+                    <Td align="right" className="nowrap">
                       {p.totals.net === null ? (
-                        <NotStated />
+                        <NotSet>Hidden</NotSet>
                       ) : (
-                        <span className="mono">{formatMoney(p.totals.net, p.totals.currency)}</span>
+                        formatMoney(p.totals.net, p.totals.currency)
                       )}
                     </Td>
-                  </tr>
+                    <RowChevron />
+                  </Tr>
                 ))}
               </tbody>
             </Table>
@@ -609,22 +623,22 @@ export default function LeadPage() {
       </Card>
 
       <Card>
-        <div className="row">
-          <CardTitle level={2}>History</CardTitle>
-          <LinkButton
-            variant="ghost"
-            size="sm"
-            href={`/audit?type=lead&id=${leadId}`}
-            aria-label="The full audit trail for this opportunity"
-          >
-            In the audit trail
-          </LinkButton>
-        </div>
+        <CardHead
+          title="History"
+          level={2}
+          aside={
+            <LinkButton
+              variant="ghost"
+              size="sm"
+              href={`/audit?type=lead&id=${leadId}`}
+              aria-label="The full audit trail for this opportunity"
+            >
+              In the audit trail
+            </LinkButton>
+          }
+        />
         {events.length === 0 ? (
-          <p className="muted">
-            Nothing to show. Your account may not have permission to read the audit trail, where
-            every capture is recorded.
-          </p>
+          <p className="muted">Nothing to show. You may not have access to the audit trail.</p>
         ) : (
           <TableWrap>
             <Table>
@@ -642,11 +656,11 @@ export default function LeadPage() {
                   <tr key={r.event.id}>
                     {/* WITH ITS CLOCK. An event is a timestamptz and the time of
                         day is half of what "who had it and since when" means. */}
-                    <Td className="muted">{longMoment(r.event.occurredAt)}</Td>
+                    <Td className="nowrap">{longMoment(r.event.occurredAt)}</Td>
                     <Td>{sentenceFor(r.event)}</Td>
-                    <Td className="muted">
+                    <Td>
                       {r.actor === null ? (
-                        <span className="muted">{r.event.actorType}</span>
+                        <NotSet>{codeLabel(r.event.actorType)}</NotSet>
                       ) : (
                         (r.actor.displayName ?? r.actor.email)
                       )}
@@ -665,21 +679,14 @@ export default function LeadPage() {
         title="Entered by mistake?"
         intro={
           <p className="muted">
-            A duplicate, a test, or the wrong company can be deleted. It leaves the pipeline
-            without being counted as a lost deal. An opportunity that was real, but did not work
-            out, should be closed as lost or abandoned instead.
+            Delete a duplicate or a test. A real lead that fell through is closed as lost.
           </p>
         }
         label="Delete this lead"
         consequence={
           <>
-            <p>
-              It leaves the pipeline and every number taken from it. It is not recorded as lost.
-            </p>
-            <p>
-              The page stays readable from its link, and the audit trail records that you deleted
-              it. This cannot be undone.
-            </p>
+            <p>It leaves the pipeline and its numbers, and is not counted as lost.</p>
+            <p>The audit trail records that you deleted it. This cannot be undone.</p>
           </>
         }
         name={lead.title}
@@ -703,4 +710,17 @@ export default function LeadPage() {
       />
     </Page>
   );
+}
+
+/** Which pill a stage wears: won is done, lost and abandoned are the same
+ *  kind of fact, and the open stages are neither good nor bad. */
+function stageTone(stage: LeadStage): PillTone {
+  if (stage === "converted") return "ok";
+  return recordsLostReason(stage) ? "danger" : "neutral";
+}
+
+/** The proposals list's own mapping, for the same statuses. */
+function proposalTone(status: ProposalSummary["proposal"]["status"]): PillTone {
+  if (status === "accepted") return "ok";
+  return status === "rejected" || status === "expired" ? "danger" : "neutral";
 }

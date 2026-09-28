@@ -9,16 +9,11 @@
   "src/app/admin/verification/page.tsx": 2,
   "src/app/admin/work-vocabulary/page.tsx": 2,
   "src/app/admin/workflows/page.tsx": 6,
-  "src/app/clients/[partyId]/page.tsx": 4,
-  "src/app/engagement-letters/[letterId]/page.tsx": 2,
-  "src/app/leads/[leadId]/page.tsx": 1,
+  "src/app/catalogue/page.tsx": 13,
   "src/app/portal/ask-the-firm.tsx": 1,
   "src/app/portal/documents/page.tsx": 1,
   "src/app/work-items/[workItemId]/client-asks.tsx": 1,
   "src/app/work-items/page.tsx": 1,
   "src/app/work/[jobId]/check-lines.tsx": 1,
-  "src/components/letter-builder/fee-groups.tsx": 3,
-  "src/components/proposal-builder/client-step.tsx": 3,
-  "src/components/proposal-document/send-panel.tsx": 1,
   "src/lib/ui/documents.tsx": 1
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { paths } from "@/lib/api/schema";
 import { longMoment } from "@/lib/day";
 import { Cluster, Page, PageHeader, useSession } from "@/components/layout";
@@ -15,6 +15,7 @@ import {
   ErrorNotice,
   Field,
   Input,
+  NotSet,
   Notice,
   Pill,
   Stat,
@@ -207,11 +208,11 @@ export default function ClientImportPage() {
 
   return (
     <Page>
+      {/* Wave 4: one line under the title. A client already on file is
+          skipped, never overwritten. */}
       <PageHeader
-        eyebrow="Clients"
         title="Bring in the book"
-        lede="Load your existing clients, their people and the work you already do for them from spreadsheets. Every row is checked first, and nothing is saved until you confirm. A client already on file is skipped, never overwritten."
-        aside={<Pill tone="quiet">{imports.length} uploaded</Pill>}
+        lede="Every row is checked first. Nothing is saved until you confirm."
       />
 
       <ErrorNotice error={error} />
@@ -220,10 +221,8 @@ export default function ClientImportPage() {
 
       <Card>
         <CardHead title="Upload" level={2}>
-          <p className="lede">
-            .csv or .xlsx, one file per sheet. The clients sheet is required; the other two
-            refer to it by the client’s registered name. Nothing is saved until you confirm.
-          </p>
+          {/* The other two sheets refer to a client by its registered name. */}
+          <p className="lede">A .csv or .xlsx file per sheet. Only Clients is required.</p>
         </CardHead>
         <form
           ref={formRef}
@@ -258,7 +257,7 @@ export default function ClientImportPage() {
         <CardHead title="Previous uploads" level={2} />
         {imports.length === 0 ? (
           <Empty title="Nothing uploaded yet" icon="upload">
-            Every upload appears here with its result, whether or not it was confirmed.
+            Each upload shows here with its result.
           </Empty>
         ) : (
           <TableWrap>
@@ -283,7 +282,9 @@ export default function ClientImportPage() {
                     </Td>
                     <Td>
                       <span className="cluster tight">
-                        <Pill tone={i.status === "confirmed" ? "ok" : "quiet"}>{i.status}</Pill>
+                        <Pill dot tone={i.status === "confirmed" ? "ok" : "neutral"}>
+                          {codeLabel(i.status)}
+                        </Pill>
                         {i.blocking > 0 && <Pill tone="danger">{i.blocking} blocking</Pill>}
                         {i.warnings > 0 && <Pill tone="warn">{i.warnings} warnings</Pill>}
                       </span>
@@ -357,10 +358,9 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
   return (
     <Card>
       <CardHead title="The sheets" level={2}>
-        <p className="lede">
-          Column headers are matched by name, so a title row above them is fine. Write dates as
-          2026-08-23 or 23-Aug-2026, never 23/08/2026, which can be read two ways.
-        </p>
+        {/* Headers are matched by name, so a title row above them is fine;
+            23/08/2026 can be read two ways. */}
+        <p className="lede">Write dates as 2026-08-23 or 23-Aug-2026, never 23/08/2026.</p>
       </CardHead>
       <Tabs
         id={tabsId}
@@ -380,7 +380,7 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                   Download {SHEET_LABEL[s.key].toLowerCase()} template
                 </Button>
                 <span className="muted">
-                  The header row must include <span className="mono">{s.marker}</span>.
+                  The header row must include &ldquo;{s.marker}&rdquo;.
                 </span>
               </Cluster>
               <TableWrap>
@@ -402,19 +402,25 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                               list, and the row explains itself instead. */}
                           {c.header === SPOC_COLUMN_TEMPLATE && depts.length > 0 ? (
                             <>
-                              <span className="mono">
+                              {/* `.cell-text` so the long list WRAPS: `.table` is
+                                  max-content wide, and this one line hid 2,124px
+                                  of the table at 1280 (Wave 4, measured). */}
+                              <span className="cell-text" style={{ maxWidth: "20rem" }}>
                                 {spocSlots(depts)
                                   .flatMap(spocPair)
-                                  .join(", ")}
-                              </span>{" "}
-                              <span className="muted">(one pair per SPOC)</span>
+                                  .join(", ")}{" "}
+                                <span className="muted">(one pair per SPOC)</span>
+                              </span>
                             </>
                           ) : (
-                            <span className="mono">{c.header}</span>
+                            <strong>{c.header}</strong>
                           )}
                         </Td>
-                        <Td>{c.required ? <Pill tone="warn">required</Pill> : <span className="empty">optional</span>}</Td>
                         <Td>
+                          {c.required ? <Pill tone="warn">Required</Pill> : <NotSet>Optional</NotSet>}
+                        </Td>
+                        <Td>
+                          <span className="cell-text">
                           {c.header === SPOC_COLUMN_TEMPLATE && depts.length === 0 ? (
                             <>
                               One pair of columns per SPOC: the Dept, and that SPOC’s email. No
@@ -423,10 +429,11 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
                               columns appear here.
                             </>
                           ) : c.about === "" ? (
-                            <span className="empty">no notes</span>
+                            <NotSet>No notes</NotSet>
                           ) : (
                             c.about
                           )}
+                          </span>
                         </Td>
                       </tr>
                     ))}
@@ -538,10 +545,7 @@ function ImportReport({
       {r.findings.length > 0 && (
         <Card>
           <CardHead title="Findings" level={2}>
-            <p className="lede">
-              A blocking finding stops the load until the sheet is fixed. A warning still loads,
-              but is worth a look.
-            </p>
+            <p className="lede">Blocking stops the load until fixed. A warning still loads.</p>
           </CardHead>
           <TableWrap>
             <Table>
@@ -558,12 +562,16 @@ function ImportReport({
                 {r.findings.map((f, i) => (
                   <tr key={`${f.sheet}-${String(f.lineNo)}-${String(i)}`}>
                     <Td>
-                      <Pill tone={f.severity === "blocking" ? "danger" : "warn"}>{f.severity}</Pill>
+                      <Pill dot tone={f.severity === "blocking" ? "danger" : "warn"}>
+                        {codeLabel(f.severity)}
+                      </Pill>
                     </Td>
-                    <Td>{f.sheet}</Td>
-                    <Td align="right">{f.lineNo === null ? <span className="empty">whole sheet</span> : f.lineNo}</Td>
+                    <Td>{codeLabel(f.sheet)}</Td>
+                    <Td align="right">{f.lineNo === null ? <NotSet>Whole sheet</NotSet> : f.lineNo}</Td>
                     <Td>{f.name}</Td>
-                    <Td>{f.message}</Td>
+                    <Td>
+                      <span className="cell-text">{f.message}</span>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -623,7 +631,13 @@ function ImportReport({
                               <Td>
                                 <Pill tone={actionTone(action)}>{action}</Pill>
                               </Td>
-                              <Td>{detail === null ? <span className="empty">none</span> : detail}</Td>
+                              <Td>
+                                {detail === null ? (
+                                  <NotSet>None</NotSet>
+                                ) : (
+                                  <span className="cell-text">{detail}</span>
+                                )}
+                              </Td>
                             </tr>
                           );
                         })}
@@ -640,11 +654,11 @@ function ImportReport({
       {r.letters.length > 0 && (
         <Card>
           <CardHead title={confirmed ? "Letters signed" : "Letters to sign"} level={2}>
-            <p className="lede">
-              One letter per client and currency, dated from its earliest engagement and signed
-              today as the firm’s confirmation that the paper letter exists. Signing the letter
-              creates the engagements, which put work on the board and filings on the calendar.
-            </p>
+            {/* Dated from the earliest engagement, signed today as the firm's
+                word that the paper letter exists; signing creates the
+                engagements, which put work on the board and filings on the
+                calendar. */}
+            <p className="lede">One per client and currency. Signing creates the engagements.</p>
           </CardHead>
           <TableWrap>
             <Table>

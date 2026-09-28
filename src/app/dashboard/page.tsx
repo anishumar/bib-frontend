@@ -45,10 +45,11 @@ import {
   MRR_GAP_LABELS,
   api,
   apiError,
+  codeLabel,
   formatMoney,
 } from "@/lib/api/client";
 import type { DashboardOverview, DashboardSlice } from "@/lib/api/client";
-import { TabPanel, Tabs } from "@/components/ui";
+import { NotSet, TabPanel, Tabs } from "@/components/ui";
 import {
   Card,
   CardTitle,
@@ -146,14 +147,15 @@ export default function DashboardPage() {
 
   return (
     <Page>
+      {/* Wave 4: no eyebrow, and the lede is the one fact the page must say
+          once: the currency (every figure is converted at the rate stored on
+          its own document, worked out fresh on every visit). */}
       <PageHeader
-        eyebrow="Commercial"
         title="The firm’s numbers"
         lede={
           <>
-            Worked out fresh from your invoices and engagements every time you open this page.
-            Every figure is in <strong className="text-ink">{cur}</strong>, converted at the
-            exchange rate recorded on each document.
+            All figures in <strong className="text-ink">{cur}</strong>, at each document&apos;s own
+            rate.
           </>
         }
       />
@@ -186,7 +188,7 @@ export default function DashboardPage() {
                 {totalGapEngagements} active engagement{totalGapEngagements === 1 ? "" : "s"}{" "}
                 {totalGapEngagements === 1 ? "is" : "are"} not in that figure.
               </strong>{" "}
-              Their fees cannot be turned into a monthly amount. Each reason is different:
+              Their fees cannot be made monthly:
             </p>
             <TableWrap>
               <Table>
@@ -200,11 +202,9 @@ export default function DashboardPage() {
                 <tbody>
                   {overview.mrr.gaps.map((g) => (
                     <tr key={g.reason}>
-                      <Td>{MRR_GAP_LABELS[g.reason] ?? g.reason}</Td>
-                      <Td align="right" className="mono">
-                        {g.engagementCount}
-                      </Td>
-                      <Td className="text-muted">{MRR_GAP_HINTS[g.reason] ?? ""}</Td>
+                      <Td>{codeLabel(MRR_GAP_LABELS[g.reason] ?? g.reason)}</Td>
+                      <Td align="right">{g.engagementCount}</Td>
+                      <Td>{MRR_GAP_HINTS[g.reason] ?? ""}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -235,10 +235,7 @@ export default function DashboardPage() {
             `aria-controls` at nothing. */}
         <TabPanel tabsId={axisTabs} value={axis}>
         {mrrSlices.length === 0 ? (
-          <p className="mt-4 text-sm text-muted">
-            Nothing to split yet. No engagement has a fee that can be turned into a monthly
-            figure.
-          </p>
+          <p className="mt-4 text-sm text-muted">Nothing to split yet.</p>
         ) : (
           <div className="mt-4">
             <TableWrap>
@@ -254,12 +251,10 @@ export default function DashboardPage() {
                   {mrrSlices.map((s) => (
                     <tr key={s.key}>
                       <Td>{s.label}</Td>
-                      <Td align="right" className="mono">
+                      <Td align="right" className="nowrap">
                         {formatMoney(s.amount, cur)}
                       </Td>
-                      <Td align="right" className="mono text-muted">
-                        {s.count}
-                      </Td>
+                      <Td align="right">{s.count}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -312,16 +307,10 @@ export default function DashboardPage() {
                 {overview.receivables.bands.map((b) => (
                   <tr key={b.bucket}>
                     <Td>{AGEING_LABELS[b.bucket] ?? b.bucket}</Td>
-                    <Td align="right" className="mono">
-                      {b.invoiceCount === 0 ? (
-                        <span className="text-faint">nothing</span>
-                      ) : (
-                        formatMoney(b.amount, cur)
-                      )}
+                    <Td align="right" className="nowrap">
+                      {b.invoiceCount === 0 ? <NotSet>Nothing</NotSet> : formatMoney(b.amount, cur)}
                     </Td>
-                    <Td align="right" className="mono text-muted">
-                      {b.invoiceCount}
-                    </Td>
+                    <Td align="right">{b.invoiceCount}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -334,9 +323,7 @@ export default function DashboardPage() {
       <Card>
         <CardTitle level={2}>Who owes it</CardTitle>
         {owed.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">
-            Nothing outstanding. Every issued invoice has been settled.
-          </p>
+          <p className="mt-3 text-sm text-muted">Nothing outstanding.</p>
         ) : (
           <div className="mt-3">
             <TableWrap>
@@ -353,12 +340,10 @@ export default function DashboardPage() {
                   {owed.map((s) => (
                     <tr key={s.key}>
                       <Td>{s.label}</Td>
-                      <Td align="right" className="mono">
+                      <Td align="right" className="nowrap">
                         {formatMoney(s.amount, cur)}
                       </Td>
-                      <Td align="right" className="mono text-muted">
-                        {s.count}
-                      </Td>
+                      <Td align="right">{s.count}</Td>
                       <Td align="right">
                         {/* Straight to the place somebody can DO something about it
                             — the dunning ladder, not just another number. A LINK,

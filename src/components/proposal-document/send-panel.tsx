@@ -193,8 +193,7 @@ export function ProposalSendPanel({
         <div className="stack">
           {may("proposal:approve") && proposal.discountApprovedAt === null && discounted && (
             <p className="muted text-md">
-              This proposal gives a discount. One past the firm&apos;s limit needs signing off
-              before it can go out.{" "}
+              A discount past the firm&apos;s limit needs signing off first.{" "}
               <Button
                 variant="secondary"
                 size="sm"
@@ -254,14 +253,16 @@ export function ProposalSendPanel({
               Download PDF
             </Button>
           </div>
+          {/* WhatsApp and the link both SEND it (marked sent, and a link the
+              client opens to accept or decline), and where WhatsApp opens is
+              the addressee's phone, else the company's, else a chat you pick. */}
           <p className="field-hint">
-            WhatsApp and the link both send it: the proposal is marked sent, and you get a link
-            the client opens to read it and accept or decline.
+            Both mark it sent and give you the client&apos;s link.
             {phone === null
-              ? " No phone number is on record for the client, so WhatsApp opens and you pick the chat."
+              ? " No phone on record, so you pick the chat."
               : reach.phoneOf === "person"
-                ? ` WhatsApp opens a chat with ${phone}.`
-                : ` The person it is prepared for has no phone on record, so WhatsApp opens a chat with the company's number, ${phone}.`}
+                ? ` WhatsApp opens ${phone}.`
+                : ` WhatsApp opens the company's ${phone}.`}
           </p>
         </div>
       )}
@@ -413,8 +414,7 @@ function IssuedLink({
     <div className="stack tight mb-4">
       {email?.status === "sent" && (
         <Notice tone="ok">
-          Emailed to {email.to}, with the PDF and the Accept and Decline buttons. The link below is
-          the one in the email.
+          Emailed to {email.to} with the PDF and the Accept and Decline buttons.
         </Notice>
       )}
       {email?.status === "failed" && (
@@ -425,8 +425,7 @@ function IssuedLink({
       )}
       {email === null && (
         <Notice tone="ok">
-          Sent. Share this link with the client: it is shown only once, and Send again makes a new
-          one (the old one then stops working).
+          Sent. This link shows only once; Send again makes a new one.
         </Notice>
       )}
       <p className="mono text-md" style={{ wordBreak: "break-all" }} id="proposal-share-link">
@@ -499,15 +498,19 @@ function EmailForm({
         <Field
           label="Email it to"
           hint={
-            "bib emails the PDF with Accept and Decline buttons, and the client answers on the " +
-            "proposal's page with their name." +
+            "They get the PDF with Accept and Decline buttons." +
             (replyTo === null ? "" : ` Replies go to ${replyTo}.`)
           }
         >
           <Input name="to" type="email" defaultValue={defaultTo} required maxLength={320} />
         </Field>
         <Field label="Your note" optional hint="Printed above the standard letter.">
-          <Textarea name="note" rows={2} maxLength={2000} />
+          <Textarea
+            name="note"
+            rows={2}
+            maxLength={2000}
+            placeholder="e.g. As discussed on our call on Monday."
+          />
         </Field>
         <div className="cluster">
           <Button type="submit" loading={busy === "email"} disabled={busy !== null}>
@@ -533,10 +536,7 @@ function Decision({
   return (
     <div className="mt-4 stack tight">
       <h3 className="eyebrow">The client&apos;s answer</h3>
-      <p className="muted text-sm">
-        The client can accept or decline on the proposal&apos;s own page. If they answered another
-        way, a call or a meeting, record it here.
-      </p>
+      <p className="muted text-sm">Answered by phone or in a meeting? Record it here.</p>
       {declining ? (
         <div ref={panel} tabIndex={-1}>
           <form
@@ -547,12 +547,12 @@ function Decision({
             }}
           >
             <FieldStack>
-              <Field label="Why did they say no?" hint="In your own words. It cannot be added later.">
+              <Field label="Why did they say no?" hint="It cannot be added later.">
                 <Textarea
                   name="declinedReason"
                   rows={2}
                   autoFocus
-                  placeholder="Went with their existing auditor on price."
+                  placeholder="e.g. Went with their existing auditor on price."
                 />
               </Field>
               <div className="cluster">
@@ -626,16 +626,11 @@ function SendAgain({
     <div className="mt-4 stack tight">
       <h3 className="eyebrow">Send again</h3>
       {!hasLink && (
-        <p className="muted text-sm">
-          The link was shown once, when it was sent. To share it on WhatsApp or anywhere else now,
-          issue a new link here.
-        </p>
+        <p className="muted text-sm">The link showed once. Issue a new one to share it again.</p>
       )}
       {open ? (
         <div ref={panel} tabIndex={-1} className="stack tight">
-          <p className="muted text-md">
-            This issues a new link. The link in any earlier email or message stops working.
-          </p>
+          <p className="muted text-md">Any earlier link stops working.</p>
           <EmailForm
             defaultTo={defaultTo}
             replyTo={replyTo}

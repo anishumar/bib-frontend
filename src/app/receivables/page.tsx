@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, apiError, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
 import type { PendingDunning, Receivable } from "@/lib/api/client";
 import { Page, PageHeader, Section } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -14,12 +14,17 @@ import {
   Icon,
   Input,
   LinkButton,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Sub,
   Table,
   TableWrap,
   Td,
   Th,
+  ThChevron,
+  Tr,
 } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
 
@@ -102,12 +107,14 @@ export default function ReceivablesPage() {
 
   return (
     <Page>
+      {/* THE WAVE 4 SHAPE (2026-09-28): no eyebrow or lede; the decision queue
+          stays first (it is the point of the screen) but an empty one is one
+          line, not a card; the outstanding rows open their invoice; figures in
+          the sans face. */}
       <PageHeader
-        eyebrow="Commercial"
         title="Receivables"
-        lede="Every unpaid invoice, and the payment reminder steps that need a partner’s decision before they go ahead."
         aside={
-          <LinkButton size="sm" href="/invoices" iconAfter={<Icon name="arrowRight" size={15} />}>
+          <LinkButton variant="ghost" href="/invoices" iconAfter={<Icon name="arrowRight" size={16} />}>
             Invoices
           </LinkButton>
         }
@@ -118,17 +125,11 @@ export default function ReceivablesPage() {
       {/* ── Waiting for a person ───────────────────────────────────────── */}
       <Section title="Waiting for a decision" level={2}>
         {pending.length === 0 ? (
-          <Card>
-            <Empty title="Nothing needs a decision" icon="check">
-              No invoice has reached a reminder step that needs a partner’s approval.
-            </Empty>
-          </Card>
+          <p className="muted">Nothing needs a decision.</p>
         ) : (
           <>
-            <p className="lede">
-              These invoices have reached a step that is never applied automatically. Credit hold
-              and legal action need your approval.
-            </p>
+            {/* These rungs are never applied automatically. */}
+            <p className="muted">Credit hold and legal action need a partner&apos;s approval.</p>
             <TableWrap>
               <Table>
               <thead>
@@ -148,25 +149,20 @@ export default function ReceivablesPage() {
                         to approve something they cannot see. */}
                     <Td>{p.party.displayName}</Td>
                     <Td>
-                      <Link href={`/invoices/${p.action.invoiceId}`} className="mono">
-                        {p.invoiceNumber}
-                      </Link>
-                      <Sub>due {p.dueOn === null ? "no date" : longDay(p.dueOn)}</Sub>
+                      <Link href={`/invoices/${p.action.invoiceId}`}>{p.invoiceNumber}</Link>
+                      <Sub>Due {p.dueOn === null ? "date not set" : longDay(p.dueOn)}</Sub>
                     </Td>
                     <Td>
-                      <span className="mono">
-                        {p.action.step}{" "}
-                        <span className="muted">{p.action.afterDays} days after due</span>
-                      </span>
+                      <Pill tone="danger">{codeLabel(p.action.action)}</Pill>
                       <Sub>
-                        <Pill tone="danger">{p.action.action.replace("_", " ")}</Pill>
+                        Step {p.action.step}, {p.action.afterDays} days after due
                       </Sub>
                     </Td>
                     {/* Read NOW, not when the rung fired. A debt settled since
                         is exactly the case a partner rejects, and a stale
                         figure would hide it. */}
-                    <Td align="right">
-                      <span className="mono">{formatMoney(p.outstanding, p.currency)}</span>
+                    <Td align="right" className="nowrap">
+                      {formatMoney(p.outstanding, p.currency)}
                     </Td>
                     {mayDecide && (
                       <Td>
@@ -184,7 +180,7 @@ export default function ReceivablesPage() {
                               size="sm"
                               name="why"
                               aria-label="Why"
-                              placeholder="Why (optional)"
+                              placeholder="e.g. Paid in full on Friday"
                             />
                             <Button
                               size="sm"
@@ -217,7 +213,7 @@ export default function ReceivablesPage() {
             </TableWrap>
             <p className="field-hint">
               {mayDecide
-                ? "A decision is final and cannot be changed. Rejecting is recorded too, as a record that the firm looked and chose not to proceed."
+                ? "A decision is final. Rejecting is recorded too."
                 : "Only a firm administrator can decide these."}
             </p>
           </>
@@ -229,7 +225,7 @@ export default function ReceivablesPage() {
         {owing.length === 0 ? (
           <Card>
             <Empty title="Nothing outstanding" icon="check">
-              Only issued invoices appear here. Drafts and cancelled invoices are not owed.
+              Drafts and cancelled invoices are not owed.
             </Empty>
           </Card>
         ) : (
@@ -244,52 +240,40 @@ export default function ReceivablesPage() {
                 <Th align="right">Paid</Th>
                 <Th align="right">Credited</Th>
                 <Th align="right">Outstanding</Th>
+                <ThChevron />
               </tr>
             </thead>
             <tbody>
               {owing.map((r) => (
-                <tr key={r.balance.invoiceId}>
+                <Tr key={r.balance.invoiceId} linked>
                   <Td>{r.party.displayName}</Td>
-                  <Td>
-                    <Link href={`/invoices/${r.balance.invoiceId}`} className="mono">
-                      {r.number}
-                    </Link>
+                  <Td className="nowrap">
+                    <RowLink href={`/invoices/${r.balance.invoiceId}`}>{r.number}</RowLink>
                   </Td>
-                  <Td>
-                    <span className="mono">
-                      {r.balance.dueOn === null ? <span className="unstated">no date</span> : longDay(r.balance.dueOn)}
-                    </span>
+                  <Td className="nowrap">
+                    {r.balance.dueOn === null ? <NotSet>No date</NotSet> : longDay(r.balance.dueOn)}
                     {/* A receivable with no due date is never chased — the firm
                         never said when to pay, and the ladder counts days from
                         a date that does not exist. Worth seeing on this screen
                         rather than wondering why nothing happened. */}
                     {r.balance.dueOn !== null && r.balance.dueOn < today && (
-                      <Sub>
-                        <span className="tone-danger">overdue</span>
-                      </Sub>
+                      <span className="sub tone-danger">Overdue</span>
                     )}
                   </Td>
-                  <Td align="right">
-                    <span className="mono">
-                      {formatMoney(r.balance.invoiced, r.balance.currency)}
-                    </span>
+                  <Td align="right" className="nowrap">
+                    {formatMoney(r.balance.invoiced, r.balance.currency)}
                   </Td>
-                  <Td align="right">
-                    <span className="mono">
-                      {formatMoney(r.balance.paid, r.balance.currency)}
-                    </span>
+                  <Td align="right" className="nowrap">
+                    {formatMoney(r.balance.paid, r.balance.currency)}
                   </Td>
-                  <Td align="right">
-                    <span className="mono">
-                      {formatMoney(r.balance.credited, r.balance.currency)}
-                    </span>
+                  <Td align="right" className="nowrap">
+                    {formatMoney(r.balance.credited, r.balance.currency)}
                   </Td>
-                  <Td align="right">
-                    <strong className="mono">
-                      {formatMoney(r.balance.outstanding, r.balance.currency)}
-                    </strong>
+                  <Td align="right" className="nowrap">
+                    <strong>{formatMoney(r.balance.outstanding, r.balance.currency)}</strong>
                   </Td>
-                </tr>
+                  <RowChevron />
+                </Tr>
               ))}
             </tbody>
             </Table>

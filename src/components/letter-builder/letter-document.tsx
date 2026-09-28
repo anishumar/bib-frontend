@@ -24,6 +24,7 @@
 import { useEffect, useState } from "react";
 import { api, apiError, clauseApplies, lawFits, readClauseBody } from "@/lib/api/client";
 import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
+import { countryName } from "@/lib/country";
 import type { components } from "@/lib/api/schema";
 import { Button, Notice, Select, cx } from "@/components/ui";
 import { useSession } from "@/components/layout";
@@ -304,10 +305,10 @@ export function LetterDocument({
         <header className="flex flex-col gap-1 border-b border-line pb-4">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <p className="text-xl font-semibold text-brand-ink">{record.issuer.name}</p>
-            <p className="mono text-sm text-muted">{letter.ref}</p>
+            <p className="text-sm text-ink-2">{letter.ref}</p>
           </div>
           {record.issuer.jurisdiction !== null && (
-            <p className="text-sm text-muted">Registered in {record.issuer.jurisdiction}</p>
+            <p className="text-sm text-muted">Registered in {countryName(record.issuer.jurisdiction)}</p>
           )}
         </header>
 
@@ -408,7 +409,7 @@ export function LetterDocument({
         {/* ── Annexure 1 ─────────────────────────────────────────────── */}
         <section className="flex flex-col gap-8 border-t border-line pt-8" aria-label="Annexure 1">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.11em] text-faint">Annexure 1</p>
+            <p className="text-sm font-semibold text-ink-2">Annexure 1</p>
             <h2 className="text-2xl font-semibold text-brand-ink">Scope of Services, Deliverables &amp; Fees</h2>
           </div>
 
@@ -609,7 +610,7 @@ export function LetterDocument({
                                 })
                               }
                             >
-                              <span className={cx(f.amount !== null && "mono")}>{words}</span>
+                              <span className={cx(f.amount !== null && "tabular-nums")}>{words}</span>
                             </EditableFee>
                           ) : group !== null && !withheld ? (
                             <EditableFee
@@ -629,7 +630,7 @@ export function LetterDocument({
                                 })
                               }
                             >
-                              <span className={cx(f.amount !== null && "mono")}>{words}</span>
+                              <span className={cx(f.amount !== null && "tabular-nums")}>{words}</span>
                             </EditableFee>
                           ) : (
                             <span>{words}</span>
@@ -645,7 +646,7 @@ export function LetterDocument({
             {letter.advanceRequired && letter.advanceAmount !== null && (
               <p>
                 <span className="font-semibold">Advance, payable before work begins</span>{" "}
-                <span className="mono">{letterMoney(letter.advanceAmount, currency)}</span>
+                <span className="tabular-nums">{letterMoney(letter.advanceAmount, currency)}</span>
               </p>
             )}
           </DocSection>
@@ -662,7 +663,7 @@ export function LetterDocument({
         {/* ── Annexure 2 ─────────────────────────────────────────────── */}
         <section className="flex flex-col gap-4 border-t border-line pt-8" aria-label="Annexure 2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.11em] text-faint">Annexure 2</p>
+            <p className="text-sm font-semibold text-ink-2">Annexure 2</p>
             <h2 className="text-2xl font-semibold text-brand-ink">Standard Terms &amp; Conditions</h2>
           </div>
           {record.clauses.length === 0 ? (

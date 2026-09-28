@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { api, apiError, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type { InvoiceSummary, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
@@ -11,20 +10,26 @@ import { Empty, Loading } from "@/components/states";
 import {
   Button,
   Card,
-  CardHead,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
+  FieldStack,
   Icon,
   Input,
   LinkButton,
+  NotSet,
   Pill,
+  RowChevron,
+  RowLink,
   Select,
   Sub,
   Table,
   TableWrap,
   Td,
   Th,
+  ThChevron,
+  Tr,
   type PillTone,
 } from "@/components/ui";
 
@@ -50,6 +55,8 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [raising, setRaising] = useState(false);
+  const raiseForm = useId();
 
   const load = useCallback(async (): Promise<void> => {
     const [list, book, firm] = await Promise.all([
@@ -128,28 +135,37 @@ export default function InvoicesPage() {
 
   return (
     <Page>
+      {/* THE WAVE 4 SHAPE (2026-09-28): Raise an invoice is the one brand
+          button and opens the form in a dialog (it sat under the list with a
+          paragraph over it); the whole row opens the invoice; the status is a
+          pill in words; an issued invoice past its due date with money still
+          owed says Overdue under the date. */}
       <PageHeader
-        eyebrow="Commercial"
         title="Invoices"
-        lede="Every invoice the firm has raised, when it is due and what is still outstanding. Raise a new one at the bottom of the page."
         aside={
-          <LinkButton
-            size="sm"
-            href="/receivables"
-            iconAfter={<Icon name="arrowRight" size={15} />}
-          >
-            Receivables
-          </LinkButton>
+          <>
+            <LinkButton variant="ghost" href="/receivables" iconAfter={<Icon name="arrowRight" size={16} />}>
+              Receivables
+            </LinkButton>
+            <Button
+              onClick={() => {
+                setError(null);
+                setRaising(true);
+              }}
+            >
+              Raise an invoice
+            </Button>
+          </>
         }
       />
 
-      <ErrorNotice error={error} />
+      {/* The dialog shows its own refusal; this one is the list's. */}
+      <ErrorNotice error={raising ? null : error} />
 
       {invoices.length === 0 ? (
         <Card>
           <Empty title="Nothing billed yet" icon="invoices">
-            Raise the first invoice below. Its number is given automatically from the issuing
-            company’s series.
+            Raise the first one with Raise an invoice.
           </Empty>
         </Card>
       ) : (
@@ -163,100 +179,121 @@ export default function InvoicesPage() {
                 <Th>Due</Th>
                 <Th align="right">Total</Th>
                 <Th align="right">Outstanding</Th>
+                <ThChevron />
               </tr>
             </thead>
             <tbody>
-              {invoices.map((i) => (
-                <tr key={i.invoice.id}>
-                  <Td>
-                    <Link href={`/invoices/${i.invoice.id}`} className="mono">
-                      {i.invoice.number}
-                    </Link>
-                    {/* An IRN is the government registry's identifier for this
-                        document. Shown here because a firm chasing an e-invoice
-                        failure wants to see at a glance which are registered. */}
-                    {i.invoice.irn !== null && <Sub>IRN {i.invoice.irn}</Sub>}
-                  </Td>
-                  <Td>{i.party.displayName}</Td>
-                  <Td>
-                    <Pill tone={toneOf(i.invoice.status)}>{i.invoice.status}</Pill>
-                  </Td>
-                  <Td>
-                    {i.invoice.dueOn === null ? (
-                      <span className="empty">no date</span>
-                    ) : (
-                      <span className="mono">{longDay(i.invoice.dueOn)}</span>
-                    )}
-                  </Td>
-                  <Td align="right">
-                    <span className="mono">
+              {invoices.map((i) => {
+                const owed = i.balance !== null && !isZero(i.balance.outstanding);
+                const overdue =
+                  i.invoice.status === "issued" && owed && i.invoice.dueOn !== null && i.invoice.dueOn < today;
+                return (
+                  <Tr key={i.invoice.id} linked>
+                    <Td className="nowrap">
+                      <RowLink href={`/invoices/${i.invoice.id}`}>{i.invoice.number}</RowLink>
+                      {/* An IRN is the government registry's identifier for this
+                          document. Shown here because a firm chasing an
+                          e-invoice failure wants to see at a glance which are
+                          registered. */}
+                      {i.invoice.irn !== null && <Sub>IRN {i.invoice.irn}</Sub>}
+                    </Td>
+                    <Td>{i.party.displayName}</Td>
+                    <Td>
+                      <Pill dot tone={toneOf(i.invoice.status)}>
+                        {codeLabel(i.invoice.status)}
+                      </Pill>
+                    </Td>
+                    <Td className="nowrap">
+                      {i.invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(i.invoice.dueOn)}
+                      {overdue && (
+                        <span className="sub tone-danger">Overdue</span>
+                      )}
+                    </Td>
+                    <Td align="right" className="nowrap">
                       {formatMoney(i.totals.total, i.totals.currency)}
-                    </span>
-                    {/* The line count is what tells a zero total apart from an
-                        empty draft — the API refuses to issue the second. */}
-                    <Sub>
-                      {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
-                    </Sub>
-                  </Td>
-                  {/* WHAT IS STILL OWED, and the column this list went four
-                      tasks without. Walked: a fully-settled invoice sat beside
-                      one seventy-five days overdue, both reading `issued` and
-                      both showing their full value — because `status` is about
-                      the DOCUMENT and says nothing about money. /receivables
-                      already dropped the settled one, so the data existed and
-                      the list simply never asked for it.
+                      {/* The line count is what tells a zero total apart from
+                          an empty draft — the API refuses to issue the second. */}
+                      <Sub>
+                        {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
+                      </Sub>
+                    </Td>
+                    {/* WHAT IS STILL OWED, and the column this list went four
+                        tasks without. Walked: a fully-settled invoice sat
+                        beside one seventy-five days overdue, both reading
+                        `issued` and both showing their full value — because
+                        `status` is about the DOCUMENT and says nothing about
+                        money. /receivables already dropped the settled one, so
+                        the data existed and the list simply never asked for it.
 
-                      There is still no "paid" badge, and there must not be:
-                      paid is arithmetic over invoices, payments and credit
-                      notes, and a cached flag drifts the first time a payment
-                      is corrected. The figure IS the answer. */}
-                  <Td align="right">
-                    {i.balance === null ? (
-                      /* A DRAFT OWES NOTHING because nobody has been asked, and
-                         that is not the same as nothing being outstanding — a
-                         zero here would read as settled. */
-                      <span className="empty">not issued</span>
-                    ) : isZero(i.balance.outstanding) ? (
-                      <Pill tone="ok">Settled</Pill>
-                    ) : (
-                      <>
-                        <span className="mono">
+                        There is still no "paid" badge, and there must not be:
+                        paid is arithmetic over invoices, payments and credit
+                        notes, and a cached flag drifts the first time a
+                        payment is corrected. The figure IS the answer. */}
+                    <Td align="right" className="nowrap">
+                      {i.balance === null ? (
+                        /* A DRAFT OWES NOTHING because nobody has been asked,
+                           and that is not the same as nothing being
+                           outstanding — a zero here would read as settled. */
+                        <NotSet>Not issued</NotSet>
+                      ) : isZero(i.balance.outstanding) ? (
+                        <Pill dot tone="ok">
+                          Settled
+                        </Pill>
+                      ) : (
+                        <>
                           {formatMoney(i.balance.outstanding, i.totals.currency)}
-                        </span>
-                        {!isZero(i.balance.paid) && (
-                          <Sub>
-                            {formatMoney(i.balance.paid, i.totals.currency)} received
-                          </Sub>
-                        )}
-                        {!isZero(i.balance.credited) && (
-                          <Sub>
-                            {formatMoney(i.balance.credited, i.totals.currency)} credited
-                          </Sub>
-                        )}
-                      </>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+                          {!isZero(i.balance.paid) && (
+                            <Sub>{formatMoney(i.balance.paid, i.totals.currency)} received</Sub>
+                          )}
+                          {!isZero(i.balance.credited) && (
+                            <Sub>{formatMoney(i.balance.credited, i.totals.currency)} credited</Sub>
+                          )}
+                        </>
+                      )}
+                    </Td>
+                    <RowChevron />
+                  </Tr>
+                );
+              })}
             </tbody>
           </Table>
         </TableWrap>
       )}
 
-      <Card>
-        <CardHead title="New invoice" level={2}>
-          <p className="lede">
-            The invoice number is given automatically from the issuing company&apos;s series. It
-            cannot be chosen or changed. If an invoice is wrong, cancel it and raise a new one;
-            both stay on record.
-          </p>
-        </CardHead>
+      {/* The number is given from the issuing company's series and can never be
+          chosen or changed; a wrong invoice is cancelled and a new one raised,
+          both kept on record. */}
+      <Dialog
+        open={raising}
+        size="lg"
+        onClose={() => {
+          setRaising(false);
+        }}
+        title="Raise an invoice"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRaising(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form={raiseForm} loading={busy}>
+              Raise invoice
+            </Button>
+          </>
+        }
+      >
         <form
+          id={raiseForm}
           action={(form) => {
             void raise(form);
           }}
         >
-          <div className="stack">
+          <FieldStack>
+            <ErrorNotice error={error} />
             <FieldRow>
               <Field label="Bill to">
                 {/* AN UNCHOSEN PLACEHOLDER, because a party select that opens
@@ -274,13 +311,13 @@ export default function InvoicesPage() {
                   {parties
                     .filter((p) => !entities.some((e) => e.id === p.id))
                     .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
+                      <option key={p.id} value={p.id}>
+                        {p.displayName}
+                      </option>
+                    ))}
                 </Select>
               </Field>
-              <Field label="Charged by" hint="Each of the firm’s companies has its own invoice number series.">
+              <Field label="Charged by" hint="Its number comes from this company's series.">
                 <Select name="entityPartyId" required>
                   {entities.map((e) => (
                     <option key={e.id} value={e.id}>
@@ -295,28 +332,24 @@ export default function InvoicesPage() {
               <Field label="Currency">
                 <Input name="currency" defaultValue="INR" maxLength={3} required />
               </Field>
-              <Field label="Exchange rate to the firm&apos;s currency">
+              <Field label="Rate to the firm's currency">
                 <Input name="fxRate" defaultValue="1" required />
               </Field>
               <Field label="Rate as of">
                 <Input name="fxRateDate" type="date" defaultValue={today} required />
               </Field>
-              <Field label="Due" optional hint="Without a due date, no payment reminders are sent.">
+            </FieldRow>
+            <FieldRow>
+              <Field label="Due" optional hint="No due date means no payment reminders.">
                 <Input name="dueOn" type="date" />
               </Field>
-              <Field label="Series date" hint="Decides which financial year’s number series is used.">
+              <Field label="Series date" hint="Picks the financial year's number series.">
                 <Input name="seriesDate" type="date" defaultValue={today} />
               </Field>
             </FieldRow>
-
-            <div>
-              <Button type="submit" loading={busy}>
-                Raise invoice
-              </Button>
-            </div>
-          </div>
+          </FieldStack>
         </form>
-      </Card>
+      </Dialog>
     </Page>
   );
 }

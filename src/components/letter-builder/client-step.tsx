@@ -605,7 +605,7 @@ export function LetterClientStep({
                     inputMode="decimal"
                     value={advanceAmount}
                     required
-                    placeholder="e.g. 25000"
+                    placeholder="e.g. 25,000"
                     onChange={(e) => {
                       setAdvanceAmount(e.target.value);
                     }}
