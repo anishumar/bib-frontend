@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { AGEING_LABELS, formatMoney } from "@/lib/api/client";
 import type { Receivable } from "@/lib/api/client";
-import { Grid } from "@/components/layout";
+import { Grid, Stack } from "@/components/layout";
 import {
   BarChart,
   Card,
@@ -113,8 +113,10 @@ function Picture({ rows, currency, today }: { rows: readonly Owed[]; currency: s
     });
   }
 
+  // One stack with the page's own gap, so the strip and the charts sit the
+  // same distance apart inside a currency's tab panel as on the page.
   return (
-    <>
+    <Stack gap="loose">
       <Strip>
         <Stat
           label="Outstanding"
@@ -154,7 +156,7 @@ function Picture({ rows, currency, today }: { rows: readonly Owed[]; currency: s
           />
         </Card>
       </Grid>
-    </>
+    </Stack>
   );
 }
 
