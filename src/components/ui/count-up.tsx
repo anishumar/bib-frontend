@@ -21,6 +21,23 @@ function textOf(figure: Figure, value: string): string {
   return "amount" in figure ? formatMoney(value, figure.currency) : formatCount(value);
 }
 
+/**
+ * The figure in whole units AT THE PRECISION IT IS PRINTED, so no frame shows
+ * more than the final text does. `formatMoney` prints paise only when there
+ * are some, and `formatCount` drops trailing zeros: "1910892.0000" is printed
+ * "₹19,10,892", so its frames count whole rupees. Counting at the API's four
+ * places instead put paise on every frame ("₹10,50,990.60"), which made the
+ * frames WIDER than the final figure reserving the width, and pushed the note
+ * beside it: measured on /receivables, 182px against 142px.
+ */
+function printedUnits(figure: Figure, raw: string): { units: bigint; scale: number } | null {
+  const parsed = scaledUnits(raw);
+  if (parsed === null) return null;
+  const shown = (raw.split(".")[1] ?? "").replace(/0+$/, "").length;
+  const scale = Math.min(parsed.scale, "amount" in figure ? (shown > 0 ? 2 : 0) : shown);
+  return { units: parsed.units / BigInt(10) ** BigInt(parsed.scale - scale), scale };
+}
+
 /** `--dur-count` from `tokens.css`, so the length lives with the other
  *  durations. 500ms if it cannot be read. */
 function countDuration(): number {
@@ -37,7 +54,7 @@ function countDuration(): number {
  *   value at once. A number that re-ran every time the page reloaded its data
  *   would read as the number changing.
  * - **Money never becomes a JS number, not even here.** Each frame is the
- *   amount in whole units at its own scale (`scaledUnits`, a `bigint`) times an
+ *   amount in whole units at the precision it is printed (a `bigint`) times an
  *   eased per-mille step, turned back into a decimal string and printed by the
  *   same `formatMoney` as everything else, so the Indian grouping holds on every
  *   frame. The last frame IS the final text.
@@ -65,7 +82,7 @@ export function CountUp({ figure, final }: { figure: Figure; final?: string }) {
 
   const [frame, setFrame] = useState<string | null>(() => {
     if (reduced) return null;
-    const parsed = scaledUnits(raw);
+    const parsed = printedUnits(figure, raw);
     return parsed === null ? null : textOf(figure, fromScaledUnits(BigInt(0), parsed.scale));
   });
 
@@ -75,7 +92,7 @@ export function CountUp({ figure, final }: { figure: Figure; final?: string }) {
     const duration = countDuration();
     const tick = (now: number): void => {
       const { figure: f, raw: r, reduced: still } = target.current;
-      const parsed = scaledUnits(r);
+      const parsed = printedUnits(f, r);
       start ??= now;
       const t = Math.min(1, (now - start) / duration);
       if (still || parsed === null || t >= 1) {
