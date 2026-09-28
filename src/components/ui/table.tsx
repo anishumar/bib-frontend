@@ -108,12 +108,16 @@ export function Tr({
   children,
   linked = false,
   inactive = false,
+  cat,
   className,
   ...rest
 }: {
   children: ReactNode;
   linked?: boolean;
   inactive?: boolean;
+  /** A thin left edge in a GROUP tint (`--cat-1…4`), the row's Dept on the
+   *  Catalogue (W4B). Never a state: see `Pill`'s `cat`. */
+  cat?: 1 | 2 | 3 | 4;
   className?: string;
 } & Omit<React.HTMLAttributes<HTMLTableRowElement>, "className">) {
   return (
@@ -122,6 +126,7 @@ export function Tr({
       className={className}
       {...(linked ? { "data-linked": "true" } : {})}
       {...(inactive ? { "data-inactive": "true" } : {})}
+      {...(cat === undefined ? {} : { "data-cat": String(cat) })}
     >
       {children}
     </tr>

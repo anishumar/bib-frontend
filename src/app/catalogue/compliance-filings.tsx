@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import type {
   FilingLinkEffect,
   FilingUnlinkEffect,
@@ -12,7 +14,6 @@ import {
   LinkButton,
   Notice,
   Pill,
-  scrollBelowBar,
   useAppearFocus,
   useSwapFocus,
   type PillTone,
@@ -97,6 +98,16 @@ import {
  * appears (`Refusal`), which scrolls it into view: the page's own rule, stated
  * on `FailureNote`, that an error three screens above the button is an error
  * nobody reads.
+ *
+ * ── A TAB OF THE SERVICE'S OWN PAGE SINCE W4B (2026-09-28) ──────────────────
+ *
+ * It was the last block of every service card on one long `/catalogue`. It is
+ * now the "Compliance filings" tab of `/catalogue/[serviceKey]`, with every
+ * sentence, focus rule and confirmation as it was; what changed is where it
+ * sits: no heading of its own (the tab names it), no paragraph explaining the
+ * library above a non-empty list, dates in the sans face rather than mono,
+ * and "Also used in" is a link to the other service's page (its filings tab)
+ * rather than an in-page anchor to a card that no longer shares the page.
  */
 export function ComplianceFilings({
   service,
@@ -137,7 +148,6 @@ export function ComplianceFilings({
     draft: RuleDraft,
   ) => Promise<{ rule: ObligationRule; effect: { spawned: number } } | null>;
 }) {
-  const headingId = useId();
   // What the last press DID, in words. Cleared before every call, so the same
   // sentence arriving twice is two appearances and focus moves both times.
   const [said, setSaid] = useState<string | null>(null);
@@ -151,9 +161,8 @@ export function ComplianceFilings({
 
   if (filings === null) {
     return (
-      <section aria-labelledby={headingId} className="stack snug border-t border-line pt-4">
-        <h4 id={headingId}>Compliance filings</h4>
-        <p className="text-sm text-muted">
+      <section className="stack snug">
+        <p className="text-md">
           {/* NOT A PERMISSION, when the read simply failed. A throttled read
               (the local limit is about 300 requests a minute) once drew
               "your role cannot see" on every card for an admin. */}
@@ -200,18 +209,12 @@ export function ComplianceFilings({
   }
 
   return (
-    <section aria-labelledby={headingId} className="stack snug border-t border-line pt-4">
-      <h4 id={headingId}>
-        Compliance filings{" "}
-        <span className="annot">
-          · {linked.length} {linked.length === 1 ? "filing" : "filings"}
-        </span>
-      </h4>
-      <p className="text-sm text-muted">
-        {linked.length === 0
-          ? "None yet, so this service puts nothing on the compliance calendar. Add the filings a client on this service owes, and each client gets them on the calendar."
-          : "What the law asks of every client on this service, and by when. Each filing is written once in your firm's library and can be on as many services as owe it: a client holding two of them still gets one filing per period."}
-      </p>
+    <section className="stack snug">
+      {linked.length === 0 && (
+        <p className="text-md">
+          None yet, so this service puts nothing on the compliance calendar.
+        </p>
+      )}
 
       {unread && (
         <Notice tone="warn">
@@ -221,7 +224,7 @@ export function ComplianceFilings({
       )}
 
       {linked.length > 0 && (
-        <ul className="stack tight">
+        <ul className="stack tight m-0 list-none pl-0">
           {linked.map((rule) => (
             <LinkedFiling
               key={rule.lineageId}
@@ -376,20 +379,22 @@ function LinkedFiling({
   const next = describeNextChange(rule);
 
   return (
-    <li className="stack tight border-t border-line pt-3">
+    <li className="stack tight border-t border-line pt-3 first:border-t-0 first:pt-0">
       <div className="cluster">
         <strong>{rule.name}</strong>
-        <Pill tone={standing.tone}>{standing.label}</Pill>
+        <Pill dot tone={standing.tone}>
+          {standing.label}
+        </Pill>
       </div>
-      {about !== "" && <p className="text-xs text-muted">{about}</p>}
+      {about !== "" && <p className="text-sm text-muted">{about}</p>}
       {/* The due rule in the words a partner checks against the statute, and
           it is TODAY's: the rule governing the period containing the firm's
           today, not the chain's newest row. After "the law changed from April
           2027" the newest row is the successor, and this line said September
           was due on the 22nd while the calendar dated it the 20th. What
           changes, and from when, is the line under it. */}
-      <p className="mono text-xs">{describeToday(rule)}</p>
-      {next !== null && <p className="mono text-xs">{next}</p>}
+      <p className="text-md">{describeToday(rule)}</p>
+      {next !== null && <p className="text-md">{next}</p>}
       <p className="text-sm text-muted">{standing.sentence}</p>
       {elsewhere.length > 0 && (
         <p className="text-sm text-muted">
@@ -397,19 +402,12 @@ function LinkedFiling({
           {elsewhere.map((u, i) => (
             <span key={u.serviceEntryId}>
               {i > 0 && ", "}
-              {/* The same page, so a plain anchor: every service card carries
-                  its key as an id. The jump is ours, not the browser's, which
-                  would put the card's name under the sticky top bar. */}
-              <a
-                href={`#service-${u.serviceKey}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  window.history.replaceState(null, "", `#service-${u.serviceKey}`);
-                  scrollBelowBar(`service-${u.serviceKey}`);
-                }}
-              >
+              {/* The other service's own page, on its filings tab (W4B): the
+                  services no longer share one page, so the in-page anchor
+                  this was would land nowhere. */}
+              <Link href={`/catalogue/${u.serviceKey}?tab=filings` as Route}>
                 {u.serviceName ?? u.serviceKey}
-              </a>
+              </Link>
             </span>
           ))}
         </p>
@@ -420,7 +418,7 @@ function LinkedFiling({
             {/* THE EFFECT BEFORE THE PRESS. The sentence after it gives the
                 numbers; this one says which kinds of filing go and which stay,
                 so nobody learns the rule by watching a deadline disappear. */}
-            <Notice tone="warn" eyebrow="REMOVE FROM THIS SERVICE">
+            <Notice tone="warn" eyebrow="Remove from this service">
               <p>
                 Its upcoming filings that nobody has started come off the calendar for this
                 service&rsquo;s clients, unless another service the same client holds still
@@ -606,7 +604,7 @@ function AddControls({
 
       {pending !== null && (
         <div ref={confirmPanel} tabIndex={-1} className="stack tight">
-          <Notice eyebrow="YOU ARE CONFIRMING">
+          <Notice eyebrow="You are confirming">
             {/* TODAY's dates and exceptions, then what changes: the same two
                 lines the service's list will show once it is added. */}
             <p>
@@ -758,13 +756,13 @@ function LibraryPicker({
                     }}
                   >
                     <span className="flex min-w-0 flex-col">
-                      <span className="text-sm text-ink">{rule.name}</span>
+                      <span className="text-md text-ink">{rule.name}</span>
                       {/* Worded as the service's list words it, today's rule
                           and then what changes, so the option and the row it
                           becomes say one date. */}
-                      <span className="mono text-xs text-muted">{describeToday(rule)}</span>
+                      <span className="text-sm text-ink-2">{describeToday(rule)}</span>
                       {rule.nextChange !== null && (
-                        <span className="mono text-xs text-muted">{describeNextChange(rule)}</span>
+                        <span className="text-sm text-ink-2">{describeNextChange(rule)}</span>
                       )}
                       <span className="text-xs text-muted">{optionNote(rule)}</span>
                     </span>
@@ -873,20 +871,15 @@ export function NewServiceFilings({
        the fields above it: those are the service's frozen terms, this is a
        list the service is added WITH. Flat on the card, its buttons ran
        straight into "Add as a draft" and read as one row of four. */
-    <section
-      aria-labelledby={headingId}
-      className="stack snug mt-6 rounded-md border border-line bg-surface-sunk p-4"
-    >
+    <section aria-labelledby={headingId} className="stack snug">
       <div className="row">
-        <h3 id={headingId}>Compliance filings</h3>
-        <span className="annot">
+        <h2 id={headingId} className="card-title">
+          Compliance filings <span className="text-md font-normal text-muted">(optional)</span>
+        </h2>
+        <span className="text-md">
           {total} {total === 1 ? "filing" : "filings"} added
         </span>
       </div>
-      <p className="text-sm text-muted">
-        What a client on this service has to file, and by when. Choose from your firm&rsquo;s
-        library, or write a new one.
-      </p>
 
       {filings === null && (
         <p className="text-sm text-muted">
@@ -904,7 +897,7 @@ export function NewServiceFilings({
           None added yet. A service with no filings puts nothing on the compliance calendar.
         </p>
       ) : (
-        <ul className="stack tight">
+        <ul className="stack tight m-0 list-none pl-0">
           {/* ONE ROW PER FILING, the name and its date on the left and the one
               action at the far end, so a list of six reads down one column
               instead of a button on a line of its own under every filing. */}
@@ -916,11 +909,15 @@ export function NewServiceFilings({
                   <div className="stack tight">
                     <div className="cluster">
                       <strong>{rule.name}</strong>
-                      {willConfirm(rule) && <Pill tone="warn">not confirmed yet</Pill>}
+                      {willConfirm(rule) && (
+                        <Pill dot tone="warn">
+                          Not confirmed yet
+                        </Pill>
+                      )}
                     </div>
-                    <span className="mono text-xs text-muted">{describeToday(rule)}</span>
+                    <span className="text-md">{describeToday(rule)}</span>
                     {rule.nextChange !== null && (
-                      <span className="mono text-xs text-muted">{describeNextChange(rule)}</span>
+                      <span className="text-md">{describeNextChange(rule)}</span>
                     )}
                   </div>
                   <Button
@@ -955,9 +952,9 @@ export function NewServiceFilings({
                 <div className="stack tight">
                   <div className="cluster">
                     <strong>{d.name.trim()}</strong>
-                    <Pill tone="neutral">new</Pill>
+                    <Pill tone="neutral">New</Pill>
                   </div>
-                  <span className="mono text-xs text-muted">{describeDraft(d)}</span>
+                  <span className="text-md">{describeDraft(d)}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -1113,13 +1110,13 @@ function standingOf(rule: ObligationRule): { tone: PillTone; label: string; sent
     case "generating":
       return {
         tone: "ok",
-        label: "on the calendar",
+        label: "On the calendar",
         sentence: `On the calendar for this service's clients ${reachOf(rule)}.`,
       };
     case "needs_formula":
       return {
         tone: "warn",
-        label: "date not known yet",
+        label: "Date not known yet",
         sentence:
           // The reason is the firm's own sentence and often ends in a full
           // stop already: "yet.." on the card was found by the review walk.
@@ -1129,21 +1126,21 @@ function standingOf(rule: ObligationRule): { tone: PillTone; label: string; sent
     case "event_driven":
       return {
         tone: "neutral",
-        label: "event-driven",
+        label: "Event-driven",
         sentence:
           "Due when something happens rather than every period, so nothing goes on the calendar from it yet.",
       };
     case "unconfirmed":
       return {
         tone: "warn",
-        label: "not confirmed",
+        label: "Not confirmed",
         sentence:
           "Marked as not yet checked against the law, so it adds nothing to the calendar until somebody confirms it in the library.",
       };
     case "retired":
       return {
         tone: "danger",
-        label: "retired",
+        label: "Retired",
         sentence: "Retired, so it adds nothing new. The filings it already produced stay.",
       };
     case "unlinked":
@@ -1151,7 +1148,7 @@ function standingOf(rule: ObligationRule): { tone: PillTone; label: string; sent
       // so that a new coverage value is a compile error here, not a blank.
       return {
         tone: "neutral",
-        label: "not used",
+        label: "Not used",
         sentence: "Not used by any service, so it adds nothing to the calendar.",
       };
   }

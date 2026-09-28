@@ -876,7 +876,7 @@ export default function LetterPage() {
                 label="Add a term"
                 hint={
                   available.length === 0
-                    ? `Every published clause for ${letter.jurisdiction} is already on this letter. Write and publish another in the catalogue.`
+                    ? `Every published clause for ${letter.jurisdiction} is already on this letter. Write another under Documents, Standard terms.`
                     : undefined
                 }
               >

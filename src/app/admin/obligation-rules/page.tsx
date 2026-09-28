@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
 import type { ObligationRule, RuleCoverage } from "@/lib/api/client";
@@ -816,7 +817,8 @@ function RuleRow({
               {rule.usedIn.map((u, i) => (
                 <span key={u.serviceEntryId}>
                   {i > 0 && ", "}
-                  <Link href={`/catalogue#service-${u.serviceKey}`}>
+                  {/* The service's own page, on its filings tab (W4B). */}
+                  <Link href={`/catalogue/${u.serviceKey}?tab=filings` as Route}>
                     {u.serviceName ?? u.serviceKey}
                   </Link>
                 </span>

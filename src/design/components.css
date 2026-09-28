@@ -516,6 +516,18 @@
   color: var(--ink-2);
 }
 
+/* A GROUP, not a state (W4B, the Catalogue's Depts): `<Pill cat={1..4}>` and
+   `<Tr cat>`'s thin left edge. The category tints sit where the status colours
+   are not, so a Dept never reads as done, late or wrong (CLAUDE.md). */
+.pill[data-cat="1"] { background: var(--cat-1-wash); color: var(--cat-1-ink); }
+.pill[data-cat="2"] { background: var(--cat-2-wash); color: var(--cat-2-ink); }
+.pill[data-cat="3"] { background: var(--cat-3-wash); color: var(--cat-3-ink); }
+.pill[data-cat="4"] { background: var(--cat-4-wash); color: var(--cat-4-ink); }
+.table tbody tr[data-cat="1"] td:first-child { box-shadow: inset 3px 0 0 var(--cat-1); }
+.table tbody tr[data-cat="2"] td:first-child { box-shadow: inset 3px 0 0 var(--cat-2); }
+.table tbody tr[data-cat="3"] td:first-child { box-shadow: inset 3px 0 0 var(--cat-3); }
+.table tbody tr[data-cat="4"] td:first-child { box-shadow: inset 3px 0 0 var(--cat-4); }
+
 /* ── Form controls ────────────────────────────────────────────────────────
    Every control is the same height, the same radius and the same type, so a
    row of them lines up without anybody measuring. */

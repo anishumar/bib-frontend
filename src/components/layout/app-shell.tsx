@@ -310,6 +310,16 @@ const GROUPS: NavGroup[] = [
         icon: "prose",
         needs: "tenant:admin",
       },
+      /* The clauses a letter is built from (W4B): here beside the prose rather
+         than on the Catalogue, which is what the firm SELLS. Read on
+         `config:read`, like the Catalogue it came from, so an associate
+         drafting a letter can still read them; writing is tenant:admin. */
+      {
+        href: "/admin/standard-terms",
+        label: "Standard terms",
+        icon: "letters",
+        needs: "config:read",
+      },
       { href: "/admin/brand", label: "Brand", icon: "brand", needs: "tenant:admin" },
     ],
   },

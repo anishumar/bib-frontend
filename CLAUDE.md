@@ -85,7 +85,9 @@ The rules, in short:
   `--cat-1…--cat-4` (each with `-wash` and `-ink`) tell GROUPS apart, first the Catalogue's Depts
   (FRC, TRC, RAA and a spare): a chip and a thin left edge. They sit where the status colours are
   not (blue, violet, olive, orchid, all desaturated) so a Dept can never read as "done", "late"
-  or "wrong". Never use one for a state, and never use a status colour for a group.
+  or "wrong". Never use one for a state, and never use a status colour for a group. They are
+  spent through two props, `<Pill cat={1..4}>` and `<Tr cat={1..4}>` (a 3px inset edge on the
+  row's first cell); the Catalogue's `deptTint` picks the number from the firm's Dept order.
 - **Nothing invents a value.** Type comes off the scale (`--t-xs`…`--t-2xl`, or the
   `.text-*` classes: 14, 15, 16, 16, 20, 24, 32 since Wave 4), spacing off `--s-1`…`--s-7`,
   shape off `--r`/`--r-sm`. `12px`, `13px` and `17px` are not on the ladder, and nothing a user
@@ -376,7 +378,10 @@ what every later screen reuses. **Add a prop; do not rename one**: the sweeps de
 | `/p/[token]` | **PUBLIC** — the proposal as its recipient reads it, where they accept or decline it and download its PDF (0085). No session. |
 | `/engagement-letters` | what the firm has AGREED, and drafting a new letter |
 | `/engagement-letters/[letterId]` | one letter: its sections and fees, its services and their wording, its terms (and **Add all standard terms for <issuer>**, T6.18 D6), its signature, and the engagements it created — and deleting a draft made by mistake (0086) |
-| `/catalogue` | what the firm sells, and its discount limit — read on `config:read`, written on `tenant:admin`. Each service's **compliance filings** too: added from the firm's library (confirming an unconfirmed one in the same act) or written there, and removed with what that takes off the calendar. The ONE place a filing is linked to a service (T6.16). The "Add a service" form lists them too (`NewServiceFilings`), sent once the service exists |
+| `/catalogue` | what the firm sells, as ONE table (W4B): code, service, Dept (a tinted chip and row edge), countries, price ("AED 4,000 / month"), filings, status (Live / Draft / Unpublished changes). Search, country chips and a Dept filter, the last two in the URL. Read on `config:read`; **Add a service** (the brand button) on `tenant:admin` |
+| `/catalogue/new` | **Add a service**: Basics, Price (the currency follows the country), What's included, and the compliance filings (`NewServiceFilings`, sent once the service exists). **Add the service** publishes it; **Save as draft** does not. The key is made from the name |
+| `/catalogue/[serviceKey]` | one service: tabs **Overview · Price & billing · Compliance filings · History** (`?tab=`). **Edit** opens the form and saves a new version (a draft, "Unpublished changes", with what it changes listed) or saves and publishes; **Publish** puts a waiting draft in force. The compliance filings tab is the ONE place a filing is linked to a service (T6.16) |
+| `/admin/standard-terms` | the clauses letters are built from (moved from the Catalogue, W4B): tabs **Default · <each company>**; Default = terms naming no law (on every letter), a company = terms under its country's law (D6). **Write a term** writes and publishes in one act; read on `config:read` |
 | `/invoices` | what the firm has BILLED, and raising one |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
@@ -868,8 +873,8 @@ Retiring is not deleting — a Dept that existed in 2026 is part of why a servic
 where it was filed — and a code cannot move because every published service body names it and
 those bodies are frozen.
 
-**`/catalogue`'s two axis fields are pickers only when the firm has a list**, and stay text
-boxes when it does not. That is the API's actual rule rendered honestly: a firm with no Depts
+**`/catalogue`'s two axis fields are pickers only when the firm has a list** (`AxisField` in
+`catalogue/service-form.tsx` since W4B), and stay text boxes when it does not. That is the API's actual rule rendered honestly: a firm with no Depts
 is checked against nothing, so a disabled empty dropdown would claim the service cannot be
 filed when the truth is that it can be filed anywhere until the firm decides. A service naming
 a code that has since been retired, or one typed before the list existed, is offered marked
@@ -1562,6 +1567,12 @@ rather than make them:
    exceptions, and the law-changed panel.
 4. Built before the SFF freeze.
 
+**Where it lives since W4B (2026-09-28):** the **Compliance filings tab** of
+`/catalogue/[serviceKey]`, not the foot of a card on one long page. Every sentence, focus rule and
+confirmation below is unchanged; the tab names the section (no heading of its own), the essay
+above a non-empty list went, dates are in the sans face, and "Also used in" links to the other
+service's filings tab. Where this section says "card", read "the service's page".
+
 **What is on each service card** (`src/app/catalogue/compliance-filings.tsx`), drawn LAST and
 outside both version blocks:
 
@@ -1635,11 +1646,11 @@ phone** (`collisionPadding={16}`): aligned to a trigger 32px in, it ran to the s
 lost its right border at 375px.
 
 **The library says where each rule is used.** Every row carries "Used in: *service*" (each a link
-to `/catalogue#service-<key>`) or *"Not used by any service, so it adds nothing to the calendar"*
-as a sentence, never a blank: a confirmed rule with a formula and no service looks as though it
-were working. `coverage` gained `unlinked` for the same reason, un-toned (whether a service uses a
-filing is a choice, not a job), with its own filter and count. The catalogue page scrolls to the
-hash once its cards exist, because the browser's own jump happens before the services are read.
+to `/catalogue/<key>?tab=filings` since W4B; it was the in-page anchor `/catalogue#service-<key>`
+while every service was a card on one page) or *"Not used by any service, so it adds nothing to
+the calendar"* as a sentence, never a blank: a confirmed rule with a formula and no service looks
+as though it were working. `coverage` gained `unlinked` for the same reason, un-toned (whether a
+service uses a filing is a choice, not a job), with its own filter and count.
 
 **The calendar leaves withdrawn filings out and does not filter anything itself.** Every read it
 makes excludes them on the server, and a second filter in the browser is a second answer to "what
@@ -1765,6 +1776,86 @@ sentence after says nothing reaches the calendar, because a new service has no c
 **Changing files under a running `next dev` can lose a route.** Stashing and restoring three files
 for the red run left `/admin/obligation-rules` answering 404 until the page file was touched again.
 It is the "stale dev server" case again, not a bug in the page.
+
+## `/catalogue`, redesigned: a list, a page per service, and what moved out (W4B, 2026-09-28)
+
+The user: *"currently it looks so complicated, use better colouring, make it better UX"* (brief
+§8). Measured on the W4B fixture (17 services, 1280): **17,662px tall, 121 headings, 3,439
+words, 298 form inputs in the DOM** (every card carried its own hidden new-version form), with
+Standard terms and the discount limit underneath. The shape now:
+
+- **`/catalogue` is one table** in the Wave 4 style: code · service (the delivery team under it)
+  · Dept · countries · price · filings · status, sorted by the firm's Dept order and then its
+  code (numeric: H2 before H10). The row's Dept is a tinted chip and a thin left edge (`deptTint`:
+  first three Depts in the firm's order get `--cat-1..3`, anything else the spare). Search (name,
+  code, Dept, team), **country chips** (the builder's `Tabs`; a service offered everywhere shows
+  under every country, D3; each chip counts what the other filters leave) and a Dept select; the
+  chip and the Dept ride in the URL, so "Catalogue" from a service lands on the same view.
+- **Status is one of three** (`rowOf` / `rowFromHistory` in `catalogue/service.ts`): **Live**,
+  **Draft** (never published), **Unpublished changes** (a draft NEWER than the live version).
+  "Newer" matters: the registry has no discard, so publishing the newest of two drafts leaves the
+  older one a draft for ever, and the list's `pendingDraft` is the newest draft LEFT. A draft
+  older than the live version is history ("Never published" on the History tab), not a change.
+- **Prices read "AED 4,000 / month"** (`priceWords`: `formatMoney`, so INR is in lakhs, plus
+  "/ month", "/ quarter", "/ year", "one time"). A service with no list price shows its pricing
+  note, capped narrow, or "Not set".
+- **Nothing is hidden at 1280.** The table is max-content wide (`.table`), so one long pricing
+  note ("As mutually agreed, after scoping the related-party transactions.") pushed Filings and
+  Status 254px out of view on the first build. The note and the service name sit in capped
+  inner spans (`max-w-36`, `max-w-64`) so they wrap; measured 950px table in a 950px wrap.
+- **`/catalogue/[serviceKey]`** reads ONE route, `GET /config/service/{key}` (every version with
+  its body), plus the form's context (`loadFormContext`: Depts and teams, processes, the firm's
+  companies, the library). Tabs in the URL (`?tab=price|filings|history`), so the library's
+  "Used in" lands on the filings. **Overview hides empty details** and says them in one line,
+  "5 details missing: How it is delivered, Turnaround, … Add them", where **Add them** opens Edit
+  with focus on the first missing box. The four texts are headed like labels (14/600 ink-2), not
+  as page sections. **History** is every version with its state, when it was published, until
+  when, its price and what it changed from the one before (`changesBetween`, field names in
+  words; long texts named, not quoted).
+- **Edit** opens the same form as Add, on the WORKING body (the waiting draft if there is one, so
+  a second edit carries the first). **Save as draft** adds a version and the page shows an amber
+  notice listing what it changes ("Price: AED 5,500 / month → AED 6,000 / month") under a brand
+  **Publish**; **Save and publish** is both in one press, because changing a price is usually
+  that. While a change waits the tabs show the LIVE version: it is what a proposal quotes.
+- **Add a service** (`/catalogue/new`, the list's one brand button): four short cards, Basics ·
+  Price · What's included · Compliance filings (optional). **The key is made from the name**
+  (`keyFrom`: lower case, "-" joined, unique, "new" kept free for the route), because "Short
+  name, lower case, no spaces, permanent" was a system slug on screen. **The currency follows the
+  first country ticked** (`currencyFor`: the firm's company there, else D1's four, else the books
+  currency) until the partner picks one. **Add the service publishes** (a new service has no
+  proposal to move; the builder lists it at once), **Save as draft** does not. The calls are the
+  old form's, in its order: the service, then each library filing, then each written one, then
+  the publish; what it said lands on the service's page through sessionStorage (`ARRIVAL_KEY`),
+  a refused filing named with the API's sentence. `description` and `category` are not asked:
+  nothing reads either; an edit keeps whatever a body says (`bodyOf`'s `kept`) and Overview shows
+  them when set.
+- **The form checks what it can before any call** (`refusalsOf`: a name, an amount that is a
+  number, whole days), beside the box, focus to the first; the API's own refusal is shown
+  verbatim above the buttons. The amount previews as money ("AED 5,500") as it is typed.
+- **Moved out.** **Standard terms** are `/admin/standard-terms` (below). **The discount limit**
+  is on Your firm (W4A made the card and publishes it; the Catalogue's only ever drafted one).
+  The sidebar gained Documents → Standard terms; the library's "Used in" and the letter page's
+  "write another" sentence point at the new places.
+
+**`/admin/standard-terms`: Default and one tab per company, like Standard prose.** A clause's law
+follows the issuing company (D6): a letter is offered the terms whose governing law and courts
+are its issuer's country (`lawFits`, the API's `refuseForeignTerms`) plus every term naming no
+law. So **Default** lists the terms that name no law (on every company's letters), a **company
+tab** lists the terms under its country's law (two companies in one country share them), and a
+term under a country no company is in, or whose law and courts name two countries, is listed on
+Default as usable by none rather than dropped. **Write a term** (a dialog) writes and publishes
+in one act, as the Catalogue's form did; on a company tab the country is the company's and
+fixed, and the partner types the words that print ("the laws of the DIFC"), the law required so
+a company-tab term cannot silently become a Default one. The key is made from the title and the
+country. A company with no country says so and links to Your firm. Read on `config:read`, like
+the Catalogue it came from, because an associate drafting a letter reads these.
+
+**What walking it found:** a field labelled "Search" is the second "Search" on every page (the
+sidebar's search box is "Search the menu"), so the list's is "Search services"; a `<ul>` keeps
+the browser's 40px indent here (preflight is off), so a list in a card needs `list-none pl-0`;
+the fixture's second run found every datable India filing already confirmed, so the walk picks
+an unconfirmed one afresh and wants a fresh fixture. Walk: `bib/demo-assets/tools/w4b-walk.mjs`
+(after `EPB_TAG=… epb-fixture.mjs` and `w4b-seed.mjs`); measure: `w4b-measure.mjs`.
 
 ## The Escalated tab, and the ladder behind it (T4.5)
 
@@ -2235,10 +2326,12 @@ approving: the firm looked and chose not to, which is a fact somebody wants late
 
 ## Two screens that show the registry rather than hiding it
 
-`/catalogue` offers "new version" and never "edit", because publishing FREEZES a config
-version — that is what makes a proposal's pinned price still resolve next year. A service's
-compliance filings are the one thing on its card that is NOT versioned, on purpose (T6.16, above). A draft is
-shown as "draft only" rather than omitted, because a draft that was never published is a real
+`/catalogue`'s **Edit** never edits in place: it saves a NEW version, because publishing
+FREEZES a config version, and that is what makes a proposal's pinned price still resolve next
+year. Since W4B the screen stops explaining that and shows it instead: a waiting version is an
+amber "Unpublished changes" with what it changes listed, and the History tab lists every version.
+A service's compliance filings are the one thing on it that is NOT versioned, on purpose (T6.16,
+above). A never-published service is a "Draft" row rather than omitted, because it is a real
 state a firm needs to see and fix, and the proposal screen correctly refuses to quote one.
 
 `/audit` shows payloads raw. An audit trail is read when something has gone wrong, and a

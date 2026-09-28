@@ -38,16 +38,28 @@ export function Pill({
   children,
   tone = "neutral",
   dot = false,
+  cat,
   className,
   ...rest
 }: {
   children: ReactNode;
   tone?: PillTone;
   dot?: boolean;
+  /**
+   * A GROUP tint (`--cat-1…4`), not a state: the Catalogue's Depts (W4B).
+   * It replaces the tone's colours, so leave `tone` at its default. A
+   * category tint never means good or bad (CLAUDE.md, the colour rules).
+   */
+  cat?: 1 | 2 | 3 | 4;
   className?: string;
 } & Omit<React.HTMLAttributes<HTMLSpanElement>, "className">) {
   return (
-    <span {...rest} className={cx("pill", className)} data-tone={tone}>
+    <span
+      {...rest}
+      className={cx("pill", className)}
+      data-tone={tone}
+      {...(cat === undefined ? {} : { "data-cat": String(cat) })}
+    >
       {dot && <span className="pill-dot" aria-hidden="true" />}
       {children}
     </span>
