@@ -272,7 +272,7 @@ export default function InvoicePage() {
               <strong className="num">{formatMoney(balance.outstanding, balance.currency)}</strong>
             </MetaItem>
           </Meta>
-          {Number(balance.outstanding) < 0 && (
+          {balance.outstanding?.startsWith("-") === true && (
             <p className="max-w-[var(--measure)] text-sm text-muted">
               More received than billed: an overpayment, or one transfer for several invoices.
             </p>

@@ -110,7 +110,7 @@ export function ConfigHistory({
               {versions.map((v, i) => (
                 <tr key={v.id}>
                   <Td>
-                    <span className="mono">v{v.version}</span>
+                    <span className="num">v{v.version}</span>
                   </Td>
                   <Td>
                     {/* `published` is what is in force NOW; `archived` was and

@@ -23,6 +23,8 @@ import {
 import { Card, CardTitle } from "@/components/tw";
 import type { SharedProposal } from "@/lib/api/client";
 import { longDay, longInstantTime } from "@/lib/day";
+import { addDecimals } from "@/lib/money";
+import { FREQUENCY_WORDS } from "@/components/proposal-document/words";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -209,6 +211,7 @@ export default function SharedProposalPage() {
           <thead>
             <tr>
               <Th>Service</Th>
+              <Th>How often</Th>
               <Th align="right">Qty</Th>
               <Th align="right">Rate</Th>
               <Th align="right">Discount</Th>
@@ -221,31 +224,63 @@ export default function SharedProposalPage() {
               // no internal ids — deliberately — so position is the key.
               <tr key={`${String(i)}-${l.description}`}>
                 <Td>{l.description}</Td>
+                <Td>{l.billingFrequency === null ? "Not set" : FREQUENCY_WORDS[l.billingFrequency]}</Td>
                 <Td align="right">{formatCount(l.quantity)}</Td>
                 <Td align="right">{formatMoney(l.unitAmount, shared.currency)}</Td>
                 <Td align="right">
                   {Number(l.discountPercent) === 0 ? "None" : `${formatCount(l.discountPercent)}%`}
                 </Td>
-                <Td align="right">{formatMoney(l.net, shared.currency)}</Td>
+                <Td align="right">
+                  {l.net === null ? (l.pricingNote ?? "To be agreed") : formatMoney(l.net, shared.currency)}
+                </Td>
               </tr>
             ))}
           </tbody>
         </Table>
       </TableWrap>
 
+      {/* THE TOTAL, PER FREQUENCY (D8), as the PDF the client holds ends its
+          Summary of Fees. One figure for a month's fee and a set-up fee added
+          together ("Total ₹70,000" for ₹45,000 a month and ₹25,000 once) is a
+          number nobody is ever billed, and it was the only total this page
+          drew until the W4D walk found it. The shared read has no per-frequency
+          sum, so the nets are added here exactly as strings (`addDecimals`),
+          never as JS numbers. With one frequency the API's own total stands,
+          with its discount note. */}
       <Strip>
-        <Stat
-          label="Total"
-          value={formatMoney(shared.totals.net, shared.currency)}
-          /* "0.00" is no discount too: the wire sends a decimal string, and
-             comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
-          {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
-            ? {
-                note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
-              }
-            : {})}
-        />
+        {(() => {
+          const groups = totalsByFrequency(shared.lines);
+          if (groups === null || groups.length <= 1) {
+            const only = groups?.[0]?.frequency ?? null;
+            return (
+              <Stat
+                label={only === null ? "Total" : `${FREQUENCY_WORDS[only]} total`}
+                value={formatMoney(shared.totals.net, shared.currency)}
+                /* "0.00" is no discount too: the wire sends a decimal string, and
+                   comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
+                {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
+                  ? {
+                      note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
+                    }
+                  : {})}
+              />
+            );
+          }
+          return groups.map((g) => (
+            <Stat
+              key={g.frequency ?? "none"}
+              label={g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`}
+              value={formatMoney(g.net, shared.currency)}
+            />
+          ));
+        })()}
       </Strip>
+      {shared.totals.unpricedLineCount > 0 && (
+        <p className="text-md">
+          Plus {String(shared.totals.unpricedLineCount)} service
+          {shared.totals.unpricedLineCount === 1 ? "" : "s"} as mutually agreed.
+        </p>
+      )}
 
       {shared.blocks.length > 0 && (
         <Card>
@@ -390,4 +425,30 @@ function closing(shared: SharedProposal): string {
     default:
       return "";
   }
+}
+
+const FREQUENCY_ORDER = ["monthly", "quarterly", "annually", "one_time", "custom", null] as const;
+
+/**
+ * The priced lines' nets summed per billing frequency, in the order the PDF
+ * prints them, as exact decimal strings. Null when a net is not a plain
+ * decimal (the page then falls back to the API's one total rather than guess).
+ */
+function totalsByFrequency(
+  lines: SharedProposal["lines"],
+): { frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] | null {
+  const groups = new Map<SharedProposal["lines"][number]["billingFrequency"], string[]>();
+  for (const l of lines) {
+    if (l.net === null) continue;
+    groups.set(l.billingFrequency, [...(groups.get(l.billingFrequency) ?? []), l.net]);
+  }
+  const out: { frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] = [];
+  for (const f of FREQUENCY_ORDER) {
+    const nets = groups.get(f);
+    if (nets === undefined) continue;
+    const net = addDecimals(nets);
+    if (net === null) return null;
+    out.push({ frequency: f, net });
+  }
+  return out;
 }

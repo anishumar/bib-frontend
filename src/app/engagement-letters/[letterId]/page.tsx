@@ -73,6 +73,13 @@ import { totalWords } from "@/components/proposal-document";
  */
 type StandardClausesAdded = components["schemas"]["StandardClausesAdded"];
 
+/** What an empty "Tailor the wording" box prints: the catalogue's own words. */
+function blankPrints(words: string | null | undefined): string {
+  return words === null || words === undefined || words.trim() === ""
+    ? "Blank prints nothing."
+    : `Blank prints: ${words}`;
+}
+
 export default function LetterPage() {
   const router = useRouter();
   const params = useParams<{ letterId: string }>();
@@ -1104,8 +1111,10 @@ export default function LetterPage() {
             </div>
             {/* THIS LETTER'S OWN WORDING for the service (G1.6), which the
                 screen could not write until the Annexure letter printed it.
-                Empty boxes print the catalogue's words — shown as each box's
-                placeholder, so a drafter can see what they would be replacing. */}
+                Empty boxes print the catalogue's words, shown as each box's
+                placeholder after "Blank prints:", so a drafter can see what they
+                would be replacing. That marker, not "e.g.", because it is the
+                real default and not an example (Wave 4 rule 4). */}
             <details className="mb-4">
               <summary>Tailor the wording for this letter</summary>
               <div className="field-row mt-2">
@@ -1114,7 +1123,7 @@ export default function LetterPage() {
                     key={`s-${picked}`}
                     name="scopeOverride"
                     rows={4}
-                    placeholder={pickedService?.scope ?? "The catalogue states none."}
+                    placeholder={blankPrints(pickedService?.scope)}
                   />
                 </Field>
                 <Field label="Client's responsibilities" optional>
@@ -1122,7 +1131,7 @@ export default function LetterPage() {
                     key={`c-${picked}`}
                     name="clientObligationsOverride"
                     rows={4}
-                    placeholder={pickedService?.clientObligations ?? "The catalogue states none."}
+                    placeholder={blankPrints(pickedService?.clientObligations)}
                   />
                 </Field>
               </div>
@@ -1132,7 +1141,7 @@ export default function LetterPage() {
                     key={`v-${picked}`}
                     name="volumeLimitsOverride"
                     rows={2}
-                    placeholder={pickedService?.volumeLimits ?? "The catalogue states none."}
+                    placeholder={blankPrints(pickedService?.volumeLimits)}
                   />
                 </Field>
                 <Field label="Exclusions" optional>
@@ -1140,7 +1149,7 @@ export default function LetterPage() {
                     key={`e-${picked}`}
                     name="exclusionsOverride"
                     rows={2}
-                    placeholder={pickedService?.exclusions ?? "The catalogue states none."}
+                    placeholder={blankPrints(pickedService?.exclusions)}
                   />
                 </Field>
               </div>

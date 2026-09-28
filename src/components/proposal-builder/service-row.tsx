@@ -454,7 +454,7 @@ function Details({
               >
                 <option value="">
                   {service.recurrence === null
-                    ? "Not stated"
+                    ? "Not set"
                     : `As the catalogue says (${FREQUENCY_WORDS[service.recurrence]})`}
                 </option>
                 {FREQUENCIES.map((f) => (
@@ -496,7 +496,7 @@ function Details({
           >
             <Input
               value={note}
-              placeholder={service.pricingNote ?? "As mutually agreed"}
+              placeholder={`e.g. ${service.pricingNote ?? "As mutually agreed"}`}
               onChange={(e) => {
                 setNote(e.target.value);
               }}

@@ -40,6 +40,29 @@ export function fromMinorUnits(units: bigint): string {
 }
 
 /**
+ * The exact sum of decimal strings AS THE API SENDS THEM ("25000.0000": line
+ * amounts are `numeric` with four places), at whatever scale they arrive, or
+ * null when one is not a plain non-negative decimal. `toMinorUnits` is for
+ * what a person types (two places at most) and refuses these.
+ */
+export function addDecimals(amounts: readonly string[]): string | null {
+  const parts: { whole: string; fraction: string }[] = [];
+  for (const a of amounts) {
+    const m = /^(\d+)(?:\.(\d+))?$/.exec(a);
+    if (m === null) return null;
+    parts.push({ whole: m[1] ?? "0", fraction: m[2] ?? "" });
+  }
+  const scale = Math.max(0, ...parts.map((p) => p.fraction.length));
+  const total = parts.reduce(
+    (sum, p) => sum + BigInt(`${p.whole}${p.fraction.padEnd(scale, "0")}`),
+    BigInt(0),
+  );
+  if (scale === 0) return total.toString();
+  const digits = total.toString().padStart(scale + 1, "0");
+  return `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+}
+
+/**
  * An amount somebody is TYPING, grouped so they can see they typed five lakh
  * and not fifty, with no currency. Null while it is not yet a plain decimal.
  *

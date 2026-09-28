@@ -114,8 +114,13 @@ export default function ProposalsPage() {
                   {/* What it is, over who it is for: the client by NAME, from
                       the API's joined read model, never a column of uuids. */}
                   <Td>
-                    <RowLink href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</RowLink>
-                    <Sub>{p.party.displayName}</Sub>
+                    {/* Capped so a long client name wraps: "Proposal for
+                        <a company> Private Limited" put Opened off a 1280
+                        screen (76px hidden, the W4D walk). */}
+                    <span className="block max-w-72 whitespace-normal">
+                      <RowLink href={`/proposals/${p.proposal.id}`}>{p.proposal.title}</RowLink>
+                      <Sub>{p.party.displayName}</Sub>
+                    </span>
                   </Td>
                   {/* The firm's own number for the document: what a client
                       quotes back and what an audit cites. */}

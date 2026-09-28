@@ -547,8 +547,10 @@ export default function LeadsPage() {
                                 title is the row's one link: the lead's own page
                                 holds its notes, its quotes and its history, and
                                 the client is one click on from there. */}
-                            <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
-                            <Sub>{l.party.displayName}</Sub>
+                            <span className="block max-w-64 whitespace-normal">
+                              <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
+                              <Sub>{l.party.displayName}</Sub>
+                            </span>
                           </Td>
                           <Td>
                             <CountryCell code={l.lead.jurisdiction} />
@@ -719,8 +721,10 @@ export default function LeadsPage() {
                      its reason the hardest things on the page to read. */
                   <Tr key={l.lead.id} linked>
                     <Td>
-                      <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
-                      <Sub>{l.party.displayName}</Sub>
+                      <span className="block max-w-64 whitespace-normal">
+                        <RowLink href={`/leads/${l.lead.id}`}>{l.lead.title}</RowLink>
+                        <Sub>{l.party.displayName}</Sub>
+                      </span>
                     </Td>
                     <Td>
                       <CountryCell code={l.lead.jurisdiction} />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { ConfigEntry, FirmEntity, FirmEntityPreference } from "@/lib/api/client";
 import {
   Button,
@@ -395,7 +395,7 @@ function CompanyTable({
               <Td>
                 <strong>{e.name}</strong>
                 {/* The firm's own words for it, as typed ("Private Limited"). */}
-                {e.entityType !== null && <Sub>{e.entityType}</Sub>}
+                {e.entityType !== null && <Sub>{codeLabel(e.entityType)}</Sub>}
               </Td>
               <Td>{e.jurisdiction === null ? <NotSet /> : countryName(e.jurisdiction)}</Td>
               {/* The currency a document this company issues STARTS in (D1),

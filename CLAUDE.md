@@ -351,6 +351,53 @@ what every later screen reuses. **Add a prop; do not rename one**: the sweeps de
 - **Category tints** `--cat-1…--cat-4` (each with `-wash` and `-ink`) for GROUPS, first the
   Catalogue's Depts: see the colour rule above. They never mean good or bad.
 
+## Wave 4 brought together, and what walking it found (W4D, 2026-09-28)
+
+`feat/w4-ux` is `feat/w4-foundation` with `feat/w4-catalogue`, `feat/w4-commercial`,
+`feat/w4-delivery` and `feat/w4-admin-portal` merged in (two conflicts: the placeholder baseline,
+re-run with `--update`, and one hint on the letter page). Over the merged branch:
+
+- **Consistency is measured from the rendered page, not the source.**
+  `bib/demo-assets/tools/w4final-sweep.mjs` opens 79 screens at 1280 and 1440 on the four
+  sessions' own firms and counts computed styles. On 2026-09-28: 620 table heads in ONE style
+  (14/600, `--ink-2`; the other 20 are the chevron column's quiet "Open"), 632 pills in one
+  style, the calendar's weekday letters moved up from 12.8px to 14px, data cells 16px in full ink, and 0 of: rupees in
+  western grouping, `.00` figures, "Rs", em dashes, page overflow, hidden table columns. What it
+  still lists is deliberate: mono on true code (a content hash, permission keys, the audit
+  record's event codes, ids in a support disclosure), the import template's example dates and
+  entity-type words (they describe the sheet), and a vocabulary screen's own codes.
+- **A placeholder that shows what a BLANK box prints starts "Blank prints:"**, not "e.g.". The
+  letter page's "Tailor the wording" boxes show the catalogue's words there, because that is the
+  real default and not an example. It is the one exception to rule 7 of "Writing for the
+  screen"; the check only reads literal placeholders, so it never sees this one.
+- **The client's page (`/p/[token]`) totals per frequency (D8).** It drew one "Total ₹70,000"
+  for ₹45,000 a month and ₹25,000 once, a number nobody is ever billed, and no line said how
+  often it fell due. Lines now carry "How often", and the totals are one per frequency. The
+  shared read has no per-frequency sum, so the nets are added in the browser with
+  `addDecimals` (`lib/money`), which takes the API's four-place strings (`"25000.0000"`) exactly;
+  `toMinorUnits` is for what a person types and refuses them. With one frequency the API's own
+  total and its discount note stand.
+- **The Files panel (`lib/ui/documents`) is four columns**: title (file name, size, day and who
+  filed it on the line under it), what, client can see, actions. As seven it hid the Download
+  button on the proposal page (149px at 1440). Its day is "28 Sep 2026" like every other date.
+- **A long company name is the test a table has to pass.** "W4D Walk Traders … Private Limited"
+  put `/proposals` 76px and `/leads` 11px past a 1280 screen that every seeded firm passed. The
+  first column of both is capped (`block max-w-* whitespace-normal`, as the Catalogue's). Seed a
+  client with a real-length name before measuring a list.
+- **Money on the screen is `formatMoney` only.** The proposal and letter documents keep the
+  PDFs' own words (`pdfMoney`, `letterMoney`: "INR 1,250,000", en-US grouping), because the
+  preview must say what the paper says. The PDFs themselves group INR the western way; that is
+  the renderer's choice (`render-source.ts`), a backend question, and it is written into the
+  handover rather than changed here.
+- **Still open, found by the walk:** "Raise an invoice" opens "Charged by" on the first company
+  in the list (the fallback, EPB Gulf FZE in the test firm), not the company that signed the
+  client's letter or serves the client's country. An Indian client's invoice was numbered in the
+  Gulf company's series until somebody changed the select, and a series number is not
+  reversible. Which default is right (the letter's company, or D4's country rule) is a product
+  call; both walks choose it by hand today.
+- **The email's Accept link names the API's `BIB_APP_BASE_URL`.** The shared Wave 4 API was
+  started with W4A's web port, so a walk on another port follows the token path, not the origin.
+
 ## The screens, and what they are for
 
 | Route | Is |

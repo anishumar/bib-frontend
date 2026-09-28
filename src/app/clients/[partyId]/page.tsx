@@ -561,7 +561,7 @@ export default function PartyPage() {
                   <Field label="Kind of company">
                     <Input
                       name="entityType"
-                      placeholder="e.g. private_limited"
+                      placeholder="e.g. Private Limited"
                       required
                       aria-describedby={registerHintId}
                     />

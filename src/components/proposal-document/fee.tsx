@@ -157,7 +157,7 @@ export function EditableFee({
               }}
               onKeyDown={keys}
             >
-              <option value="">Not stated</option>
+              <option value="">Not set</option>
               {FREQUENCIES.map((f) => (
                 <option key={f} value={f}>
                   {FREQUENCY_WORDS[f]}

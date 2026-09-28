@@ -315,8 +315,11 @@ function Catalogue() {
                           {price !== null ? (
                             <span className="nowrap">{price}</span>
                           ) : r.body.pricingNote !== null ? (
-                            <span className="ml-auto block max-w-36 whitespace-normal">
-                              {r.body.pricingNote}
+                            // The note itself can run to a sentence and filled
+                            // this cell over four lines; the list says what it
+                            // means, the service page's Price tab says it all.
+                            <span className="nowrap" title={r.body.pricingNote}>
+                              As mutually agreed
                             </span>
                           ) : (
                             <NotSet />
