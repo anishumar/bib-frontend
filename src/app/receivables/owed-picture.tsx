@@ -5,16 +5,17 @@ import { AGEING_LABELS, formatMoney } from "@/lib/api/client";
 import type { Receivable } from "@/lib/api/client";
 import { Grid, Stack } from "@/components/layout";
 import {
-  BarChart,
   Card,
   CardTitle,
   Stat,
   Strip,
   TabPanel,
   Tabs,
-  axisMoney,
-  type BarDatum,
 } from "@/components/ui";
+// The chart kit is imported by FILE, never through the `@/components/ui`
+// barrel: see the note in `components/ui/index.ts`.
+import { BarChart, type BarDatum } from "@/components/ui/chart/bar-chart";
+import { axisMoney } from "@/components/ui/chart/scale";
 import { addDecimals, commonUnits } from "@/lib/money";
 import { daysBefore } from "@/lib/day";
 

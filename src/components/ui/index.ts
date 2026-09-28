@@ -46,7 +46,14 @@ export { useAppearFocus } from "./appear-focus";
 export { scrollBelowBar } from "./below-bar";
 export { Stat, Strip } from "./stat";
 export { CountUp, type Figure } from "./count-up";
-export { AreaChart, BarChart, axisMoney, type AreaPoint, type BarDatum } from "./chart";
+
+// THE CHART KIT IS NOT RE-EXPORTED HERE, deliberately (Wave 5). This barrel is
+// not tree-shaken (the package declares no `sideEffects`), so everything in it
+// ships on every screen that imports anything from it. Re-exported here, the
+// charts added about 4 KB gzip to /work-items, which draws none (measured with
+// `next build`). A screen that draws a chart imports that chart's own file:
+// `@/components/ui/chart/bar-chart`, `.../area-chart`, and `axisMoney` from
+// `.../scale`.
 export {
   Table,
   TableWrap,

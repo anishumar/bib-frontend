@@ -3,7 +3,11 @@
 import { formatMoney } from "@/lib/api/client";
 import type { RevenueByCompany } from "@/lib/api/client";
 import { Grid } from "@/components/layout";
-import { AreaChart, Pill, axisMoney, type AreaPoint } from "@/components/ui";
+import { Pill } from "@/components/ui";
+// By file, not through a barrel: this screen draws no bars (see the note in
+// `components/ui/index.ts`).
+import { AreaChart, type AreaPoint } from "@/components/ui/chart/area-chart";
+import { axisMoney } from "@/components/ui/chart/scale";
 import { Card, Section, Stat } from "@/components/tw";
 import { monthYear } from "@/lib/day";
 import { sumSigned } from "@/lib/money";

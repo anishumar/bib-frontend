@@ -51,7 +51,7 @@ what "the migration finished" means.
 | a warning or a refusal | `<Notice tone>` / `<ErrorNotice error>` | `@/components/ui` |
 | label/value pairs | `<Meta>` + `<MetaItem>` | `@/components/ui` |
 | a headline number | `<Strip>` + `<Stat>` (counts up once; `figure` for money) | `@/components/ui` |
-| a chart | `<BarChart>` / `<AreaChart>` (our own SVG kit, no library) | `@/components/ui` |
+| a chart | `<BarChart>` / `<AreaChart>` (our own SVG kit, no library) | `@/components/ui/chart/bar-chart`, `.../area-chart` (by file: see `ui/index.ts`) |
 | a page | `<Page>` + `<PageHeader>` | `@/components/layout` |
 | spacing between things | `<Stack>` / `<Cluster>` / `<Grid>` | `@/components/layout` |
 | a loading screen | `<Loading>` / `<LoadingCard>` | `@/components/states` |

@@ -420,7 +420,9 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
   The final text holds the width invisibly under the counting one; a screen reader hears only the
   final value. `<Stat>` (both) counts a NUMBER value on its own and money when given `figure`, and
   prints exactly what it did before at rest. Never in a table cell, pill, date, tab count or the nav.
-- **The chart kit is ours** (`src/components/ui/chart`, `<BarChart>` / `<AreaChart>`): plain SVG in
+- **The chart kit is ours** (`src/components/ui/chart`, `<BarChart>` / `<AreaChart>`), and a screen
+  imports each chart's own FILE, not `@/components/ui`: that barrel is not tree-shaken, and
+  re-exporting the kit there put ~4 KB gzip on every route (measured). Plain SVG in
   real pixels from a `ResizeObserver`, the words as HTML over it, no dependency. Geometry is a per
   mille of a round axis worked out on `bigint` (`commonUnits`, `perMille`); ticks are `axisMoney`
   ("₹1 L", "₹50K", "AED 5K"); every figure a person reads is `formatMoney`. Pointer and keyboard
@@ -440,8 +442,10 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
   with fewer than two months that have invoices says "Charts appear once two months have invoices."
   instead of drawing empty axes. The read is `GET /dashboard/revenue/by-company` (backend CLAUDE.md,
   "Billing by company").
-- **Weight**: no new package; `/dashboard` and `/receivables` grew by a few KB gzipped
-  (`bib/demo-assets/notes/w5-build/`). Fixture: `bib/demo-assets/tools/w5-fixture.mjs` (four
+- **Weight**: no new package. First-load JS, gzip, before and after W5: `/receivables` 151.5 ->
+  156.5 KB, `/dashboard` 159.9 -> 166.0 KB (page code plus the area chart), every other screen about
+  +1.4 KB (`CountUp`, which `<Stat>` uses). Measured from `.next/diagnostics/route-bundle-stats.json`
+  (Next 16 prints no sizes); `bib/bib-wt/w5-route-sizes.mjs`. Fixture: `bib/demo-assets/tools/w5-fixture.mjs` (four
   companies, six months, a credit note, a cancelled invoice, 16 clients owing in four currencies).
 
 ## The screens, and what they are for
