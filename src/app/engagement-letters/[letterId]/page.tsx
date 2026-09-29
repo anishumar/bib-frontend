@@ -51,6 +51,7 @@ import {
 import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { ConfirmAction } from "@/components/confirm-action";
+import { CopyLineage } from "@/components/copy-as-draft";
 import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
@@ -147,6 +148,8 @@ export default function LetterPage() {
    * Router's client navigation, which is how the reader gets here.
    */
   const carriedPartially = useSearchParams().get("carried") === "partial";
+  /** The same, for a letter copied from a withdrawn one (0316). */
+  const copiedPartially = useSearchParams().get("copied") === "partial";
   const [loaded, setLoaded] = useState(false);
   // What to OFFER, never what is allowed — the API is the only place the answer
   // lives, and its refusal is shown verbatim when one arrives.
@@ -250,6 +253,27 @@ export default function LetterPage() {
   // nothing on this page may be offered for it, so it is not a draft here.
   const deleted = letter.deletedAt !== null;
   const isDraft = letter.status === "draft" && !deleted;
+  // COPY AS NEW DRAFT (0316): offered when the API says it would work, which
+  // is a withdrawn letter, including one the client declined to sign.
+  const canCopy = permissions.includes("party:write") && record.copyRefusal === null;
+
+  function copyAsDraft(): void {
+    void act("copy", async () => {
+      const result = await api.POST("/api/v1/engagement-letters/{letterId}/copy", {
+        params: { path: { letterId } },
+      });
+      if (!result.error) {
+        const partial =
+          result.data.skippedLines.length > 0 ||
+          result.data.skippedClauses.length > 0 ||
+          result.data.addresseeDropped;
+        router.push(
+          `/engagement-letters/${result.data.letter.id}${partial ? "?copied=partial" : ""}` as Route,
+        );
+      }
+      return result;
+    });
+  }
   // Sending locks the terms; the confirm says so before the press (V1.3).
   const sendConsequence = `${letter.ref} goes out and its terms are locked. To change anything after this, withdraw it and draft a new letter.`;
   const isSigned = letter.status === "signed";
@@ -364,11 +388,40 @@ export default function LetterPage() {
                 Edit in the builder
               </LinkButton>
             )}
+            {canCopy && (
+              <ConfirmAction
+                disabled={busy !== null}
+                loading={busy === "copy"}
+                title={`Copy ${letter.ref} as a new draft?`}
+                confirmLabel="Copy it"
+                consequence={
+                  <p>
+                    A new draft letter gets every service, fee, term and paragraph from {letter.ref}.
+                    Terms come in the firm&rsquo;s current wording. You change what the client asked for,
+                    then send the new one. {letter.ref} stays on record as withdrawn.
+                  </p>
+                }
+                onConfirm={copyAsDraft}
+              >
+                Copy as new draft
+              </ConfirmAction>
+            )}
           </div>
         }
       />
 
       <ErrorNotice error={error} />
+
+      <CopyLineage
+        kind="letter"
+        from={
+          record.copiedFrom === null
+            ? null
+            : { ...record.copiedFrom, statusWord: codeLabel(record.copiedFrom.status) }
+        }
+        copies={record.copies.map((c) => ({ ...c, statusWord: codeLabel(c.status) }))}
+        partial={copiedPartially}
+      />
 
       {letter.deletedAt !== null && (
         <DeletedNotice what="This draft" deletedAt={letter.deletedAt} deletedBy={record.deletedBy}>
@@ -1483,6 +1536,7 @@ export default function LetterPage() {
               {signatureRequest?.outcome === "declined" &&
                 `, because ${signatureRequest.signerName} declined to sign it in ${providerName}`}
               . It stays on record as withdrawn.
+              {canCopy && " To offer the terms again, copy it as a new draft (the button at the top)."}
             </p>
           )}
         </Card>

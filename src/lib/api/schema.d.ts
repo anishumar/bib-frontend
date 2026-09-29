@@ -12476,6 +12476,83 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a rejected or expired proposal into a new draft
+         * @description Starts the next quote from one the client turned down or let lapse (0316): a new DRAFT with a new reference, the same client, issuing company, currency, title, Background, addressee, every live line exactly as it was (price, discount, wording) and the prose. The old proposal does not change. A line that can no longer be added (its company was archived since) is skipped and listed in `skipped`; a discount past the firm's limit needs approving again. GET /api/v1/proposals/{proposalId} says in advance whether this would work (`copyRefusal`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The new draft */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalCopy"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is not rejected or expired, or it was deleted */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{proposalId}/lines": {
         parameters: {
             query?: never;
@@ -13379,6 +13456,83 @@ export interface paths {
                 };
                 /** @description No org selected, or the role does not permit it */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a withdrawn letter into a new draft
+         * @description Starts the next letter from one the firm withdrew or the client declined (0316): a new DRAFT with a new reference, the same client, issuing company, country, quote, currency, title, Background, addressee and advance, every fee section and live line exactly as it was, and the prose including the cover letter and acceptance. Terms come across at the clause library's CURRENT wording; one retired from the library, or no longer fitting the country or the issuer's law, is listed in `skippedClauses`. A start date already past is left off. The old letter does not change. GET /api/v1/engagement-letters/{letterId} says in advance whether this would work (`copyRefusal`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The new draft */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterCopy"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is not withdrawn, or it was deleted */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -21314,6 +21468,11 @@ export interface components {
             deletedAt: string | null;
             /** Format: uuid */
             deletedByUserId: string | null;
+            /**
+             * Format: uuid
+             * @description The rejected or expired proposal this draft was copied from (0316), or null.
+             */
+            copiedFromId: string | null;
         };
         DraftProposalRequest: {
             /** Format: uuid */
@@ -21557,6 +21716,44 @@ export interface components {
                 code: string;
                 message: string;
             } | null;
+            /** @description The closed proposal this draft was copied from (0316), or null. */
+            copiedFrom: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                /** @enum {string} */
+                status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            } | null;
+            /** @description The drafts copied from this proposal, oldest first (0316). A copy deleted as a mistake is left out. */
+            copies: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                /** @enum {string} */
+                status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            }[];
+            /** @description Why POST /api/v1/proposals/{proposalId}/copy would be refused right now, in its own words, or null when it would work (0316). Only a rejected or expired proposal is copied; a sent one past its date counts as expired. */
+            copyRefusal: {
+                code: string;
+                message: string;
+            } | null;
+        };
+        ProposalCopy: {
+            proposal: components["schemas"]["Proposal"];
+            source: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            linesCopied: number;
+            skipped: {
+                /** Format: uuid */
+                lineId: string;
+                description: string;
+                reason: string;
+            }[];
+            /** @description The person the old proposal was addressed to is no longer in the client's structure, so the copy names nobody. Pick one on the draft. */
+            addresseeDropped: boolean;
         };
         ReviseProposalRequest: {
             title?: string;
@@ -21743,6 +21940,11 @@ export interface components {
             deletedAt: string | null;
             /** Format: uuid */
             deletedByUserId: string | null;
+            /**
+             * Format: uuid
+             * @description The withdrawn letter this draft was copied from (0316), or null. Not `supersedesId`, which names a SIGNED letter this one replaces.
+             */
+            copiedFromId: string | null;
         };
         DraftEngagementLetterRequest: {
             /** Format: uuid */
@@ -21771,6 +21973,28 @@ export interface components {
             supersedesId?: string;
             /** @description When the engagements this letter opens begin. Omit for the signature date, which is the ordinary case. A line may override it. */
             effectiveFrom?: string;
+        };
+        LetterCopy: {
+            letter: components["schemas"]["EngagementLetter"];
+            source: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            linesCopied: number;
+            feeGroupsCopied: number;
+            clausesCopied: number;
+            skippedLines: {
+                id: string;
+                description: string;
+                reason: string;
+            }[];
+            skippedClauses: {
+                id: string;
+                description: string;
+                reason: string;
+            }[];
+            addresseeDropped: boolean;
         };
         SkippedQuoteLine: {
             /** Format: uuid */
@@ -22138,6 +22362,27 @@ export interface components {
             } | null;
             /** @description Why DELETE /api/v1/engagement-letters/{letterId} would be refused right now, in its own words — or null when it would work (0086), which means a live draft. Says nothing about `party:write`, which /auth/me already does. */
             deleteRefusal: {
+                code: string;
+                message: string;
+            } | null;
+            /** @description The withdrawn letter this draft was copied from (0316), or null. */
+            copiedFrom: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                /** @enum {string} */
+                status: "draft" | "sent" | "signed" | "withdrawn";
+            } | null;
+            /** @description The drafts copied from this letter, oldest first (0316). A copy deleted as a mistake is left out. */
+            copies: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                /** @enum {string} */
+                status: "draft" | "sent" | "signed" | "withdrawn";
+            }[];
+            /** @description Why POST /api/v1/engagement-letters/{letterId}/copy would be refused right now, in its own words, or null when it would work (0316): only a withdrawn letter is copied. */
+            copyRefusal: {
                 code: string;
                 message: string;
             } | null;

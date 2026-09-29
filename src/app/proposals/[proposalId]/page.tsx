@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { CountrySelect } from "@/components/country-select";
@@ -43,6 +43,8 @@ import { Loading } from "@/components/states";
 import { longDay } from "@/lib/day";
 import { Page, PageHeader, useSession } from "@/components/layout";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
+import { ConfirmAction } from "@/components/confirm-action";
+import { CopyLineage } from "@/components/copy-as-draft";
 import {
   ClientAnswer,
   ProposalPdf,
@@ -82,6 +84,10 @@ export default function ProposalPage() {
   const proposalId = params.proposalId;
   const session = useSession();
   const { record, error: readError, loaded, signedOut, reload } = useProposal(proposalId);
+  /** Set by the page that just copied a closed proposal into this draft when
+   *  something did not come across (0316). A fact about that one act, so it
+   *  travels in the URL and not on the record. */
+  const copiedPartially = useSearchParams().get("copied") === "partial";
 
   /**
    * The companies a line with no company of its own could be filed against,
@@ -202,6 +208,22 @@ export default function ProposalPage() {
     const entry = services.find((e) => e.published?.id === picked) ?? services[0];
     return entry === undefined ? null : readServiceBody(entry.published?.body);
   })();
+  // COPY AS NEW DRAFT (0316): offered when the API says it would work, which
+  // is a declined or expired proposal. The new draft is where the page goes.
+  const canCopy = canWrite && record.copyRefusal === null;
+
+  function copyAsDraft(): void {
+    void act("copy", async () => {
+      const result = await api.POST("/api/v1/proposals/{proposalId}/copy", {
+        params: { path: { proposalId } },
+      });
+      if (!result.error) {
+        const partial = result.data.skipped.length > 0 || result.data.addresseeDropped;
+        router.push(`/proposals/${result.data.proposal.id}${partial ? "?copied=partial" : ""}` as Route);
+      }
+      return result;
+    });
+  }
 
   return (
     <Page>
@@ -242,6 +264,24 @@ export default function ProposalPage() {
                 Edit in the builder
               </LinkButton>
             )}
+            {canCopy && (
+              <ConfirmAction
+                disabled={busy !== null}
+                loading={busy === "copy"}
+                title={`Copy ${proposal.ref} as a new draft?`}
+                confirmLabel="Copy it"
+                consequence={
+                  <p>
+                    A new draft gets every service, price, discount and note from {proposal.ref}.
+                    You change what the client asked for, then send the new one. {proposal.ref}{" "}
+                    stays exactly as the client saw it.
+                  </p>
+                }
+                onConfirm={copyAsDraft}
+              >
+                Copy as new draft
+              </ConfirmAction>
+            )}
             {!deleted && (
               <Button
                 variant={isDraft ? "primary" : "secondary"}
@@ -259,6 +299,17 @@ export default function ProposalPage() {
       />
 
       <ErrorNotice error={error} />
+
+      <CopyLineage
+        kind="proposal"
+        from={
+          record.copiedFrom === null
+            ? null
+            : { ...record.copiedFrom, statusWord: PROPOSAL_STATUS_WORDS[record.copiedFrom.status] }
+        }
+        copies={record.copies.map((c) => ({ ...c, statusWord: PROPOSAL_STATUS_WORDS[c.status] }))}
+        partial={copiedPartially}
+      />
 
       {proposal.deletedAt !== null && (
         <div className="max-w-[900px]">
