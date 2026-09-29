@@ -49,6 +49,7 @@ import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant, longInstantTime } from "@/lib/day";
 import { reloadProposal, useProposal } from "./store";
 import { whatsAppMessage, whatsAppUrl } from "./words";
+import { formatPhone } from "@/lib/phone";
 
 /** What the last send or reissue handed back: the link (readable only now)
  *  and what happened to the email, if one was asked for. */
@@ -262,8 +263,8 @@ export function ProposalSendPanel({
             {phone === null
               ? " No phone on record, so you pick the chat."
               : reach.phoneOf === "person"
-                ? ` WhatsApp opens ${phone}.`
-                : ` WhatsApp opens the company's ${phone}.`}
+                ? ` WhatsApp opens ${formatPhone(phone)}.`
+                : ` WhatsApp opens the company's ${formatPhone(phone)}.`}
           </p>
         </div>
       )}

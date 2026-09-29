@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
+import { PhoneInput } from "@/components/phone-input";
+import { formatPhone } from "@/lib/phone";
 import { api, apiError, codeLabel } from "@/lib/api/client";
 import type {
   ConfigEntry,
@@ -67,6 +69,8 @@ export default function PartyPage() {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  // The add form's Type, so the Value box can be the right kind of box.
+  const [identType, setIdentType] = useState<IdentifierType>(IDENTIFIER_TYPES[0]);
   // What to OFFER, never what is allowed.
   const [permissions, setPermissions] = useState<string[]>([]);
   // Two fields on the Register form share one explanation, so the paragraph
@@ -700,7 +704,7 @@ export default function PartyPage() {
                         is what makes two captures of one company match. */}
                     <Td>
                       {/* A voided one stays on the record, struck through (V2.5). */}
-                      {i.voidedAt === null ? i.value : <s>{i.value}</s>}
+                      {i.voidedAt === null ? shownValue(i) : <s>{shownValue(i)}</s>}
                     </Td>
                     <Td>
                       {i.jurisdiction === null ? <NotSet /> : <Pill tone="code">{i.jurisdiction}</Pill>}
@@ -740,6 +744,8 @@ export default function PartyPage() {
           <details className="card-foot" open={profile.identifiers.length === 0}>
             <summary>Add an identifier</summary>
             <form
+              // Remounted after each add, so the phone box empties with the rest.
+              key={profile.identifiers.length}
               style={{ marginTop: "var(--s-3)" }}
               action={(form) => {
                 void addIdentifier(form);
@@ -748,7 +754,14 @@ export default function PartyPage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Type">
-                    <Select name="type">
+                    <Select
+                      name="type"
+                      value={identType}
+                      onChange={(e) => {
+                        const t = IDENTIFIER_TYPES.find((x) => x === e.target.value);
+                        if (t !== undefined) setIdentType(t);
+                      }}
+                    >
                       {IDENTIFIER_TYPES.map((t) => (
                         <option key={t} value={t}>
                           {identifierWord(t)}
@@ -757,7 +770,19 @@ export default function PartyPage() {
                     </Select>
                   </Field>
                   <Field label="Value">
-                    <Input name="value" required placeholder="e.g. AAACK1234M" />
+                    {identType === "phone" ? (
+                      <PhoneInput
+                        name="value"
+                        required
+                        country={
+                          profile.legalEntities.find((l) => l.status === "active")?.jurisdiction ??
+                          profile.legalEntities[0]?.jurisdiction ??
+                          null
+                        }
+                      />
+                    ) : (
+                      <Input name="value" required {...IDENTIFIER_BOX[identType]} />
+                    )}
                   </Field>
                   <Field label="Country" optional>
                     <Input name="jurisdiction" maxLength={2} placeholder="e.g. IN" />
@@ -1080,6 +1105,34 @@ const IDENTIFIER_TYPES = [
   "phone",
   "other",
 ] as const satisfies readonly IdentifierType[];
+
+/**
+ * The Value box for each type: an example to copy, and for the ones the API
+ * checks the shape of (PAN, GSTIN), no more characters than the shape has and
+ * capitals as they are typed. A phone gets its own control (`PhoneInput`).
+ */
+const IDENTIFIER_BOX: Readonly<Record<IdentifierType, { placeholder: string; maxLength?: number; type?: string; autoCapitalize?: string }>> = {
+  pan: { placeholder: "e.g. ABCDE1234F", maxLength: 10, autoCapitalize: "characters" },
+  gstin: { placeholder: "e.g. 27ABCDE1234F1Z5", maxLength: 15, autoCapitalize: "characters" },
+  cin: { placeholder: "e.g. U74999MH2019PTC123456", maxLength: 21, autoCapitalize: "characters" },
+  llpin: { placeholder: "e.g. AAB-1234", autoCapitalize: "characters" },
+  tan: { placeholder: "e.g. MUMA12345B", maxLength: 10, autoCapitalize: "characters" },
+  din: { placeholder: "e.g. 01234567", maxLength: 8 },
+  uen: { placeholder: "e.g. 201912345K", autoCapitalize: "characters" },
+  trn: { placeholder: "e.g. 100123456700003", maxLength: 15 },
+  ein: { placeholder: "e.g. 12-3456789" },
+  crn: { placeholder: "e.g. 12345678", autoCapitalize: "characters" },
+  vat: { placeholder: "e.g. GB123456789", autoCapitalize: "characters" },
+  passport: { placeholder: "e.g. Z1234567", autoCapitalize: "characters" },
+  email: { placeholder: "e.g. accounts@kaverifoods.in", type: "email" },
+  phone: { placeholder: "e.g. 98200 12345", type: "tel" },
+  other: { placeholder: "e.g. the reference as issued" },
+};
+
+/** A phone as a person reads it ("+91 98200 12345"); anything else as stored. */
+function shownValue(i: { type: string; value: string }): string {
+  return i.type === "phone" ? formatPhone(i.value) : i.value;
+}
 
 /** An identifier type in words: the acronyms in capitals, the rest as words. */
 function identifierWord(type: string): string {

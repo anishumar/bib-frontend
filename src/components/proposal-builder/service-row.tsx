@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { formatCount } from "@/lib/api/client";
-import { Button, Field, FieldRow, FieldStack, Input, Select, Textarea } from "@/components/ui";
+import { Button, Field, FieldRow, FieldStack, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { cleanAmount } from "@/lib/money";
 import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
@@ -207,9 +207,8 @@ export function ServiceRow<L extends RowLine>({
                   : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}. Press Enter to add.`
               }
             >
-              <Input
+              <AmountInput
                 autoFocus
-                inputMode="decimal"
                 value={fee}
                 onChange={(e) => {
                   setFee(e.target.value);
@@ -408,8 +407,8 @@ function Details({
         e.preventDefault();
         void onSubmit({
           unitAmount: section !== null || fee.trim() === "" ? null : cleanAmount(fee),
-          quantity: quantity.trim() === "" ? "1" : quantity.trim(),
-          discountPercent: discount.trim() === "" ? "0" : discount.trim(),
+          quantity: cleanAmount(quantity) === "" ? "1" : cleanAmount(quantity),
+          discountPercent: cleanAmount(discount) === "" ? "0" : cleanAmount(discount),
           billingFrequency: frequency === "" ? null : frequency,
           pricingNote: note.trim() === "" ? null : note.trim(),
           overrides,
@@ -437,8 +436,7 @@ function Details({
                     : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
               }
             >
-              <Input
-                inputMode="decimal"
+              <AmountInput
                 value={fee}
                 onChange={(e) => {
                   setFee(e.target.value);
@@ -466,8 +464,7 @@ function Details({
               </Select>
             </Field>
             <Field label="Quantity">
-              <Input
-                inputMode="decimal"
+              <AmountInput decimals={4}
                 value={quantity}
                 onChange={(e) => {
                   setQuantity(e.target.value);
@@ -475,8 +472,7 @@ function Details({
               />
             </Field>
             <Field label="Discount %">
-              <Input
-                inputMode="decimal"
+              <AmountInput decimals={4}
                 value={discount}
                 onChange={(e) => {
                   setDiscount(e.target.value);

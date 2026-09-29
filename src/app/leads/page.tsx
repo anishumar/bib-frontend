@@ -37,10 +37,12 @@ import {
   Th,
   ThChevron,
   Tr,
+  AmountInput,
 } from "@/components/ui";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longInstant } from "@/lib/day";
 import { CountrySelect } from "@/components/country-select";
+import { PhoneInput } from "@/components/phone-input";
 import { countryName } from "@/lib/country";
 import { cleanAmount, fromMinorUnits, previewAmount, toMinorUnits } from "@/lib/money";
 
@@ -138,6 +140,8 @@ export default function LeadsPage() {
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [captureValue, setCaptureValue] = useState("");
+  // The capture form's Country, so the phone's calling code follows it.
+  const [captureCountry, setCaptureCountry] = useState<string | null>(null);
   const captureForm = useId();
 
   const load = useCallback(async (): Promise<void> => {
@@ -440,8 +444,7 @@ export default function LeadsPage() {
               error={min.bad ? "Numbers only, e.g. 500000." : null}
               hint={min.units === null ? undefined : previewAmount(fromMinorUnits(min.units), currency ?? undefined)}
             >
-              <Input
-                inputMode="decimal"
+              <AmountInput
                 value={minValue}
                 placeholder="e.g. 1,00,000"
                 onChange={(e) => {
@@ -454,8 +457,7 @@ export default function LeadsPage() {
               error={max.bad ? "Numbers only, e.g. 2500000." : null}
               hint={max.units === null ? undefined : previewAmount(fromMinorUnits(max.units), currency ?? undefined)}
             >
-              <Input
-                inputMode="decimal"
+              <AmountInput
                 value={maxValue}
                 placeholder="e.g. 25,00,000"
                 onChange={(e) => {
@@ -814,7 +816,7 @@ export default function LeadsPage() {
                   <Input name="email" type="email" placeholder="e.g. accounts@desertrose.ae" />
                 </Field>
                 <Field label="Phone">
-                  <Input name="phone" placeholder="e.g. +91 98200 12345" />
+                  <PhoneInput name="phone" country={captureCountry} />
                 </Field>
                 <Field label="PAN">
                   <Input name="pan" placeholder="e.g. AAACL1234M" />
@@ -824,16 +826,21 @@ export default function LeadsPage() {
             </div>
             <FieldRow>
               <Field label="Country" optional>
-                <CountrySelect name="jurisdiction" defaultValue="" />
+                <CountrySelect
+                  name="jurisdiction"
+                  defaultValue=""
+                  onChange={(e) => {
+                    setCaptureCountry(e.target.value === "" ? null : e.target.value);
+                  }}
+                />
               </Field>
               <Field
                 label="Could be worth"
                 optional
                 hint={capturedPreview ?? (currency === null ? undefined : `In ${currency}.`)}
               >
-                <Input
+                <AmountInput
                   name="estimatedValue"
-                  inputMode="decimal"
                   placeholder="e.g. 5,00,000"
                   onChange={(e) => {
                     setCaptureValue(e.target.value);

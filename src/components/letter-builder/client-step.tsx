@@ -21,6 +21,7 @@ import {
   Notice,
   Select,
   Textarea,
+  AmountInput,
 } from "@/components/ui";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
@@ -488,8 +489,7 @@ export function LetterClientStep({
                   label={`1 ${currency} is how many ${reporting}`}
                   hint={known === undefined ? undefined : `Last used on ${known.ref}, ${longDay(known.on)}.`}
                 >
-                  <Input
-                    inputMode="decimal"
+                  <AmountInput decimals={10}
                     value={fxRate}
                     required
                     placeholder="e.g. 22.75"
@@ -611,8 +611,7 @@ export function LetterClientStep({
             {advance && (
               <FieldRow>
                 <Field label={`Advance (${currency || "amount"})`}>
-                  <Input
-                    inputMode="decimal"
+                  <AmountInput
                     value={advanceAmount}
                     required
                     placeholder="e.g. 25,000"

@@ -29,6 +29,7 @@ import {
   Td,
   Textarea,
   Th,
+  AmountInput,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
@@ -36,6 +37,7 @@ import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
+import { cleanAmount } from "@/lib/money";
 
 /**
  * YOUR FIRM: the firm on paper, on one page (the Wave 4 brief, 2026-09-28).
@@ -1027,7 +1029,7 @@ function DiscountCard({
             event.preventDefault();
             const form = new FormData(event.currentTarget);
             void (async () => {
-              const ok = await onSave(String(form.get("maxDiscountPercent") ?? "").trim());
+              const ok = await onSave(cleanAmount(String(form.get("maxDiscountPercent") ?? "")));
               if (ok) close?.();
             })();
           }}
@@ -1041,9 +1043,8 @@ function DiscountCard({
                   : "Above this, someone who approves proposals signs off."
               }
             >
-              <Input
+              <AmountInput decimals={4}
                 name="maxDiscountPercent"
-                inputMode="decimal"
                 required
                 defaultValue={limit ?? ""}
                 placeholder="e.g. 15"

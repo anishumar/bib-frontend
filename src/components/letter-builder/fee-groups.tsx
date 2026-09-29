@@ -33,8 +33,9 @@
 import { useState } from "react";
 import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
 import type { FeeGroup, LetterLine } from "@/lib/api/client";
-import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { Button, Field, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { Card, CardTitle, Pill } from "@/components/tw";
+import { cleanAmount } from "@/lib/money";
 
 /** The page's own `act`: run the call, show the API's refusal verbatim, and
  *  reload the letter on success — which it reports, so a form closes only
@@ -271,7 +272,7 @@ function GroupForm({
       className="mt-4"
       action={(form) => {
         const text = (name: string): string => String(form.get(name) ?? "").trim();
-        const amount = text("groupAmount");
+        const amount = cleanAmount(text("groupAmount"));
         const frequency = FREQUENCIES.find((f) => f === text("groupFrequency")) ?? "monthly";
         void onSubmit({
           title: text("groupTitle"),
@@ -317,9 +318,8 @@ function GroupForm({
                   : "Per billing period."
             }
           >
-            <Input
+            <AmountInput
               name="groupAmount"
-              inputMode="decimal"
               defaultValue={group?.amount == null ? "" : formatCount(group.amount)}
               required={adding}
             />
@@ -440,7 +440,7 @@ export function LineFee({
         <form
           className="mt-2"
           action={(form) => {
-            const unitAmount = String(form.get("ownPrice") ?? "").trim();
+            const unitAmount = cleanAmount(String(form.get("ownPrice") ?? ""));
             const pricingNote = String(form.get("ownNote") ?? "").trim();
             void act(`fee:${line.id}`, () =>
               api.PUT("/api/v1/engagement-letters/{letterId}/lines/{lineId}/pricing", {
@@ -459,7 +459,7 @@ export function LineFee({
           <fieldset className="fieldset" aria-label={`Price ${line.description} on its own`}>
             <div className="field-row">
               <Field label={`Its own price (${currency})`}>
-                <Input name="ownPrice" inputMode="decimal" />
+                <AmountInput name="ownPrice" />
               </Field>
               <Field label="Or why it has none">
                 <Input name="ownNote" placeholder="e.g. As mutually agreed" />

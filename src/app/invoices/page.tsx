@@ -31,7 +31,9 @@ import {
   ThChevron,
   Tr,
   type PillTone,
+  AmountInput,
 } from "@/components/ui";
+import { cleanAmount } from "@/lib/money";
 
 /**
  * What the firm has BILLED, and to whom.
@@ -172,7 +174,7 @@ export default function InvoicesPage() {
         partyId: String(form.get("partyId")),
         entityPartyId: String(form.get("entityPartyId")),
         currency: String(form.get("currency")).toUpperCase(),
-        fxRate: String(form.get("fxRate")),
+        fxRate: cleanAmount(String(form.get("fxRate"))),
         fxRateDate: String(form.get("fxRateDate")),
         ...(dueOn === "" ? {} : { dueOn }),
         // Which financial year's series this belongs to. Offered because a firm
@@ -412,7 +414,7 @@ export default function InvoicesPage() {
                 />
               </Field>
               <Field label="Rate to the firm's currency">
-                <Input name="fxRate" defaultValue="1" required />
+                <AmountInput decimals={10} name="fxRate" defaultValue="1" required />
               </Field>
               <Field label="Rate as of">
                 <Input name="fxRateDate" type="date" defaultValue={today} required />

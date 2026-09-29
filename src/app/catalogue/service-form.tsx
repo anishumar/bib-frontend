@@ -13,6 +13,7 @@ import {
   Input,
   Select,
   Textarea,
+  AmountInput,
 } from "@/components/ui";
 import { cleanAmount, previewAmount } from "@/lib/money";
 import { CountriesPicker } from "./parts";
@@ -198,8 +199,7 @@ export function ServiceForm({
         <FieldStack>
           <FieldRow>
             <Field id={`${formId}-amount`} label="Amount" optional error={refused.amount ?? null} hint={preview ?? "Leave blank to quote per client."}>
-              <Input
-                inputMode="decimal"
+              <AmountInput
                 value={draft.amount}
                 placeholder="e.g. 25,000"
                 onChange={(e) => set({ amount: e.target.value })}

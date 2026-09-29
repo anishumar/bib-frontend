@@ -34,6 +34,7 @@ export {
   type SelectProps,
   type TextareaProps,
 } from "./field";
+export { AmountInput, isTypedAmount, type AmountInputProps } from "./amount-input";
 export { Icon, type IconName } from "./icon";
 export { Menu, MenuItem, MenuSeparator } from "./menu";
 export { Meta, MetaItem, NotSet, NotStated, Prose, ProseGrid } from "./meta";

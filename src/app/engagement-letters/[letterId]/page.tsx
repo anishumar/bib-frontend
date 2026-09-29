@@ -31,6 +31,7 @@ import {
   NotSet,
   Select,
   Textarea,
+  AmountInput,
 } from "@/components/ui";
 import { countryName } from "@/lib/country";
 import { FeeGroups, LineFee, groupFee } from "@/components/letter-builder/fee-groups";
@@ -55,6 +56,7 @@ import { CopyLineage } from "@/components/copy-as-draft";
 import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
+import { cleanAmount } from "@/lib/money";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -1019,13 +1021,13 @@ export default function LetterPage() {
                     entityPartyId: String(form.get("entityPartyId")),
                     serviceVersionId: String(form.get("serviceVersionId")),
                     description: String(form.get("description")),
-                    quantity: String(form.get("quantity")),
+                    quantity: cleanAmount(String(form.get("quantity"))),
                     // IN A SECTION it has no price of its own (0083): the
                     // section's fee pays for it, so neither box is sent.
                     ...(addFee === ""
                       ? {
-                          unitAmount: String(form.get("unitAmount")),
-                          discountPercent: String(form.get("discountPercent")),
+                          unitAmount: cleanAmount(String(form.get("unitAmount"))),
+                          discountPercent: cleanAmount(String(form.get("discountPercent"))),
                         }
                       : { feeGroupId: addFee, discountPercent: "0" }),
                     // Sent only when the drafter set one. Absent means "whatever
@@ -1132,7 +1134,7 @@ export default function LetterPage() {
             )}
             <div className="field-row mb-4">
               <Field label="Quantity">
-                <Input name="quantity" defaultValue="1" required />
+                <AmountInput decimals={4} name="quantity" defaultValue="1" required />
               </Field>
               {addFee === "" && (
               <Field label={`Agreed price (${letter.currency})`}>
@@ -1141,7 +1143,7 @@ export default function LetterPage() {
                     number in the box with the wrong currency beside it, which
                     is worse than an empty field: one is obviously unanswered,
                     the other is quietly wrong on a document somebody signs. */}
-                <Input
+                <AmountInput
                   key={`u-${picked}`}
                   name="unitAmount"
                   defaultValue={
@@ -1157,7 +1159,7 @@ export default function LetterPage() {
               )}
               {addFee === "" && (
               <Field label="Discount %">
-                <Input name="discountPercent" defaultValue="0" required />
+                <AmountInput decimals={4} name="discountPercent" defaultValue="0" required />
               </Field>
               )}
               {/* Per line as well as per document, because per line can express

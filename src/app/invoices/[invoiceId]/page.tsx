@@ -34,6 +34,7 @@ import {
   MetaItem,
   NotSet,
   Select,
+  AmountInput,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { ConfirmAction } from "@/components/confirm-action";
@@ -51,6 +52,7 @@ import {
   Th,
 } from "@/components/tw";
 import { browserDay, longDay } from "@/lib/day";
+import { cleanAmount } from "@/lib/money";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -399,16 +401,16 @@ export default function InvoicePage() {
           <form
             style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
-              const discount = String(form.get("discountPercent") ?? "");
-              const tax = String(form.get("taxPercent") ?? "");
+              const discount = cleanAmount(String(form.get("discountPercent") ?? ""));
+              const tax = cleanAmount(String(form.get("taxPercent") ?? ""));
               const engagementId = String(form.get("engagementId") ?? "");
               void act(async () => {
                 const result = await api.POST("/api/v1/invoices/{invoiceId}/lines", {
                   params: { path: { invoiceId } },
                   body: {
                     description: String(form.get("description")),
-                    quantity: String(form.get("quantity")),
-                    unitAmount: String(form.get("unitAmount")),
+                    quantity: cleanAmount(String(form.get("quantity"))),
+                    unitAmount: cleanAmount(String(form.get("unitAmount"))),
                     ...(discount === "" ? {} : { discountPercent: discount }),
                     ...(tax === "" ? {} : { taxPercent: tax }),
                     // WHAT THE WORK WAS. `crm.invoice_line.engagement_id` has
@@ -522,7 +524,7 @@ export default function InvoicePage() {
                     the column's scale ("1.0000", "25000.0000"), and
                     `formatCount` trims it on the string, never via a number. */}
                 <Field label="Qty">
-                  <Input
+                  <AmountInput decimals={4}
                     key={`q-${chosen?.engagementId ?? "none"}`}
                     name="quantity"
                     defaultValue={chosen === null ? "1" : formatCount(chosen.quantity)}
@@ -530,7 +532,7 @@ export default function InvoicePage() {
                   />
                 </Field>
                 <Field label="Unit amount">
-                  <Input
+                  <AmountInput
                     key={`u-${chosen?.engagementId ?? "none"}`}
                     name="unitAmount"
                     defaultValue={chosen?.unitAmount == null ? "" : formatCount(chosen.unitAmount)}
@@ -539,14 +541,14 @@ export default function InvoicePage() {
                   />
                 </Field>
                 <Field label="Discount %">
-                  <Input
+                  <AmountInput decimals={4}
                     key={`x-${chosen?.engagementId ?? "none"}`}
                     name="discountPercent"
                     defaultValue={chosen === null ? "0" : formatCount(chosen.discountPercent)}
                   />
                 </Field>
                 <Field label="Tax %">
-                  <Input name="taxPercent" defaultValue="0" />
+                  <AmountInput decimals={4} name="taxPercent" defaultValue="0" />
                 </Field>
               </FieldRow>
               <div className="cluster">
@@ -720,7 +722,7 @@ export default function InvoicePage() {
                 api.POST("/api/v1/invoices/{invoiceId}/payments", {
                   params: { path: { invoiceId } },
                   body: {
-                    amount: String(form.get("amount")),
+                    amount: cleanAmount(String(form.get("amount"))),
                     receivedOn: String(form.get("receivedOn")),
                     method: String(form.get("method")) as Payment["method"],
                     ...(reference === "" ? {} : { reference }),
@@ -737,7 +739,7 @@ export default function InvoicePage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Amount" hint="A negative amount reverses a payment.">
-                    <Input name="amount" required placeholder="e.g. 25000" />
+                    <AmountInput signed name="amount" required placeholder="e.g. 25000" />
                   </Field>
                   <Field label="Received">
                     <Input name="receivedOn" type="date" defaultValue={today} required />
@@ -826,7 +828,7 @@ export default function InvoicePage() {
                 api.POST("/api/v1/invoices/{invoiceId}/credit-notes", {
                   params: { path: { invoiceId }, query: { asOf: browserDay() } },
                   body: {
-                    amount: String(form.get("creditAmount")),
+                    amount: cleanAmount(String(form.get("creditAmount"))),
                     reason: String(form.get("reason")) as CreditNote["reason"],
                     ...(note === "" ? {} : { note }),
                   },
@@ -838,7 +840,7 @@ export default function InvoicePage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Amount">
-                    <Input name="creditAmount" required placeholder="e.g. 10000" />
+                    <AmountInput name="creditAmount" required placeholder="e.g. 10000" />
                   </Field>
                   {/* The reason is mandatory and closed because without it the
                       numbers always reconcile and WHY money came off does

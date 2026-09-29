@@ -2291,6 +2291,27 @@ was; where things sit and how they read moved.** Walk: `bib/demo-assets/tools/w4
 - **Gated where it was not:** the client page's identifier form is offered on `party:write`, like
   every other write on that page (it was shown to everybody and refused by the API).
 
+## Number boxes and phone boxes (2026-09-30)
+
+- **Every box for a fee, price, quantity, discount, rate or advance is `<AmountInput>`**
+  (`@/components/ui`). It takes digits, commas (grouping: people write 5,00,000) and one point,
+  and no more places than `decimals` (2 money, 4 quantity or percentage, 10 an exchange rate);
+  `signed` lets a leading minus in (a payment that reverses one). A letter, "₹" or a second point
+  is simply not taken. The value is still a string, and **every submit strips the commas with
+  `cleanAmount`** before sending, because the API takes digits only. A box the page filled with
+  more places than it takes ("25000.0000") stays editable.
+- **A phone is `<PhoneInput>`** (`@/components/phone-input`, not in the ui barrel: it pulls in
+  libphonenumber-js and must not load on every page). A calling-code picker (the open list reads
+  "India +91", the closed box shows "+91", `.phone-code` in `components.css`) and a number box
+  that takes digits and the usual separators, stops at a complete number in the fixed-length
+  countries (IN, AE, SG, US, CA) and at the plan's longest elsewhere, picks the country from a
+  pasted "+971 …", and says "Not a valid number for India" on leaving a bad one. It hands the page
+  E.164 through `onChange`, or a hidden input named `name` for a `FormData` form. `country` makes
+  the code follow the form's own Country until somebody picks one. Stored phones print through
+  `formatPhone` ("+91 98200 12345"). The client page's identifier form switches its Value box by
+  Type (a phone box, PAN 10 characters, GSTIN 15).
+- Walk: `bib/demo-assets/tools/typed-inputs-walk.mjs` (21 checks, on an `epb-fixture.mjs` firm).
+
 ## Money never becomes a number
 
 The API sends amounts as decimal **strings**, because a JavaScript number cannot hold 1499.50

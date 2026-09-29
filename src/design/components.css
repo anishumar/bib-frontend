@@ -619,6 +619,43 @@
 .textarea[aria-invalid="true"] {
   border-color: var(--danger);
 }
+/* A PHONE: the calling code, then the number (`<PhoneInput>`). The open list
+   reads "India +91"; the closed box shows only "+91", drawn over a select
+   whose own text is transparent, so the number keeps the width. The options
+   get their ink back, or the list would open blank. A width utility on the
+   select would do nothing: `.select` sets `width: 100%` and is unlayered. */
+.phone-row {
+  display: flex;
+  gap: var(--s-2);
+}
+.phone-code {
+  position: relative;
+  flex: none;
+  width: 6rem;
+}
+.phone-code > .select {
+  color: transparent;
+}
+.phone-code > .select option,
+.phone-code > .select optgroup {
+  color: var(--ink);
+}
+.phone-code-shown {
+  position: absolute;
+  left: var(--s-3);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--ink);
+  font-size: var(--t-base);
+}
+.phone-code > .select:disabled + .phone-code-shown {
+  color: var(--muted);
+}
+.phone-number {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .textarea {
   resize: vertical;
   min-height: 3.5rem;

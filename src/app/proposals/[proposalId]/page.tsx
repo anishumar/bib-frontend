@@ -38,6 +38,7 @@ import {
   Textarea,
   Th,
   type PillTone,
+  AmountInput,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { longDay } from "@/lib/day";
@@ -51,6 +52,7 @@ import {
   ProposalSendPanel,
   useProposal,
 } from "@/components/proposal-document";
+import { cleanAmount } from "@/lib/money";
 
 /** Somebody at the client a letter may be addressed to. */
 interface Contact {
@@ -177,10 +179,10 @@ export default function ProposalPage() {
         body: {
           serviceVersionId: String(form.get("serviceVersionId")),
           description: String(form.get("description")),
-          quantity: String(form.get("quantity")),
+          quantity: cleanAmount(String(form.get("quantity"))),
           // A decimal STRING all the way from this input to the numeric column.
-          unitAmount: String(form.get("unitAmount")),
-          discountPercent: String(form.get("discountPercent")),
+          unitAmount: cleanAmount(String(form.get("unitAmount"))),
+          discountPercent: cleanAmount(String(form.get("discountPercent"))),
         },
       }),
     );
@@ -602,13 +604,13 @@ function ServicesAndPrices({
                 </FieldRow>
                 <FieldRow>
                   <Field label="Quantity">
-                    <Input name="quantity" defaultValue="1" required />
+                    <AmountInput decimals={4} name="quantity" defaultValue="1" required />
                   </Field>
                   <Field label={`Unit price (${proposal.currency})`}>
                     {/* THE LIST PRICE ONLY WHEN IT IS IN THIS DOCUMENT'S OWN
                         CURRENCY: a number beside the wrong currency is worse
                         than an empty box. */}
-                    <Input
+                    <AmountInput
                       key={`u-${picked}`}
                       name="unitAmount"
                       defaultValue={
@@ -622,7 +624,7 @@ function ServicesAndPrices({
                     />
                   </Field>
                   <Field label="Discount %">
-                    <Input name="discountPercent" defaultValue="0" required />
+                    <AmountInput decimals={4} name="discountPercent" defaultValue="0" required />
                   </Field>
                 </FieldRow>
                 <div className="cluster">
@@ -758,7 +760,7 @@ function WriteItUp({
             action={(form) => {
               const text = (name: string): string => String(form.get(name) ?? "").trim();
               const j = text("jurisdiction");
-              const amount = text("advanceAmount");
+              const amount = cleanAmount(text("advanceAmount"));
               const entity = onlyCompany ?? text("defaultEntityPartyId");
               const title = text("title");
               const addressee = text("addressedToPartyId");
@@ -817,7 +819,7 @@ function WriteItUp({
               />
               {advanceRequired && (
                 <Field label="How much">
-                  <Input name="advanceAmount" inputMode="decimal" required placeholder="e.g. 25,000" />
+                  <AmountInput name="advanceAmount" required placeholder="e.g. 25,000" />
                 </Field>
               )}
 

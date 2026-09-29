@@ -18,9 +18,11 @@ import {
   LinkButton,
   Notice,
   Select,
+  AmountInput,
 } from "@/components/ui";
 import { useSession } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
+import { PhoneInput } from "@/components/phone-input";
 import { countryName } from "@/lib/country";
 import { browserDay, longDay } from "@/lib/day";
 import { cn } from "@/lib/cn";
@@ -673,12 +675,12 @@ export function ClientStep({
                     />
                   </Field>
                   <Field label="Phone" optional>
-                    <Input
-                      type="tel"
+                    <PhoneInput
                       value={prospect.phone}
-                      placeholder="e.g. +91 98100 12345"
-                      onChange={(e) => {
-                        editProspect({ phone: e.target.value });
+                      country={whereKey}
+                      placeholder="e.g. 98100 12345"
+                      onChange={(phone) => {
+                        editProspect({ phone });
                       }}
                     />
                   </Field>
@@ -819,8 +821,7 @@ export function ClientStep({
                         : `Your last rate, on ${known.ref} (${longDay(known.on)}).`
                   }
                 >
-                  <Input
-                    inputMode="decimal"
+                  <AmountInput decimals={10}
                     value={fxRate}
                     required
                     placeholder="e.g. 22.75"

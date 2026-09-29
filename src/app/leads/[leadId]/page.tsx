@@ -48,6 +48,7 @@ import {
   ThChevron,
   Tr,
   type PillTone,
+  AmountInput,
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader, useSession } from "@/components/layout";
@@ -554,9 +555,8 @@ export default function LeadPage() {
                   ) ?? "In the firm's currency. Blank if nobody knows."
                 }
               >
-                <Input
+                <AmountInput
                   name="estimatedValue"
-                  inputMode="decimal"
                   placeholder="e.g. 5,00,000"
                   defaultValue={
                     lead.estimatedValue === null ? "" : editable(lead.estimatedValue.amount)

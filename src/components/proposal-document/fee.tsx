@@ -18,7 +18,7 @@ import type { FocusEvent, KeyboardEvent, ReactNode } from "react";
 import { cleanAmount, toMinorUnits } from "@/lib/money";
 import { formatCount } from "@/lib/api/client";
 import type { ProposalLine } from "@/lib/api/client";
-import { cx } from "@/components/ui";
+import { cx, isTypedAmount } from "@/components/ui";
 import type { SaveOutcome } from "./editable";
 import { EditablePieceShell } from "./editable";
 import { FREQUENCY_WORDS } from "./words";
@@ -155,7 +155,9 @@ export function EditableFee({
               aria-invalid={error !== null}
               className={cx(box, "w-48")}
               onChange={(e) => {
-                setAmount(e.target.value);
+                // Only what a number is written with: the AmountInput rule.
+                const typed = e.target.value.replace(/[^\d.,]/g, "");
+                if (isTypedAmount(typed) || !isTypedAmount(amount)) setAmount(typed);
               }}
               onKeyDown={keys}
             />
