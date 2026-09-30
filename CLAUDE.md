@@ -2373,6 +2373,22 @@ browser. A colleague's recorded answer has no such card; the History names them.
 and the panel reads its list only on mount, so without the key it said "Nothing attached yet"
 beside the email that attached it. Found by walking the send.
 
+### A client's yes given outside bib — Record client's acceptance (0317, 2026-09-30)
+
+`<RecordAcceptance>` and `<RecordedAcceptanceCard>` (`src/components/record-acceptance.tsx`) sit on
+BOTH the proposal's Send panel and the letter page, offered only to `acceptance:record` (a partner,
+by default) and only while the document is `sent`. How (a select), On (a date box, the sent day to
+today), Who at the client, Their role, a Note, and the client's email: **required on a letter**,
+optional on a proposal. The file goes up first through the ordinary `POST /documents` (kind
+`correspondence`, attached to the same proposal or letter, role `acceptance_evidence`), and an
+upload that worked is kept for a retry so a refused acceptance never files the email twice. Missing
+fields are said before the confirmation opens (`ConfirmAction`'s `beforeOpen`). The one-click
+"Client accepted" is gone (the API refuses an accept through `/decision`); "Client declined" stays
+for `party:write`. A recorded letter's method reads "Recorded acceptance", the card under the
+client's signature shows how, when, who, the note, the file and who recorded it, and both pages'
+`<Documents>` panels are keyed on the acceptance so the filed email appears. Walked end to end by
+`demo-assets/tools/acceptance-walk.mjs` (21 checks, including an associate being refused).
+
 ### The proposal PDF — "Proposal For Services" (0084, 2026-09-26)
 
 A proposal prints now, in the firm's own format: a COVER (the issuing company's artwork, brand

@@ -13289,8 +13289,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record the client's decision
-         * @description A proposal past its validity date is marked expired here rather than accepted late — nothing in this system runs on a timer, so expiry is written the first time somebody acts on it.
+         * Record that the client declined
+         * @description A proposal past its validity date is marked expired here rather than accepted late — nothing in this system runs on a timer, so expiry is written the first time somebody acts on it. An ACCEPTANCE is refused here (409 `ACCEPT_THROUGH_RECORD`, 0317): the client accepts on the link, or a colleague holding `acceptance:record` records how and when they said yes through `POST …/acceptance`.
          */
         post: {
             parameters: {
@@ -13344,6 +13344,96 @@ export interface paths {
                     };
                 };
                 /** @description Already decided, still a draft, or now expired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the client accepted outside the link
+         * @description The client said yes by email, on a call or in a meeting and never pressed Accept (0317). Needs `acceptance:record` (a partner, by default). Only while the proposal is sent and within its validity date — a lapsed one is marked expired and refused, and is copied as a new draft instead. The evidence (how, when, who, a note, optionally the client's email already attached to this proposal) is recorded with the acceptance in one transaction; the recorder is the session's user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordAcceptanceRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description A field is missing or impossible — a day in the future, before it was sent */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not hold acceptance:record */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not out for an answer, expired, or the file is not attached to this proposal */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -15258,6 +15348,107 @@ export interface paths {
                 };
                 /** @description Not in a signable state, or missing lines or clauses */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the client accepted outside bib
+         * @description The client said yes by email, on a call or in a meeting and never signed (0317). Needs `acceptance:record` (a partner, by default). The client's email or letter must already be uploaded and attached to THIS letter (`evidenceDocumentId`). Only while the letter is sent. An envelope still out with the e-sign provider is VOIDED first, so the client cannot also sign it; one the provider reports signed is refused and left for the signature sweep. Then the letter is signed as a signature would sign it — frozen, one engagement per line, the advance gate — under the method `recorded_acceptance`, with the evidence in the same transaction. The recorder is the session's user.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordAcceptanceRequest"];
+                };
+            };
+            responses: {
+                /** @description Signed as accepted, with the engagements it created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedEngagementLetter"];
+                    };
+                };
+                /** @description A field is missing or impossible, no evidence, or asOf is not today anywhere */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not hold acceptance:record */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not sent, the envelope is already signed, or the file is not attached to this letter */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The e-sign provider could not be reached to void the envelope */
+                502: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -21656,6 +21847,28 @@ export interface components {
             emailedTo: string | null;
             pdf: components["schemas"]["ProposalPdf"];
         } | null;
+        RecordedAcceptance: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            channel: "email" | "call" | "meeting" | "letter" | "other";
+            acceptedOn: string;
+            acceptedByName: string;
+            acceptedByTitle: string | null;
+            note: string;
+            evidence: {
+                /** Format: uuid */
+                documentId: string;
+                title: string | null;
+            } | null;
+            recordedBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                email: string;
+            } | null;
+            recordedAt: string;
+        } | null;
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
             party: {
@@ -21704,6 +21917,7 @@ export interface components {
             sentPdf: components["schemas"]["ProposalPdf"];
             emails: components["schemas"]["ProposalEmail"][];
             clientDecision: components["schemas"]["ProposalClientDecision"];
+            recordedAcceptance: components["schemas"]["RecordedAcceptance"];
             deletedBy: {
                 /** Format: uuid */
                 userId: string;
@@ -21894,6 +22108,29 @@ export interface components {
             decision: "accepted" | "rejected";
             /** @description Why they said no, in the firm's own words. Recorded only on a rejection — the status already says THAT a quote was lost, and this is the half worth anything later. */
             declinedReason?: string;
+        };
+        RecordAcceptanceRequest: {
+            /**
+             * @description How the client said yes: `email`, `call`, `meeting`, `letter` or `other`.
+             * @enum {string}
+             */
+            channel: "email" | "call" | "meeting" | "letter" | "other";
+            /**
+             * @description The day the CLIENT said yes, `YYYY-MM-DD`: not before the document went out, not after today.
+             * @example 2026-09-30
+             */
+            acceptedOn: string;
+            /** @description Who at the client said yes. */
+            acceptedByName: string;
+            /** @description Their capacity — Director. */
+            acceptedByTitle?: string;
+            /** @description What the client said and where it can be found. Required. */
+            note: string;
+            /**
+             * Format: uuid
+             * @description The client's email or letter, already uploaded and attached to THIS proposal or letter. REQUIRED for an engagement letter; optional for a proposal.
+             */
+            evidenceDocumentId?: string;
         };
         EngagementLetter: {
             /** Format: uuid */
@@ -22386,6 +22623,7 @@ export interface components {
                 code: string;
                 message: string;
             } | null;
+            recordedAcceptance: components["schemas"]["RecordedAcceptance"] & unknown;
         };
         ReviseEngagementLetterRequest: {
             title?: string;

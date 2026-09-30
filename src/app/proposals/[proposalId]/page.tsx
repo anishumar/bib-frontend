@@ -387,8 +387,9 @@ export default function ProposalPage() {
       <Documents
         // Remounted when the PDF of record changes (sending files it) or the
         // document or the Send panel made one: the panel reads its list only
-        // on mount.
-        key={`${record.sentPdf?.versionId ?? "no-pdf-of-record"}-${String(filesKey)}`}
+        // on mount. An acceptance recorded with the client's email (0317)
+        // filed one too.
+        key={`${record.sentPdf?.versionId ?? "no-pdf-of-record"}-${String(filesKey)}-${record.recordedAcceptance?.id ?? "open"}`}
         subjectKind="proposal"
         subjectRef={proposalId}
         // A deleted draft gains nothing (0086): its files stay readable.

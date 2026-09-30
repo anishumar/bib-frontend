@@ -53,6 +53,7 @@ import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CopyLineage } from "@/components/copy-as-draft";
+import { RecordAcceptance, RecordedAcceptanceCard } from "@/components/record-acceptance";
 import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
@@ -593,6 +594,13 @@ export default function LetterPage() {
                 {letter.signatureMethod === null ? "" : codeLabel(letter.signatureMethod)}
                 {letter.signatureReference !== null && ` · ref ${letter.signatureReference}`}
               </p>
+              {/* Accepted outside bib and recorded by a partner (0317): the
+                  evidence, which is what stands behind this signature. */}
+              {record.recordedAcceptance !== null && (
+                <div className="mt-2">
+                  <RecordedAcceptanceCard acceptance={record.recordedAcceptance} />
+                </div>
+              )}
             </div>
             {/* The FIRM's half — the "Yours sincerely, …, Director" that was
                 never modelled, so the block rendered as a blank line. It is a
@@ -1531,6 +1539,21 @@ export default function LetterPage() {
             </form>
           )}
 
+          {/* The client agreed outside bib and never signed (0317): a partner
+              records it with the client's email. Offered to acceptance:record
+              only, and while an envelope is out too: recording voids it. */}
+          {letter.status === "sent" && permissions.includes("acceptance:record") && (
+            <div className="mt-4">
+              <RecordAcceptance
+                subject={{ kind: "engagement_letter", id: letterId }}
+                documentRef={letter.ref}
+                partyId={letter.partyId}
+                sentOn={letter.sentAt === null ? null : instantDay(letter.sentAt)}
+                onRecorded={load}
+              />
+            </div>
+          )}
+
           {letter.status === "withdrawn" && (
             <p className="text-md text-muted">
               This letter was withdrawn on{" "}
@@ -1548,6 +1571,8 @@ export default function LetterPage() {
           one too — which is what makes "is the PDF the client holds the one we
           issued" a comparison rather than a matter of trust. */}
       <Documents
+        // Remounted when an acceptance is recorded: its evidence was filed here.
+        key={record.recordedAcceptance?.id ?? "no-acceptance"}
         subjectKind="engagement_letter"
         subjectRef={letterId}
         // A deleted draft gains nothing (0086): its files stay readable.

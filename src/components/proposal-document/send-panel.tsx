@@ -20,8 +20,10 @@
  *   read today's letterhead).
  *
  * After sending it records the client's answer when it arrived some other way
- * (a call, a meeting): Client accepted / Client declined, with the reason for
- * a decline, as the proposal page always has.
+ * (a call, a meeting): Client declined, with the reason, for anybody who may
+ * write; and the client's ACCEPTANCE, with how, when, who and a note, only for
+ * somebody holding `acceptance:record` (a partner, by default: 0317). The API
+ * refuses an accept through `/decision` now.
  *
  * Like the document, it takes only the id and reads the shared record, so the
  * document turns read-only the moment this sends.
@@ -45,8 +47,8 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { useSession } from "@/components/layout";
-import { ConfirmAction } from "@/components/confirm-action";
-import { browserDay, longDay, longInstant, longInstantTime } from "@/lib/day";
+import { browserDay, instantDay, longDay, longInstant, longInstantTime } from "@/lib/day";
+import { RecordAcceptance, RecordedAcceptanceCard } from "@/components/record-acceptance";
 import { reloadProposal, useProposal } from "./store";
 import { whatsAppMessage, whatsAppUrl } from "./words";
 import { formatPhone } from "@/lib/phone";
@@ -149,11 +151,11 @@ export function ProposalSendPanel({
     });
   }
 
-  function decide(decision: "accepted" | "rejected", declinedReason?: string): Promise<boolean> {
-    return run(decision, async () => {
+  function decline(declinedReason: string): Promise<boolean> {
+    return run("rejected", async () => {
       const result = await api.POST("/api/v1/proposals/{proposalId}/decision", {
         params: { path: { proposalId } },
-        body: { decision, ...(declinedReason === undefined || declinedReason === "" ? {} : { declinedReason }) },
+        body: { decision: "rejected", ...(declinedReason === "" ? {} : { declinedReason }) },
       });
       if (result.error) return apiError(result.error).message;
       await changed();
@@ -284,9 +286,21 @@ export function ProposalSendPanel({
         </div>
       )}
 
+      {proposal.status === "sent" && may("acceptance:record") && (
+        <div className="mt-4">
+          <RecordAcceptance
+            subject={{ kind: "proposal", id: proposalId }}
+            documentRef={proposal.ref}
+            partyId={record.party.id}
+            sentOn={proposal.sentAt === null ? null : instantDay(proposal.sentAt)}
+            onRecorded={changed}
+          />
+        </div>
+      )}
+
       {proposal.status === "sent" && canWrite && (
         <>
-          <Decision proposalRef={proposal.ref} busy={busy} onDecide={decide} />
+          <Decline busy={busy} onDecline={decline} />
           <SendAgain
             defaultTo={record.emails[0]?.to ?? record.addressee?.email ?? reach.email ?? ""}
             replyTo={record.preparedBy?.email ?? null}
@@ -370,6 +384,7 @@ function Standing({ record }: { record: ProposalRecord }) {
           {proposal.viewCount === 1 ? "view" : "views"}.
         </p>
       )}
+      {record.recordedAcceptance !== null && <RecordedAcceptanceCard acceptance={record.recordedAcceptance} />}
       {proposal.status === "rejected" && (
         <p className="text-md">
           <span className="label">Why they said no: </span>
@@ -524,28 +539,25 @@ function EmailForm({
   );
 }
 
-/** Client accepted / declined, for an answer given by phone or in a meeting.
- *  A decline asks why, because that is the half worth anything later. */
-function Decision({
-  proposalRef,
+/** Client declined, for an answer given by phone or in a meeting. Asks why,
+ *  because that is the half worth anything later. An acceptance is recorded
+ *  with its evidence by `RecordAcceptance` (0317). */
+function Decline({
   busy,
-  onDecide,
+  onDecline,
 }: {
-  proposalRef: string;
   busy: string | null;
-  onDecide: (decision: "accepted" | "rejected", declinedReason?: string) => Promise<boolean>;
+  onDecline: (declinedReason: string) => Promise<boolean>;
 }) {
   const [declining, setDeclining] = useState(false);
   const { panel, trigger } = useSwapFocus(declining);
   return (
     <div className="mt-4 stack tight">
-      <h3 className="eyebrow">The client&apos;s answer</h3>
-      <p className="muted text-sm">Answered by phone or in a meeting? Record it here.</p>
       {declining ? (
         <div ref={panel} tabIndex={-1}>
           <form
             action={(form) => {
-              void onDecide("rejected", String(form.get("declinedReason") ?? "").trim()).then((done) => {
+              void onDecline(String(form.get("declinedReason") ?? "").trim()).then((done) => {
                 if (done) setDeclining(false);
               });
             }}
@@ -579,24 +591,6 @@ function Decision({
         </div>
       ) : (
         <div className="cluster">
-          {/* Confirmed (V1.3): the answer is recorded for good. */}
-          <ConfirmAction
-            loading={busy === "accepted"}
-            disabled={busy !== null}
-            title={`Record that the client accepted ${proposalRef}?`}
-            confirmLabel="Record acceptance"
-            consequence={
-              <p>
-                {proposalRef} is marked accepted and the answer cannot be changed. You can then
-                draft the engagement letter from it.
-              </p>
-            }
-            onConfirm={() => {
-              void onDecide("accepted");
-            }}
-          >
-            Client accepted
-          </ConfirmAction>
           <Button
             ref={trigger}
             variant="destructive-quiet"
