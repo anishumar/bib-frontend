@@ -2806,6 +2806,12 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   Bookkeeping, Jul 2026 and 3 more") or draft to issue, due the last day before the oldest bill
   escalates, so it turns Overdue the morning the manager's manager gets it; theirs reads "Escalated
   to you · with <manager>".
+- **A bill with no price** (`priced: false`, never redacted) is also on the client's SPOC's (for
+  that Dept) and every administrator's My day, "Needs a price · with <manager>", until an amount is
+  on a draft. Ashish asked for a reminder to the SPOC, the manager and the admin every week; the
+  reminder is a flag that counts weeks ("No price yet", "No price for 4 weeks", `noPriceWords`),
+  and the To raise row shows the same. Nothing is sent. `priced` is also what tells "No price"
+  from "Hidden": a login without fees is still asked the amount of a bill that has none.
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

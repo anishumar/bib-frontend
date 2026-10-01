@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, billingPersonName } from "@/lib/api/client";
+import { api, apiError, billingPersonName, noPriceWords } from "@/lib/api/client";
 import type {
   BillingDue,
   ClientRequest,
@@ -537,6 +537,11 @@ function buildRows(input: {
  * manager's own manager (the API does that 7 days after the bill date, so it
  * turns Overdue here the same morning); it is on my desk NOW either way. A
  * bill escalated to me from somebody who reports to me says whose it is.
+ *
+ * A bill with NO PRICE is also on the client's SPOC's desk and every
+ * administrator's (Ashish: the SPOC, the manager and the admin, every week):
+ * "Needs a price · with <manager>", and a flag counting the weeks it has waited,
+ * which is the weekly reminder. The manager's own row carries the same flag.
  */
 function billRows(me: string, dues: readonly BillingDue[]): Row[] {
   const groups = new Map<string, BillingDue[]>();
@@ -559,6 +564,13 @@ function billRows(me: string, dues: readonly BillingDue[]): Row[] {
     if (mine && first.escalated && first.managerReportsTo !== null) {
       flags.push({ tone: "warn", text: `Also with ${billingPersonName(first.managerReportsTo)}` });
     }
+    // The longest-waiting bill with no price, counted in weeks.
+    const unpriced = list.filter((d) => !d.priced && d.status === "open");
+    if (unpriced.length > 0) {
+      flags.push({ tone: "warn", text: noPriceWords(Math.max(...unpriced.map((d) => d.daysSinceBillOn))) });
+    }
+    // Not the manager: either it escalated to me, or I am reminded of a price.
+    const escalatedToMe = list.some((d) => d.escalated && d.managerReportsTo?.userId === me);
     rows.push({
       key,
       what: drafted
@@ -568,7 +580,7 @@ function billRows(me: string, dues: readonly BillingDue[]): Row[] {
         ? drafted
           ? "Draft invoice"
           : "Bill to raise"
-        : `Escalated to you${holder === null ? "" : ` · with ${holder}`}`,
+        : `${escalatedToMe ? "Escalated to you" : "Needs a price"}${holder === null ? "" : ` · with ${holder}`}`,
       href: (drafted && first.invoice !== null ? `/invoices/${first.invoice.id}` : "/invoices?tab=raise") as Route,
       clientId: first.party.id,
       clientName: first.party.displayName,

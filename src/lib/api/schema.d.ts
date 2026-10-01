@@ -23732,6 +23732,8 @@ export interface components {
             amount: string | null;
             servedDays: number;
             periodDays: number;
+            /** @description Whether the letter fixed a price. False: the amount is typed when raising, and the bill is on the client's SPOC's and every administrator's desk as well as the manager's until then. Not an amount, so never redacted. */
+            priced: boolean;
             manager: components["schemas"]["BillingPerson"];
             /** @description `spoc_manager` (whom the SPOC reports to), `key_manager` (fallback) or `none`. */
             managerHow: string;

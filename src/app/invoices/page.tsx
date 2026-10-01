@@ -254,7 +254,6 @@ function Invoices() {
   // A fee group is one row on its tab, so it counts once here.
   const notSetUp = new Set(unscheduled.map((u) => u.feeGroup?.id ?? u.engagementId)).size;
   const canWrite = session?.permissions.includes("party:write") === true;
-  const seesFees = session?.commercialVisibility === true;
 
   const body =
     tab === "raise" && dues !== null ? (
@@ -263,7 +262,6 @@ function Invoices() {
         invoices={invoices}
         autoBilling={autoBilling}
         canWrite={canWrite}
-        seesFees={seesFees}
         onChanged={load}
       />
     ) : tab === "setup" ? (

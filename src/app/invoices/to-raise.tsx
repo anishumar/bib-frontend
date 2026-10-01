@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useId, useState } from "react";
-import { api, apiError, billingPersonName, codeLabel, formatCount, formatMoney } from "@/lib/api/client";
+import { api, apiError, billingPersonName, codeLabel, formatCount, formatMoney, noPriceWords } from "@/lib/api/client";
 import type { BillingDue, InvoiceSummary } from "@/lib/api/client";
 import { browserDay, longDay, longInstant } from "@/lib/day";
 import { cleanAmount } from "@/lib/money";
@@ -49,13 +49,17 @@ import {
  * invoice is issued) and links to the draft. A week after its bill date an
  * open bill is Overdue and is on the manager's own manager's desk too; the row
  * names that person.
+ *
+ * A bill the letter priced at nothing (`priced` false) says so in weeks, the
+ * weekly reminder Ashish asked for, and its amount is asked for when raising,
+ * whoever raises it: there is no figure to hide from a login without fees.
+ * A priced bill whose amount did not come (no fee axis) reads Hidden.
  */
 export function ToRaiseTab({
   dues,
   invoices,
   autoBilling,
   canWrite,
-  seesFees,
   onChanged,
 }: {
   dues: readonly BillingDue[];
@@ -63,8 +67,6 @@ export function ToRaiseTab({
   invoices: readonly InvoiceSummary[];
   autoBilling: boolean | null;
   canWrite: boolean;
-  /** Without the fee axis the API sends no amounts; say Hidden, not "No price". */
-  seesFees: boolean;
   onChanged: () => Promise<void>;
 }) {
   /** Bills the reader UNticked. Absent is ticked, so a bill that arrives on a
@@ -225,8 +227,17 @@ export function ToRaiseTab({
                           )}
                         </Td>
                         <Td align="right" className="nowrap">
-                          {d.amount === null ? (
-                            <NotSet>{seesFees ? "No price" : "Hidden"}</NotSet>
+                          {!d.priced ? (
+                            <>
+                              <NotSet>No price</NotSet>
+                              {d.status === "open" && (
+                                <Sub>
+                                  <span className="tone-warn">{noPriceWords(d.daysSinceBillOn)}</span>
+                                </Sub>
+                              )}
+                            </>
+                          ) : d.amount === null ? (
+                            <NotSet>Hidden</NotSet>
                           ) : (
                             <>
                               {formatMoney(d.amount, d.currency)}
@@ -309,7 +320,6 @@ export function ToRaiseTab({
 
       <RaiseDialog
         dues={raising}
-        seesFees={seesFees}
         onClose={() => {
           setRaising(null);
         }}
@@ -460,12 +470,10 @@ type Raised = { readonly invoiceId: string; readonly number: string; readonly co
  */
 function RaiseDialog({
   dues,
-  seesFees,
   onClose,
   onRaised,
 }: {
   dues: readonly BillingDue[] | null;
-  seesFees: boolean;
   onClose: () => void;
   onRaised: (out: Raised, count: number) => Promise<void>;
 }) {
@@ -566,7 +574,7 @@ function RaiseDialog({
                     <Td align="right" className="nowrap">
                       {d.amount !== null ? (
                         formatMoney(d.amount, d.currency)
-                      ) : seesFees ? (
+                      ) : !d.priced ? (
                         <AmountInput
                           name={`amount-${d.id}`}
                           required

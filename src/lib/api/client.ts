@@ -1005,6 +1005,17 @@ export function billingPersonName(p: BillingPerson): string {
   return p.displayName ?? p.email;
 }
 
+/**
+ * A bill with no price, in weeks: "No price yet", "No price for 1 week", "No
+ * price for 3 weeks". Ashish asked for the SPOC, the manager and the admins to
+ * be reminded every week; the reminder is the count going up (nothing is sent).
+ */
+export function noPriceWords(daysSinceBillOn: number): string {
+  const weeks = Math.floor(Math.max(0, daysSinceBillOn) / 7);
+  if (weeks === 0) return "No price yet";
+  return `No price for ${String(weeks)} ${weeks === 1 ? "week" : "weeks"}`;
+}
+
 /** The frequencies a schedule can be set for; a one-off or a custom period is
  *  billed by hand. */
 export const SCHEDULED_FREQUENCIES: readonly string[] = ["monthly", "quarterly", "annually"];
