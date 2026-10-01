@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { ConfigEntry, FirmEntity, FirmEntityPreference, Readiness } from "@/lib/api/client";
@@ -24,6 +26,7 @@ import {
   NotSet,
   Select,
   Sub,
+  Switch,
   Table,
   TableWrap,
   Td,
@@ -175,9 +178,11 @@ export default function FirmPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<FirmEntity | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  /** The firm's billing switch (0318); null when the read was refused. */
+  const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies, ready] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready, billing] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/firm-signatory", {}),
@@ -187,6 +192,7 @@ export default function FirmPage() {
       // Setup readiness (V2.6), read with the rest so a save here that fixes a
       // gap turns its line done in the same reload.
       api.GET("/api/v1/tenancy/readiness", {}),
+      api.GET("/api/v1/billing/settings", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -214,6 +220,7 @@ export default function FirmPage() {
     setLimit(max === undefined || max === null ? null : String(max));
     setLimitExists(policyEntries.some((e) => e.entry.key === "discount"));
     setReadiness(ready.data ?? null);
+    setAutoBilling(billing.data?.autoBilling ?? null);
     setLoaded(true);
   }, [router]);
 
@@ -323,6 +330,22 @@ export default function FirmPage() {
           )
         }
       />
+
+      {autoBilling !== null && (
+        <BillingCard
+          on={autoBilling}
+          busy={busy === "billing"}
+          onSet={(on) =>
+            act(
+              "billing",
+              () => api.PUT("/api/v1/billing/settings", { body: { autoBilling: on } }),
+              on
+                ? "Automatic billing is on. Bills appear under Invoices, To raise."
+                : "Automatic billing is off. No new bills are made.",
+            )
+          }
+        />
+      )}
 
       <DiscountCard
         limit={limit}
@@ -998,6 +1021,46 @@ function DeadlinesCard({
         </form>
       )}
     />
+  );
+}
+
+// ── Automatic billing ──────────────────────────────────────────────────────
+
+/**
+ * THE FIRM'S BILLING SWITCH (auto-invoice, 0318). On, the daily sweep writes a
+ * bill for every period that has fallen due on an engagement with billing set
+ * up; the manager raises the invoice from it under Invoices, To raise. Off (the
+ * default), nothing is written. There is no firm-wide go-live date (Ashish,
+ * 2026-10-01): each engagement starts from its own "Bill from", so turning this
+ * on bills no old month nobody chose. It saves as it is switched, like the
+ * country table above; a quarter or a year needs the financial year, set in
+ * Deadlines.
+ */
+function BillingCard({
+  on,
+  busy,
+  onSet,
+}: {
+  on: boolean;
+  busy: boolean;
+  onSet: (on: boolean) => Promise<boolean>;
+}) {
+  return (
+    <Card id="billing">
+      <CardHead level={2} title="Automatic billing" />
+      <Switch
+        label="Make a bill when each period falls due"
+        checked={on}
+        disabled={busy}
+        onChange={(event) => {
+          void onSet(event.target.checked);
+        }}
+      />
+      <p className="text-sm text-ink-2">
+        Only for services with billing set up.{" "}
+        <Link href={"/invoices?tab=setup" as Route}>See which are not</Link>
+      </p>
+    </Card>
   );
 }
 

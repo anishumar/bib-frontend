@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
 import {
   CREDIT_REASONS,
@@ -11,6 +12,7 @@ import {
   PAYMENT_METHOD_LABELS,
   api,
   apiError,
+  billingPersonName,
   codeLabel,
   formatCount,
   formatMoney,
@@ -261,6 +263,24 @@ export default function InvoicePage() {
               {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
               {longDay(invoice.fxRateDate)}
             </span>
+          </MetaItem>
+          {/* WHOSE REVENUE THIS IS (0318): the manager it was raised under,
+              frozen once issued. A hand-raised invoice may name nobody. */}
+          <MetaItem label="Manager">
+            {record.manager === null ? <NotSet /> : billingPersonName(record.manager)}
+          </MetaItem>
+          {/* The letters its lines bill, as the PDF prints them. */}
+          <MetaItem label={record.letters.length > 1 ? "Engagement letters" : "Engagement letter"}>
+            {record.letters.length === 0 ? (
+              <NotSet />
+            ) : (
+              record.letters.map((l, i) => (
+                <span key={l.id}>
+                  {i > 0 && ", "}
+                  <Link href={`/engagement-letters/${l.id}` as Route}>{l.ref}</Link>
+                </span>
+              ))
+            )}
           </MetaItem>
         </Meta>
         {/* NOTHING IS OWED on a draft or a cancelled invoice, and the four

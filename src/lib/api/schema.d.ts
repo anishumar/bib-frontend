@@ -17604,6 +17604,560 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bills that have fallen due, and what became of them */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "open" | "drafted" | "billed" | "skipped";
+                    partyId?: string;
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The dues */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            today: string;
+                            dues: components["schemas"]["BillingDue"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/unscheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recurring engagements whose billing is not set up */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Engagements with no schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            engagements: components["schemas"]["BillingUnscheduled"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set an engagement's billing schedule
+         * @description The first period billed (snapped to its first day) and the date its invoice falls due; each later period one billing span after. Both null clears it. A fee group's engagements are set together, because a group is billed once.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetBillingSchedule"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingSchedule"];
+                    };
+                };
+                /** @description Not a real date, or only one of the two given */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Billed once or on a custom schedule, or the firm's financial year is not set */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/raise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Raise a draft invoice from bill dues
+         * @description One client, one of the firm's companies, one currency and one manager. Every invoice rule applies as for a hand-raised one, and the number is drawn from the gapless series. The rate defaults to the one the letters were struck at, when they agree.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaiseFromDues"];
+                };
+            };
+            responses: {
+                /** @description Drafted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RaisedFromDues"];
+                    };
+                };
+                /** @description Mixed clients, companies, currencies or managers; an amount or a tax rate missing */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A due is already on an invoice or skipped */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/dues/{dueId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide a bill will not be raised, and say why */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SkipDue"];
+                };
+            };
+            responses: {
+                /** @description Skipped */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already on an invoice or skipped */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/dues/{dueId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say which invoice, raised by hand, already bills this */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LinkDue"];
+                };
+            };
+            responses: {
+                /** @description Linked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due or invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already settled, or the invoice cannot be this bill */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The firm's billing switch */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingSettings"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /** Turn automatic billing on or off */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BillingSettings"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingSettings"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents": {
         parameters: {
             query?: never;
@@ -22314,6 +22868,10 @@ export interface components {
             effectiveFrom: string;
             endsOn: string | null;
             endReason: string | null;
+            /** @description The first period billed (0318), its first day. Null with `firstInvoiceOn`: billing not set up. */
+            billingFrom: string | null;
+            /** @description The date the first period's invoice falls due; each later period one billing span after. */
+            firstInvoiceOn: string | null;
             /** @description The fee group that prices this engagement (0083), or null. When set, `unitAmount` is null because the price is the GROUP's — one fee for every engagement in it — and a screen must not prefill that fee per engagement: four engagements of a USD 5,000 retainer are billed 5,000, not 20,000. */
             feeGroup: {
                 /** Format: uuid */
@@ -22924,6 +23482,11 @@ export interface components {
             irn: string | null;
             irnRegisteredAt: string | null;
             notes: string | null;
+            /**
+             * Format: uuid
+             * @description Whose revenue this invoice is (0318); frozen once issued. Null when nobody was named.
+             */
+            managerUserId: string | null;
         };
         RaiseInvoiceRequest: {
             /** Format: uuid */
@@ -22992,6 +23555,18 @@ export interface components {
             };
             lines: components["schemas"]["InvoiceLine"][];
             totals: components["schemas"]["InvoiceTotals"];
+            manager: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                email: string;
+            } | null;
+            /** @description The engagement letters this invoice's lines bill, by reference (0318). */
+            letters: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            }[];
         };
         AddInvoiceLineRequest: {
             /** Format: uuid */
@@ -23110,6 +23685,144 @@ export interface components {
             outstanding: string | null;
             currency: string;
             dueOn: string | null;
+        };
+        BillingPerson: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+            email: string;
+        } | null;
+        BillingDue: {
+            /** Format: uuid */
+            id: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            engagementIds: string[];
+            serviceName: string;
+            entityName: string | null;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                fxRate: string;
+                fxRateDate: string;
+            };
+            periodStart: string;
+            periodEnd: string;
+            periodLabel: string;
+            /** @description The day this period's bill fell due. */
+            billOn: string;
+            /** @description The letter's fee for one whole period. NULL when the letter fixed no price (it must be typed when raising), or when the caller does not see fees. */
+            fullAmount: string | null;
+            /** @description What is billed: the full amount pro-rated by days served. NULL as above. */
+            amount: string | null;
+            servedDays: number;
+            periodDays: number;
+            manager: components["schemas"]["BillingPerson"];
+            /** @description `spoc_manager` (whom the SPOC reports to), `key_manager` (fallback) or `none`. */
+            managerHow: string;
+            /** @description Why it is not with the SPOC's manager. */
+            managerNote: string | null;
+            managerReportsTo: components["schemas"]["BillingPerson"];
+            /**
+             * @description Derived on read: `open` (to raise), `drafted` (on a draft invoice), `billed` (issued), `skipped`. A cancelled invoice makes its dues open again.
+             * @enum {string}
+             */
+            status: "open" | "drafted" | "billed" | "skipped";
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string;
+                status: string;
+            } | null;
+            skipped: {
+                at: string;
+                by: components["schemas"]["BillingPerson"];
+                reason: string;
+            } | null;
+            /** @description The tax rate the last invoice line for this work carried: a default to offer. */
+            lastTaxPercent: string | null;
+            daysSinceBillOn: number;
+            /** @description Still to be issued a week after its bill date: it shows to the manager's own manager too. */
+            escalated: boolean;
+        };
+        BillingSchedule: {
+            /** Format: uuid */
+            engagementId: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            entityName: string;
+            serviceName: string;
+            letterRef: string;
+            status: string;
+            effectiveFrom: string;
+            endsOn: string | null;
+            billingFrequency: string | null;
+            feeGroup: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+            } | null;
+            billingFrom: string | null;
+            firstInvoiceOn: string | null;
+        };
+        BillingUnscheduled: components["schemas"]["BillingSchedule"] & {
+            /** @description The current period, billed the day after it ends (the firm's default). */
+            suggestion: {
+                billingFrom: string;
+                firstInvoiceOn: string;
+                periodLabel: string;
+            } | null;
+        };
+        SetBillingSchedule: {
+            billingFrom: string | null;
+            firstInvoiceOn: string | null;
+        };
+        RaisedFromDues: {
+            /** Format: uuid */
+            invoiceId: string;
+            number: string;
+            /** @description Dues somebody else settled while this ran: on the invoice, but not linked to it. */
+            conflicts: string[];
+        };
+        RaiseFromDues: {
+            dueIds: string[];
+            lines: {
+                /** Format: uuid */
+                dueId: string;
+                amount?: string;
+                taxPercent: string;
+            }[];
+            fxRate?: string;
+            fxRateDate?: string;
+            dueOn?: string;
+        };
+        SkipDue: {
+            reason: string;
+        };
+        LinkDue: {
+            /** Format: uuid */
+            invoiceId: string;
+        };
+        BillingSettings: {
+            /** @description Whether the daily sweep writes bill dues for this firm. Off until the firm turns it on. */
+            autoBilling: boolean;
         };
         /** @description Who uploaded it. NULL means the system generated it, or the person's account has been erased. The email is what distinguishes those from a person whose display name is simply unset — the same arrangement the audit trail's actor uses. */
         DocumentUploader: {

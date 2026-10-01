@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, billingPersonName } from "@/lib/api/client";
 import type {
+  BillingDue,
   ClientRequest,
   Escalation,
   MyStep,
@@ -53,8 +54,10 @@ import { readinessCount } from "@/lib/ui/readiness";
  *                             steps waiting for a checker
  *   /client-requests          the live inbox, kept to what is on my desk
  *   /escalations?mine         what the ladder told me about
+ *   /billing/dues?mine        bills to raise: mine as the manager, and my
+ *                             reports' once a week has passed (0318)
  *
- * Six calls on load (seven for an administrator, who also gets the firm's setup
+ * Seven calls on load (eight for an administrator, who also gets the firm's setup
  * readiness as one line at the top, V2.6), and nothing per row: every read carries the client BY ID
  * and the due day, which the API grew for this screen. An escalation about one
  * of my own tasks is a FLAG on that task's row, not a second row.
@@ -166,13 +169,14 @@ export default function MyDayPage() {
     let live = true;
     void (async () => {
       const today = browserDay();
-      const [tasks, steps, taskChecks, stepChecks, requests, escalated, ready] = await Promise.all([
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready] = await Promise.all([
         api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
         api.GET("/api/v1/my-steps", {}),
         api.GET("/api/v1/work-item-checks", {}),
         api.GET("/api/v1/checks", {}),
         api.GET("/api/v1/client-requests", {}),
         api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
+        api.GET("/api/v1/billing/dues", { params: { query: { mine: "true" } } }),
         admin ? api.GET("/api/v1/tenancy/readiness", {}) : Promise.resolve(null),
       ]);
       if (!live) return;
@@ -195,6 +199,7 @@ export default function MyDayPage() {
         stepChecks: stepChecks.data?.checks ?? [],
         requests: requests.data?.requests ?? [],
         escalations: escalated.data?.rows ?? [],
+        dues: bills.data?.dues ?? [],
       });
       setRows(built);
       setReadiness(ready?.data ?? null);
@@ -373,6 +378,7 @@ function buildRows(input: {
   stepChecks: readonly StepCheck[];
   requests: readonly ClientRequest[];
   escalations: readonly Escalation[];
+  dues: readonly BillingDue[];
 }): Row[] {
   const out: Row[] = [];
 
@@ -518,5 +524,59 @@ function buildRows(input: {
     });
   }
 
+  out.push(...billRows(input.me, input.dues));
+
   return out;
+}
+
+/**
+ * BILLS TO RAISE (auto-invoice, 0318), from `/billing/dues?mine`: one row per
+ * invoice that could be raised (client, company, currency and manager, the four
+ * an invoice cannot mix), and one per draft invoice made from bills and not yet
+ * issued. Due on the last day before the oldest bill escalates to the
+ * manager's own manager (the API does that 7 days after the bill date, so it
+ * turns Overdue here the same morning); it is on my desk NOW either way. A
+ * bill escalated to me from somebody who reports to me says whose it is.
+ */
+function billRows(me: string, dues: readonly BillingDue[]): Row[] {
+  const groups = new Map<string, BillingDue[]>();
+  for (const d of dues) {
+    const key =
+      d.status === "drafted" && d.invoice !== null
+        ? `invoice-${d.invoice.id}`
+        : `bill-${[d.party.id, d.issuer.id, d.currency, d.manager?.userId ?? ""].join("|")}`;
+    groups.set(key, [...(groups.get(key) ?? []), d]);
+  }
+  const rows: Row[] = [];
+  for (const [key, list] of groups) {
+    const first = [...list].sort((a, b) => a.billOn.localeCompare(b.billOn))[0];
+    if (first === undefined) continue;
+    const more = list.length > 1 ? ` and ${String(list.length - 1)} more` : "";
+    const mine = first.manager?.userId === me;
+    const holder = first.manager === null ? null : billingPersonName(first.manager);
+    const drafted = first.status === "drafted" && first.invoice !== null;
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (mine && first.escalated && first.managerReportsTo !== null) {
+      flags.push({ tone: "warn", text: `Also with ${billingPersonName(first.managerReportsTo)}` });
+    }
+    rows.push({
+      key,
+      what: drafted
+        ? `Issue ${first.invoice?.number ?? "the draft invoice"}`
+        : `Raise the invoice: ${first.serviceName}, ${first.periodLabel}${more}`,
+      kind: mine
+        ? drafted
+          ? "Draft invoice"
+          : "Bill to raise"
+        : `Escalated to you${holder === null ? "" : ` · with ${holder}`}`,
+      href: (drafted && first.invoice !== null ? `/invoices/${first.invoice.id}` : "/invoices?tab=raise") as Route,
+      clientId: first.party.id,
+      clientName: first.party.displayName,
+      dueOn: addDays(first.billOn, 6),
+      turn: "me",
+      flags,
+      now: true,
+    });
+  }
+  return rows;
 }

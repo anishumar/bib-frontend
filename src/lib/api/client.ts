@@ -979,6 +979,37 @@ export type PendingDunning =
   paths["/api/v1/dunning/pending"]["get"]["responses"][200]["content"]["application/json"]["actions"][number];
 
 /**
+ * A BILL THAT HAS FALLEN DUE (auto-invoice, 0318): one period of one engagement,
+ * or of one fee group, that the daily sweep says should be billed. It carries no
+ * invoice number: the number is drawn only when somebody presses Raise, so a
+ * bill the manager skips leaves no cancelled number behind. `status` is derived
+ * by the API (a cancelled invoice makes its bills open again); `escalated` means
+ * a week has passed and it is on the manager's own manager's desk too.
+ */
+export type BillingDue =
+  paths["/api/v1/billing/dues"]["get"]["responses"][200]["content"]["application/json"]["dues"][number];
+export type BillingDueStatus = BillingDue["status"];
+export type BillingPerson = NonNullable<BillingDue["manager"]>;
+
+/** A recurring engagement with no billing schedule yet, and the default the API
+ *  offers for one (the current period, billed the day after it ends). */
+export type BillingUnscheduled =
+  paths["/api/v1/billing/unscheduled"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+
+/** An engagement's schedule, as setting it answers. */
+export type BillingSchedule =
+  paths["/api/v1/engagements/{engagementId}/billing"]["put"]["responses"][200]["content"]["application/json"];
+
+/** Whose name a bill or an invoice carries: the display name, else the email. */
+export function billingPersonName(p: BillingPerson): string {
+  return p.displayName ?? p.email;
+}
+
+/** The frequencies a schedule can be set for; a one-off or a custom period is
+ *  billed by hand. */
+export const SCHEDULED_FREQUENCIES: readonly string[] = ["monthly", "quarterly", "annually"];
+
+/**
  * The closed sets, read off the generated schema rather than retyped — the same
  * treatment LEAD_STAGES gets, for the same reason: these are domain rules the
  * API owns, and a hardcoded copy here drifts the day one is added.

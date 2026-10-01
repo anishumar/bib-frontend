@@ -3,11 +3,12 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useCallback, useEffect, useState } from "react";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, SCHEDULED_FREQUENCIES } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
-import { longDay } from "@/lib/day";
-import { Card, CardTitle, ErrorNotice, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
+import { longDay, monthYear } from "@/lib/day";
+import { Button, Card, CardTitle, ErrorNotice, Notice, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
 import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
+import { BillingScheduleDialog, frequencyWord, type ScheduleSubject } from "@/components/billing-schedule";
 
 type ClientEngagement = components["schemas"]["BillableEngagement"];
 
@@ -21,6 +22,12 @@ type ClientEngagement = components["schemas"]["BillableEngagement"];
  *
  * A client who leaves is ended here, service by service, and then archived
  * from the page header; the archive refuses while anything is still live.
+ *
+ * BILLING (auto-invoice, 0318): how often each is billed and, for a monthly,
+ * quarterly or yearly one, its schedule: "Not set up" until the two dates are
+ * given, then the first period and its invoice date. "Set billing" / "Change"
+ * open the same dialog Invoices' "Billing not set up" tab uses. A fee group's
+ * engagements share one schedule; the API sets them together.
  */
 export function EngagementsPanel({
   partyId,
@@ -31,6 +38,8 @@ export function EngagementsPanel({
 }) {
   const [rows, setRows] = useState<readonly ClientEngagement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [setting, setSetting] = useState<ScheduleSubject | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/parties/{partyId}/billable-engagements", {
@@ -56,6 +65,7 @@ export function EngagementsPanel({
     <Card>
       <CardTitle level={2}>Engagements</CardTitle>
       <ErrorNotice error={error} />
+      {said !== null && <Notice tone="ok">{said}</Notice>}
       {rows === null ? (
         <p className="muted">Loading…</p>
       ) : (
@@ -67,6 +77,7 @@ export function EngagementsPanel({
                 <Th>Letter</Th>
                 <Th>Where it stands</Th>
                 <Th>From</Th>
+                <Th>Billing</Th>
                 <Th align="right">
                   <span className="sr-only">Actions</span>
                 </Th>
@@ -89,6 +100,24 @@ export function EngagementsPanel({
                     />
                   </Td>
                   <Td className="nowrap">{longDay(e.effectiveFrom)}</Td>
+                  <Td className="nowrap">
+                    <BillingCell
+                      e={e}
+                      canWrite={canWrite}
+                      onSet={() => {
+                        setSaid(null);
+                        setSetting({
+                          engagementId: e.engagementId,
+                          serviceName: e.description,
+                          clientName: e.entityName,
+                          billingFrequency: e.billingFrequency,
+                          feeGroupTitle: e.feeGroup?.title ?? null,
+                          billingFrom: e.billingFrom,
+                          firstInvoiceOn: e.firstInvoiceOn,
+                        });
+                      }}
+                    />
+                  </Td>
                   <Td align="right">
                     <EngagementActions
                       e={{ id: e.engagementId, status: e.status, effectiveFrom: e.effectiveFrom, endsOn: e.endsOn }}
@@ -103,6 +132,72 @@ export function EngagementsPanel({
           </Table>
         </TableWrap>
       )}
+      <BillingScheduleDialog
+        subject={setting}
+        suggestion={undefined}
+        onClose={() => {
+          setSetting(null);
+        }}
+        onSaved={(set) => {
+          const name = setting?.serviceName ?? set.serviceName;
+          setSetting(null);
+          void (async () => {
+            await load();
+            setSaid(
+              set.firstInvoiceOn === null
+                ? `Billing for ${name} is off.`
+                : `${name} is billed from now on. First invoice ${longDay(set.firstInvoiceOn)}.`,
+            );
+          })();
+        }}
+      />
     </Card>
+  );
+}
+
+/** How often, and the schedule when it has one. */
+function BillingCell({
+  e,
+  canWrite,
+  onSet,
+}: {
+  e: ClientEngagement;
+  canWrite: boolean;
+  onSet: () => void;
+}) {
+  const how = frequencyWord(e.billingFrequency);
+  if (!SCHEDULED_FREQUENCIES.includes(e.billingFrequency ?? "")) {
+    return (
+      <>
+        {how}
+        <Sub>Billed by hand</Sub>
+      </>
+    );
+  }
+  const isSet = e.billingFrom !== null && e.firstInvoiceOn !== null;
+  return (
+    <>
+      {how}
+      {e.billingFrom !== null && e.firstInvoiceOn !== null ? (
+        <>
+          <Sub>From {monthYear(e.billingFrom)}</Sub>
+          <Sub>First invoice {longDay(e.firstInvoiceOn)}</Sub>
+        </>
+      ) : (
+        <Sub>
+          <span className="tone-warn">Not set up</span>
+        </Sub>
+      )}
+      {canWrite && (e.status !== "ended" || isSet) && (
+        <Button
+          variant="link"
+          size="sm"
+          aria-label={`${isSet ? "Change billing" : "Set billing"}: ${e.description} for ${e.entityName}`}
+          onClick={onSet}
+        >
+          {isSet ? "Change" : "Set billing"}
+        </Button>
+      )}
+    </>
   );
 }

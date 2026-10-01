@@ -495,7 +495,7 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 | `/catalogue/new` | **Add a service**: Basics, Price (the currency follows the country), What's included, and the compliance filings (`NewServiceFilings`, sent once the service exists). **Add the service** publishes it; **Save as draft** does not. The key is made from the name |
 | `/catalogue/[serviceKey]` | one service: tabs **Overview · Price & billing · Compliance filings · History** (`?tab=`). **Edit** opens the form and saves a new version (a draft, "Unpublished changes", with what it changes listed) or saves and publishes; **Publish** puts a waiting draft in force. The compliance filings tab is the ONE place a filing is linked to a service (T6.16) |
 | `/admin/standard-terms` | the clauses letters are built from (moved from the Catalogue, W4B): tabs **Default · <each company>**; Default = terms naming no law (on every letter), a company = terms under its country's law (D6). **Write a term** writes and publishes in one act; read on `config:read` |
-| `/invoices` | what the firm has BILLED, and raising one |
+| `/invoices` | what the firm has BILLED, and raising one. Tabs (`?tab=`): **Invoices** · **To raise** (bills that have fallen due, auto-invoice 0318) · **Billing not set up** (recurring engagements with no schedule) |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document — including the cover letter and the acceptance every engagement letter opens with. Tabs **Default · <each company>** (T6.18): per kind, a company uses the Default until it writes its own (`?company=<partyId>` picks the tab) |
@@ -2761,6 +2761,52 @@ worker climbs to those rungs and stops, and the queue shows the client, the invo
 what is outstanding NOW — the API joins all three, because a queue of uuids would be asking
 somebody to approve something they cannot see. Rejecting is offered as prominently as
 approving: the firm looked and chose not to, which is a fact somebody wants later.
+
+### Automatic billing: To raise, Billing not set up, and the switch (auto-invoice, 0318)
+
+Ashish's rule: no service is delivered unbilled. The daily sweep writes a **bill** (`billing_due`)
+for each period that has fallen due on an engagement whose billing is set up, and a person raises
+the invoice from it. **The sweep never makes an invoice**: a draft draws its number from the gapless
+series, so an auto-draft a manager skipped would leave a cancelled number for an auditor.
+`bib/prompts/auto-invoice/PLAN.md` has the rules and the API; these are the screens.
+
+- **To raise** (`src/app/invoices/to-raise.tsx`) is one card per invoice that COULD be raised:
+  client, company (the series), currency and manager (whose revenue), the four the API refuses to
+  mix. Oldest bill first. Each card's **Raise invoice** (secondary: one brand button per screen, and
+  that is the header's) drafts one invoice from the ticked bills; ticks are per raise and reset after
+  any act, because a kept untick left the card's button disabled with nothing saying why (the walk
+  found it). The dialog asks per bill for the tax rate (prefilled with `lastTaxPercent`, the last
+  invoice line for that work) and, only where the letter fixed no price, the amount; the rate starts
+  at the letters' own when they agree; `asOf=browserDay()`. Rows say pro-rata ("17 of 31 days", "of
+  ₹50,000"), **Overdue, also with <manager's manager>** once escalated (`escalated`, 7 days, computed by
+  the API), and the API's `managerNote` in the warn tone when the bill fell back to the Key Manager. A
+  bill on a draft stays listed ("On a draft", the number) until the invoice is issued; a cancelled
+  invoice gives its bills back. **Skip** needs a reason and has no undo; **Link** offers only the
+  client's invoices from the same company in the same currency, not cancelled (what the API takes).
+  Raised and skipped bills are under "Show raised and skipped". Without the fee axis amounts read
+  Hidden (`commercialVisibility` on the session), and a priced bill is not asked for an amount.
+- **Billing not set up** (`not-set-up.tsx`): recurring engagements the sweep cannot bill. A fee group
+  is ONE row ("One fee: <title>") and setting it sets the group. **Set billing** opens
+  `BillingScheduleDialog` (`src/components/billing-schedule.tsx`): two dates, **Bill from** (the first
+  period billed; the API snaps it to the period's first day) and **First invoice on** (that period's
+  invoice date; later ones follow one span after). One date cannot say whether 1 Nov bills October or
+  November. The boxes open on the API's `suggestion` (the current period, billed the day after it
+  ends), never on a date worked out here: a quarter or a year is cut by the firm's financial year.
+- **The client's Engagements panel** has a **Billing** column: how often, then "From July 2026 · First
+  invoice 1 Aug 2026", or "Not set up" in the warn tone, and Set billing / Change (the same dialog,
+  which reads `/billing/unscheduled` for the suggestion, since the panel has none; Change has **Stop
+  billing**, both dates null). `billable-engagements` carries `billingFrom` / `firstInvoiceOn` for it.
+- **Your firm → Automatic billing** (`#billing`): one switch, saved as it is switched, off by default.
+  There is no firm go-live date; each engagement starts at its own Bill from.
+- **The invoice page** names the **Manager** and the **Engagement letter(s)** its lines bill (linked),
+  "Not set" on a hand-raised one.
+- **My day** reads `/billing/dues?mine=true`: one row per invoice to raise ("Raise the invoice:
+  Bookkeeping, Jul 2026 and 3 more") or draft to issue, due the last day before the oldest bill
+  escalates, so it turns Overdue the morning the manager's manager gets it; theirs reads "Escalated
+  to you · with <manager>".
+- Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
+  `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
+  429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.
 
 ## Two screens that show the registry rather than hiding it
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
-import type { InvoiceSummary, PartySummary } from "@/lib/api/client";
-import { Page, PageHeader } from "@/components/layout";
+import type { BillingDue, BillingUnscheduled, InvoiceSummary, PartySummary } from "@/lib/api/client";
+import { Page, PageHeader, useSession } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import {
   Button,
@@ -26,6 +27,8 @@ import {
   Sub,
   Table,
   TableWrap,
+  TabPanel,
+  Tabs,
   Td,
   Th,
   ThChevron,
@@ -34,6 +37,13 @@ import {
   AmountInput,
 } from "@/components/ui";
 import { cleanAmount } from "@/lib/money";
+import { ToRaiseTab } from "./to-raise";
+import { NotSetUpTab } from "./not-set-up";
+
+/** The three views, the current one in the URL (`?tab=`) so a link from My day
+ *  or Your firm lands on it. */
+const TABS = ["invoices", "raise", "setup"] as const;
+type TabKey = (typeof TABS)[number];
 
 /**
  * What the firm has BILLED, and to whom.
@@ -50,8 +60,34 @@ import { cleanAmount } from "@/lib/money";
  * invoice goes out. It lives on the invoice's own page, next to what it says.
  */
 export default function InvoicesPage() {
+  // `useSearchParams` needs a Suspense boundary above it in a static build.
+  return (
+    <Suspense fallback={<Loading label="Loading invoices" />}>
+      <Invoices />
+    </Suspense>
+  );
+}
+
+/**
+ * THE TABS (auto-invoice, 0318): Invoices, then "To raise" (the bills that have
+ * fallen due and are not invoiced yet, its count in the warn tone while there
+ * are any) and "Billing not set up" (recurring engagements the sweep cannot
+ * bill until somebody gives the dates). The two billing tabs live in their own
+ * files; this page reads their data with the list, so the counts are on the
+ * tabs before anybody clicks, and re-reads all of it after any act on them.
+ * A login that may not read the bills (`party:read`) gets the list alone.
+ */
+function Invoices() {
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const session = useSession();
+  const tabsId = useId();
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
+  /** Null until read, and stays null when the login may not read them. */
+  const [dues, setDues] = useState<BillingDue[] | null>(null);
+  const [unscheduled, setUnscheduled] = useState<BillingUnscheduled[]>([]);
+  const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +109,7 @@ export default function InvoicesPage() {
   const asked = useRef("");
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm] = await Promise.all([
+    const [list, book, firm, billed, unset, settings] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -81,6 +117,9 @@ export default function InvoicesPage() {
       // routing preferences left out a company no country pointed at, and its
       // letters then had no "Charged by" to be invoiced under.
       api.GET("/api/v1/firm-entities", {}),
+      api.GET("/api/v1/billing/dues", {}),
+      api.GET("/api/v1/billing/unscheduled", {}),
+      api.GET("/api/v1/billing/settings", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -96,6 +135,9 @@ export default function InvoicesPage() {
     if (firm.data) {
       setEntities(firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name })));
     }
+    setDues(billed.data?.dues ?? null);
+    setUnscheduled(unset.data?.engagements ?? []);
+    setAutoBilling(settings.data?.autoBilling ?? null);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -198,6 +240,132 @@ export default function InvoicesPage() {
   // yesterday would not read as overdue for those five and a half hours.
   const today = browserDay();
 
+  const billing = dues !== null;
+  const askedTab = search.get("tab");
+  const tab: TabKey = billing ? (TABS.find((t) => t === askedTab) ?? "invoices") : "invoices";
+  function showTab(next: TabKey): void {
+    const q = new URLSearchParams(search.toString());
+    if (next === "invoices") q.delete("tab");
+    else q.set("tab", next);
+    const query = q.toString();
+    router.replace((query === "" ? pathname : `${pathname}?${query}`) as Route, { scroll: false });
+  }
+  const toRaise = (dues ?? []).filter((d) => d.status === "open").length;
+  // A fee group is one row on its tab, so it counts once here.
+  const notSetUp = new Set(unscheduled.map((u) => u.feeGroup?.id ?? u.engagementId)).size;
+  const canWrite = session?.permissions.includes("party:write") === true;
+  const seesFees = session?.commercialVisibility === true;
+
+  const body =
+    tab === "raise" && dues !== null ? (
+      <ToRaiseTab
+        dues={dues}
+        invoices={invoices}
+        autoBilling={autoBilling}
+        canWrite={canWrite}
+        seesFees={seesFees}
+        onChanged={load}
+      />
+    ) : tab === "setup" ? (
+      <NotSetUpTab rows={unscheduled} canWrite={canWrite} onChanged={load} />
+    ) : invoices.length === 0 ? (
+      <Card>
+        <Empty title="Nothing billed yet" icon="invoices">
+          Raise the first one with Raise an invoice.
+        </Empty>
+      </Card>
+    ) : (
+      <TableWrap>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Number</Th>
+              <Th>Client</Th>
+              <Th>Status</Th>
+              <Th>Due</Th>
+              <Th align="right">Total</Th>
+              <Th align="right">Outstanding</Th>
+              <ThChevron />
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map((i) => {
+              const owed = i.balance !== null && !isZero(i.balance.outstanding);
+              const overdue =
+                i.invoice.status === "issued" && owed && i.invoice.dueOn !== null && i.invoice.dueOn < today;
+              return (
+                <Tr key={i.invoice.id} linked>
+                  <Td className="nowrap">
+                    <RowLink href={`/invoices/${i.invoice.id}`}>{i.invoice.number}</RowLink>
+                    {/* An IRN is the government registry's identifier for this
+                        document. Shown here because a firm chasing an
+                        e-invoice failure wants to see at a glance which are
+                        registered. */}
+                    {i.invoice.irn !== null && <Sub>IRN {i.invoice.irn}</Sub>}
+                  </Td>
+                  <Td>{i.party.displayName}</Td>
+                  <Td>
+                    <Pill dot tone={toneOf(i.invoice.status)}>
+                      {codeLabel(i.invoice.status)}
+                    </Pill>
+                  </Td>
+                  <Td className="nowrap">
+                    {i.invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(i.invoice.dueOn)}
+                    {overdue && (
+                      <span className="sub tone-danger">Overdue</span>
+                    )}
+                  </Td>
+                  <Td align="right" className="nowrap">
+                    {formatMoney(i.totals.total, i.totals.currency)}
+                    {/* The line count is what tells a zero total apart from
+                        an empty draft — the API refuses to issue the second. */}
+                    <Sub>
+                      {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
+                    </Sub>
+                  </Td>
+                  {/* WHAT IS STILL OWED, and the column this list went four
+                      tasks without. Walked: a fully-settled invoice sat
+                      beside one seventy-five days overdue, both reading
+                      `issued` and both showing their full value — because
+                      `status` is about the DOCUMENT and says nothing about
+                      money. /receivables already dropped the settled one, so
+                      the data existed and the list simply never asked for it.
+
+                      There is still no "paid" badge, and there must not be:
+                      paid is arithmetic over invoices, payments and credit
+                      notes, and a cached flag drifts the first time a
+                      payment is corrected. The figure IS the answer. */}
+                  <Td align="right" className="nowrap">
+                    {i.balance === null ? (
+                      /* A DRAFT OWES NOTHING because nobody has been asked,
+                         and that is not the same as nothing being
+                         outstanding — a zero here would read as settled. */
+                      <NotSet>Not issued</NotSet>
+                    ) : isZero(i.balance.outstanding) ? (
+                      <Pill dot tone="ok">
+                        Settled
+                      </Pill>
+                    ) : (
+                      <>
+                        {formatMoney(i.balance.outstanding, i.totals.currency)}
+                        {!isZero(i.balance.paid) && (
+                          <Sub>{formatMoney(i.balance.paid, i.totals.currency)} received</Sub>
+                        )}
+                        {!isZero(i.balance.credited) && (
+                          <Sub>{formatMoney(i.balance.credited, i.totals.currency)} credited</Sub>
+                        )}
+                      </>
+                    )}
+                  </Td>
+                  <RowChevron />
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </TableWrap>
+    );
+
   return (
     <Page>
       {/* THE WAVE 4 SHAPE (2026-09-28): Raise an invoice is the one brand
@@ -220,102 +388,26 @@ export default function InvoicesPage() {
       {/* The dialog shows its own refusal; this one is the list's. */}
       <ErrorNotice error={raising ? null : error} />
 
-      {invoices.length === 0 ? (
-        <Card>
-          <Empty title="Nothing billed yet" icon="invoices">
-            Raise the first one with Raise an invoice.
-          </Empty>
-        </Card>
-      ) : (
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <Th>Number</Th>
-                <Th>Client</Th>
-                <Th>Status</Th>
-                <Th>Due</Th>
-                <Th align="right">Total</Th>
-                <Th align="right">Outstanding</Th>
-                <ThChevron />
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.map((i) => {
-                const owed = i.balance !== null && !isZero(i.balance.outstanding);
-                const overdue =
-                  i.invoice.status === "issued" && owed && i.invoice.dueOn !== null && i.invoice.dueOn < today;
-                return (
-                  <Tr key={i.invoice.id} linked>
-                    <Td className="nowrap">
-                      <RowLink href={`/invoices/${i.invoice.id}`}>{i.invoice.number}</RowLink>
-                      {/* An IRN is the government registry's identifier for this
-                          document. Shown here because a firm chasing an
-                          e-invoice failure wants to see at a glance which are
-                          registered. */}
-                      {i.invoice.irn !== null && <Sub>IRN {i.invoice.irn}</Sub>}
-                    </Td>
-                    <Td>{i.party.displayName}</Td>
-                    <Td>
-                      <Pill dot tone={toneOf(i.invoice.status)}>
-                        {codeLabel(i.invoice.status)}
-                      </Pill>
-                    </Td>
-                    <Td className="nowrap">
-                      {i.invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(i.invoice.dueOn)}
-                      {overdue && (
-                        <span className="sub tone-danger">Overdue</span>
-                      )}
-                    </Td>
-                    <Td align="right" className="nowrap">
-                      {formatMoney(i.totals.total, i.totals.currency)}
-                      {/* The line count is what tells a zero total apart from
-                          an empty draft — the API refuses to issue the second. */}
-                      <Sub>
-                        {i.totals.lineCount} {i.totals.lineCount === 1 ? "line" : "lines"}
-                      </Sub>
-                    </Td>
-                    {/* WHAT IS STILL OWED, and the column this list went four
-                        tasks without. Walked: a fully-settled invoice sat
-                        beside one seventy-five days overdue, both reading
-                        `issued` and both showing their full value — because
-                        `status` is about the DOCUMENT and says nothing about
-                        money. /receivables already dropped the settled one, so
-                        the data existed and the list simply never asked for it.
+      {billing && (
+        <Tabs
+          id={tabsId}
+          label="Invoice views"
+          value={tab}
+          onChange={showTab}
+          tabs={[
+            { value: "invoices", label: "Invoices" },
+            { value: "raise", label: "To raise", count: toRaise, ...(toRaise > 0 ? { tone: "warn" as const } : {}) },
+            { value: "setup", label: "Billing not set up", count: notSetUp },
+          ]}
+        />
+      )}
 
-                        There is still no "paid" badge, and there must not be:
-                        paid is arithmetic over invoices, payments and credit
-                        notes, and a cached flag drifts the first time a
-                        payment is corrected. The figure IS the answer. */}
-                    <Td align="right" className="nowrap">
-                      {i.balance === null ? (
-                        /* A DRAFT OWES NOTHING because nobody has been asked,
-                           and that is not the same as nothing being
-                           outstanding — a zero here would read as settled. */
-                        <NotSet>Not issued</NotSet>
-                      ) : isZero(i.balance.outstanding) ? (
-                        <Pill dot tone="ok">
-                          Settled
-                        </Pill>
-                      ) : (
-                        <>
-                          {formatMoney(i.balance.outstanding, i.totals.currency)}
-                          {!isZero(i.balance.paid) && (
-                            <Sub>{formatMoney(i.balance.paid, i.totals.currency)} received</Sub>
-                          )}
-                          {!isZero(i.balance.credited) && (
-                            <Sub>{formatMoney(i.balance.credited, i.totals.currency)} credited</Sub>
-                          )}
-                        </>
-                      )}
-                    </Td>
-                    <RowChevron />
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </TableWrap>
+      {billing ? (
+        <TabPanel tabsId={tabsId} value={tab}>
+          {body}
+        </TabPanel>
+      ) : (
+        body
       )}
 
       {/* The number is given from the issuing company's series and can never be
