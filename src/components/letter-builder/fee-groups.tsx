@@ -30,6 +30,7 @@
  * here is offered on one.
  */
 
+import { BillingTimingControl } from "@/components/billing-timing";
 import { useState } from "react";
 import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
 import type { FeeGroup, LetterLine } from "@/lib/api/client";
@@ -122,6 +123,27 @@ export function FeeGroups({
               <span className="tabular-nums">{groupFee(g)}</span> ·{" "}
               {BILLING_FREQUENCY_LABELS[g.billingFrequency]}
               {g.paymentTerms !== null && <> · {g.paymentTerms}</>}
+            </div>
+            {/* When the section's fee is invoiced (0319); signing sets the
+                billing schedule of every service in it from this. */}
+            <div className="text-md">
+              Billed{" "}
+              <BillingTimingControl
+                label={`When section ${g.code} is billed`}
+                frequency={g.billingFrequency}
+                timing={g.billingTiming}
+                on={g.billingOn}
+                editable={editable}
+                busy={busy !== null}
+                onSave={(billingTiming, billingOn) => {
+                  void act(`timing:${g.id}`, () =>
+                    api.PATCH("/api/v1/engagement-letters/{letterId}/fee-groups/{groupId}", {
+                      params: { path: { letterId, groupId: g.id } },
+                      body: { billingTiming, billingOn },
+                    }),
+                  );
+                }}
+              />
             </div>
             {/* WHAT IT PAYS FOR. A fee whose services a reader cannot see is a
                 number with nothing under it — and one that covers none cannot

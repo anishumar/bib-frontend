@@ -23009,6 +23009,13 @@ export interface components {
             jurisdiction: string | null;
             /** @enum {string|null} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /**
+             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @enum {string|null}
+             */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            /** @description The first invoice date, with `on_date` only. */
+            billingOn: string | null;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
             /** Format: uuid */
@@ -23022,6 +23029,9 @@ export interface components {
             title: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            billingOn: string | null;
             amount: string | null;
             currency: string;
             paymentTerms: string | null;
@@ -23211,6 +23221,9 @@ export interface components {
             discountPercent?: string;
             /** @enum {string|null} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
             pricingNote?: string | null;
             effectiveFrom?: string | null;
             jurisdiction?: string | null;
@@ -23236,6 +23249,12 @@ export interface components {
             jurisdiction?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /**
+             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @enum {string}
+             */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
             scopeOverride?: string;
             clientObligationsOverride?: string;
             volumeLimitsOverride?: string;
@@ -23262,6 +23281,9 @@ export interface components {
             title: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string} */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
             amount: string;
             paymentTerms?: string;
             feeDescription?: string;
@@ -23273,6 +23295,9 @@ export interface components {
             title?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
             amount?: string;
             paymentTerms?: string;
             feeDescription?: string;

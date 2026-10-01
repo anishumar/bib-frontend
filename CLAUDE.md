@@ -2812,6 +2812,15 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   reminder is a flag that counts weeks ("No price yet", "No price for 4 weeks", `noPriceWords`),
   and the To raise row shows the same. Nothing is sent. `priced` is also what tells "No price"
   from "Hidden": a login without fees is still asked the amount of a bill that has none.
+- **The letter says when a fee is billed (phase 1b, 0319).** The letter page's Services table has a
+  **Billed** column and each fee section a "Billed" line: `BillingTimingControl`
+  (`src/components/billing-timing.tsx`), "After each month" (the default and what a letter that
+  says nothing means) | "At the start of each month" | "On a date I choose" (then a date box). On a
+  draft it saves as it changes (PATCH line / fee group `billingTiming` + `billingOn`); on a sent or
+  signed letter it is the words the PDF prints. A one-off reads "Billed by hand", a grouped line
+  "With its section". Signing with the firm's switch on sets each engagement's schedule from it
+  (the API's GoLiveScheduler), so those never reach "Billing not set up". The builder's services
+  step does not offer it yet: it is chosen on the letter page. Walk: `ai-1b-walk.mjs` (16 checks).
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

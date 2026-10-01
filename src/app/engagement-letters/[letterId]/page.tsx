@@ -1,5 +1,6 @@
 "use client";
 
+import { BillingTimingControl } from "@/components/billing-timing";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -665,6 +666,7 @@ export default function LetterPage() {
             <tr>
               <Th>Line</Th>
               <Th>Begins</Th>
+              <Th>Billed</Th>
               <Th align="right">Qty</Th>
               <Th align="right">Rate</Th>
               <Th align="right">Net</Th>
@@ -731,6 +733,31 @@ export default function LetterPage() {
                         signature" already says it for a line with none. */}
                     {start.day !== null && <div className="text-sm text-muted">{start.from}</div>}
                   </Td>
+                  {/* WHEN IT IS INVOICED (0319): signing sets the engagement's
+                      billing schedule from this. A grouped line is billed with
+                      its section, whose own choice is on the section. */}
+                  <Td className="nowrap">
+                    {l.feeGroupId !== null ? (
+                      <span className="text-sm text-muted">With its section</span>
+                    ) : (
+                      <BillingTimingControl
+                        label={`When ${l.description} is billed`}
+                        frequency={l.billingFrequency}
+                        timing={l.billingTiming}
+                        on={l.billingOn}
+                        editable={isDraft && permissions.includes("party:write")}
+                        busy={busy !== null}
+                        onSave={(billingTiming, billingOn) => {
+                          void act(`timing-${l.id}`, () =>
+                            api.PATCH("/api/v1/engagement-letters/{letterId}/lines/{lineId}", {
+                              params: { path: { letterId, lineId: l.id } },
+                              body: { billingTiming, billingOn },
+                            }),
+                          );
+                        }}
+                      />
+                    )}
+                  </Td>
                   <Td align="right">{formatCount(l.quantity)}</Td>
                   {l.feeGroupId !== null ? (
                     // PRICED BY ITS SECTION (0083): no figure of its own to
@@ -789,7 +816,7 @@ export default function LetterPage() {
             })}
             {lines.length === 0 && (
               <tr>
-                <Td colSpan={6} className="text-sm text-muted">
+                <Td colSpan={7} className="text-sm text-muted">
                   No services on this letter yet.
                 </Td>
               </tr>
