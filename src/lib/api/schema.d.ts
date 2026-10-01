@@ -23711,6 +23711,7 @@ export interface components {
             /** Format: uuid */
             feeGroupId: string | null;
             engagementIds: string[];
+            /** @description What the client signed for: the letter line's own wording, or the fee group's title. Never the catalogue's name. The invoice line reads it, with the period. */
             serviceName: string;
             entityName: string | null;
             letter: {
@@ -23768,6 +23769,7 @@ export interface components {
                 displayName: string;
             };
             entityName: string;
+            /** @description The letter line's own wording, as the client signed it. */
             serviceName: string;
             letterRef: string;
             status: string;

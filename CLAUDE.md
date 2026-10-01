@@ -2772,7 +2772,9 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
 
 - **To raise** (`src/app/invoices/to-raise.tsx`) is one card per invoice that COULD be raised:
   client, company (the series), currency and manager (whose revenue), the four the API refuses to
-  mix. Oldest bill first. Each card's **Raise invoice** (secondary: one brand button per screen, and
+  mix. Oldest bill first. A bill is named in the LETTER's words (`serviceName`: the letter line's
+  own wording, or the fee group's title, never the catalogue's name), because that is also the
+  invoice line's text and a client checks an invoice against what they signed. Each card's **Raise invoice** (secondary: one brand button per screen, and
   that is the header's) drafts one invoice from the ticked bills; ticks are per raise and reset after
   any act, because a kept untick left the card's button disabled with nothing saying why (the walk
   found it). The dialog asks per bill for the tax rate (prefilled with `lastTaxPercent`, the last
