@@ -5,7 +5,15 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
-import type { BillingDue, BillingUnscheduled, InvoiceSummary, PartySummary } from "@/lib/api/client";
+import type {
+  BillingAdvance,
+  BillingBillNow,
+  BillingDue,
+  BillingRefund,
+  BillingUnscheduled,
+  InvoiceSummary,
+  PartySummary,
+} from "@/lib/api/client";
 import { Page, PageHeader, useSession } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
 import {
@@ -39,10 +47,11 @@ import {
 import { cleanAmount } from "@/lib/money";
 import { ToRaiseTab } from "./to-raise";
 import { NotSetUpTab } from "./not-set-up";
+import { AdvancesTab } from "./advances";
 
-/** The three views, the current one in the URL (`?tab=`) so a link from My day
- *  or Your firm lands on it. */
-const TABS = ["invoices", "raise", "setup"] as const;
+/** The views, the current one in the URL (`?tab=`) so a link from My day or
+ *  Your firm lands on it. Advances (0320): every advance and where it stands. */
+const TABS = ["invoices", "raise", "advances", "setup"] as const;
 type TabKey = (typeof TABS)[number];
 
 /**
@@ -87,6 +96,9 @@ function Invoices() {
   /** Null until read, and stays null when the login may not read them. */
   const [dues, setDues] = useState<BillingDue[] | null>(null);
   const [unscheduled, setUnscheduled] = useState<BillingUnscheduled[]>([]);
+  const [advances, setAdvances] = useState<BillingAdvance[]>([]);
+  const [refunds, setRefunds] = useState<BillingRefund[]>([]);
+  const [billNow, setBillNow] = useState<BillingBillNow[]>([]);
   const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
@@ -109,7 +121,7 @@ function Invoices() {
   const asked = useRef("");
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm, billed, unset, settings] = await Promise.all([
+    const [list, book, firm, billed, unset, settings, advance, refund, oneTime] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -120,6 +132,9 @@ function Invoices() {
       api.GET("/api/v1/billing/dues", {}),
       api.GET("/api/v1/billing/unscheduled", {}),
       api.GET("/api/v1/billing/settings", {}),
+      api.GET("/api/v1/billing/advances", {}),
+      api.GET("/api/v1/billing/refunds", {}),
+      api.GET("/api/v1/billing/bill-now", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -137,6 +152,9 @@ function Invoices() {
     }
     setDues(billed.data?.dues ?? null);
     setUnscheduled(unset.data?.engagements ?? []);
+    setAdvances(advance.data?.advances ?? []);
+    setRefunds(refund.data?.refunds ?? []);
+    setBillNow(oneTime.data?.engagements ?? []);
     setAutoBilling(settings.data?.autoBilling ?? null);
     setError(null);
     setLoaded(true);
@@ -254,6 +272,9 @@ function Invoices() {
   // A fee group is one row on its tab, so it counts once here.
   const notSetUp = new Set(unscheduled.map((u) => u.feeGroup?.id ?? u.engagementId)).size;
   const canWrite = session?.permissions.includes("party:write") === true;
+  const isAdmin = session?.permissions.includes("tenant:admin") === true;
+  // An advance part paid waits for an admin: that is what the tab counts.
+  const waitingStart = advances.filter((a) => a.state === "part_paid").length;
 
   const body =
     tab === "raise" && dues !== null ? (
@@ -262,8 +283,13 @@ function Invoices() {
         invoices={invoices}
         autoBilling={autoBilling}
         canWrite={canWrite}
+        isAdmin={isAdmin}
+        refunds={refunds}
+        billNow={billNow}
         onChanged={load}
       />
+    ) : tab === "advances" ? (
+      <AdvancesTab advances={advances} isAdmin={isAdmin} onChanged={load} />
     ) : tab === "setup" ? (
       <NotSetUpTab rows={unscheduled} canWrite={canWrite} onChanged={load} />
     ) : invoices.length === 0 ? (
@@ -395,6 +421,12 @@ function Invoices() {
           tabs={[
             { value: "invoices", label: "Invoices" },
             { value: "raise", label: "To raise", count: toRaise, ...(toRaise > 0 ? { tone: "warn" as const } : {}) },
+            {
+              value: "advances",
+              label: "Advances",
+              count: waitingStart,
+              ...(waitingStart > 0 ? { tone: "warn" as const } : {}),
+            },
             { value: "setup", label: "Billing not set up", count: notSetUp },
           ]}
         />

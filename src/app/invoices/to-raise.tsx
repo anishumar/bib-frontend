@@ -3,8 +3,9 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useId, useState } from "react";
-import { api, apiError, billingPersonName, codeLabel, formatCount, formatMoney, noPriceWords } from "@/lib/api/client";
-import type { BillingDue, InvoiceSummary } from "@/lib/api/client";
+import { api, apiError, billLabel, billingPersonName, codeLabel, formatCount, formatMoney, noPriceWords } from "@/lib/api/client";
+import type { BillingBillNow, BillingDue, BillingRefund, InvoiceSummary } from "@/lib/api/client";
+import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant } from "@/lib/day";
 import { cleanAmount } from "@/lib/money";
 import { Empty } from "@/components/states";
@@ -54,12 +55,25 @@ import {
  * weekly reminder Ashish asked for, and its amount is asked for when raising,
  * whoever raises it: there is no figure to hide from a login without fees.
  * A priced bill whose amount did not come (no fee axis) reads Hidden.
+ *
+ * THE ADVANCE AND THE FINAL BILL (0320). An ADVANCE bill is raised on an
+ * invoice of its own (the API refuses it beside anything else), so it has its
+ * own Raise button and no tick, and it cannot be skipped: the work waits for
+ * it. A FINAL bill is a one-time service whose job is done. When an advance has
+ * been invoiced, a bill shows what is left of it: the API takes it off, earliest
+ * bill first, before tax, and a bill it pays in full gets no invoice at all
+ * ("Covered by the advance"). Below the cards: "To refund" (an advance left once
+ * the work is finished: an admin gives it back as a credit note, or keeps it
+ * with a reason) and one-time work with no process, billed with "Bill it now".
  */
 export function ToRaiseTab({
   dues,
   invoices,
   autoBilling,
   canWrite,
+  isAdmin,
+  refunds,
+  billNow,
   onChanged,
 }: {
   dues: readonly BillingDue[];
@@ -67,6 +81,10 @@ export function ToRaiseTab({
   invoices: readonly InvoiceSummary[];
   autoBilling: boolean | null;
   canWrite: boolean;
+  /** Giving an advance back, or keeping it, is an administrator's. */
+  isAdmin: boolean;
+  refunds: readonly BillingRefund[];
+  billNow: readonly BillingBillNow[];
   onChanged: () => Promise<void>;
 }) {
   /** Bills the reader UNticked. Absent is ticked, so a bill that arrives on a
@@ -75,11 +93,13 @@ export function ToRaiseTab({
   const [raising, setRaising] = useState<readonly BillingDue[] | null>(null);
   const [skipping, setSkipping] = useState<BillingDue | null>(null);
   const [linking, setLinking] = useState<BillingDue | null>(null);
+  const [keeping, setKeeping] = useState<BillingRefund | null>(null);
   const [said, setSaid] = useState<Said | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [acting, setActing] = useState(false);
 
   const pending = dues.filter((d) => d.status === "open" || d.status === "drafted");
-  const done = dues.filter((d) => d.status === "billed" || d.status === "skipped");
+  const done = dues.filter((d) => d.status === "billed" || d.status === "skipped" || d.status === "covered");
   const groups = groupDues(pending);
 
   function toggle(id: string, on: boolean): void {
@@ -95,12 +115,47 @@ export function ToRaiseTab({
     setRaising(null);
     setSkipping(null);
     setLinking(null);
+    setKeeping(null);
     // An untick is a choice for ONE invoice. Kept after it was raised, the bill
     // left out stayed unticked and its card's Raise sat disabled with nothing
     // saying why (found by the walk).
     setUnticked(new Set());
     await onChanged();
     setSaid(next);
+  }
+
+  /** Give an advance back: a credit note, its number said above the list. */
+  async function refund(r: BillingRefund): Promise<void> {
+    setSaid(null);
+    setActing(true);
+    const result = await api.POST("/api/v1/billing/refunds/{dueId}/credit-note", {
+      params: { path: { dueId: r.dueId }, query: { asOf: browserDay() } },
+    });
+    setActing(false);
+    if (result.error) {
+      setSaid({ tone: "warn", text: apiError(result.error).message });
+      return;
+    }
+    await finished({
+      tone: "ok",
+      text: `Credit note ${result.data.number} gives ${r.party.displayName} the advance back. Record the money paid back as a negative payment.`,
+      invoice: { id: r.invoice.id, number: r.invoice.number },
+    });
+  }
+
+  /** Bill a one-time service with no process now: its final bill joins the list. */
+  async function billItNow(b: BillingBillNow): Promise<void> {
+    setSaid(null);
+    setActing(true);
+    const result = await api.POST("/api/v1/billing/engagements/{engagementId}/bill-now", {
+      params: { path: { engagementId: b.engagementId } },
+    });
+    setActing(false);
+    if (result.error) {
+      setSaid({ tone: "warn", text: apiError(result.error).message });
+      return;
+    }
+    await finished({ tone: "ok", text: `${b.serviceName} for ${b.party.displayName} is on the list to raise.` });
   }
 
   return (
@@ -136,7 +191,8 @@ export function ToRaiseTab({
         </Card>
       ) : (
         groups.map((g) => {
-          const open = g.dues.filter((d) => d.status === "open");
+          // An advance is raised on its own, from its own row.
+          const open = g.dues.filter((d) => d.status === "open" && d.kind !== "advance");
           const picked = open.filter((d) => !unticked.has(d.id));
           return (
             <Card key={g.key}>
@@ -185,9 +241,9 @@ export function ToRaiseTab({
                       <tr key={d.id}>
                         {canWrite && (
                           <Td>
-                            {d.status === "open" && (
+                            {d.status === "open" && d.kind !== "advance" && (
                               <Checkbox
-                                label={<span className="sr-only">{`Include ${d.serviceName}, ${d.periodLabel}`}</span>}
+                                label={<span className="sr-only">{`Include ${billLabel(d)}`}</span>}
                                 checked={!unticked.has(d.id)}
                                 onChange={(e) => {
                                   toggle(d.id, e.target.checked);
@@ -197,7 +253,15 @@ export function ToRaiseTab({
                           </Td>
                         )}
                         <Td>
-                          <span className="cell-text">{d.serviceName}</span>
+                          <span className="cell-text">
+                            {d.kind === "advance" && d.engagementId === null ? "Advance for the whole letter" : d.serviceName}
+                          </span>
+                          {d.kind !== "period" && (
+                            <>
+                              {" "}
+                              <Pill tone="quiet">{d.kind === "advance" ? "Advance" : "Final bill"}</Pill>
+                            </>
+                          )}
                           {d.entityName !== null && d.entityName !== g.party.displayName && <Sub>{d.entityName}</Sub>}
                           <Sub>
                             <Link href={`/engagement-letters/${d.letter.id}` as Route}>{d.letter.ref}</Link>
@@ -209,7 +273,7 @@ export function ToRaiseTab({
                           )}
                         </Td>
                         <Td className="nowrap">
-                          {d.periodLabel}
+                          {d.kind === "advance" ? "Before work starts" : d.kind === "final" ? "Work done" : d.periodLabel}
                           {d.servedDays < d.periodDays && (
                             <Sub>
                               {d.servedDays} of {d.periodDays} days
@@ -246,6 +310,16 @@ export function ToRaiseTab({
                               )}
                             </>
                           )}
+                          {d.kind === "advance" && <Sub>before tax</Sub>}
+                          {d.status === "open" && d.advancePool !== null && (
+                            <Sub>
+                              <span className="tone-ok">
+                                {d.advancePool.remaining === null
+                                  ? "Less the advance"
+                                  : `Less up to ${formatMoney(d.advancePool.remaining, d.currency)} advance`}
+                              </span>
+                            </Sub>
+                          )}
                         </Td>
                         <Td className="nowrap">
                           {d.status === "drafted" && d.invoice !== null ? (
@@ -259,10 +333,23 @@ export function ToRaiseTab({
                             </>
                           ) : canWrite ? (
                             <span className="cluster">
+                              {d.kind === "advance" && (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  aria-label={`Raise the invoice for ${billLabel(d)}`}
+                                  onClick={() => {
+                                    setSaid(null);
+                                    setRaising([d]);
+                                  }}
+                                >
+                                  Raise invoice
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                aria-label={`Link ${d.serviceName}, ${d.periodLabel} to an invoice`}
+                                aria-label={`Link ${billLabel(d)} to an invoice`}
                                 onClick={() => {
                                   setSaid(null);
                                   setLinking(d);
@@ -270,17 +357,19 @@ export function ToRaiseTab({
                               >
                                 Link
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label={`Skip ${d.serviceName}, ${d.periodLabel}`}
-                                onClick={() => {
-                                  setSaid(null);
-                                  setSkipping(d);
-                                }}
-                              >
-                                Skip
-                              </Button>
+                              {d.kind !== "advance" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Skip ${billLabel(d)}`}
+                                  onClick={() => {
+                                    setSaid(null);
+                                    setSkipping(d);
+                                  }}
+                                >
+                                  Skip
+                                </Button>
+                              )}
                             </span>
                           ) : (
                             <Pill dot tone="neutral">
@@ -296,6 +385,142 @@ export function ToRaiseTab({
             </Card>
           );
         })
+      )}
+
+      {refunds.length > 0 && (
+        <Card>
+          <CardHead level={2} title="To refund" />
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Client</Th>
+                  <Th>Advance</Th>
+                  <Th align="right">Left</Th>
+                  <Th align="right">Credit note</Th>
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((r) => (
+                  <tr key={r.dueId}>
+                    <Td>
+                      <span className="cell-text" data-size="narrow">
+                        <Link href={`/clients/${r.party.id}` as Route}>{r.party.displayName}</Link>
+                      </span>
+                    </Td>
+                    <Td>
+                      <Link href={`/invoices/${r.invoice.id}` as Route}>{r.invoice.number}</Link>
+                      <Sub>
+                        {r.serviceName === "All services" ? "Whole letter" : r.serviceName} ·{" "}
+                        <Link href={`/engagement-letters/${r.letter.id}` as Route}>{r.letter.ref}</Link>
+                      </Sub>
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      {r.remaining === null ? <NotSet>Hidden</NotSet> : formatMoney(r.remaining, r.currency)}
+                      <Sub>before tax</Sub>
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      {r.refundAmount === null ? <NotSet>Hidden</NotSet> : formatMoney(r.refundAmount, r.currency)}
+                      <Sub>with tax</Sub>
+                    </Td>
+                    <Td className="nowrap">
+                      {isAdmin ? (
+                        <span className="cluster">
+                          <ConfirmAction
+                            variant="secondary"
+                            size="sm"
+                            disabled={acting}
+                            title={`Give ${r.party.displayName} the advance back?`}
+                            confirmLabel="Issue the credit note"
+                            consequence={
+                              <p>
+                                A credit note on {r.invoice.number} for what is left, with its tax. Pay the money back
+                                and record it as a negative payment.
+                              </p>
+                            }
+                            onConfirm={() => void refund(r)}
+                          >
+                            Give it back
+                          </ConfirmAction>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Keep the advance on ${r.invoice.number}`}
+                            onClick={() => {
+                              setSaid(null);
+                              setKeeping(r);
+                            }}
+                          >
+                            Keep it
+                          </Button>
+                        </span>
+                      ) : (
+                        <Pill dot tone="warn">
+                          For an admin
+                        </Pill>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </Card>
+      )}
+
+      {billNow.length > 0 && (
+        <Card>
+          <CardHead level={2} title="One-time work with no process" />
+          <p className="text-ink-2">Its job never finishes by itself. Bill it when the work is done.</p>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Client</Th>
+                  <Th>Service</Th>
+                  <Th align="right">Fee</Th>
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {billNow.map((b) => (
+                  <tr key={b.engagementId}>
+                    <Td>
+                      <span className="cell-text" data-size="narrow">
+                        <Link href={`/clients/${b.party.id}` as Route}>{b.party.displayName}</Link>
+                      </span>
+                    </Td>
+                    <Td>
+                      <span className="cell-text">{b.serviceName}</span>
+                      <Sub>{b.letterRef}</Sub>
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      {b.fullAmount === null ? <NotSet>No price</NotSet> : formatMoney(b.fullAmount, b.currency)}
+                    </Td>
+                    <Td className="nowrap">
+                      {canWrite && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={acting}
+                          aria-label={`Bill ${b.serviceName} now`}
+                          onClick={() => void billItNow(b)}
+                        >
+                          Bill it now
+                        </Button>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </Card>
       )}
 
       {done.length > 0 && (
@@ -323,28 +548,21 @@ export function ToRaiseTab({
         onClose={() => {
           setRaising(null);
         }}
-        onRaised={(out, count) =>
-          finished(
-            out.conflicts.length === 0
-              ? {
-                  tone: "ok",
-                  text: `Drafted ${out.number} with ${String(count)} ${count === 1 ? "bill" : "bills"}. Check it and issue it.`,
-                  invoice: { id: out.invoiceId, number: out.number },
-                }
-              : {
-                  tone: "warn",
-                  text: `Drafted ${out.number}, but ${String(out.conflicts.length)} of its bills were settled by somebody else meanwhile. Remove those lines from the draft.`,
-                  invoice: { id: out.invoiceId, number: out.number },
-                },
-          )
-        }
+        onRaised={(out, count) => finished(raisedWords(out, count))}
+      />
+      <KeepDialog
+        refund={keeping}
+        onClose={() => {
+          setKeeping(null);
+        }}
+        onKept={(r) => finished({ tone: "ok", text: `${r.party.displayName}'s advance on ${r.invoice.number} is kept.` })}
       />
       <SkipDialog
         due={skipping}
         onClose={() => {
           setSkipping(null);
         }}
-        onSkipped={(d) => finished({ tone: "ok", text: `${d.serviceName}, ${d.periodLabel} will not be billed.` })}
+        onSkipped={(d) => finished({ tone: "ok", text: `${billLabel(d)} will not be billed.` })}
       />
       <LinkDialog
         due={linking}
@@ -353,11 +571,35 @@ export function ToRaiseTab({
           setLinking(null);
         }}
         onLinked={(d, number) =>
-          finished({ tone: "ok", text: `${d.serviceName}, ${d.periodLabel} is billed on ${number}.` })
+          finished({ tone: "ok", text: `${billLabel(d)} is billed on ${number}.` })
         }
       />
     </>
   );
+}
+
+
+/** What a raise did, in one sentence: drafted, covered by the advance, or both. */
+function raisedWords(out: Raised, count: number): Said {
+  const covered = out.covered.length;
+  const coveredWords = `${String(covered)} ${covered === 1 ? "bill was" : "bills were"} paid in full by the advance`;
+  if (out.invoiceId === null || out.number === null) {
+    return { tone: "ok", text: `No invoice needed: ${coveredWords}.` };
+  }
+  const invoice = { id: out.invoiceId, number: out.number };
+  const lines = count - covered;
+  if (out.conflicts.length > 0) {
+    return {
+      tone: "warn",
+      text: `Drafted ${out.number}, but ${String(out.conflicts.length)} of its bills were settled by somebody else meanwhile. Remove those lines from the draft.`,
+      invoice,
+    };
+  }
+  return {
+    tone: "ok",
+    text: `Drafted ${out.number} with ${String(lines)} ${lines === 1 ? "bill" : "bills"}${covered > 0 ? `; ${coveredWords}` : ""}. Check it and issue it.`,
+    invoice,
+  };
 }
 
 /** What the last act did, said once above the list. */
@@ -427,12 +669,14 @@ function DoneTable({ dues }: { dues: readonly BillingDue[] }) {
                 </span>
               </Td>
               <Td>
-                <span className="cell-text">{d.serviceName}</span>
+                <span className="cell-text">{billLabel(d)}</span>
                 {d.entityName !== null && d.entityName !== d.party.displayName && <Sub>{d.entityName}</Sub>}
               </Td>
-              <Td className="nowrap">{d.periodLabel}</Td>
+              <Td className="nowrap">{d.kind === "period" ? d.periodLabel : longDay(d.billOn)}</Td>
               <Td>
-                {d.status === "billed" && d.invoice !== null ? (
+                {d.status === "covered" && d.advanceApplied !== null ? (
+                  <>Covered by the advance on {d.advanceApplied.invoiceNumber}</>
+                ) : d.status === "billed" && d.invoice !== null ? (
                   <>
                     Billed on <Link href={`/invoices/${d.invoice.id}` as Route}>{d.invoice.number}</Link>
                   </>
@@ -458,7 +702,12 @@ function DoneTable({ dues }: { dues: readonly BillingDue[] }) {
 
 // ── Raise ───────────────────────────────────────────────────────────────────
 
-type Raised = { readonly invoiceId: string; readonly number: string; readonly conflicts: readonly string[] };
+type Raised = {
+  readonly invoiceId: string | null;
+  readonly number: string | null;
+  readonly covered: readonly string[];
+  readonly conflicts: readonly string[];
+};
 
 /**
  * One draft invoice from the ticked bills. Asked per bill: the tax rate
@@ -530,7 +779,11 @@ function RaiseDialog({
       open
       size="lg"
       onClose={close}
-      title={`Raise an invoice for ${first.party.displayName}`}
+      title={
+        first.kind === "advance"
+          ? `Raise the advance invoice for ${first.party.displayName}`
+          : `Raise an invoice for ${first.party.displayName}`
+      }
       footer={
         <>
           <Button variant="secondary" onClick={close}>
@@ -566,10 +819,18 @@ function RaiseDialog({
                 {dues.map((d) => (
                   <tr key={d.id}>
                     <Td>
-                      <span className="cell-text">
-                        {d.serviceName}, {d.periodLabel}
-                      </span>
+                      <span className="cell-text">{billLabel(d)}</span>
                       {d.entityName !== null && d.entityName !== d.party.displayName && <Sub>{d.entityName}</Sub>}
+                      {d.advancePool !== null && (
+                        <Sub>
+                          <span className="tone-ok">
+                            Less the advance on {d.advancePool.invoiceNumber}
+                            {d.advancePool.remaining === null
+                              ? ""
+                              : `, up to ${formatMoney(d.advancePool.remaining, d.currency)} before tax`}
+                          </span>
+                        </Sub>
+                      )}
                     </Td>
                     <Td align="right" className="nowrap">
                       {d.amount !== null ? (
@@ -578,7 +839,7 @@ function RaiseDialog({
                         <AmountInput
                           name={`amount-${d.id}`}
                           required
-                          aria-label={`Amount for ${d.serviceName}, ${d.periodLabel}`}
+                          aria-label={`Amount for ${billLabel(d)}`}
                           placeholder="e.g. 25,000"
                         />
                       ) : (
@@ -590,7 +851,7 @@ function RaiseDialog({
                         decimals={4}
                         name={`tax-${d.id}`}
                         required
-                        aria-label={`Tax % for ${d.serviceName}, ${d.periodLabel}`}
+                        aria-label={`Tax % for ${billLabel(d)}`}
                         defaultValue={d.lastTaxPercent === null ? "" : formatCount(d.lastTaxPercent)}
                         placeholder="e.g. 18"
                       />
@@ -666,7 +927,7 @@ function SkipDialog({
     <Dialog
       open
       onClose={close}
-      title={`Skip ${due.serviceName}, ${due.periodLabel}?`}
+      title={`Skip ${billLabel(due)}?`}
       footer={
         <>
           <Button variant="secondary" onClick={close}>
@@ -689,6 +950,79 @@ function SkipDialog({
           <p className="text-ink-2">{due.party.displayName} will not be billed for it.</p>
           <Field label="Why">
             <Textarea name="reason" required maxLength={500} rows={3} placeholder="e.g. Billed with the annual fee" />
+          </Field>
+        </FieldStack>
+      </form>
+    </Dialog>
+  );
+}
+
+// ── Keep an advance ─────────────────────────────────────────────────────────
+
+/** The firm keeps an advance left over (a cancellation fee, say): the reason
+ *  is required and kept, and it leaves "To refund". */
+function KeepDialog({
+  refund,
+  onClose,
+  onKept,
+}: {
+  refund: BillingRefund | null;
+  onClose: () => void;
+  onKept: (refund: BillingRefund) => Promise<void>;
+}) {
+  const formId = useId();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (refund === null) return null;
+
+  async function keep(form: FormData): Promise<void> {
+    if (refund === null) return;
+    setBusy(true);
+    setError(null);
+    const result = await api.POST("/api/v1/billing/refunds/{dueId}/keep", {
+      params: { path: { dueId: refund.dueId } },
+      body: { reason: String(form.get("reason") ?? "").trim() },
+    });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    await onKept(refund);
+  }
+
+  function close(): void {
+    setError(null);
+    onClose();
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={close}
+      title={`Keep the advance on ${refund.invoice.number}?`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={busy}>
+            Keep it
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        action={(form) => {
+          void keep(form);
+        }}
+      >
+        <FieldStack>
+          <ErrorNotice error={error} />
+          <p className="text-ink-2">{refund.party.displayName} will not get it back.</p>
+          <Field label="Why">
+            <Textarea name="reason" required maxLength={500} rows={3} placeholder="e.g. Cancellation fee in the letter" />
           </Field>
         </FieldStack>
       </form>
@@ -751,7 +1085,7 @@ function LinkDialog({
     <Dialog
       open
       onClose={close}
-      title={`Link ${due.serviceName}, ${due.periodLabel}`}
+      title={`Link ${billLabel(due)}`}
       footer={
         <>
           <Button variant="secondary" onClick={close}>

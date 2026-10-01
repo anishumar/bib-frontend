@@ -15464,83 +15464,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/engagement-letters/{letterId}/advance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record the advance as received
-         * @description Releases every engagement waiting on it. HONEST LIMIT: a person asserts the money arrived — payments (T3.5) do not exist yet. The gate is real; its confirmation is an attestation until they do.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    letterId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recorded, with the engagements released */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SignedEngagementLetter"];
-                    };
-                };
-                /** @description Not signed in */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No org selected, or the role does not permit it */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No such letter at this firm */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No advance is required, or it was already recorded */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/firm-entities": {
         parameters: {
             query?: never;
@@ -17615,7 +17538,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    status?: "open" | "drafted" | "billed" | "skipped";
+                    status?: "open" | "drafted" | "billed" | "skipped" | "covered";
                     partyId?: string;
                     mine?: "true" | "false";
                 };
@@ -17885,6 +17808,494 @@ export interface paths {
                     };
                 };
                 /** @description A due is already on an invoice or skipped */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/advances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every advance bill, and where it stands */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The advances */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            advances: components["schemas"]["BillingAdvance"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/advances/{dueId}/approve-start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the work on a part-paid advance
+         * @description An admin's decision (Ashish, 2026-10-01): the work an advance holds starts by itself when its invoice is paid in full, and on a part payment only when an admin approves it here.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Started */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingAdvance"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a firm administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance bill at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not raised, not issued, nothing paid, or already started */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Advances with some left once the work they covered is finished */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description To refund */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            refunds: components["schemas"]["BillingRefund"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds/{dueId}/credit-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give an unused advance back as a credit note
+         * @description A credit note on the advance invoice for what is left, with its share of the tax, reason `advance_refund`. The money itself goes back as a negative payment, as any refund does.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Credited */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdvanceRefunded"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a firm administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing left, the work goes on, or the firm kept it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds/{dueId}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep an unused advance, and say why */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeepAdvance"];
+                };
+            };
+            responses: {
+                /** @description Kept */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a firm administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing left, the work goes on, or already kept */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/bill-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One-time services with no process, to bill by hand */
+        get: {
+            parameters: {
+                query?: {
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billable now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            engagements: components["schemas"]["BillingBillNow"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/engagements/{engagementId}/bill-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bill a one-time service with no process now
+         * @description Writes its final bill, dated today, onto To raise. Only where the firm wrote no process for the service: with one, the bill comes when the job's last step is done.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description On To raise */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BilledNow"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such one-time engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has a process, is waiting for its advance, is billed already, or billing is off */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -23016,6 +23427,10 @@ export interface components {
             billingTiming: "arrears" | "advance" | "on_date" | null;
             /** @description The first invoice date, with `on_date` only. */
             billingOn: string | null;
+            /** @description This service's own advance, before tax (0320): its work waits until the advance invoice is paid. Null: none, or hidden without the fee axis (see `hasAdvance`). */
+            advanceAmount: string | null;
+            /** @description Whether this service has its own advance. Never redacted, so a screen can say so. */
+            hasAdvance: boolean;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
             /** Format: uuid */
@@ -23224,6 +23639,7 @@ export interface components {
             /** @enum {string|null} */
             billingTiming?: "arrears" | "advance" | "on_date" | null;
             billingOn?: string | null;
+            advanceAmount?: string | null;
             pricingNote?: string | null;
             effectiveFrom?: string | null;
             jurisdiction?: string | null;
@@ -23650,13 +24066,13 @@ export interface components {
              * @description WHY money came off. Mandatory and closed, because without it the numbers always reconcile and why forty thousand came off does not — and 'how much did we write off to service failures' is a GROUP BY, which free text cannot answer.
              * @enum {string}
              */
-            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt" | "advance_refund";
             note: string | null;
         };
         IssueCreditNoteRequest: {
             amount: string;
             /** @enum {string} */
-            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt" | "advance_refund";
             note?: string;
             issuedOn?: string;
         };
@@ -23717,9 +24133,26 @@ export interface components {
             displayName: string | null;
             email: string;
         } | null;
+        /** @description An advance bill: when the work it held started, and how. */
+        AdvanceReleased: {
+            at: string;
+            /** @enum {string} */
+            how: "paid" | "approved";
+            by: components["schemas"]["BillingPerson"];
+        } | null;
         BillingDue: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description `period` (one period of recurring work), `advance` (the letter's advance, or one service's: raised on an invoice of its own, and the work waits until it is paid) or `final` (a one-time service whose work is done, billed for the balance after the advance) (0320).
+             * @enum {string}
+             */
+            kind: "period" | "advance" | "final";
+            /**
+             * Format: uuid
+             * @description The letter a LETTER-WIDE advance is for; null otherwise.
+             */
+            engagementLetterId: string | null;
             party: {
                 /** Format: uuid */
                 id: string;
@@ -23766,10 +24199,10 @@ export interface components {
             managerNote: string | null;
             managerReportsTo: components["schemas"]["BillingPerson"];
             /**
-             * @description Derived on read: `open` (to raise), `drafted` (on a draft invoice), `billed` (issued), `skipped`. A cancelled invoice makes its dues open again.
+             * @description Derived on read: `open` (to raise), `drafted` (on a draft invoice), `billed` (issued), `skipped`, or `covered` (the advance paid it in full, so no invoice was raised). A cancelled invoice makes its dues open again.
              * @enum {string}
              */
-            status: "open" | "drafted" | "billed" | "skipped";
+            status: "open" | "drafted" | "billed" | "skipped" | "covered";
             invoice: {
                 /** Format: uuid */
                 id: string;
@@ -23786,6 +24219,21 @@ export interface components {
             daysSinceBillOn: number;
             /** @description Still to be issued a week after its bill date: it shows to the manager's own manager too. */
             escalated: boolean;
+            /** @description The advance this bill will be taken off when raised (the service's own, else the letter's) and what is left of it, before tax. `remaining` is null without the fee axis. */
+            advancePool: {
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                remaining: string | null;
+            } | null;
+            /** @description What this bill was reduced by, once raised or covered. */
+            advanceApplied: {
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                amount: string | null;
+            } | null;
+            released: components["schemas"]["AdvanceReleased"];
         };
         BillingSchedule: {
             /** Format: uuid */
@@ -23824,9 +24272,14 @@ export interface components {
             firstInvoiceOn: string | null;
         };
         RaisedFromDues: {
-            /** Format: uuid */
-            invoiceId: string;
-            number: string;
+            /**
+             * Format: uuid
+             * @description Null when the advance paid every bill in full: no invoice, so no number drawn.
+             */
+            invoiceId: string | null;
+            number: string | null;
+            /** @description Bills the advance paid in full: no line, and status `covered`. */
+            covered: string[];
             /** @description Dues somebody else settled while this ran: on the invoice, but not linked to it. */
             conflicts: string[];
         };
@@ -23841,6 +24294,111 @@ export interface components {
             fxRate?: string;
             fxRateDate?: string;
             dueOn?: string;
+        };
+        BillingAdvance: {
+            /** Format: uuid */
+            id: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            /** Format: uuid */
+            engagementLetterId: string | null;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** @description `All services` for the letter's own advance. */
+            serviceName: string;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            billOn: string;
+            amount: string | null;
+            manager: components["schemas"]["BillingPerson"];
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string;
+                status: string;
+            } | null;
+            /** @description The advance invoice's money, as the invoice reads it. Amounts null without fees. */
+            balance: {
+                invoiced: string | null;
+                paid: string | null;
+                outstanding: string | null;
+            } | null;
+            /**
+             * @description Where the advance stands. `part_paid` waits for an admin's Approve start; `paid` starts by itself (an admin may push one that did not); `started` released the work.
+             * @enum {string}
+             */
+            state: "not_raised" | "on_draft" | "unpaid" | "part_paid" | "paid" | "started";
+            released: components["schemas"]["AdvanceReleased"];
+        };
+        BillingRefund: {
+            /** Format: uuid */
+            dueId: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            serviceName: string;
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string;
+            };
+            advanceNet: string | null;
+            applied: string | null;
+            /** @description Left of the advance, before tax. */
+            remaining: string | null;
+            /** @description The credit note that gives it back, with its share of the tax. Null without fees. */
+            refundAmount: string | null;
+        };
+        AdvanceRefunded: {
+            creditNoteId: string;
+            number: string;
+        };
+        KeepAdvance: {
+            reason: string;
+        };
+        BillingBillNow: {
+            /** Format: uuid */
+            engagementId: string;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            serviceName: string;
+            letterRef: string;
+            currency: string;
+            fullAmount: string | null;
+        };
+        BilledNow: {
+            /** Format: uuid */
+            dueId: string;
         };
         SkipDue: {
             reason: string;

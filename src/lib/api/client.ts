@@ -1006,6 +1006,39 @@ export function billingPersonName(p: BillingPerson): string {
 }
 
 /**
+ * THE ADVANCE AND THE FINAL BILL (0320). Every advance is a tax invoice, and the
+ * work it holds starts when that invoice is paid in full; a part payment waits
+ * for an admin's Approve start. `state` is the API's.
+ */
+export type BillingAdvance =
+  paths["/api/v1/billing/advances"]["get"]["responses"][200]["content"]["application/json"]["advances"][number];
+export type BillingAdvanceState = BillingAdvance["state"];
+/** An advance left over once the work it covered is finished: "To refund". */
+export type BillingRefund =
+  paths["/api/v1/billing/refunds"]["get"]["responses"][200]["content"]["application/json"]["refunds"][number];
+/** A one-time service with no process: billed by hand with Bill it now. */
+export type BillingBillNow =
+  paths["/api/v1/billing/bill-now"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+
+/** A bill in words: "Bookkeeping, Oct 2026", "Statutory audit, final bill",
+ *  "Advance, EL-2026-0007" or "Advance for Statutory audit". */
+export function billLabel(d: Pick<BillingDue, "kind" | "serviceName" | "periodLabel" | "engagementId" | "letter">): string {
+  if (d.kind === "advance") return d.engagementId === null ? `Advance, ${d.letter.ref}` : `Advance for ${d.serviceName}`;
+  if (d.kind === "final") return `${d.serviceName}, final bill`;
+  return `${d.serviceName}, ${d.periodLabel}`;
+}
+
+/** Where an advance stands, in words. */
+export const ADVANCE_STATE_WORDS: Readonly<Record<BillingAdvanceState, string>> = {
+  not_raised: "Not raised yet",
+  on_draft: "On a draft invoice",
+  unpaid: "Not paid yet",
+  part_paid: "Part paid",
+  paid: "Paid in full",
+  started: "Work started",
+};
+
+/**
  * A bill with no price, in weeks: "No price yet", "No price for 1 week", "No
  * price for 3 weeks". Ashish asked for the SPOC, the manager and the admins to
  * be reminded every week; the reminder is the count going up (nothing is sent).
@@ -1061,6 +1094,9 @@ export const CREDIT_REASON_LABELS: Readonly<Record<CreditReason, string>> = {
   scope_change: "Scope changed",
   duplicate_invoice: "Duplicate invoice",
   bad_debt: "Bad debt",
+  // Only from "To refund" (0320), never chosen from the dropdown, so it is not
+  // in CREDIT_REASONS; a credit note that carries it still reads in words.
+  advance_refund: "Advance given back",
 };
 
 export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {

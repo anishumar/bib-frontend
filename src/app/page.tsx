@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, billingPersonName, noPriceWords } from "@/lib/api/client";
+import { api, apiError, billLabel, billingPersonName, noPriceWords } from "@/lib/api/client";
 import type {
+  BillingAdvance,
   BillingDue,
   ClientRequest,
   Escalation,
@@ -169,7 +170,7 @@ export default function MyDayPage() {
     let live = true;
     void (async () => {
       const today = browserDay();
-      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready] = await Promise.all([
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready, advances] = await Promise.all([
         api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
         api.GET("/api/v1/my-steps", {}),
         api.GET("/api/v1/work-item-checks", {}),
@@ -178,6 +179,8 @@ export default function MyDayPage() {
         api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
         api.GET("/api/v1/billing/dues", { params: { query: { mine: "true" } } }),
         admin ? api.GET("/api/v1/tenancy/readiness", {}) : Promise.resolve(null),
+        // An advance part paid waits for an admin's Approve start (0320).
+        admin ? api.GET("/api/v1/billing/advances", {}) : Promise.resolve(null),
       ]);
       if (!live) return;
       if (tasks.response.status === 401) {
@@ -200,6 +203,7 @@ export default function MyDayPage() {
         requests: requests.data?.requests ?? [],
         escalations: escalated.data?.rows ?? [],
         dues: bills.data?.dues ?? [],
+        advances: advances?.data?.advances ?? [],
       });
       setRows(built);
       setReadiness(ready?.data ?? null);
@@ -379,6 +383,8 @@ function buildRows(input: {
   requests: readonly ClientRequest[];
   escalations: readonly Escalation[];
   dues: readonly BillingDue[];
+  /** Read only for an admin: those part paid wait for their Approve start. */
+  advances: readonly BillingAdvance[];
 }): Row[] {
   const out: Row[] = [];
 
@@ -525,8 +531,32 @@ function buildRows(input: {
   }
 
   out.push(...billRows(input.me, input.dues));
+  out.push(...advanceRows(input.advances));
 
   return out;
+}
+
+/**
+ * AN ADVANCE PART PAID (0320): the work it holds waits for an admin's Approve
+ * start, so it is on every admin's desk until somebody decides. Due today: the
+ * client is waiting for the work they paid towards.
+ */
+function advanceRows(advances: readonly BillingAdvance[]): Row[] {
+  const today = browserDay();
+  return advances
+    .filter((a) => a.state === "part_paid")
+    .map((a) => ({
+      key: `advance-${a.id}`,
+      what: `Approve the start: advance ${a.invoice?.number ?? a.letter.ref} is part paid`,
+      kind: "Advance part paid",
+      href: "/invoices?tab=advances" as Route,
+      clientId: a.party.id,
+      clientName: a.party.displayName,
+      dueOn: today,
+      turn: "me" as const,
+      flags: [],
+      now: true,
+    }));
 }
 
 /**
@@ -575,7 +605,7 @@ function billRows(me: string, dues: readonly BillingDue[]): Row[] {
       key,
       what: drafted
         ? `Issue ${first.invoice?.number ?? "the draft invoice"}`
-        : `Raise the invoice: ${first.serviceName}, ${first.periodLabel}${more}`,
+        : `Raise the invoice: ${billLabel(first)}${more}`,
       kind: mine
         ? drafted
           ? "Draft invoice"

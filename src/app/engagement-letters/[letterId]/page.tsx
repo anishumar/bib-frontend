@@ -1,6 +1,8 @@
 "use client";
 
 import { BillingTimingControl } from "@/components/billing-timing";
+import { AdvanceStatus } from "@/components/advance-status";
+import { LineAdvanceControl } from "@/components/line-advance";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -670,6 +672,9 @@ export default function LetterPage() {
               <Th align="right">Qty</Th>
               <Th align="right">Rate</Th>
               <Th align="right">Net</Th>
+              {/* A SERVICE'S OWN ADVANCE (0320). Not on a letter with one
+                  advance for the whole of it: never both. */}
+              {!letter.advanceRequired && <Th align="right">Advance</Th>}
               {isDraft && <Th />}
             </tr>
           </thead>
@@ -779,6 +784,30 @@ export default function LetterPage() {
                       </Td>
                     </>
                   )}
+                  {!letter.advanceRequired && (
+                    <Td align="right" className="nowrap">
+                      {l.feeGroupId !== null ? (
+                        <span className="text-sm text-muted">None</span>
+                      ) : (
+                        <LineAdvanceControl
+                          label={`Advance for ${l.description}`}
+                          amount={l.advanceAmount}
+                          hasAdvance={l.hasAdvance}
+                          currency={l.currency}
+                          editable={isDraft && permissions.includes("party:write")}
+                          busy={busy !== null}
+                          onSave={(advanceAmount) => {
+                            void act(`advance-${l.id}`, () =>
+                              api.PATCH("/api/v1/engagement-letters/{letterId}/lines/{lineId}", {
+                                params: { path: { letterId, lineId: l.id } },
+                                body: { advanceAmount },
+                              }),
+                            );
+                          }}
+                        />
+                      )}
+                    </Td>
+                  )}
                   {isDraft && (
                     <Td align="right">
                       {permissions.includes("party:write") && (
@@ -840,11 +869,15 @@ export default function LetterPage() {
               advance {formatMoney(letter.advanceAmount, totals.currency)}
               {letter.advanceRecordedAt === null
                 ? " · outstanding"
-                : ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
+                : ` · started ${longInstant(letter.advanceRecordedAt)}`}
             </div>
           )}
         </div>
       </Card>
+
+      {/* THE ADVANCE (0320): its invoice, where it stands, and an admin's
+          Approve start on a part payment. Nothing when there is no advance. */}
+      {isSigned && <AdvanceStatus letterId={letterId} isAdmin={permissions.includes("tenant:admin")} />}
 
       {/* ── The letter's own prose ─────────────────────────────────────
           Not clauses. A clause is a term of the contract, drawn from a versioned
@@ -1500,20 +1533,7 @@ export default function LetterPage() {
                 Withdraw
               </ConfirmAction>
             )}
-            {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
-              <Button
-                disabled={busy !== null}
-                onClick={() => {
-                  void act("advance", () =>
-                    api.POST("/api/v1/engagement-letters/{letterId}/advance", {
-                      params: { path: { letterId } },
-                    }),
-                  );
-                }}
-              >
-                Record the advance
-              </Button>
-            )}
+
           </div>
 
           {letter.status === "sent" && recordsByHand && (
