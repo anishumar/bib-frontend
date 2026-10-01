@@ -2821,6 +2821,19 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   "With its section". Signing with the firm's switch on sets each engagement's schedule from it
   (the API's GoLiveScheduler), so those never reach "Billing not set up". The builder's services
   step does not offer it yet: it is chosen on the letter page. Walk: `ai-1b-walk.mjs` (16 checks).
+- **The advance and the final bill (phase 2, 0320).** Every advance is a tax invoice and the work it
+  holds starts when that invoice is PAID IN FULL; a part payment waits for an admin's **Approve start**.
+  To raise: an advance bill has its own **Raise invoice** (no tick: the API raises it alone) and no
+  Skip; a final bill (one-time work done) is marked; a bill with an issued advance says "Less up to
+  ₹X advance" (the API takes it off, earliest bill first, before tax, and a raise the advance pays in
+  full answers `invoiceId: null` + `covered`: "No invoice needed"). Below the cards: **To refund** (an
+  admin's "Give it back" = credit note `advance_refund` with its tax, or "Keep it" with a reason) and
+  **One-time work with no process** (Bill it now). The **Advances** tab (`advances.tsx`) lists every
+  advance by state, part-paid first, counted on the tab. The letter page has an **Advance** column for
+  a service's own advance (`LineAdvanceControl`, saved on blur; no column on a letter with one advance
+  for all) and an Advance card (`AdvanceStatus`) where "Record the advance" was. My day gives each
+  admin "Approve the start" rows. `billLabel(d)` names any bill. Walk: `ai-t3-walk.mjs` (24 checks,
+  fresh fixture `notes/ai-t3.json`).
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.
