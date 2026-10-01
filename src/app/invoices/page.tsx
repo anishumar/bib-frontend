@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel, colleagueLabel, formatMoney } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type {
   BillingAdvance,
@@ -11,6 +11,7 @@ import type {
   BillingDue,
   BillingRefund,
   BillingUnscheduled,
+  Colleague,
   InvoiceSummary,
   PartySummary,
 } from "@/lib/api/client";
@@ -116,12 +117,18 @@ function Invoices() {
   /** The invoice's currency: INR unless the letters chose "Charged by" and
    *  priced everything in one currency. */
   const [currency, setCurrency] = useState("INR");
+  /** Active staff, for "Manager" (whose revenue the invoice is, T4). */
+  const [colleagues, setColleagues] = useState<Colleague[]>([]);
+  /** The dialog's "Manager": a user id, or "" for nobody. */
+  const [manager, setManager] = useState("");
+  /** What the chosen client's account team says about the manager. */
+  const [keyManager, setKeyManager] = useState<KeyManager | null>(null);
   /** The client whose letters were last asked for, so a slow answer about an
    *  earlier choice cannot overwrite a later one. */
   const asked = useRef("");
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm, billed, unset, settings, advance, refund, oneTime] = await Promise.all([
+    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -135,6 +142,7 @@ function Invoices() {
       api.GET("/api/v1/billing/advances", {}),
       api.GET("/api/v1/billing/refunds", {}),
       api.GET("/api/v1/billing/bill-now", {}),
+      api.GET("/api/v1/tenancy/colleagues", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -156,6 +164,7 @@ function Invoices() {
     setRefunds(refund.data?.refunds ?? []);
     setBillNow(oneTime.data?.engagements ?? []);
     setAutoBilling(settings.data?.autoBilling ?? null);
+    setColleagues(staff.data ? [...staff.data.colleagues] : []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -166,6 +175,8 @@ function Invoices() {
     setChargedBy("");
     setSignedBy(null);
     setCurrency("INR");
+    setManager("");
+    setKeyManager(null);
     asked.current = "";
     setRaising(true);
   }
@@ -189,12 +200,31 @@ function Invoices() {
     setChargedBy("");
     setSignedBy(null);
     setCurrency("INR");
+    setManager("");
+    setKeyManager(null);
     asked.current = partyId;
     if (partyId === "") return;
-    const result = await api.GET("/api/v1/parties/{partyId}/billable-engagements", {
-      params: { path: { partyId } },
-    });
+    const [result, team] = await Promise.all([
+      api.GET("/api/v1/parties/{partyId}/billable-engagements", {
+        params: { path: { partyId } },
+      }),
+      api.GET("/api/v1/parties/{partyId}/assignments", {
+        params: { path: { partyId }, query: { asOf: browserDay() } },
+      }),
+    ]);
     if (asked.current !== partyId) return;
+    // WHOSE REVENUE (T4): the client's Key Manager by default, the person who
+    // owns the relationship. Only someone still on the staff can be named (the
+    // API refuses anyone else), so a Key Manager who has left preselects nobody.
+    const km = team.data?.inForce.find((a) => a.role === "key_manager");
+    if (km === undefined) {
+      setKeyManager({ kind: "none" });
+    } else if (km.holderIsActiveStaff && colleagues.some((c) => c.userId === km.userId)) {
+      setKeyManager({ kind: "one", userId: km.userId });
+      setManager(km.userId);
+    } else {
+      setKeyManager({ kind: "left" });
+    }
     const letters = new Map<string, { refs: Set<string>; currencies: Set<string> }>();
     for (const e of result.data?.engagements ?? []) {
       const of = letters.get(e.issuingEntityPartyId) ?? { refs: new Set(), currencies: new Set() };
@@ -241,6 +271,7 @@ function Invoices() {
         // raising an invoice on 2 April for March's work is DECIDING it, not
         // discovering it — and the series it lands in is not reversible.
         ...(seriesDate === "" ? {} : { seriesDate }),
+        ...(manager === "" ? {} : { managerUserId: manager }),
       },
     });
     setBusy(false);
@@ -524,6 +555,24 @@ function Invoices() {
             </FieldRow>
 
             <FieldRow>
+              <Field label="Manager" optional hint={managerHint(keyManager, manager)}>
+                <Select
+                  value={manager}
+                  onChange={(e) => {
+                    setManager(e.target.value);
+                  }}
+                >
+                  <option value="">No manager</option>
+                  {colleagues.map((c) => (
+                    <option key={c.userId} value={c.userId}>
+                      {colleagueLabel(c)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            <FieldRow>
               <Field label="Currency" hint={currencyHint(signedBy, chargedBy, currency)}>
                 <Input
                   name="currency"
@@ -569,6 +618,20 @@ type SignedBy =
     }
   | { readonly kind: "several"; readonly count: number }
   | { readonly kind: "none" };
+
+/** What the chosen client's account team says about the invoice's manager. */
+type KeyManager =
+  | { readonly kind: "one"; readonly userId: string }
+  | { readonly kind: "left" }
+  | { readonly kind: "none" };
+
+/** The line under "Manager": where the default came from while it holds. */
+function managerHint(keyManager: KeyManager | null, manager: string): string {
+  if (keyManager?.kind === "one" && manager === keyManager.userId) return "Key Manager of this client.";
+  if (keyManager?.kind === "left" && manager === "") return "Their Key Manager has left the firm.";
+  if (keyManager?.kind === "none" && manager === "") return "This client has no Key Manager.";
+  return "The invoice counts in this person's revenue.";
+}
 
 /** "EL-2026-0001, EL-2026-0004 and 2 more". */
 function namedLetters(letters: readonly string[]): string {

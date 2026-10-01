@@ -49,7 +49,12 @@ import {
   codeLabel,
   formatMoney,
 } from "@/lib/api/client";
-import type { DashboardOverview, DashboardSlice, RevenueByCompany } from "@/lib/api/client";
+import type {
+  DashboardOverview,
+  DashboardSlice,
+  RevenueByCompany,
+  RevenueByManager,
+} from "@/lib/api/client";
 import { NotSet, TabPanel, Tabs } from "@/components/ui";
 import {
   Card,
@@ -65,6 +70,7 @@ import {
   Th,
 } from "@/components/tw";
 import { BillingByCompany } from "./billing-by-company";
+import { RevenueByManagerSection } from "./revenue-by-manager";
 
 type Axis = "client" | "service";
 
@@ -76,14 +82,16 @@ export default function DashboardPage() {
   const [mrrSlices, setMrrSlices] = useState<readonly DashboardSlice[]>([]);
   const [owed, setOwed] = useState<readonly DashboardSlice[]>([]);
   const [billing, setBilling] = useState<RevenueByCompany | null>(null);
+  const [byManager, setByManager] = useState<RevenueByManager | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [head, byClient, byCompany] = await Promise.all([
+    const [head, byClient, byCompany, managers] = await Promise.all([
       api.GET("/api/v1/dashboard/overview", {}),
       api.GET("/api/v1/dashboard/receivables/by-client", {}),
       api.GET("/api/v1/dashboard/revenue/by-company", { params: { query: { months: 12 } } }),
+      api.GET("/api/v1/dashboard/revenue/by-manager", { params: { query: { months: 12 } } }),
     ]);
     if (head.response.status === 401) {
       router.push("/login");
@@ -101,6 +109,7 @@ export default function DashboardPage() {
     setOverview(head.data);
     setOwed(byClient.data?.slices ?? []);
     setBilling(byCompany.data ?? null);
+    setByManager(managers.data ?? null);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -378,6 +387,9 @@ export default function DashboardPage() {
 
       {/* ── What each company billed, month by month (Wave 5) ──────────────── */}
       {billing !== null && billing.companies.length > 0 && <BillingByCompany data={billing} />}
+
+      {/* ── Whose invoices those were (auto-invoice T4) ──────────────────── */}
+      {byManager !== null && <RevenueByManagerSection data={byManager} />}
     </Page>
   );
 }

@@ -2834,6 +2834,24 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   for all) and an Advance card (`AdvanceStatus`) where "Record the advance" was. My day gives each
   admin "Approve the start" rows. `billLabel(d)` names any bill. Walk: `ai-t3-walk.mjs` (24 checks,
   fresh fixture `notes/ai-t3.json`).
+- **Revenue by manager (T4, no migration).** `/dashboard` has a **Revenue by manager** section
+  (`src/app/dashboard/revenue-by-manager.tsx`) reading `/dashboard/revenue/by-manager?months=12`: a
+  **Period** select (each month, newest first; **This financial year**, from the firm's own
+  `financialYearStartMonth`, offered only when the firm has set one, so a US firm gets January and
+  nobody is assumed to start in April; and the whole window). Columns Manager, Billed (before tax,
+  less credit notes), Collected (cash, with tax), Owed now (today, with tax, does not move with the
+  period), Invoices; one line says which include tax, because the three are not meant to add up.
+  Biggest billed first; **No manager** always last while it has a figure; a **Total** row that equals
+  the firm (billed = Billing by company's all-companies figure, owed = Owed to the firm). A leaver
+  keeps their row with a **Left** pill; an id the roster cannot name reads "Not on your staff". A row
+  with nothing in the period and nothing owed is hidden. Period sums are `sumSigned` on the API's
+  strings, the sort is `commonUnits` on bigints: still no JS number. The **Raise an invoice** dialog
+  has a **Manager** select (active staff from `/tenancy/colleagues`), preselected to the client's
+  Key Manager from `/parties/{id}/assignments` (in force, still staff) when "Bill to" is chosen; the
+  hint says where the default came from ("Key Manager of this client.", "Their Key Manager has left
+  the firm.", "This client has no Key Manager."). On a **draft** invoice the Manager is a quiet select
+  saved as it changes (`PUT /invoices/{id}/manager`); issued, it is text. The API refuses anyone not
+  on the staff (`MANAGER_NOT_STAFF`).
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

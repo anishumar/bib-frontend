@@ -14,12 +14,14 @@ import {
   apiError,
   billingPersonName,
   codeLabel,
+  colleagueLabel,
   formatCount,
   formatMoney,
   perPeriod,
 } from "@/lib/api/client";
 import type {
   BillableEngagement,
+  Colleague,
   CreditNote,
   DunningAction,
   InvoiceBalance,
@@ -85,6 +87,8 @@ export default function InvoicePage() {
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [chased, setChased] = useState<DunningAction[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  /** Active staff, for a draft's Manager (T4). */
+  const [colleagues, setColleagues] = useState<Colleague[]>([]);
   /**
    * WHAT THIS CLIENT HAS SIGNED FOR, so a line can be billed from it.
    *
@@ -103,13 +107,14 @@ export default function InvoicePage() {
 
   const load = useCallback(async (): Promise<void> => {
     const path = { params: { path: { invoiceId } } };
-    const [one, bal, paid, credited, dunning, me] = await Promise.all([
+    const [one, bal, paid, credited, dunning, me, staff] = await Promise.all([
       api.GET("/api/v1/invoices/{invoiceId}", path),
       api.GET("/api/v1/invoices/{invoiceId}/balance", path),
       api.GET("/api/v1/invoices/{invoiceId}/payments", path),
       api.GET("/api/v1/invoices/{invoiceId}/credit-notes", path),
       api.GET("/api/v1/invoices/{invoiceId}/dunning", path),
       api.GET("/api/v1/auth/me", {}),
+      api.GET("/api/v1/tenancy/colleagues", {}),
     ]);
     if (one.response.status === 401) {
       router.push("/login");
@@ -126,6 +131,7 @@ export default function InvoicePage() {
     if (credited.data) setCredits(credited.data.creditNotes);
     if (dunning.data) setChased(dunning.data.actions);
     if (me.data) setPermissions(me.data.permissions);
+    setColleagues(staff.data ? [...staff.data.colleagues] : []);
 
     // A SECOND ROUND TRIP, and it needs the invoice first: the engagements
     // belong to the CLIENT, whose id is on the record that has only just
@@ -265,9 +271,44 @@ export default function InvoicePage() {
             </span>
           </MetaItem>
           {/* WHOSE REVENUE THIS IS (0318): the manager it was raised under,
-              frozen once issued. A hand-raised invoice may name nobody. */}
+              frozen once issued. A hand-raised invoice may name nobody. On a
+              DRAFT it changes here, saved as it changes (T4): the number is
+              already drawn, so a wrong pick should not need a cancellation. */}
           <MetaItem label="Manager">
-            {record.manager === null ? <NotSet /> : billingPersonName(record.manager)}
+            {draft && permissions.includes("party:write") ? (
+              <Select
+                variant="quiet"
+                size="sm"
+                aria-label="Manager"
+                value={invoice.managerUserId ?? ""}
+                disabled={busy}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  void act(() =>
+                    api.PUT("/api/v1/invoices/{invoiceId}/manager", {
+                      params: { path: { invoiceId } },
+                      body: { managerUserId: next === "" ? null : next },
+                    }),
+                  );
+                }}
+              >
+                <option value="">No manager</option>
+                {/* Somebody who has left stays shown while they are the one
+                    named, or the box would claim a choice nobody made. */}
+                {record.manager !== null && !colleagues.some((c) => c.userId === record.manager?.userId) && (
+                  <option value={record.manager.userId}>{billingPersonName(record.manager)} (left)</option>
+                )}
+                {colleagues.map((c) => (
+                  <option key={c.userId} value={c.userId}>
+                    {colleagueLabel(c)}
+                  </option>
+                ))}
+              </Select>
+            ) : record.manager === null ? (
+              <NotSet />
+            ) : (
+              billingPersonName(record.manager)
+            )}
           </MetaItem>
           {/* The letters its lines bill, as the PDF prints them. */}
           <MetaItem label={record.letters.length > 1 ? "Engagement letters" : "Engagement letter"}>

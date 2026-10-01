@@ -16725,6 +16725,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/{invoiceId}/manager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put a draft in another manager's revenue (or nobody's)
+         * @description Drafts only: the number is drawn when the draft is made, so a wrong manager would otherwise mean cancelling a numbered invoice. Once issued, whose revenue it is is fixed (INVOICE_MANAGER_FROZEN, 409, and 0318's trigger). The manager must be active staff at this firm (MANAGER_NOT_STAFF, 409). Writes `invoice.manager_set` when it changes.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetInvoiceManagerRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not a user id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft, or the person is not active staff here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{invoiceId}/irn": {
         parameters: {
             query?: never;
@@ -19926,6 +20016,74 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["DashboardRevenueByCompany"];
+                    };
+                };
+                /** @description `months` is not a whole number from 1 to 24 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/revenue/by-manager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each manager's invoices billed and collected, month by month, and are owed now
+         * @description Grouped on the invoice's manager (`managerUserId`, fixed when it is issued): Ashish's 'revenue is tracked by manager'. Everything in the firm's reporting currency at each document's stored rate. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. Summed in SQL on numeric; every amount is a decimal string. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    months?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revenue by manager */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardRevenueByManager"];
                     };
                 };
                 /** @description `months` is not a whole number from 1 to 24 */
@@ -23941,6 +24099,11 @@ export interface components {
             notes?: string;
             /** @description Which financial year's series this belongs to. Defaults to today; a firm raising an invoice on 2 April for March's work sets it deliberately. */
             seriesDate?: string;
+            /**
+             * Format: uuid
+             * @description Whose revenue this invoice is (auto-invoice T4); null or absent names nobody. Must be active staff at this firm (MANAGER_NOT_STAFF, 409). The screen preselects the client's Key Manager. Changeable while a draft (PUT /invoices/{id}/manager), fixed once issued.
+             */
+            managerUserId?: string | null;
         };
         InvoiceTotals: {
             lineCount: number;
@@ -24017,6 +24180,10 @@ export interface components {
             unitAmount: string;
             discountPercent?: string;
             taxPercent?: string;
+        };
+        SetInvoiceManagerRequest: {
+            /** Format: uuid */
+            managerUserId: string | null;
         };
         InvoiceSeries: {
             /** Format: uuid */
@@ -24670,6 +24837,54 @@ export interface components {
                 }[];
                 /** @description Invoices it issued in the window in ANOTHER currency: in `billedReporting`, not in `billed`, because nothing stores a rate between two currencies that are not the reporting one. Zero for a company billing in the reporting currency. */
                 otherCurrencyInvoices: number;
+            }[];
+        };
+        DashboardRevenueByManager: {
+            /** @description Every amount below, each document at the rate stored on it, never today's. */
+            reportingCurrency: string;
+            /** @description The last N calendar months, oldest first, as YYYY-MM, the last one the month the FIRM is in now on its own timezone. */
+            months: string[];
+            /** @description The month (1-12) the firm's financial year starts, from its compliance policy, so a screen can offer 'this financial year'. Null when the firm has not said. */
+            financialYearStartMonth: number | null;
+            /** @description The whole firm: what the rows below add up to. */
+            total: {
+                months: {
+                    /** @description YYYY-MM. */
+                    month: string;
+                    /** @description Before tax. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. */
+                    billed: string;
+                    /** @description With tax. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. */
+                    collected: string;
+                    /** @description Invoices issued that month. */
+                    invoiceCount: number;
+                }[];
+                /** @description What these issued invoices are owed NOW, with tax, overpayments left out: the rows /dashboard/overview's `receivables.outstanding` sums, so the managers add up to it. Not cut by month. */
+                outstanding: string;
+                outstandingInvoices: number;
+            };
+            managers: {
+                /**
+                 * Format: uuid
+                 * @description The invoice's `managerUserId`. Null is ONE row: the invoices that name nobody, listed so the table adds up to the firm.
+                 */
+                userId: string | null;
+                /** @description Their name on this firm's roster. Null on the no-manager row. */
+                name: string | null;
+                /** @description On the staff today. False for somebody who has left: the revenue stays theirs. */
+                activeStaff: boolean;
+                months: {
+                    /** @description YYYY-MM. */
+                    month: string;
+                    /** @description Before tax. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. */
+                    billed: string;
+                    /** @description With tax. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. */
+                    collected: string;
+                    /** @description Invoices issued that month. */
+                    invoiceCount: number;
+                }[];
+                /** @description What these issued invoices are owed NOW, with tax, overpayments left out: the rows /dashboard/overview's `receivables.outstanding` sums, so the managers add up to it. Not cut by month. */
+                outstanding: string;
+                outstandingInvoices: number;
             }[];
         };
         ReadinessGap: {

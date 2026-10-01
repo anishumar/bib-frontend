@@ -1441,6 +1441,12 @@ export type DashboardOverview =
 export type RevenueByCompany =
   paths["/api/v1/dashboard/revenue/by-company"]["get"]["responses"][200]["content"]["application/json"];
 
+/** What each manager's invoices billed (before tax, less credit notes),
+ *  collected (cash, with tax) month by month, and are owed now (auto-invoice
+ *  T4). One row (`userId: null`) is the invoices naming nobody. */
+export type RevenueByManager =
+  paths["/api/v1/dashboard/revenue/by-manager"]["get"]["responses"][200]["content"]["application/json"];
+
 /** One row of a grouped figure — a client, a service. Carries the NAME. */
 export type DashboardSlice =
   paths["/api/v1/dashboard/mrr/{axis}"]["get"]["responses"][200]["content"]["application/json"]["slices"][number];
