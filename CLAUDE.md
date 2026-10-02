@@ -2852,6 +2852,13 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   the firm.", "This client has no Key Manager."). On a **draft** invoice the Manager is a quiet select
   saved as it changes (`PUT /invoices/{id}/manager`); issued, it is text. The API refuses anyone not
   on the staff (`MANAGER_NOT_STAFF`).
+- **Safeguards from the review (0321).** **Skip** shows only to a login holding the firm's
+  `billing:skip` (Partner and Manager by default; `canSkip` from the session), and on an advance
+  bill only once nothing waits on it (`advanceHoldsWork: false`). **Link** on an advance bill is
+  an admin's (a paid invoice starts the work). After an advance's credit note, the screen says
+  what to pay back from `paid` ("Pay back ₹X", never more than was received; "Nothing was paid,
+  so nothing goes back." when nothing was). A second person acting on the same bill gets the
+  API's `BILL_BUSY` sentence. Invoice lines name the advance invoice with no amounts in the words.
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

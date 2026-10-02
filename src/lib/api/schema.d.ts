@@ -17835,7 +17835,7 @@ export interface paths {
         put?: never;
         /**
          * Raise a draft invoice from bill dues
-         * @description One client, one of the firm's companies, one currency and one manager. Every invoice rule applies as for a hand-raised one, and the number is drawn from the gapless series. The rate defaults to the one the letters were struck at, when they agree.
+         * @description One client, one of the firm's companies, one currency and one manager. Every invoice rule applies as for a hand-raised one, and the number is drawn from the gapless series. The rate defaults to the one the letters were struck at, when they agree. The bills, and the advance they are taken off, are claimed first: a second raise of them meanwhile is refused (BILL_BUSY, 409) before any number is drawn. An amount must be above zero; a bill the letter priced is billed at another figure only by a login that sees fees (PRICE_NOT_VISIBLE, 403), and the ledger records both figures.
          */
         post: {
             parameters: {
@@ -17861,7 +17861,7 @@ export interface paths {
                         "application/json": components["schemas"]["RaisedFromDues"];
                     };
                 };
-                /** @description Mixed clients, companies, currencies or managers; an amount or a tax rate missing */
+                /** @description Mixed clients, companies, currencies or managers; an amount or a tax rate missing, or zero */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -17879,7 +17879,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, the role does not permit it, or a priced bill's amount changed without fees */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17897,7 +17897,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description A due is already on an invoice or skipped */
+                /** @description A due is already on an invoice or skipped, or being raised by somebody else */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -18411,7 +18411,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Decide a bill will not be raised, and say why */
+        /**
+         * Decide a bill will not be raised, and say why
+         * @description Needs `billing:skip`, the firm's own permission (Partner and Manager by default, 0321): it gives up revenue. An advance bill is skipped only once no engagement waits on it (ADVANCE_NOT_SKIPPABLE).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -18452,7 +18455,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not hold billing:skip */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -18470,7 +18473,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Already on an invoice or skipped */
+                /** @description Already on an invoice or skipped, an advance work still waits on, or busy */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -18496,7 +18499,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Say which invoice, raised by hand, already bills this */
+        /**
+         * Say which invoice, raised by hand, already bills this
+         * @description Same client, company and currency, not cancelled, and not another bill's advance invoice. An ADVANCE bill is linked only by an admin (ADVANCE_LINK_NEEDS_ADMIN, 403), to an invoice no other bill is on: a paid invoice starts the work it holds, as Approve start does.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -18528,7 +18534,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, the role does not permit it, or an advance linked by a non-admin */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -24401,6 +24407,8 @@ export interface components {
                 amount: string | null;
             } | null;
             released: components["schemas"]["AdvanceReleased"];
+            /** @description An advance bill some engagement still waits on (pending_advance). Such an advance cannot be skipped (ADVANCE_NOT_SKIPPABLE); once nothing waits (the engagement ended before it started), it may be. Always false for other kinds of bill. */
+            advanceHoldsWork: boolean;
         };
         BillingSchedule: {
             /** Format: uuid */
@@ -24540,6 +24548,8 @@ export interface components {
             remaining: string | null;
             /** @description The credit note that gives it back, with its share of the tax. Null without fees. */
             refundAmount: string | null;
+            /** @description What the client actually paid on the advance invoice, with tax: the most that can be paid BACK after the credit note. Zero when nothing was paid (the credit note then only cancels what was asked for). Null without fees. */
+            paid: string | null;
         };
         AdvanceRefunded: {
             creditNoteId: string;

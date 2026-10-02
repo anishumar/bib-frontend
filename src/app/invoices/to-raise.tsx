@@ -7,7 +7,7 @@ import { api, apiError, billLabel, billingPersonName, codeLabel, formatCount, fo
 import type { BillingBillNow, BillingDue, BillingRefund, InvoiceSummary } from "@/lib/api/client";
 import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant } from "@/lib/day";
-import { cleanAmount } from "@/lib/money";
+import { cleanAmount, commonUnits } from "@/lib/money";
 import { Empty } from "@/components/states";
 import {
   AmountInput,
@@ -71,6 +71,7 @@ export function ToRaiseTab({
   invoices,
   autoBilling,
   canWrite,
+  canSkip,
   isAdmin,
   refunds,
   billNow,
@@ -81,7 +82,10 @@ export function ToRaiseTab({
   invoices: readonly InvoiceSummary[];
   autoBilling: boolean | null;
   canWrite: boolean;
-  /** Giving an advance back, or keeping it, is an administrator's. */
+  /** The firm's `billing:skip` (0321): skipping a bill gives up revenue. */
+  canSkip: boolean;
+  /** Giving an advance back, or keeping it, is an administrator's; so is
+   *  linking an advance to an invoice already raised (it starts the work). */
   isAdmin: boolean;
   refunds: readonly BillingRefund[];
   billNow: readonly BillingBillNow[];
@@ -136,9 +140,13 @@ export function ToRaiseTab({
       setSaid({ tone: "warn", text: apiError(result.error).message });
       return;
     }
+    const back = payBack(r);
     await finished({
       tone: "ok",
-      text: `Credit note ${result.data.number} gives ${r.party.displayName} the advance back. Record the money paid back as a negative payment.`,
+      text:
+        back === null
+          ? `Credit note ${result.data.number} cancels the advance ${r.party.displayName} was asked for. Nothing was paid, so nothing goes back.`
+          : `Credit note ${result.data.number} gives ${r.party.displayName} the advance back. Pay back ${formatMoney(back, r.currency)} and record it as a negative payment.`,
       invoice: { id: r.invoice.id, number: r.invoice.number },
     });
   }
@@ -346,18 +354,24 @@ export function ToRaiseTab({
                                   Raise invoice
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label={`Link ${billLabel(d)} to an invoice`}
-                                onClick={() => {
-                                  setSaid(null);
-                                  setLinking(d);
-                                }}
-                              >
-                                Link
-                              </Button>
-                              {d.kind !== "advance" && (
+                              {/* An advance linked to a paid invoice starts the
+                                  work, so it is an admin's (0321). */}
+                              {(d.kind !== "advance" || isAdmin) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Link ${billLabel(d)} to an invoice`}
+                                  onClick={() => {
+                                    setSaid(null);
+                                    setLinking(d);
+                                  }}
+                                >
+                                  Link
+                                </Button>
+                              )}
+                              {/* The firm's billing:skip; an advance only once no
+                                  work waits on it (0321). */}
+                              {canSkip && (d.kind !== "advance" || !d.advanceHoldsWork) && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -437,8 +451,10 @@ export function ToRaiseTab({
                             confirmLabel="Issue the credit note"
                             consequence={
                               <p>
-                                A credit note on {r.invoice.number} for what is left, with its tax. Pay the money back
-                                and record it as a negative payment.
+                                A credit note on {r.invoice.number} for what is left, with its tax.{" "}
+                                {payBack(r) === null
+                                  ? "Nothing was paid on it, so nothing goes back."
+                                  : `Pay back ${formatMoney(payBack(r), r.currency)} and record it as a negative payment.`}
                               </p>
                             }
                             onConfirm={() => void refund(r)}
@@ -1129,4 +1145,19 @@ function LinkDialog({
       </form>
     </Dialog>
   );
+}
+
+/**
+ * What goes back to the client after an advance's credit note (0321): the
+ * credit note's amount, but never more than was actually paid, and null when
+ * nothing was. A credit note on an advance nobody paid only cancels what was
+ * asked for. Compared on bigints, never as numbers.
+ */
+function payBack(r: BillingRefund): string | null {
+  if (r.paid === null || r.refundAmount === null) return null;
+  const units = commonUnits([r.paid, r.refundAmount]);
+  if (units === null) return null;
+  const [paid = BigInt(0), refund = BigInt(0)] = units.units;
+  if (paid <= BigInt(0)) return null;
+  return paid < refund ? r.paid : r.refundAmount;
 }

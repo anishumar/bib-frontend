@@ -314,6 +314,7 @@ function Invoices() {
         invoices={invoices}
         autoBilling={autoBilling}
         canWrite={canWrite}
+        canSkip={session?.permissions.includes("billing:skip") === true}
         isAdmin={isAdmin}
         refunds={refunds}
         billNow={billNow}
