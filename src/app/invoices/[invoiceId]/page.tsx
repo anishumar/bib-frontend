@@ -202,7 +202,7 @@ export default function InvoicePage() {
           draft's one committing act — the brand button where the eye lands.
           It is still offered only to an administrator (it uses a number). */}
       <PageHeader
-        title={invoice.number}
+        title={invoice.number ?? "Draft invoice"}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             {record.party.displayName}

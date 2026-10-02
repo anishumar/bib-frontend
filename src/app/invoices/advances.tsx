@@ -2,62 +2,27 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useState } from "react";
-import { api, apiError, billingPersonName, formatMoney } from "@/lib/api/client";
+import { billingPersonName, formatMoney, invoiceNumberWords } from "@/lib/api/client";
 import type { BillingAdvance } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
-import { AdvanceState } from "@/components/advance-status";
-import { ConfirmAction } from "@/components/confirm-action";
+import { AdvanceStage } from "@/components/advance-status";
 import { Empty } from "@/components/states";
-import { Card, ErrorNotice, Notice, NotSet, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
+import { Card, NotSet, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
 
 /**
- * ADVANCES (auto-invoice phase 2, 0320): every advance a signed letter asked
- * for, and where it stands. The work an advance holds starts by itself when its
- * invoice is paid in full; a PART-PAID one waits here for an admin's Approve
- * start (the dunning decision queue's pattern: a person decides). Those come
- * first. The invoice itself is raised from To raise, like any bill.
+ * ADVANCES (auto-invoice 0320; 0322): every advance a signed letter asked for,
+ * and where it stands. Since 0322 an advance holds no work: it is drafted at
+ * signing and chased (Ashish, 2026-10-02), so this list is where the money is.
+ * Pending first, overdue first among them, then the oldest. Who is reminded is
+ * under each row: the SPOC, the Key Manager and the partner see it on My day.
  */
-export function AdvancesTab({
-  advances,
-  isAdmin,
-  onChanged,
-}: {
-  advances: readonly BillingAdvance[];
-  isAdmin: boolean;
-  onChanged: () => Promise<void>;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const order: Record<BillingAdvance["state"], number> = {
-    part_paid: 0,
-    paid: 1,
-    not_raised: 2,
-    on_draft: 3,
-    unpaid: 4,
-    started: 5,
-  };
+export function AdvancesTab({ advances }: { advances: readonly BillingAdvance[] }) {
   const sorted = [...advances].sort(
-    (a, b) => order[a.state] - order[b.state] || a.billOn.localeCompare(b.billOn),
+    (a, b) =>
+      Number(b.pending) - Number(a.pending) ||
+      Number(b.overdue) - Number(a.overdue) ||
+      a.billOn.localeCompare(b.billOn),
   );
-
-  async function approve(a: BillingAdvance): Promise<void> {
-    setError(null);
-    setDone(null);
-    setBusy(true);
-    const result = await api.POST("/api/v1/billing/advances/{dueId}/approve-start", {
-      params: { path: { dueId: a.id } },
-    });
-    setBusy(false);
-    if (result.error) {
-      setError(apiError(result.error).message);
-      return;
-    }
-    await onChanged();
-    setDone(`The work for ${a.party.displayName} has started.`);
-  }
 
   if (advances.length === 0) {
     return (
@@ -70,82 +35,61 @@ export function AdvancesTab({
   }
 
   return (
-    <>
-      <ErrorNotice error={error} />
-      {done !== null && (
-        <Notice tone="ok">
-          <p>{done}</p>
-        </Notice>
-      )}
-      <TableWrap>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Client</Th>
-              <Th>For</Th>
-              <Th align="right">Advance</Th>
-              <Th>Invoice</Th>
-              <Th>Where it stands</Th>
-              <Th>
-                <span className="sr-only">Actions</span>
-              </Th>
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Client</Th>
+            <Th>For</Th>
+            <Th align="right">Advance</Th>
+            <Th>Invoice</Th>
+            <Th>Where it stands</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((a) => (
+            <tr key={a.id}>
+              <Td>
+                <span className="cell-text" data-size="narrow">
+                  <Link href={`/clients/${a.party.id}` as Route}>{a.party.displayName}</Link>
+                </span>
+                <Sub>Signed {longDay(a.billOn)}</Sub>
+              </Td>
+              <Td>
+                <span className="cell-text">{a.engagementId === null ? "Whole letter" : a.serviceName}</span>
+                <Sub>
+                  <Link href={`/engagement-letters/${a.letter.id}` as Route}>{a.letter.ref}</Link>
+                  {reminded(a)}
+                </Sub>
+              </Td>
+              <Td align="right" className="nowrap">
+                {a.amount === null ? <NotSet>Hidden</NotSet> : formatMoney(a.amount, a.currency)}
+                <Sub>before tax</Sub>
+              </Td>
+              <Td className="nowrap">
+                {a.invoice === null || a.invoice.status === "cancelled" ? (
+                  <Link href={"/invoices?tab=raise" as Route}>To raise</Link>
+                ) : (
+                  <Link href={`/invoices/${a.invoice.id}` as Route}>{invoiceNumberWords(a.invoice.number)}</Link>
+                )}
+              </Td>
+              <Td>
+                <AdvanceStage advance={a} />
+              </Td>
             </tr>
-          </thead>
-          <tbody>
-            {sorted.map((a) => (
-              <tr key={a.id}>
-                <Td>
-                  <span className="cell-text" data-size="narrow">
-                    <Link href={`/clients/${a.party.id}` as Route}>{a.party.displayName}</Link>
-                  </span>
-                  <Sub>Signed {longDay(a.billOn)}</Sub>
-                </Td>
-                <Td>
-                  <span className="cell-text">{a.engagementId === null ? "Whole letter" : a.serviceName}</span>
-                  <Sub>
-                    <Link href={`/engagement-letters/${a.letter.id}` as Route}>{a.letter.ref}</Link>
-                    {a.manager === null ? "" : ` · ${billingPersonName(a.manager)}`}
-                  </Sub>
-                </Td>
-                <Td align="right" className="nowrap">
-                  {a.amount === null ? <NotSet>Hidden</NotSet> : formatMoney(a.amount, a.currency)}
-                  <Sub>before tax</Sub>
-                </Td>
-                <Td className="nowrap">
-                  {a.invoice === null || a.invoice.status === "cancelled" ? (
-                    <NotSet>Not raised</NotSet>
-                  ) : (
-                    <Link href={`/invoices/${a.invoice.id}` as Route}>{a.invoice.number}</Link>
-                  )}
-                </Td>
-                <Td>
-                  <AdvanceState advance={a} />
-                </Td>
-                <Td className="nowrap">
-                  {(a.state === "not_raised" || a.state === "on_draft") && (
-                    <Link href={"/invoices?tab=raise" as Route}>To raise</Link>
-                  )}
-                  {isAdmin && (a.state === "part_paid" || a.state === "paid") && (
-                    <ConfirmAction
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy}
-                      title={`Start ${a.party.displayName}'s work now?`}
-                      confirmLabel="Approve start"
-                      consequence={
-                        <p>The work this advance holds starts today, and the rest of the invoice stays owed.</p>
-                      }
-                      onConfirm={() => void approve(a)}
-                    >
-                      Approve start
-                    </ConfirmAction>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </TableWrap>
-    </>
+          ))}
+        </tbody>
+      </Table>
+    </TableWrap>
   );
+}
+
+/** " · Sonal, Kiran, Pooja": who is reminded about it, while it is pending. */
+function reminded(a: BillingAdvance): string {
+  if (!a.pending) return "";
+  const names = [...a.people.spocs, a.people.keyManager, a.people.partner]
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .map((p) => billingPersonName(p));
+  const unique = [...new Set(names)];
+  return unique.length === 0 ? " · nobody to remind" : ` · ${unique.join(", ")}`;
 }

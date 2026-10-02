@@ -16272,8 +16272,8 @@ export interface paths {
         };
         put?: never;
         /**
-         * Raise an invoice — the number is allocated by the write itself
-         * @description The number comes from a gapless per-entity, per-financial-year series, taken under a row lock inside the same transaction as the insert. A failure releases it, because the counter never moved — which is the difference between this and a document reference.
+         * Raise a draft invoice — it is numbered when it is issued
+         * @description A DRAFT, with no number (0322). The number comes from a gapless per-entity, per-financial-year series when the invoice is ISSUED, taken under a row lock inside the same transaction as the issue, so a draft cancelled before issue spends nothing. `seriesDate` chooses which financial year's series it will be numbered in.
          */
         post: {
             parameters: {
@@ -16571,7 +16571,7 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue.
          */
         post: {
             parameters: {
@@ -16659,7 +16659,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw it
-         * @description The number is NOT released and the row is not removed — that is what makes the series consecutive. A cancelled invoice stays in the sequence saying it was cancelled, which is exactly what an auditor needs to see where a number went.
+         * @description An issued invoice's number is NOT released and the row is not removed — that is what makes the series consecutive. A cancelled invoice stays in the sequence saying it was cancelled, which is exactly what an auditor needs to see where a number went. A draft has no number yet (0322), so cancelling one spends nothing.
          */
         post: {
             parameters: {
@@ -16735,7 +16735,7 @@ export interface paths {
         get?: never;
         /**
          * Put a draft in another manager's revenue (or nobody's)
-         * @description Drafts only: the number is drawn when the draft is made, so a wrong manager would otherwise mean cancelling a numbered invoice. Once issued, whose revenue it is is fixed (INVOICE_MANAGER_FROZEN, 409, and 0318's trigger). The manager must be active staff at this firm (MANAGER_NOT_STAFF, 409). Writes `invoice.manager_set` when it changes.
+         * @description Drafts only. Once issued, whose revenue it is is fixed (INVOICE_MANAGER_FROZEN, 409, and 0318's trigger). The manager must be active staff at this firm (MANAGER_NOT_STAFF, 409). Writes `invoice.manager_set` when it changes.
          */
         put: {
             parameters: {
@@ -17628,7 +17628,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    status?: "open" | "drafted" | "billed" | "skipped" | "covered";
+                    status?: "open" | "drafted" | "billed" | "skipped" | "covered" | "pending" | "all";
                     partyId?: string;
                     mine?: "true" | "false";
                 };
@@ -17921,10 +17921,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every advance bill, and where it stands */
+        /**
+         * Every advance, where it stands, and who is reminded
+         * @description Since 0322 an advance holds no work: signing starts it and drafts the advance invoice. This is what chases the money. With `mine=true`, only what the caller must chase (each with `duties`): pending advances where they are the client's SPOC for the work, its Key Manager or the partner above the Key Manager, and for an administrator, one waiting for an admin to raise or issue it or a week old and still not paid.
+         */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    mine?: "true" | "false";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -17938,7 +17943,8 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            advances: components["schemas"]["BillingAdvance"][];
+                            today: string;
+                            advances: components["schemas"]["BillingAdvanceForMe"][];
                         };
                     };
                 };
@@ -17964,83 +17970,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/advances/{dueId}/approve-start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start the work on a part-paid advance
-         * @description An admin's decision (Ashish, 2026-10-01): the work an advance holds starts by itself when its invoice is paid in full, and on a part payment only when an admin approves it here.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    dueId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Started */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["BillingAdvance"];
-                    };
-                };
-                /** @description Not signed in */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No org selected, or not a firm administrator */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No such advance bill at this firm */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description Not raised, not issued, nothing paid, or already started */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -18336,7 +18265,7 @@ export interface paths {
         put?: never;
         /**
          * Bill a one-time service with no process now
-         * @description Writes its final bill, dated today, onto To raise. Only where the firm wrote no process for the service: with one, the bill comes when the job's last step is done.
+         * @description Writes its final bill, dated today, onto To raise. Only where the firm wrote no process for the service, or every job that had one was cancelled: with a live one, the bill comes when the job's last step is done.
          */
         post: {
             parameters: {
@@ -18385,7 +18314,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description It has a process, is waiting for its advance, is billed already, or billing is off */
+                /** @description It has a live process, is billed already, or billing is off */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -18501,7 +18430,7 @@ export interface paths {
         put?: never;
         /**
          * Say which invoice, raised by hand, already bills this
-         * @description Same client, company and currency, not cancelled, and not another bill's advance invoice. An ADVANCE bill is linked only by an admin (ADVANCE_LINK_NEEDS_ADMIN, 403), to an invoice no other bill is on: a paid invoice starts the work it holds, as Approve start does.
+         * @description Same client, company and currency, not cancelled, and not another bill's advance invoice. An ADVANCE bill is linked only by an admin (ADVANCE_LINK_NEEDS_ADMIN, 403), to an invoice no other bill is on: that invoice becomes the advance later bills are taken off.
          */
         post: {
             parameters: {
@@ -18576,7 +18505,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The firm's billing switch */
+        /** The firm's billing switch, how advances are chased, and default tax rates */
         get: {
             parameters: {
                 query?: never;
@@ -18615,7 +18544,10 @@ export interface paths {
                 };
             };
         };
-        /** Turn automatic billing on or off */
+        /**
+         * Change the firm's billing settings
+         * @description Any of the three, each saved as given: automatic billing on or off; how advances are chased (the whole policy); companies' default tax rates (one row per company sent, a company left out keeps its rate). Answers the settings as they now stand.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -18625,7 +18557,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["BillingSettings"];
+                    "application/json": components["schemas"]["SetBillingSettings"];
                 };
             };
             responses: {
@@ -18636,6 +18568,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["BillingSettings"];
+                    };
+                };
+                /** @description A number out of range, or a tax rate for a company that is not the firm's */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -24072,10 +24013,11 @@ export interface components {
             partyId: string;
             /** Format: uuid */
             entityPartyId: string;
-            /** @description `INV/2026-27/0001`. Allocated by the write itself from a gapless per-entity series and frozen by a trigger — an invoice number is never edited. A wrong invoice is cancelled and a new one issued, and both stay readable. */
-            number: string;
+            /** @description `INV/2026-27/0001`. Drawn from a gapless per-entity series when the invoice is ISSUED (0322) and frozen by a trigger from then: an invoice number is never edited. NULL on a draft (show it as a draft), and on a draft cancelled before it was issued. Drafts made before 0322 keep the number they drew. A wrong issued invoice is cancelled and a new one issued, and both stay readable. */
+            number: string | null;
+            /** @description The financial year whose series the number is (or will be) drawn from, chosen at the draft. */
             financialYear: number;
-            sequenceNumber: number;
+            sequenceNumber: number | null;
             /** @enum {string} */
             status: "draft" | "issued" | "cancelled";
             currency: string;
@@ -24306,18 +24248,11 @@ export interface components {
             displayName: string | null;
             email: string;
         } | null;
-        /** @description An advance bill: when the work it held started, and how. */
-        AdvanceReleased: {
-            at: string;
-            /** @enum {string} */
-            how: "paid" | "approved";
-            by: components["schemas"]["BillingPerson"];
-        } | null;
         BillingDue: {
             /** Format: uuid */
             id: string;
             /**
-             * @description `period` (one period of recurring work), `advance` (the letter's advance, or one service's: raised on an invoice of its own, and the work waits until it is paid) or `final` (a one-time service whose work is done, billed for the balance after the advance) (0320).
+             * @description `period` (one period of recurring work), `advance` (the letter's advance, or one service's: raised on an invoice of its own, drafted automatically at signing since 0322, and holding no work) or `final` (a one-time service whose work is done, billed for the balance after the advance) (0320).
              * @enum {string}
              */
             kind: "period" | "advance" | "final";
@@ -24376,10 +24311,11 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "drafted" | "billed" | "skipped" | "covered";
+            /** @description The invoice it is on. `number` is null while that invoice is a draft (0322). */
             invoice: {
                 /** Format: uuid */
                 id: string;
-                number: string;
+                number: string | null;
                 status: string;
             } | null;
             skipped: {
@@ -24406,8 +24342,7 @@ export interface components {
                 invoiceNumber: string;
                 amount: string | null;
             } | null;
-            released: components["schemas"]["AdvanceReleased"];
-            /** @description An advance bill some engagement still waits on (pending_advance). Such an advance cannot be skipped (ADVANCE_NOT_SKIPPABLE); once nothing waits (the engagement ended before it started), it may be. Always false for other kinds of bill. */
+            /** @description An advance bill some engagement still waits on (pending_advance: only work signed before 0322, until the daily catch-up starts it). Such an advance cannot be skipped (ADVANCE_NOT_SKIPPABLE). Always false for other kinds of bill. */
             advanceHoldsWork: boolean;
         };
         BillingSchedule: {
@@ -24495,15 +24430,22 @@ export interface components {
                 id: string;
                 ref: string;
             };
+            /** @description The day the letter was signed: the advance's bill date. */
             billOn: string;
             amount: string | null;
             manager: components["schemas"]["BillingPerson"];
+            /**
+             * @description The bill's own status; `skipped` is not chased.
+             * @enum {string}
+             */
+            status: "open" | "drafted" | "billed" | "skipped" | "covered";
             invoice: {
                 /** Format: uuid */
                 id: string;
-                number: string;
+                number: string | null;
                 status: string;
             } | null;
+            invoiceIssuedOn: string | null;
             /** @description The advance invoice's money, as the invoice reads it. Amounts null without fees. */
             balance: {
                 invoiced: string | null;
@@ -24511,11 +24453,41 @@ export interface components {
                 outstanding: string | null;
             } | null;
             /**
-             * @description Where the advance stands. `part_paid` waits for an admin's Approve start; `paid` starts by itself (an admin may push one that did not); `started` released the work.
+             * @description Where the advance stands (0322; it holds no work): `not_raised` (no invoice: see `draftBlocked`, or its draft was cancelled), `on_draft` (waiting for an admin to issue it), `unpaid`, `part_paid`, `paid`.
              * @enum {string}
              */
-            state: "not_raised" | "on_draft" | "unpaid" | "part_paid" | "paid" | "started";
-            released: components["schemas"]["AdvanceReleased"];
+            stage: "not_raised" | "on_draft" | "unpaid" | "part_paid" | "paid";
+            /** @description Still a draft, not raised or owed, and not skipped: it is chased. */
+            pending: boolean;
+            /** @description Since when it has waited for its current step: signing (no invoice, or a draft) or issue (unpaid). */
+            pendingSince: string | null;
+            daysPending: number | null;
+            /** @description Past the firm's days for its step: a draft `advanceDraftOverdueDays` after signing, unpaid `advanceUnpaidOverdueDays` after issue (Your firm, Automatic billing). */
+            overdue: boolean;
+            /** @description Still pending a week or more after signing: the administrators hear about it weekly. */
+            escalated: boolean;
+            /** @description Who is reminded on My day: the client's SPOCs for the work, its Key Manager, and the first person above the Key Manager at the firm's partner grade. Active staff only. */
+            people: {
+                spocs: components["schemas"]["BillingPerson"][];
+                keyManager: components["schemas"]["BillingPerson"];
+                partner: components["schemas"]["BillingPerson"];
+            };
+            /**
+             * @description Why it has no invoice yet: `no_tax_rate` (the work was never invoiced and the issuing company has no default tax rate: set one, or raise it by hand), `billed_by_hand` (see `handRaised`).
+             * @enum {string|null}
+             */
+            draftBlocked: "no_tax_rate" | "billed_by_hand" | "not_open" | null;
+            /** @description An issued invoice already billing this work, on no bill: very likely this advance invoiced by hand before 0322. No draft is made; an admin Links it instead. */
+            handRaised: {
+                /** Format: uuid */
+                invoiceId: string;
+                number: string;
+            } | null;
+            advanceHoldsWork: boolean;
+        };
+        BillingAdvanceForMe: components["schemas"]["BillingAdvance"] & {
+            /** @description Why it is the caller's: SPOC, Key Manager, partner, or an administrator's to issue or to know about. */
+            duties: ("spoc" | "key_manager" | "partner" | "admin")[];
         };
         BillingRefund: {
             /** Format: uuid */
@@ -24584,9 +24556,38 @@ export interface components {
             /** Format: uuid */
             invoiceId: string;
         };
+        AdvancePolicy: {
+            /** @description A draft advance invoice turns Overdue this many days after signing (default 3). */
+            draftOverdueDays: number;
+            /** @description An issued, unpaid advance turns Overdue this many days after issue (default 15). */
+            unpaidOverdueDays: number;
+            /** @description The partner reminded: the first person above the client's Key Manager whose grade rank is at least this (default 9, the default ladder's Director). */
+            partnerMinRank: number;
+            /** @description The weekly summary to the administrators: ISO weekday, 1 = Monday (default). */
+            digestWeekday: number;
+            /** @description Its hour, 0-23, in the firm's own time zone (default 10). */
+            digestHour: number;
+        };
+        TaxDefault: {
+            /**
+             * Format: uuid
+             * @description One of the firm's own companies.
+             */
+            entityPartyId: string;
+            /** @description 0 to 100: the rate an automatic advance draft carries when the work was never invoiced. */
+            taxPercent: string;
+        };
         BillingSettings: {
             /** @description Whether the daily sweep writes bill dues for this firm. Off until the firm turns it on. */
             autoBilling: boolean;
+            advancePolicy: components["schemas"]["AdvancePolicy"];
+            /** @description Each company's default tax rate. A company with none gets no automatic advance draft. */
+            taxDefaults: components["schemas"]["TaxDefault"][];
+        };
+        SetBillingSettings: {
+            autoBilling?: boolean;
+            advancePolicy?: components["schemas"]["AdvancePolicy"];
+            taxDefaults?: components["schemas"]["TaxDefault"][];
         };
         /** @description Who uploaded it. NULL means the system generated it, or the person's account has been erased. The email is what distinguishes those from a person whose display name is simply unset — the same arrangement the audit trail's actor uses. */
         DocumentUploader: {

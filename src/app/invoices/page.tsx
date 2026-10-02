@@ -304,8 +304,9 @@ function Invoices() {
   const notSetUp = new Set(unscheduled.map((u) => u.feeGroup?.id ?? u.engagementId)).size;
   const canWrite = session?.permissions.includes("party:write") === true;
   const isAdmin = session?.permissions.includes("tenant:admin") === true;
-  // An advance part paid waits for an admin: that is what the tab counts.
-  const waitingStart = advances.filter((a) => a.state === "part_paid").length;
+  // An advance overdue (a draft not issued, or unpaid past the firm's days):
+  // that is what the tab counts (0322).
+  const waitingStart = advances.filter((a) => a.pending && a.overdue).length;
 
   const body =
     tab === "raise" && dues !== null ? (
@@ -321,7 +322,7 @@ function Invoices() {
         onChanged={load}
       />
     ) : tab === "advances" ? (
-      <AdvancesTab advances={advances} isAdmin={isAdmin} onChanged={load} />
+      <AdvancesTab advances={advances} />
     ) : tab === "setup" ? (
       <NotSetUpTab rows={unscheduled} canWrite={canWrite} onChanged={load} />
     ) : invoices.length === 0 ? (

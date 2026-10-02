@@ -1006,13 +1006,15 @@ export function billingPersonName(p: BillingPerson): string {
 }
 
 /**
- * THE ADVANCE AND THE FINAL BILL (0320). Every advance is a tax invoice, and the
- * work it holds starts when that invoice is paid in full; a part payment waits
- * for an admin's Approve start. `state` is the API's.
+ * THE ADVANCE AND THE FINAL BILL (0320; 0322). Every advance is a tax invoice,
+ * drafted the moment the letter is signed, and it holds NO work (Ashish,
+ * 2026-10-02): the work starts at signing and the advance is chased by
+ * reminders. `stage`, `overdue`, `escalated`, `people` and `duties` are the
+ * API's; nothing here works out a day.
  */
 export type BillingAdvance =
   paths["/api/v1/billing/advances"]["get"]["responses"][200]["content"]["application/json"]["advances"][number];
-export type BillingAdvanceState = BillingAdvance["state"];
+export type BillingAdvanceStage = BillingAdvance["stage"];
 /** An advance left over once the work it covered is finished: "To refund". */
 export type BillingRefund =
   paths["/api/v1/billing/refunds"]["get"]["responses"][200]["content"]["application/json"]["refunds"][number];
@@ -1029,14 +1031,24 @@ export function billLabel(d: Pick<BillingDue, "kind" | "serviceName" | "periodLa
 }
 
 /** Where an advance stands, in words. */
-export const ADVANCE_STATE_WORDS: Readonly<Record<BillingAdvanceState, string>> = {
-  not_raised: "Not raised yet",
-  on_draft: "On a draft invoice",
+export const ADVANCE_STAGE_WORDS: Readonly<Record<BillingAdvanceStage, string>> = {
+  not_raised: "No invoice yet",
+  on_draft: "Draft, not issued",
   unpaid: "Not paid yet",
   part_paid: "Part paid",
   paid: "Paid in full",
-  started: "Work started",
 };
+
+/** "3 days", "1 day", "today". */
+export function daysWords(n: number | null): string {
+  if (n === null || n <= 0) return "today";
+  return n === 1 ? "1 day" : `${String(n)} days`;
+}
+
+/** An invoice's number, or "Draft" while it has none (0322: numbered at issue). */
+export function invoiceNumberWords(number: string | null): string {
+  return number ?? "Draft";
+}
 
 /**
  * A bill with no price, in weeks: "No price yet", "No price for 1 week", "No

@@ -877,7 +877,7 @@ export default function LetterPage() {
 
       {/* THE ADVANCE (0320): its invoice, where it stands, and an admin's
           Approve start on a part payment. Nothing when there is no advance. */}
-      {isSigned && <AdvanceStatus letterId={letterId} isAdmin={permissions.includes("tenant:admin")} />}
+      {isSigned && <AdvanceStatus letterId={letterId} />}
 
       {/* ── The letter's own prose ─────────────────────────────────────
           Not clauses. A clause is a term of the contract, drawn from a versioned
