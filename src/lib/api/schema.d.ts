@@ -19011,7 +19011,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Every category and channel, after the change */
+                /** @description Every category and channel, and when the daily email goes out */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -19019,6 +19019,8 @@ export interface paths {
                     content: {
                         "application/json": {
                             categories: components["schemas"]["NotificationCategorySettings"][];
+                            /** @description The hour (0 to 23, the firm's own time zone) the daily email of unread notifications goes out. Escalations and missed filings go by email at once instead. */
+                            digestHour: number;
                         };
                     };
                 };
@@ -19099,6 +19101,78 @@ export interface paths {
                 };
                 /** @description A mandatory bell cannot be switched off */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/digest-hour": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * When the firm's daily notification email goes out
+         * @description The hour, in the firm's own time zone. Recorded in the audit trail (`tenant.notification_digest_hour_set`).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NotificationDigestHour"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            digestHour: number;
+                        };
+                    };
+                };
+                /** @description Not an hour from 0 to 23 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or may not administer the firm */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -25150,6 +25224,9 @@ export interface components {
                 channel: components["schemas"]["NotificationChannel"];
                 enabled: boolean;
             }[];
+        };
+        NotificationDigestHour: {
+            digestHour: number;
         };
         /** @description Who uploaded it. NULL means the system generated it, or the person's account has been erased. The email is what distinguishes those from a person whose display name is simply unset — the same arrangement the audit trail's actor uses. */
         DocumentUploader: {
