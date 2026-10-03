@@ -86,7 +86,10 @@ export function ToRaiseTab({
   refunds,
   billNow,
   onChanged,
+  reportingCurrency,
 }: {
+  /** The firm's reporting currency: bills in it ask for no rate (B07). */
+  reportingCurrency: string;
   dues: readonly BillingDue[];
   /** The firm's invoices, for "Link to an invoice". */
   invoices: readonly InvoiceSummary[];
@@ -594,6 +597,7 @@ export function ToRaiseTab({
           setRaising(null);
         }}
         onRaised={(out, count) => finished(raisedWords(out, count))}
+        reportingCurrency={reportingCurrency}
       />
       <KeepDialog
         refund={keeping}
@@ -768,10 +772,13 @@ function RaiseDialog({
   dues,
   onClose,
   onRaised,
+  reportingCurrency,
 }: {
   dues: readonly BillingDue[] | null;
   onClose: () => void;
   onRaised: (out: Raised, count: number) => Promise<void>;
+  /** The firm's reporting currency: bills in it need no rate (B07). */
+  reportingCurrency: string;
 }) {
   const formId = useId();
   const [error, setError] = useState<string | null>(null);
@@ -784,6 +791,9 @@ function RaiseDialog({
   const rates = new Set(dues.map((d) => `${d.letter.fxRate}|${d.letter.fxRateDate}`));
   const agreed = rates.size === 1 ? first.letter : null;
   const today = browserDay();
+  // IN THE FIRM'S OWN CURRENCY THERE IS NO RATE TO ASK FOR (B07, CA#34): the
+  // invoice is converted at exactly 1, so the boxes are not shown.
+  const foreign = first.currency !== reportingCurrency;
 
   async function raise(form: FormData): Promise<void> {
     if (dues === null) return;
@@ -802,8 +812,8 @@ function RaiseDialog({
             ...(typed === null ? {} : { amount: cleanAmount(String(typed)) }),
           };
         }),
-        fxRate: cleanAmount(String(form.get("fxRate") ?? "")),
-        fxRateDate: String(form.get("fxRateDate") ?? ""),
+        fxRate: foreign ? cleanAmount(String(form.get("fxRate") ?? "")) : "1",
+        fxRateDate: foreign ? String(form.get("fxRateDate") ?? "") : today,
         ...(dueOn === "" ? {} : { dueOn }),
       },
     });
@@ -909,20 +919,29 @@ function RaiseDialog({
             </Table>
           </TableWrap>
           <FieldRow>
-            <Field label="Rate to the firm's currency" hint={agreed !== null ? "As in the letter." : undefined}>
-              <AmountInput
-                decimals={10}
-                name="fxRate"
-                required
-                defaultValue={agreed === null ? "" : formatCount(agreed.fxRate)}
-                placeholder="e.g. 1"
-              />
-            </Field>
-            <Field label="Rate as of">
-              <Input name="fxRateDate" type="date" required defaultValue={agreed?.fxRateDate ?? today} />
-            </Field>
+            {foreign && (
+              <>
+                <Field
+                  label={`${reportingCurrency} for one ${first.currency}`}
+                  hint={agreed !== null ? "As in the letter." : `How many ${reportingCurrency} one ${first.currency} is worth.`}
+                >
+                  <AmountInput
+                    decimals={10}
+                    name="fxRate"
+                    required
+                    defaultValue={agreed === null ? "" : formatCount(agreed.fxRate)}
+                    placeholder="e.g. 83.25"
+                  />
+                </Field>
+                <Field label="Rate on">
+                  <Input name="fxRateDate" type="date" required defaultValue={agreed?.fxRateDate ?? today} />
+                </Field>
+              </>
+            )}
+            {/* Today or later (F35, B21): a draft due before it is issued is
+                refused at issue. */}
             <Field label="Due" optional hint="No due date means no payment reminders.">
-              <Input name="dueOn" type="date" />
+              <Input name="dueOn" type="date" min={today} />
             </Field>
           </FieldRow>
         </FieldStack>

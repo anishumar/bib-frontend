@@ -117,6 +117,9 @@ function Invoices() {
   /** The invoice's currency: INR unless the letters chose "Charged by" and
    *  priced everything in one currency. */
   const [currency, setCurrency] = useState("INR");
+  /** The firm's reporting currency: an invoice in another needs a typed rate
+   *  (B07); in this one there is no rate to give. */
+  const [reportingCurrency, setReportingCurrency] = useState("INR");
   /** Active staff, for "Manager" (whose revenue the invoice is, T4). */
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
   /** The dialog's "Manager": a user id, or "" for nobody. */
@@ -157,6 +160,7 @@ function Invoices() {
     if (book.data) setParties(book.data.parties);
     if (firm.data) {
       setEntities(firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name })));
+      setReportingCurrency(firm.data.reportingCurrency);
     }
     setDues(billed.data?.dues ?? null);
     setUnscheduled(unset.data?.engagements ?? []);
@@ -255,22 +259,25 @@ function Invoices() {
     setBusy(true);
     setError(null);
     const dueOn = String(form.get("dueOn") ?? "");
-    const seriesDate = String(form.get("seriesDate") ?? "");
+    const code = String(form.get("currency")).toUpperCase();
+    // THE RATE ONLY WHEN THERE IS ONE TO GIVE (B07). In the firm's own currency
+    // the API stores 1; in another it needs the rate a person typed, never a
+    // default of 1 that counted USD as INR.
+    const foreign = code !== reportingCurrency;
+    const rate = foreign ? cleanAmount(String(form.get("fxRate") ?? "")) : "";
+    const rateDate = foreign ? String(form.get("fxRateDate") ?? "") : "";
     const result = await api.POST("/api/v1/invoices", {
-      // TODAY WHERE YOU ARE. With no series date, an invoice lands in the books
-      // of the year it is raised in, and the server's own day is Greenwich's.
+      // TODAY WHERE YOU ARE: the server's own day is Greenwich's. Since the
+      // audit of 2026-10-03 an invoice is numbered in the year it is ISSUED
+      // in, so there is no series date to choose here.
       params: { query: { asOf: browserDay() } },
       body: {
         partyId: String(form.get("partyId")),
         entityPartyId: String(form.get("entityPartyId")),
-        currency: String(form.get("currency")).toUpperCase(),
-        fxRate: cleanAmount(String(form.get("fxRate"))),
-        fxRateDate: String(form.get("fxRateDate")),
+        currency: code,
+        ...(rate === "" ? {} : { fxRate: rate }),
+        ...(rateDate === "" ? {} : { fxRateDate: rateDate }),
         ...(dueOn === "" ? {} : { dueOn }),
-        // Which financial year's series this belongs to. Offered because a firm
-        // raising an invoice on 2 April for March's work is DECIDING it, not
-        // discovering it — and the series it lands in is not reversible.
-        ...(seriesDate === "" ? {} : { seriesDate }),
         ...(manager === "" ? {} : { managerUserId: manager }),
       },
     });
@@ -311,6 +318,7 @@ function Invoices() {
   const body =
     tab === "raise" && dues !== null ? (
       <ToRaiseTab
+        reportingCurrency={reportingCurrency}
         dues={dues}
         invoices={invoices}
         autoBilling={autoBilling}
@@ -586,19 +594,27 @@ function Invoices() {
                   required
                 />
               </Field>
-              <Field label="Rate to the firm's currency">
-                <AmountInput decimals={10} name="fxRate" defaultValue="1" required />
-              </Field>
-              <Field label="Rate as of">
-                <Input name="fxRateDate" type="date" defaultValue={today} required />
-              </Field>
+              {/* ONLY FOR ANOTHER CURRENCY (B07). Blank and required: a rate
+                  of 1 typed for nobody counted USD 10,000 as INR 10,000. */}
+              {currency.trim().toUpperCase() !== reportingCurrency && currency.trim().length === 3 && (
+                <>
+                  <Field
+                    label={`${reportingCurrency} for one ${currency.trim().toUpperCase()}`}
+                    hint={`How many ${reportingCurrency} one ${currency.trim().toUpperCase()} is worth.`}
+                  >
+                    <AmountInput decimals={10} name="fxRate" required placeholder="e.g. 83.25" />
+                  </Field>
+                  <Field label="Rate on">
+                    <Input name="fxRateDate" type="date" defaultValue={today} required />
+                  </Field>
+                </>
+              )}
             </FieldRow>
             <FieldRow>
+              {/* Today or later (F35): an invoice due before it is issued is
+                  overdue the day it goes out, and the API refuses to issue it. */}
               <Field label="Due" optional hint="No due date means no payment reminders.">
-                <Input name="dueOn" type="date" />
-              </Field>
-              <Field label="Series date" hint="Picks the financial year's number series.">
-                <Input name="seriesDate" type="date" defaultValue={today} />
+                <Input name="dueOn" type="date" min={today} />
               </Field>
             </FieldRow>
           </FieldStack>
