@@ -57,6 +57,7 @@ import { longInstant, longMoment } from "@/lib/day";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
 import { cleanAmount, previewAmount } from "@/lib/money";
+import { MissingMoney, useSeesFees } from "@/components/fees";
 
 /** "500000.00" as somebody would type it back: the API's two places are
  *  noise in an edit box when there are no paise. */
@@ -160,6 +161,10 @@ export default function LeadPage() {
   const params = useParams<{ leadId: string }>();
   const leadId = params.leadId;
   const session = useSession();
+  // THE FEE AXIS (B33/F02): the value is null for a login that cannot see
+  // fees, and the API refuses one it sends (null included), so it reads
+  // Hidden here and its box is not offered.
+  const seesFees = useSeesFees();
 
   const [record, setRecord] = useState<LeadView | null>(null);
   const [staff, setStaff] = useState<Colleague[]>([]);
@@ -254,14 +259,14 @@ export default function LeadPage() {
   function saveDetails(form: FormData): void {
     const jurisdiction = String(form.get("jurisdiction") ?? "");
     const estimatedValue = cleanAmount(String(form.get("estimatedValue") ?? ""));
-    void act("Country and value saved.", async () => {
+    void act(seesFees === true ? "Country and value saved." : "Country saved.", async () => {
       const result = await api.PUT("/api/v1/leads/{leadId}/details", {
         params: { path: { leadId } },
-        // BOTH are sent every time: the route replaces the pair, and a blank
-        // box is "not known", which is null on the wire.
+        // A blank box is "not known", which is null on the wire. The value is
+        // sent only by a login that sees fees: left out, the API keeps it.
         body: {
           jurisdiction: jurisdiction === "" ? null : jurisdiction,
-          estimatedValue: estimatedValue === "" ? null : estimatedValue,
+          ...(seesFees === true ? { estimatedValue: estimatedValue === "" ? null : estimatedValue } : {}),
         },
       });
       if (!result.error) setTypedValue(null);
@@ -362,10 +367,10 @@ export default function LeadPage() {
               {lead.jurisdiction === null ? <NotSet /> : countryName(lead.jurisdiction)}
             </MetaItem>
           )}
-          {!canEdit && (
+          {(!canEdit || seesFees !== true) && (
             <MetaItem label="Could be worth">
               {lead.estimatedValue === null ? (
-                <NotSet />
+                <MissingMoney seesFees={seesFees} />
               ) : (
                 <span className="num">
                   {formatMoney(lead.estimatedValue.amount, lead.estimatedValue.currency)}
@@ -542,6 +547,7 @@ export default function LeadPage() {
               <Field label="Country" hint="Changing it does not move it to another desk.">
                 <CountrySelect name="jurisdiction" defaultValue={lead.jurisdiction ?? ""} />
               </Field>
+              {seesFees === true && (
               <Field
                 label="Could be worth"
                 hint={
@@ -566,6 +572,7 @@ export default function LeadPage() {
                   }}
                 />
               </Field>
+              )}
               <div className="field-action">
                 <Button type="submit" variant="secondary" disabled={busy}>
                   Save

@@ -45,6 +45,7 @@ import { CountrySelect } from "@/components/country-select";
 import { PhoneInput } from "@/components/phone-input";
 import { countryName } from "@/lib/country";
 import { cleanAmount, fromMinorUnits, previewAmount, toMinorUnits } from "@/lib/money";
+import { MissingMoney, useSeesFees } from "@/components/fees";
 
 /**
  * A value box in the filter: blank is "no bound", a plain amount is a bound,
@@ -59,6 +60,20 @@ function valueBound(raw: string): { units: bigint | null; bad: boolean } {
   return units === null ? { units: null, bad: true } : { units, bad: false };
 }
 
+/** The currency most of the pipeline's values are in, or null when none has
+ *  one. What the value filter compares in when the books currency is not
+ *  known (B47). */
+function mostCommonCurrency(leads: readonly LeadRecord[]): string | null {
+  const counts = new Map<string, number>();
+  for (const l of leads) {
+    const c = l.lead.estimatedValue?.currency;
+    if (c !== undefined) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  for (const [c, n] of counts) if (best === null || n > (counts.get(best) ?? 0)) best = c;
+  return best;
+}
+
 /** The stage filter: every stage, all open, all closed, or exactly one. */
 type StageFilter = "" | "open" | "closed" | LeadStage;
 
@@ -69,10 +84,16 @@ function CountryCell({ code }: { code: string | null }) {
 
 /** A lead's estimate, for a table cell — right-aligned with tabular figures,
  *  in lakhs for INR whatever the browser is set to (`formatMoney`). */
-function ValueCell({ value }: { value: LeadRecord["lead"]["estimatedValue"] }) {
+function ValueCell({
+  value,
+  seesFees,
+}: {
+  value: LeadRecord["lead"]["estimatedValue"];
+  seesFees: boolean | null;
+}) {
   return (
     <Td align="right" className="nowrap">
-      {value === null ? <NotSet /> : formatMoney(value.amount, value.currency)}
+      {value === null ? <MissingMoney seesFees={seesFees} /> : formatMoney(value.amount, value.currency)}
     </Td>
   );
 }
@@ -114,6 +135,10 @@ function stageTone(stage: LeadStage): "ok" | "danger" | "neutral" {
  */
 export default function LeadsPage() {
   const router = useRouter();
+  // THE FEE AXIS (B33/F02): the API nulls every value for a login that cannot
+  // see fees, and refuses one it sends. Its Value column says Hidden, and the
+  // total, the value filters and Could be worth are not offered.
+  const seesFees = useSeesFees();
   const [leads, setLeads] = useState<LeadRecord[]>([]);
   const [staff, setStaff] = useState<Colleague[]>([]);
   // The firm's books currency: what a captured value is in, said under the box.
@@ -287,7 +312,7 @@ export default function LeadsPage() {
     // Both optional, and a blank one is SENT AS ABSENT: an unknown country and
     // an unknown value are real answers at capture, never a reason to refuse.
     const jurisdiction = String(form.get("jurisdiction") ?? "");
-    const estimatedValue = cleanAmount(String(form.get("estimatedValue") ?? ""));
+    const estimatedValue = seesFees === true ? cleanAmount(String(form.get("estimatedValue") ?? "")) : "";
 
     const result = await api.POST("/api/v1/leads", {
       // The day the contact details are in force from: today where you are.
@@ -333,7 +358,13 @@ export default function LeadsPage() {
 
   const min = valueBound(minValue);
   const max = valueBound(maxValue);
-  const valueFiltered = min.units !== null || max.units !== null;
+  const valueFiltered = seesFees === true && (min.units !== null || max.units !== null);
+  // B47: a bound is an amount IN ONE CURRENCY, the firm's books currency, the
+  // one every value is written in. A value in another currency (a firm that
+  // changed its books currency) is not compared with it: 50,000 USD is not
+  // "under 1,00,000". With no books currency known, the currency most values
+  // are in.
+  const filterCurrency = currency ?? mostCommonCurrency(leads);
   const filtering = stageFilter !== "" || countryFilter !== "" || minValue !== "" || maxValue !== "";
 
   function matches(l: LeadRecord): boolean {
@@ -350,8 +381,9 @@ export default function LeadsPage() {
     if (valueFiltered) {
       // A lead with no value cannot be "at least" anything, so a value bound
       // hides it — and the count line says so, so it is not a mystery.
-      const v =
-        l.lead.estimatedValue === null ? null : toMinorUnits(l.lead.estimatedValue.amount);
+      const value = l.lead.estimatedValue;
+      if (value === null || value.currency !== filterCurrency) return false;
+      const v = toMinorUnits(value.amount);
       if (v === null) return false;
       if (min.units !== null && v < min.units) return false;
       if (max.units !== null && v > max.units) return false;
@@ -439,10 +471,15 @@ export default function LeadsPage() {
             <Field label="Country">
               <CountryFilter leads={leads} value={countryFilter} onChange={setCountryFilter} />
             </Field>
+            {seesFees === true && (
             <Field
               label="Value from"
               error={min.bad ? "Numbers only, e.g. 500000." : null}
-              hint={min.units === null ? undefined : previewAmount(fromMinorUnits(min.units), currency ?? undefined)}
+              hint={
+                min.units === null
+                  ? filterCurrency === null ? undefined : `In ${filterCurrency}.`
+                  : previewAmount(fromMinorUnits(min.units), filterCurrency ?? undefined)
+              }
             >
               <AmountInput
                 value={minValue}
@@ -452,10 +489,16 @@ export default function LeadsPage() {
                 }}
               />
             </Field>
+            )}
+            {seesFees === true && (
             <Field
               label="Value up to"
               error={max.bad ? "Numbers only, e.g. 2500000." : null}
-              hint={max.units === null ? undefined : previewAmount(fromMinorUnits(max.units), currency ?? undefined)}
+              hint={
+                max.units === null
+                  ? filterCurrency === null ? undefined : `In ${filterCurrency}.`
+                  : previewAmount(fromMinorUnits(max.units), filterCurrency ?? undefined)
+              }
             >
               <AmountInput
                 value={maxValue}
@@ -465,6 +508,7 @@ export default function LeadsPage() {
                 }}
               />
             </Field>
+            )}
           </FieldRow>
           {/* A live region that is always there and says something only while
               a filter is on: the count is what a filter ANSWERED. */}
@@ -472,7 +516,12 @@ export default function LeadsPage() {
             <p className="text-sm" role="status" aria-live="polite">
               {filtering
                 ? `Showing ${String(shownOpen.length + shownClosed.length)} of ${String(leads.length)}.` +
-                  (valueFiltered ? " Leads with no value are hidden." : "")
+                  (valueFiltered
+                    ? filterCurrency !== null &&
+                      leads.some((l) => l.lead.estimatedValue !== null && l.lead.estimatedValue.currency !== filterCurrency)
+                      ? ` Leads with no value, or a value not in ${filterCurrency}, are hidden.`
+                      : " Leads with no value are hidden."
+                    : "")
                 : ""}
             </p>
             {filtering && (
@@ -503,7 +552,7 @@ export default function LeadsPage() {
               </>
             }
             aside={
-              openTotals.size > 0 ? (
+              seesFees === true && openTotals.size > 0 ? (
                 <p className="text-md">
                   <span className="muted">Total value </span>
                   <strong className="num">
@@ -557,7 +606,7 @@ export default function LeadsPage() {
                           <Td>
                             <CountryCell code={l.lead.jurisdiction} />
                           </Td>
-                          <ValueCell value={l.lead.estimatedValue} />
+                          <ValueCell value={l.lead.estimatedValue} seesFees={seesFees} />
                           <Td>{codeLabel(l.lead.source)}</Td>
                           <Td>
                             <Select
@@ -731,7 +780,7 @@ export default function LeadsPage() {
                     <Td>
                       <CountryCell code={l.lead.jurisdiction} />
                     </Td>
-                    <ValueCell value={l.lead.estimatedValue} />
+                    <ValueCell value={l.lead.estimatedValue} seesFees={seesFees} />
                     <Td>
                       {/* `lost` and `abandoned` render as themselves. Collapsing
                           them into one word would throw away the only signal that
@@ -834,19 +883,21 @@ export default function LeadsPage() {
                   }}
                 />
               </Field>
-              <Field
-                label="Could be worth"
-                optional
-                hint={capturedPreview ?? (currency === null ? undefined : `In ${currency}.`)}
-              >
-                <AmountInput
-                  name="estimatedValue"
-                  placeholder="e.g. 5,00,000"
-                  onChange={(e) => {
-                    setCaptureValue(e.target.value);
-                  }}
-                />
-              </Field>
+              {seesFees === true && (
+                <Field
+                  label="Could be worth"
+                  optional
+                  hint={capturedPreview ?? (currency === null ? undefined : `In ${currency}.`)}
+                >
+                  <AmountInput
+                    name="estimatedValue"
+                    placeholder="e.g. 5,00,000"
+                    onChange={(e) => {
+                      setCaptureValue(e.target.value);
+                    }}
+                  />
+                </Field>
+              )}
             </FieldRow>
           </FieldStack>
         </form>
