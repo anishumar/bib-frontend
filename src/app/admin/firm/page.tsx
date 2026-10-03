@@ -373,6 +373,15 @@ export default function FirmPage() {
               "Tax rates saved. New advance drafts use them.",
             )
           }
+          onDueDays={(invoiceDueDays) =>
+            act(
+              "due-days",
+              () => api.PUT("/api/v1/billing/settings", { body: { invoiceDueDays } }),
+              invoiceDueDays === null
+                ? "Payment terms cleared. An invoice gets a due date only when one is typed."
+                : `Payment terms saved. An invoice issued with no due date is due ${dueDaysWords(invoiceDueDays)}.`,
+            )
+          }
         />
       )}
 
@@ -1099,6 +1108,7 @@ function BillingCard({
   onSet,
   onPolicy,
   onTaxRates,
+  onDueDays,
 }: {
   settings: BillingSettings;
   entities: readonly FirmEntity[];
@@ -1107,6 +1117,7 @@ function BillingCard({
   onSet: (on: boolean) => Promise<boolean>;
   onPolicy: (policy: AdvancePolicy) => Promise<boolean>;
   onTaxRates: (rates: TaxDefault[]) => Promise<boolean>;
+  onDueDays: (days: number | null) => Promise<boolean>;
 }) {
   return (
     <Card id="billing">
@@ -1135,7 +1146,83 @@ function BillingCard({
         busy={busy === "tax-rates"}
         onSave={onTaxRates}
       />
+      <PaymentTerms days={settings.invoiceDueDays} busy={busy === "due-days"} onSave={onDueDays} />
     </Card>
+  );
+}
+
+/** "15 days after its date", "on the day it is issued". */
+function dueDaysWords(days: number): string {
+  if (days === 0) return "on the day it is issued";
+  return `${String(days)} day${days === 1 ? "" : "s"} after its date`;
+}
+
+/**
+ * THE FIRM'S OWN PAYMENT TERMS (B20, 0327). An invoice issued with no due
+ * date is due this many days after its date; one typed on the invoice is
+ * kept. No default, on purpose: 7, 15 or 30 days is the firm's commercial
+ * fact, and an invoice with no due date is never chased by client reminders.
+ */
+function PaymentTerms({
+  days,
+  busy,
+  onSave,
+}: {
+  days: number | null;
+  busy: boolean;
+  onSave: (days: number | null) => Promise<boolean>;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <SetOnce
+      nested
+      id="payment-terms"
+      title="Payment terms"
+      isSet={days !== null}
+      view={
+        <Meta layout="list">
+          <MetaItem label="An invoice with no due date">
+            {days === null ? <NotSet>Gets none, so it is never chased</NotSet> : `Is due ${dueDaysWords(days)}`}
+          </MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const typed = String(new FormData(event.currentTarget).get("dueDays") ?? "").trim();
+            if (typed !== "" && !/^\d{1,3}$/.test(typed)) {
+              setProblem("Type a whole number of days, from 0 (due on receipt) to 365, or leave it empty.");
+              return;
+            }
+            const next = typed === "" ? null : Number.parseInt(typed, 10);
+            if (next !== null && next > 365) {
+              setProblem("Payment terms can be at most 365 days.");
+              return;
+            }
+            setProblem(null);
+            void (async () => {
+              const ok = await onSave(next);
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldStack>
+            <ErrorNotice error={problem} />
+            <FieldRow>
+              <Field
+                label="Days from the invoice date"
+                optional
+                hint="Used when an invoice is issued with no due date. 0 means due on receipt. Leave empty for none."
+              >
+                <Input name="dueDays" inputMode="numeric" defaultValue={days === null ? "" : String(days)} placeholder="e.g. 15" />
+              </Field>
+              <SaveCancel busy={busy} close={close} />
+            </FieldRow>
+          </FieldStack>
+        </form>
+      )}
+    />
   );
 }
 
