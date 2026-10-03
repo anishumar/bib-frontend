@@ -913,7 +913,7 @@ this existed).
 
 ## Setup readiness on Your firm and My day (V2.6, 2026-09-28)
 
-`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns eight lines as CODES; `lib/ui/readiness.tsx`
+`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns the lines as CODES; `lib/ui/readiness.tsx`
 is the one place they become words and links, so the two screens never phrase a gap twice.
 
 - **Your firm opens with a Setup card** (`#setup`): a table of the eight lines, each a whole-row
@@ -928,6 +928,21 @@ is the one place they become words and links, so the two screens never phrase a 
   given its numbers (decision D3).
 - `request_routing` counts `none` as not set, though the API calls `none` a real answer: the
   brief asks that the firm has chosen who picks up client requests.
+- **Thirteen lines and three states since 2026-10-03 (audit CA#15, CA#16, F07).** A line with
+  nothing to look at yet (no clients, no services, no check rule reading reporting lines) shows
+  **Nothing to check yet** in a neutral pill and is left out of "N of M done"; an empty firm read
+  "4 of 8 done". The new lines: the companies' country and address, the firm's time zone ("Not
+  chosen: days follow UTC, not your country", plus the zone its companies settle, in words),
+  colleagues added, a service, standard terms.
+- **The time zone lives on Your firm** (`#time-zone`, `lib/ui/time-zone.tsx`). It was on
+  Structure under "Who picks up client requests" and nobody found it; Structure no longer has
+  it, so there is one place to set it.
+- **Other date screens touched by the same audit:** the Escalated tab shows `daysPastNow` ("26",
+  with "18 when raised" under it); My day says "Nothing due this week" and names the next dated
+  row instead of "You are up to date", and flags a step or task dated by a statute "Legal due
+  date"; the calendar's coverage line no longer claims "Every period so far ended before the
+  engagement began"; the rules library says why Start early is greyed, and the rule editor never
+  pre-fills a due date (empty boxes, "e.g." placeholders).
 
 ## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
 

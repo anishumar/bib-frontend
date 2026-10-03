@@ -51,13 +51,16 @@ import { Page, PageHeader } from "@/components/layout";
  * new. A code cannot move because every published service body names it and
  * those bodies are frozen — a firm that wants a different code adds a row and
  * retires the old one, which leaves the history intact.
+ *
+ * Nor the firm's time zone any more: it sat here under "Who picks up client
+ * requests" and nobody found it (audit 2026-10-03, CA#16). It is on Your firm
+ * (`lib/ui/time-zone.tsx`), where Setup links.
  */
 export default function StructurePage() {
   const router = useRouter();
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [split, setSplit] = useState<WorkSplitAxis>("none");
   // UTC until the firm chooses, which is what every firm had before 0071.
-  const [zone, setZone] = useState<string>("UTC");
   const [routing, setRouting] = useState<RequestRouting>("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -81,7 +84,6 @@ export default function StructurePage() {
     }
     setAxes(structure.data.axes);
     setSplit(structure.data.workSplitAxis);
-    setZone(structure.data.timeZone);
     // The routing setting is read off the INBOX rather than from a settings
     // route of its own: `GET /client-requests` already carries it, because a
     // screen showing that list has to be able to say why nothing is assigned.
@@ -149,12 +151,6 @@ export default function StructurePage() {
     );
   }
 
-  function chooseZone(timeZone: string): void {
-    void act("zone", () =>
-      api.PUT("/api/v1/tenancy/structure/time-zone", { body: { timeZone } }),
-    );
-  }
-
   function chooseRouting(next: RequestRouting): void {
     void act("routing", () =>
       api.PUT("/api/v1/tenancy/client-request-routing", { body: { routing: next } }),
@@ -214,8 +210,6 @@ export default function StructurePage() {
         onChoose={chooseRouting}
       />
 
-      <TimeZoneChooser chosen={zone} busy={busy === "zone"} onChoose={chooseZone} />
-
       <WorkSplitChooser
         chosen={split}
         deptCount={depts.filter((d) => d.isActive).length}
@@ -237,74 +231,6 @@ export default function StructurePage() {
  * exists; offering it would produce the API's refusal, which is a worse way to
  * learn the same thing.
  */
-/**
- * Which calendar this firm's months and days are cut on.
- *
- * A LABELLED select, not a bare one: T6.9's walk found an unlabelled full-width
- * picker on the request inbox and it read as decoration. The list is short and
- * curated rather than all 400-odd zones — a firm picks this once, and a
- * scrolling wall of them is harder to answer than five names.
- *
- * The firm's CURRENT value is always in the list even when it is not one of the
- * five, so opening this screen can never silently offer to change a setting
- * somebody made deliberately.
- */
-const COMMON_ZONES: readonly { readonly value: string; readonly label: string }[] = [
-  { value: "Asia/Kolkata", label: "India (Asia/Kolkata)" },
-  { value: "Asia/Dubai", label: "United Arab Emirates (Asia/Dubai)" },
-  { value: "Asia/Singapore", label: "Singapore (Asia/Singapore)" },
-  { value: "Europe/London", label: "United Kingdom (Europe/London)" },
-  { value: "America/New_York", label: "United States, Eastern (America/New_York)" },
-  { value: "UTC", label: "UTC (no country's calendar)" },
-];
-
-function TimeZoneChooser({
-  chosen,
-  busy,
-  onChoose,
-}: {
-  chosen: string;
-  busy: boolean;
-  onChoose: (zone: string) => void;
-}) {
-  const options = COMMON_ZONES.some((z) => z.value === chosen)
-    ? COMMON_ZONES
-    : [...COMMON_ZONES, { value: chosen, label: chosen }];
-  return (
-    <Card>
-      {/* Decides which month a document falls into on a client's Month by
-          month page, and which day the chaser counts from. It does NOT change
-          how any date is displayed. */}
-      <CardTitle level={2}>Which calendar are your months counted on?</CardTitle>
-      {/* This was a <span className="field-label"> over a bare <select>, and
-          NEITHER of those is a thing: `.field-label` is defined in no
-          stylesheet in the repo — it was used here and nowhere else — and the
-          select carried no `.select`, so it drew as a raw browser control
-          among styled ones. Both are what `<Field>`/`<Select>` are for. */}
-      <div style={{ maxWidth: "42ch" }}>
-        <Field id="firm-timezone" label="The firm’s time zone">
-          <Select
-            value={chosen}
-            disabled={busy}
-            /* The consequence below is deliberately WIDER than this 42ch
-               column, so it cannot be the field's `hint` without re-wrapping
-               it to three lines. Pointed at by id instead. */
-            aria-describedby="firm-timezone-hint"
-            onChange={(e) => { onChoose(e.target.value); }}
-          >
-            {options.map((z) => (
-              <option key={z.value} value={z.value}>{z.label}</option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-      <p className="field-hint" id="firm-timezone-hint">
-        Decides a client&rsquo;s month pages. Dates still show in each reader&rsquo;s own time.
-      </p>
-    </Card>
-  );
-}
-
 function WorkSplitChooser({
   chosen,
   deptCount,

@@ -691,7 +691,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Tenant"];
+                        "application/json": components["schemas"]["CreatedTenant"];
                     };
                 };
                 /** @description Request failed validation */
@@ -20079,7 +20079,7 @@ export interface paths {
         };
         /**
          * Is this firm set up well enough to run its work?
-         * @description Eight lines: go-live floor and financial year, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
+         * @description Thirteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
          */
         get: {
             parameters: {
@@ -20209,7 +20209,7 @@ export interface components {
         SetPasswordRequest: {
             password: string;
         };
-        Tenant: {
+        CreatedTenant: {
             /** Format: uuid */
             id: string;
             slug: string;
@@ -20217,11 +20217,17 @@ export interface components {
             /** @enum {string} */
             status: "active" | "suspended";
             reportingCurrency: string;
+            /** @description The zone the firm starts on. UTC when nothing settled it; Setup then asks the firm. */
+            timeZone: string;
         };
         CreateTenantRequest: {
             name: string;
             slug: string;
             reportingCurrency: string;
+            /** @description Where the firm is, ISO 3166-1 alpha-2 (IN, AE). When the country keeps one time zone the firm starts on it (IN: Asia/Kolkata); otherwise it starts on UTC and Setup asks it to choose. */
+            country?: string;
+            /** @description An IANA zone (Asia/Kolkata), over the country's. Never an offset. */
+            timeZone?: string;
         };
         UserAccount: {
             /** Format: uuid */
@@ -20236,6 +20242,15 @@ export interface components {
             /** Format: email */
             email: string;
             displayName?: string;
+        };
+        Tenant: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            reportingCurrency: string;
         };
         SetTenantStatusRequest: {
             /** @enum {string} */
@@ -20853,6 +20868,8 @@ export interface components {
             afterDays: number;
             /** @description How far past the watched date it was on the day this fired. */
             daysPast: number;
+            /** @description How far past the watched date it is TODAY, on the firm's calendar: `daysPast` plus the days since `raisedOn`. What a screen shows as days late. */
+            daysPastNow: number;
             /**
              * @description Who the firm's ladder said to tell. 'grade_at_least' is not resolved to a person: the notice is addressed to a RANK, so everybody senior enough sees it and it does not die while one partner is on leave.
              * @enum {string}
@@ -22093,8 +22110,10 @@ export interface components {
             periodLabel: string | null;
             /** @description The services the job delivers, by the names the client's letter pinned. */
             services: string[];
-            /** @description `YYYY-MM-DD`: the earliest due day of the job's unfinished tasks, which is what a step on it is due by. Null when none carries a date. */
+            /** @description `YYYY-MM-DD`: what a step on this job is due by: the earliest due day of the job's unfinished tasks, and never after `filingDueOn`. Null when neither carries a date. */
             dueOn: string | null;
+            /** @description `YYYY-MM-DD`: the earliest legal due day of an unfiled filing this job's work is for (same company, a rule on its service, a period inside the job's). Null when none. */
+            filingDueOn: string | null;
         } | null;
         MyStep: {
             /** Format: uuid */
@@ -24901,18 +24920,24 @@ export interface components {
             }[];
         };
         ReadinessGap: {
-            /** @description The subject: a client's party id (account_team, portal_contacts), a person's user id (reporting_lines) or a rule's id (compliance_rules). Null for a gap that is the firm's own. */
+            /** @description The subject: a client's party id (account_team, portal_contacts), a person's user id (reporting_lines), a rule's id (compliance_rules) or one of the firm's companies (company_details). Null for a gap that is the firm's own. */
             id: string | null;
-            /** @description A key to link with: the service's catalogue key on `processes`. Null elsewhere. */
+            /** @description A key to link with: the service's catalogue key on `processes`; on `time_zone`, the one zone the firm's companies' countries settle between them (offered, never applied), or null when they settle none. Null elsewhere. */
             ref: string | null;
             /** @description The subject's name as the firm wrote it; empty for the firm's own gap. */
             name: string;
-            /** @description What is missing, as a closed vocabulary per line: deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
+            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
             missing: string[];
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "deadlines" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            /**
+             * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
+             * @enum {string}
+             */
+            state: "done" | "to_do" | "nothing_to_check";
+            /** @description state is done. */
             done: boolean;
             gaps: components["schemas"]["ReadinessGap"][];
             /** @description Why the line applies: on reporting_lines, the labels of the published check rules that read reporting lines alone. Empty elsewhere, and empty there when no rule reads them. */
@@ -24921,7 +24946,7 @@ export interface components {
         ReadinessResponse: {
             /** @description The firm's calendar day the lines were computed on. */
             asOf: string;
-            /** @description The eight lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
+            /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
         };
     };

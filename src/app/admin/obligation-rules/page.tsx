@@ -765,6 +765,8 @@ function RuleRow({
   onPatch: (body: Record<string, unknown>, said: string) => void;
 }) {
   const [lead, setLead] = useState(String(rule.leadTimeDays));
+  /** Why the lead time cannot be set yet, in words, or null when it can. */
+  const leadLocked = mayWrite && rule.coverage !== "generating" ? LEAD_LOCKED[rule.coverage] : null;
 
   // WHICH ROW TODAY'S FILINGS ARE DUE ON (T6.16 follow-up). The library lists
   // every row of a chain, and each row's formula is its own, which is what
@@ -883,9 +885,18 @@ function RuleRow({
                The title stays as the mouse-user's tooltip. */
             aria-label={`Lead time in days for ${rule.name}`}
             title="Days before the legal deadline that the work should start"
+            {...(leadLocked === null ? {} : { "aria-describedby": `lead-why-${rule.id}` })}
           />{" "}
           days
         </span>
+        {/* WHY it is greyed, in words (audit 2026-10-03, CA#25): it was
+            disabled with no hint, and a partner could not tell it waits for
+            the tick in the next column. */}
+        {leadLocked !== null && (
+          <span className="sub" id={`lead-why-${rule.id}`}>
+            {leadLocked}
+          </span>
+        )}
       </Td>
       <Td>
         {/* The moment a date stops coming from a document and starts coming
@@ -1000,4 +1011,13 @@ const TONE: Record<RuleCoverage, PillTone> = {
   // has checked. It puts nothing on the calendar until somebody does.
   unconfirmed: "ok",
   retired: "danger",
+};
+
+/** Why "Start early" is greyed for a rule that does not produce dates yet. */
+const LEAD_LOCKED: Readonly<Record<Exclude<ObligationRule["coverage"], "generating">, string>> = {
+  unconfirmed: "Tick Confirmed first to set this.",
+  needs_formula: "Give the rule a date first.",
+  unlinked: "Add it to a service first.",
+  event_driven: "Not used: it has no fixed date.",
+  retired: "Retired.",
 };

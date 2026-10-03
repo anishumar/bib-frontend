@@ -240,6 +240,9 @@ export default function MyDayPage() {
     (grouped.get("overdue")?.length ?? 0) +
     (grouped.get("today")?.length ?? 0) +
     (grouped.get("week")?.length ?? 0);
+  // "Nothing due" with a filing legally due in eight days read as "you are up
+  // to date" (CA#11). With nothing this week, the next dated thing is named.
+  const next = grouped.get("later")?.find((r) => r.dueOn !== null) ?? null;
 
   return (
     <Page>
@@ -251,7 +254,13 @@ export default function MyDayPage() {
 
       {dueSoon === 0 && (
         <Card>
-          <Empty title="Nothing due. You are up to date." icon="check" />
+          {next === null || next.dueOn === null ? (
+            <Empty title="Nothing due. You are up to date." icon="check" />
+          ) : (
+            <Empty title="Nothing due this week" icon="check">
+              {`Next: ${next.what}${next.clientName === null ? "" : `, ${next.clientName}`}, due ${longDay(next.dueOn)}.`}
+            </Empty>
+          )}
         </Card>
       )}
 
@@ -419,6 +428,9 @@ function buildRows(input: {
     // One word: the rung and who was told are on the board's Escalated tab, and
     // the firm's rung label repeated on every late row drowned the reason above.
     if (escalatedTask.has(t.id)) flags.push({ tone: "warn", text: "Escalated" });
+    // The date is the LAW's, not the firm's turnaround (CA#11): said, so a
+    // filing's deadline is not read as a soft target.
+    if (t.isStatutoryDue && t.dueOn !== null) flags.push({ tone: "warn", text: "Legal due date" });
     out.push({
       key: `task-${t.id}`,
       what: t.title,
@@ -454,7 +466,11 @@ function buildRows(input: {
       // `blocked` on a step is the engine waiting on a PERSON: this one, unless
       // the step is done and a check is open on it.
       turn: waitingForCheck ? "checker" : s.status === "pending" ? "earlier" : "me",
-      flags: [],
+      // The job's date is a filing's legal date when that came first (CA#11).
+      flags:
+        s.job !== null && s.job.filingDueOn !== null && s.job.filingDueOn === s.job.dueOn
+          ? [{ tone: "warn", text: "Legal due date" }]
+          : [],
       now: false,
     });
   }
