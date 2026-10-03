@@ -46,6 +46,10 @@ import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
 import { groupCompanies } from "@/lib/group";
+import { countryName } from "@/lib/country";
+import { entityKindLabel } from "@/lib/entity-kind";
+import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -76,7 +80,6 @@ export default function PartyPage() {
   // Two fields on the Register form share one explanation, so the paragraph
   // stays outside them and they point at it. A hook, so it lives up here with
   // the others and not after an early return.
-  const registerHintId = useId();
   /**
    * The two lists the Relationships card needs, and neither is about this
    * party.
@@ -450,7 +453,9 @@ export default function PartyPage() {
                 .join(" · ") || "Company"
             : profile.person !== null
               ? [
-                  profile.person.nationality,
+                  profile.person.nationality === null || profile.person.nationality === ""
+                    ? null
+                    : countryName(profile.person.nationality),
                   profile.person.dateOfBirth === null ? null : longDay(profile.person.dateOfBirth),
                 ]
                   .filter((v): v is string => v !== null && v !== "")
@@ -562,10 +567,8 @@ export default function PartyPage() {
               <tbody>
                 {profile.legalEntities.map((e) => (
                   <tr key={`${e.jurisdiction}-${e.entityType}`}>
-                    <Td>
-                      <Pill tone="code">{e.jurisdiction}</Pill>
-                    </Td>
-                    <Td>{codeLabel(e.entityType)}</Td>
+                    <Td>{countryName(e.jurisdiction)}</Td>
+                    <Td>{entityKindLabel(e.entityType)}</Td>
                     <Td className="nowrap">
                       {e.incorporatedOn === null ? <NotSet /> : longDay(e.incorporatedOn)}
                     </Td>
@@ -615,27 +618,15 @@ export default function PartyPage() {
             >
               <FieldStack>
                 <FieldRow>
-                  {/* The line below explains BOTH of these and neither on its
-                      own, so it stays outside the fields and they point at it
-                      by hand — `Field`'s own `hint` would have had to say it
-                      twice, once under each. */}
+                  {/* By NAME, both (CA#22): a country picker and a list of
+                      kinds, saved as the codes the filing rules match on. They
+                      were typed codes ("e.g. IN", "use the codes your
+                      compliance rules use"). */}
                   <Field label="Country">
-                    <Input
-                      name="jurisdiction"
-                      maxLength={2}
-                      placeholder="e.g. IN"
-                      required
-                      aria-describedby={registerHintId}
-                      style={{ textTransform: "uppercase" }}
-                    />
+                    <CountrySelect name="jurisdiction" blankLabel="Choose a country" required />
                   </Field>
                   <Field label="Kind of company">
-                    <Input
-                      name="entityType"
-                      placeholder="e.g. Private Limited"
-                      required
-                      aria-describedby={registerHintId}
-                    />
+                    <EntityKindSelect name="entityType" required />
                   </Field>
                   <Field label="Incorporated" optional>
                     <Input name="incorporatedOn" type="date" />
@@ -650,11 +641,6 @@ export default function PartyPage() {
                     />
                   </Field>
                 </FieldRow>
-                {/* Compliance rules match the country exactly, and the kind of
-                    company narrows them: the codes must be the rules' own. */}
-                <p className="field-hint" id={registerHintId}>
-                  Use the codes your compliance rules use.
-                </p>
                 <div className="cluster">
                   <Button type="submit" variant="secondary" loading={busy}>
                     Register
@@ -1028,8 +1014,11 @@ export default function PartyPage() {
                     </option>
                     {relationChoices(
                       types,
-                      profile.party.displayName,
-                      parties.find((c) => c.id === relOther)?.displayName ?? "",
+                      { name: profile.party.displayName, kind: profile.party.kind },
+                      (() => {
+                        const o = parties.find((c) => c.id === relOther);
+                        return o === undefined ? null : { name: o.displayName, kind: o.kind };
+                      })(),
                     ).map((c) => (
                       <option key={c.value} value={c.value}>
                         {c.sentence}
@@ -1189,15 +1178,40 @@ function relationSentence(r: PartyRelationship, types: readonly RelationshipType
  * blank in it is not a sentence, and offering "Cobalt Foods is the parent of"
  * with nothing after it invites somebody to choose it.
  */
+type PartyKind = "organization" | "person";
+
+/**
+ * Which way round each relationship can be true, by the kinds of the two
+ * parties (CA#53). Every type was offered both ways for any two parties, so
+ * the list held "Deccan Agro Foods is a director of Anil Deshpande". Only the
+ * plainly impossible is left out (the API refuses the same, `relationshipFits`):
+ * nobody is a director or a shareholder OF a person, and only a person is
+ * somebody's employee or signatory. A company as a director is left in, since
+ * some countries allow it. A code not listed is offered both ways, as before.
+ */
+const FITS: Readonly<Record<string, (from: PartyKind, to: PartyKind) => boolean>> = {
+  director_of: (_from, to) => to === "organization",
+  shareholder_of: (_from, to) => to === "organization",
+  authorised_signatory_of: (from) => from === "person",
+  employee_of: (from) => from === "person",
+  parent_of: (from, to) => from === "organization" && to === "organization",
+};
+
 function relationChoices(
   types: readonly RelationshipType[],
-  thisName: string,
-  otherName: string,
+  thisParty: { readonly name: string; readonly kind: PartyKind },
+  other: { readonly name: string; readonly kind: PartyKind } | null,
 ): { value: string; sentence: string }[] {
-  if (otherName === "") return [];
+  if (other === null || other.name === "") return [];
+  const fits = (code: string, from: PartyKind, to: PartyKind): boolean =>
+    FITS[code]?.(from, to) ?? true;
   return types.flatMap((t) => [
-    { value: `${t.code}:out`, sentence: `${thisName} is ${t.label} ${otherName}` },
-    { value: `${t.code}:in`, sentence: `${otherName} is ${t.label} ${thisName}` },
+    ...(fits(t.code, thisParty.kind, other.kind)
+      ? [{ value: `${t.code}:out`, sentence: `${thisParty.name} is ${t.label} ${other.name}` }]
+      : []),
+    ...(fits(t.code, other.kind, thisParty.kind)
+      ? [{ value: `${t.code}:in`, sentence: `${other.name} is ${t.label} ${thisParty.name}` }]
+      : []),
   ]);
 }
 

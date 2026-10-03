@@ -111,7 +111,7 @@ export function Empty({
  * first when the second is true tells somebody their book is empty.
  */
 export function NoResults({
-  children = "Nothing matches the current filters.",
+  children = "Nothing matches the current filters. Change them, or clear them to see everything.",
   action,
 }: {
   children?: ReactNode;
@@ -183,12 +183,9 @@ export function Denied({
       <p className="state-title">Not available to this account</p>
       <p>
         {children ?? "Your role does not have access to this part of the workspace."}
-        {permission !== undefined && (
-          <>
-            {" "}
-            It needs <span className="mono">{permission}</span>.
-          </>
-        )}
+        {/* Never the permission's code ("tenant:admin", CA#39): it meant
+            nothing to the reader. Who to ask is what they can act on. */}
+        {permission !== undefined && " Ask an administrator if you need it."}
       </p>
     </div>
   );

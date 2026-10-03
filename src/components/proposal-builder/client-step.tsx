@@ -5,8 +5,8 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, formatCount, LEAD_SOURCES } from "@/lib/api/client";
-import type { LeadSource, ProposalRecord } from "@/lib/api/client";
+import { api, apiError, CONTACT_ROLE_OPTIONS, formatCount, LEAD_SOURCES } from "@/lib/api/client";
+import type { ContactRole, LeadSource, ProposalRecord } from "@/lib/api/client";
 import { Card, CardTitle } from "@/components/tw";
 import {
   Button,
@@ -124,8 +124,13 @@ export function ClientStep({
     designation: "",
     email: "",
     phone: "",
-    source: "referral" as LeadSource,
+    // Nothing preselected (F13): it defaulted to Referral.
+    source: "" as LeadSource | "",
   });
+  /** Adding a person at an existing client or lead from inside the wizard
+   *  (CA#43): it used to say "Nobody recorded at the client yet" and stop. */
+  const [newPerson, setNewPerson] = useState({ name: "", role: "" as ContactRole | "" });
+  const [addingPerson, setAddingPerson] = useState(false);
   const [captured, setCaptured] = useState<Captured | null>(null);
   /**
    * The lead the capture landed on, kept so a second press does not capture
@@ -329,6 +334,11 @@ export function ClientStep({
     return [...set].sort();
   }, [firm, reporting, currency]);
 
+  /** Opened from a lead, and still on that lead's company (CA#43). */
+  const fromLead = draft === null && prefillLeadId !== null && leadId !== null;
+  /** Recording a person at the client takes party:write. */
+  const canAddPeople = session?.permissions.includes("party:write") === true;
+
   const people: readonly Contact[] =
     who === "prospect" && draft === null
       ? prospect.contact.trim() === ""
@@ -359,7 +369,48 @@ export function ClientStep({
     return addContact(landed);
   }
 
+  /** Record a person at the chosen client, in a contact's role, and name them
+   *  on the cover (CA#43). The same two writes the client page makes. */
+  async function addPerson(): Promise<void> {
+    if (client === null) return;
+    const name = newPerson.name.trim();
+    if (name === "" || newPerson.role === "") {
+      setError("Give the person's name and their role at the client.");
+      return;
+    }
+    setAddingPerson(true);
+    setError(null);
+    const person = await api.POST("/api/v1/parties/persons", { body: { fullName: name } });
+    if (person.error) {
+      setAddingPerson(false);
+      setError(apiError(person.error).message);
+      return;
+    }
+    const tie = await api.POST("/api/v1/parties/relationships", {
+      body: {
+        fromPartyId: person.data.partyId,
+        toPartyId: client.id,
+        type: newPerson.role,
+        // Yesterday, as above: "today" is not yet today for every reader.
+        validFrom: dayBefore(browserDay()),
+      },
+    });
+    setAddingPerson(false);
+    if (tie.error) {
+      setError(apiError(tie.error).message);
+      return;
+    }
+    const added = { id: person.data.partyId, name };
+    setClient({ ...client, people: [...client.people, added] });
+    setAddresseeId(added.id);
+    setNewPerson({ name: "", role: "" });
+  }
+
   async function captureLead(): Promise<{ id: string; partyId: string; matched: string | null } | null> {
+    if (prospect.source === "") {
+      setError("Choose how they came to you.");
+      return null;
+    }
     const identifiers = [
       ...(prospect.email.trim() === "" ? [] : [{ type: "email" as const, value: prospect.email.trim() }]),
       ...(prospect.phone.trim() === "" ? [] : [{ type: "phone" as const, value: prospect.phone.trim() }]),
@@ -558,6 +609,8 @@ export function ClientStep({
           <div className="mt-3 flex flex-col gap-4">
             <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2">
               <legend className="sr-only">Existing client or new prospect</legend>
+              {/* Opened from a LEAD, the company is the lead's prospect, not
+                  somebody "already in your client list" (CA#43). */}
               <Choice
                 name="who"
                 checked={who === "existing"}
@@ -565,8 +618,8 @@ export function ClientStep({
                   setWho("existing");
                   setCountry(client?.registeredIn ?? "");
                 }}
-                title="Existing client"
-                note="Already in your client list."
+                title={fromLead ? "From your pipeline" : "Existing client"}
+                note={fromLead ? "The lead you started from." : "Already in your client list."}
               />
               <Choice
                 name="who"
@@ -603,6 +656,48 @@ export function ClientStep({
                         ? "Nobody recorded at the client yet."
                         : `${String(client.people.length)} ${client.people.length === 1 ? "person" : "people"} on file.`}
                     </p>
+                    {/* Add the person the proposal is for, here (CA#43), rather
+                        than leaving for the client page and coming back. */}
+                    {canAddPeople && (
+                      <details className="mt-2" open={client.people.length === 0}>
+                        <summary className="cursor-pointer text-sm">Add a person at {client.name}</summary>
+                        <div className="mt-2 flex flex-wrap items-end gap-3">
+                          <Field label="Name">
+                            <Input
+                              value={newPerson.name}
+                              placeholder="e.g. Ravi Kumar"
+                              onChange={(e) => {
+                                setNewPerson({ ...newPerson, name: e.target.value });
+                              }}
+                            />
+                          </Field>
+                          <Field label="Their role">
+                            <Select
+                              value={newPerson.role}
+                              onChange={(e) => {
+                                setNewPerson({ ...newPerson, role: e.target.value as ContactRole });
+                              }}
+                            >
+                              <option value="">Choose…</option>
+                              {CONTACT_ROLE_OPTIONS.map((r) => (
+                                <option key={r.code} value={r.code}>
+                                  {r.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            loading={addingPerson}
+                            onClick={() => void addPerson()}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </details>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -687,11 +782,15 @@ export function ClientStep({
                   <Field label="How they came to you">
                     <Select
                       value={prospect.source}
+                      required
                       onChange={(e) => {
                         const s = LEAD_SOURCES.find((x) => x === e.target.value);
                         if (s !== undefined) editProspect({ source: s });
                       }}
                     >
+                      <option value="" disabled>
+                        Choose…
+                      </option>
                       {LEAD_SOURCES.map((s) => (
                         <option key={s} value={s}>
                           {SOURCE_WORDS[s]}

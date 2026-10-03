@@ -3036,3 +3036,39 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   `RoutingWarning` lists each Dept whose rung is not the SPOC, with the owner and why, and a link
   to the client's page. A warning (`role="status"`), never a disabled Send; nothing is shown when
   every Dept has a SPOC.
+
+## Audit 2026-10-03, the UX cluster: rules that came out of it
+
+- **Only a 401 signs anybody out.** `@/lib/session` `readSession()` is how both shells read
+  `/auth/me`: 401 is signed out; a 429, a 5xx or no answer is *busy*, and the shell keeps what it
+  knew and asks again (2 s doubling to 30 s, never sooner than `Retry-After`, which the API now
+  exposes). On a first load it shows "The workspace is busy. Trying again in N seconds" with Try
+  now. A page's own 401 still routes to `/login`; nothing else may.
+- **The product's name is one constant**, `PRODUCT_NAME` in `@/lib/brand` ("10X Workspace").
+  Anything scoped to ONE firm shows that firm: the sidebar's and the portal's mark are
+  `firmInitials(principal.tenantName)`, never "10x".
+- **A select never answers for the user.** A choice somebody makes (a reason, a method, a source,
+  who, which Dept, what kind of file) starts at a disabled "Choose…" with `defaultValue=""` and is
+  `required` where the API requires it. A select that SHOWS a saved setting keeps its value.
+  `demo-assets/tools/audit-ux/select-defaults.mjs` lists every select whose first option is not
+  empty, for the next sweep.
+- **Counts are one string**: `plural(n, "client")` from `@/lib/plural`. `{n} client{n === 1 ? "" :
+  "s"}` is three text nodes, and in a flex container with a gap it read "4 client s".
+- **Countries are the 249 ISO 3166-1 codes** (`COUNTRY_CODES` in `@/lib/country`, the same list
+  the API enforces in `domain/country.ts`). The browser also names retired codes; never build the
+  list from AA..ZZ again. A saved code outside the list is shown as itself in `CountrySelect`.
+- **Kinds of company come from a list** (`ENTITY_KINDS`, `EntityKindSelect`), saved as the codes
+  a filing rule matches on; `entityKindLabel()` prints one.
+- **Codes are never printed**: a rule pack key is `rulePackLabel()`, a country is
+  `countryName()`, a permission is its sentence (the Roles page and `Denied` no longer show
+  `tenant:admin`), the audit trail maps `jurisdiction*`/`rung*` keys to words.
+- **The Tailwind `TableWrap` contains its table** (`relative` + layout containment), like
+  `.tablewrap`. Without it an absolutely positioned `.sr-only` in a cell escaped the scroller and
+  widened the whole page at 390.
+- **A row change says it held**: People and Structure print "Saved. …" in a `role="status"`
+  line, cleared before each call.
+- **Welcome and invitation pages**: a new colleague's welcome link opens `/auth/welcome` ("Choose
+  your password", or "Skip for now and sign in"); `/portal/accept-invite` prints the `firm`
+  query parameter the API puts on the link (display only, capped).
+- **No e-signature service**: a letter's send button reads "Lock it as sent" and the page says
+  nothing is emailed and what to do; with DocuSign the flow is unchanged.

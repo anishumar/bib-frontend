@@ -31,7 +31,7 @@
  * is the section a client checks when they are asked why something was late.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalDigest, PortalDigestRow } from "@/lib/api/client";
 import { Empty, Page, PageHeader, Section, Table, TableWrap, Td, Th } from "@/components/tw";
@@ -45,6 +45,9 @@ export default function PortalMonthPage() {
   const [digest, setDigest] = useState<PortalDigest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  /** Whether the month on screen is the one the page OPENED on rather than
+   *  one the client picked (F25). */
+  const opening = useRef(true);
 
   const load = useCallback(async (): Promise<void> => {
     setLoaded(false);
@@ -56,6 +59,21 @@ export default function PortalMonthPage() {
       setDigest(null);
       setLoaded(true);
       return;
+    }
+    // OPENING ON A QUIET CURRENT MONTH (F25): early in a month nothing has
+    // happened yet, and the page opened on "Nothing recorded". It opens on
+    // the last complete month instead, once; a month the client picks is shown
+    // as picked, quiet or not.
+    if (opening.current) {
+      opening.current = false;
+      const d = result.data;
+      const quiet =
+        d.filed.length === 0 && d.documentsAdded.length === 0 && d.invoiced.length === 0 && d.asksAnswered.length === 0;
+      const previous = recentMonths(2)[1];
+      if (quiet && month === currentMonth() && previous !== undefined) {
+        setMonth(previous);
+        return;
+      }
     }
     setDigest(result.data);
     setError(null);
@@ -86,7 +104,10 @@ export default function PortalMonthPage() {
               className="select"
               value={month}
               aria-label="Month"
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => {
+                opening.current = false;
+                setMonth(e.target.value);
+              }}
             >
               {recentMonths(18).map((m) => (
                 <option key={m} value={m}>

@@ -1509,13 +1509,33 @@ export default function LetterPage() {
               `.cluster` already sets `flex-wrap: wrap` and no margin at all —
               which is why `mt-3` is here: under DocuSign a form or a notice
               now sits directly above this row. */}
+          {/* NO E-SIGNATURE SERVICE (CA#23): say what the press does, before
+              and after. It said "Send for signature" and nothing went. */}
+          {isDraft && !signing.sends && (
+            <p className="text-md text-muted mt-2">
+              No e-signature service is set up, so nothing is emailed from here. Lock the letter,
+              download the PDF and send it to the client yourself, then record their signature
+              below when it comes back.
+            </p>
+          )}
+          {letter.status === "sent" && !signing.sends && (
+            <p className="text-md text-muted mt-2">
+              Nothing was emailed from here. If you have not yet, download the PDF and send it to
+              the client yourself, then record their signature below.
+            </p>
+          )}
+
           <div className="cluster mt-3">
             {isDraft && !signing.sends && (
               <ConfirmAction
                 disabled={busy !== null}
-                title={`Send ${letter.ref} for signature?`}
-                confirmLabel="Send it"
-                consequence={<p>{sendConsequence}</p>}
+                title={`Lock ${letter.ref} as sent?`}
+                confirmLabel="Lock it"
+                consequence={
+                  <p>
+                    {sendConsequence} Nothing is emailed: you send the PDF to the client yourself.
+                  </p>
+                }
                 onConfirm={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
@@ -1524,7 +1544,7 @@ export default function LetterPage() {
                   );
                 }}
               >
-                Send for signature
+                Lock it as sent
               </ConfirmAction>
             )}
             {/* A letter the client has SEEN is withdrawn, which keeps the record

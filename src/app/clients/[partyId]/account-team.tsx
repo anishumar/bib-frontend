@@ -412,7 +412,12 @@ export function AccountTeamPanel({
                   a Dept — so the field is absent rather than disabled. */}
               {role === "spoc" && (
                 <Field label="Dept / team">
-                  <Select name="axisId">
+                  {/* Nothing preselected (F13): one press of Assign made the
+                      first Dept's first person a SPOC from today. */}
+                  <Select name="axisId" required defaultValue="">
+                    <option value="" disabled>
+                      Choose…
+                    </option>
                     {axes.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name} ({a.axis === "dept" ? "Dept" : "team"})
@@ -422,7 +427,10 @@ export function AccountTeamPanel({
                 </Field>
               )}
               <Field label="Who">
-                <Select name="userId">
+                <Select name="userId" required defaultValue="">
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {staff.map((m) => (
                     <option key={m.userId} value={m.userId}>
                       {colleagueLabel(m)}

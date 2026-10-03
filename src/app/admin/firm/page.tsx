@@ -390,7 +390,7 @@ export default function FirmPage() {
             act(
               "tax-rates",
               () => api.PUT("/api/v1/billing/settings", { body: { taxDefaults } }),
-              "Tax rates saved. New advance drafts use them.",
+              "Tax rates saved. New advance invoices use them.",
             )
           }
           onDueDays={(invoiceDueDays) =>
@@ -591,7 +591,7 @@ function AddCompany({
         <FieldStack>
           <FieldRow>
             <Field label="Legal name" hint="As it prints on a document.">
-              <Input name="name" required maxLength={300} autoComplete="off" autoFocus placeholder="e.g. 10x Global FZCO" />
+              <Input name="name" required maxLength={300} autoComplete="off" autoFocus placeholder="e.g. Acme Advisory LLP" />
             </Field>
             <Field label="Registered in">
               <CountrySelect
@@ -607,7 +607,7 @@ function AddCompany({
             </Field>
           </FieldRow>
           <Field label="Registered address" optional hint="One line per row. Not printed on documents yet.">
-            <Textarea name="address" rows={3} placeholder="e.g. Office 12, Dubai Silicon Oasis" />
+            <Textarea name="address" rows={3} placeholder="e.g. 2nd floor, Shanti Chambers, Pune" />
           </Field>
           {served !== null && (
             <Notice tone="warn">

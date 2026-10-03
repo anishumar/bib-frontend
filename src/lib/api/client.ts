@@ -448,16 +448,22 @@ export type PermissionInfo =
 export interface RoleBody {
   readonly label: string;
   readonly permissions: readonly string[];
+  /** Which surface the role is for (T6.6). Absent in a role body means STAFF,
+   *  as the API reads it. Used to offer a staff member only staff roles and a
+   *  client contact only client roles (F18). */
+  readonly audience: "STAFF" | "CLIENT_PORTAL";
 }
 
 export function readRoleBody(body: Record<string, unknown> | undefined): RoleBody {
   const label = body?.["label"];
   const permissions = body?.["permissions"];
+  const audience = body?.["audience"];
   return {
     label: typeof label === "string" ? label : "",
     permissions: Array.isArray(permissions)
       ? permissions.filter((p): p is string => typeof p === "string")
       : [],
+    audience: audience === "CLIENT_PORTAL" ? "CLIENT_PORTAL" : "STAFF",
   };
 }
 
@@ -626,6 +632,19 @@ export const LEAD_STAGES = [
   // destroys the only signal that tells its two fixable failures apart.
   "abandoned",
 ] as const satisfies readonly LeadStage[];
+
+/** A contact person's role at a company (CA#20), off the generated schema. */
+export type ContactRole = NonNullable<
+  paths["/api/v1/leads"]["post"]["requestBody"]["content"]["application/json"]["contact"]
+>["role"];
+
+/** The roles a lead's contact person can hold, in words, for a picker. */
+export const CONTACT_ROLE_OPTIONS: readonly { readonly code: ContactRole; readonly label: string }[] = [
+  { code: "director_of", label: "Director" },
+  { code: "authorised_signatory_of", label: "Authorised signatory" },
+  { code: "employee_of", label: "Employee" },
+  { code: "shareholder_of", label: "Shareholder" },
+];
 
 export const LEAD_SOURCES = [
   "referral",

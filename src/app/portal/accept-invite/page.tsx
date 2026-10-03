@@ -51,6 +51,10 @@ function AcceptInvite() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
+  // WHO is inviting them (CA#55), carried on the link beside the token: this
+  // page has no session to ask. Display only and capped; the token is what
+  // authorises, so an edited name gets nobody anything.
+  const firm = (params.get("firm") ?? "").trim().slice(0, 120);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -87,8 +91,11 @@ function AcceptInvite() {
       <div>
         <div className="stack loose">
           <div>
-            <p className="eyebrow">Client portal</p>
+            <p className="eyebrow">{firm === "" ? "Client portal" : `${firm} · Client portal`}</p>
             <h1>Choose a password</h1>
+            {firm === "" ? null : (
+              <p className="lede">{firm} has invited you to their client portal.</p>
+            )}
           </div>
 
           <Card>

@@ -174,9 +174,9 @@ export default function ReceivablesPage() {
                     </Td>
                     <Td>
                       <Pill tone="danger">{codeLabel(p.action.action)}</Pill>
-                      <Sub>
-                        Step {p.action.step}, {p.action.afterDays} days after due
-                      </Sub>
+                      {/* The step's own key ("credit-hold") is the firm's
+                          internal name for it and repeats the pill (F24). */}
+                      <Sub>{p.action.afterDays} days after the due date</Sub>
                     </Td>
                     {/* Read NOW, not when the rung fired. A debt settled since
                         is exactly the case a partner rejects, and a stale
@@ -296,8 +296,11 @@ function DecideRow({
   // NOTHING OWED, NOTHING TO APPROVE (B22): a cancelled invoice, or one paid
   // since the step fired. The API refuses the approval too.
   const nothingOwed = item.invoiceStatus !== "issued" || /^-?0*(\.0+)?$/.test(item.outstanding ?? "x") || (item.outstanding ?? "").startsWith("-");
+  // THE REASON ABOVE THE TWO BUTTONS, in a column of a fixed width (F20). In
+  // one row the box and both buttons made the column wider than the card at
+  // 1280, and Approve / Reject sat partly out of view.
   return (
-    <div className="cluster">
+    <div className="stack tight" style={{ width: "16rem" }}>
       <Input
         size="sm"
         name="why"
@@ -308,6 +311,7 @@ function DecideRow({
           setWhy(e.target.value);
         }}
       />
+      <div className="cluster">
       {!nothingOwed && (
       <ConfirmAction
         size="sm"
@@ -341,6 +345,7 @@ function DecideRow({
       >
         Reject
       </Button>
+      </div>
     </div>
   );
 }

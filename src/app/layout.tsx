@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { AppShell, themeScript } from "@/components/layout";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * Source Sans 3 for everything a person reads, and IBM Plex Mono for true code
@@ -39,7 +40,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BiB · 10X Workspace",
+  title: `BiB · ${PRODUCT_NAME}`,
   description: "Business in a Box: the staff workspace.",
 };
 

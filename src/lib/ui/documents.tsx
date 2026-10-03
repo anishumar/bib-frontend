@@ -397,7 +397,9 @@ export function Documents({
                   opened on Identity proof, so a GST working paper attached in a
                   hurry was filed as somebody's ID. The person chooses. */}
               <Field label="What it is">
-                <Select name="kind" defaultValue="" required>
+                {/* Nothing preselected (F13, CA#31): a GST working paper was
+                    filed as "Identity proof" because nobody changed it. */}
+                <Select name="kind" required defaultValue="">
                   <option value="" disabled>
                     Choose what it is
                   </option>

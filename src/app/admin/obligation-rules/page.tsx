@@ -35,10 +35,13 @@ import {
   Exceptions,
   MONTHS,
   RuleEditor,
+  rulePackLabel,
   type RuleDraft,
 } from "./rule-editor";
 import { Supersede } from "./supersede";
 import { longDay } from "@/lib/day";
+import { plural } from "@/lib/plural";
+import { countryName } from "@/lib/country";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
@@ -508,7 +511,7 @@ function Rules() {
         {focused.length > 0 && (
           <Notice tone="ok" eyebrow="From the calendar">
             <p>
-              Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
+              Showing the {plural(focused.length, "rule")} that blocked one
               engagement&rsquo;s calendar. {/* "and confirm it": answering a
               shipped rule leaves it unconfirmed, and it still puts nothing on
               the calendar. */}
@@ -687,7 +690,7 @@ function OpenRule({
             h3. */}
         <h2>{open.name}</h2>
         <p className="sub">
-          {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
+          {countryName(open.jurisdiction)} &middot; {rulePackLabel(open.rulePack)}
         </p>
       </div>
       {messages}
@@ -851,7 +854,7 @@ function RuleRow({
           {elsewhere !== null && <Sub>{elsewhere}</Sub>}
           {rule.instanceCount > 0 && (
             <Sub>
-              {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} made
+              {plural(rule.instanceCount, "filing")} made
             </Sub>
           )}
           {/* THE WINDOW, and it is not decoration. A rule that has handed over

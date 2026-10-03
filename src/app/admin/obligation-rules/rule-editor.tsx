@@ -21,6 +21,9 @@ import {
   Table,
   Td,
 } from "@/components/ui";
+import { plural } from "@/lib/plural";
+import { CountrySelect } from "@/components/country-select";
+export { rulePackLabel } from "@/lib/rule-pack";
 
 /**
  * The form a partner answers a compliance rule with (T6.4).
@@ -205,8 +208,8 @@ function problemsOf(d: RuleDraft, creating: boolean): Problems {
   const out: Problems = {};
   if (creating) {
     if (d.name.trim() === "") out.name = "Give the filing a name, for example GSTR-3B.";
-    if (!/^[A-Za-z]{2}$/.test(d.jurisdiction.trim())) {
-      out.jurisdiction = "Give the country as its two-letter code, for example IN for India.";
+    if (d.jurisdiction.trim() === "") {
+      out.jurisdiction = "Choose the country.";
     }
     if (d.rulePack.trim() === "") {
       out.rulePack = `Give the rule pack a name. Your firm's own is ${firmRulePack()}.`;
@@ -515,11 +518,12 @@ export function RuleEditor({
               />
             </Field>
             <Field label="Country" error={shown.jurisdiction ?? null}>
-              <Input
+              {/* A picker (F24): it was a typed two-letter code. */}
+              <CountrySelect
                 value={draft.jurisdiction}
-                maxLength={2}
-                placeholder="e.g. IN"
-                onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
+                blankLabel="Choose a country"
+                required
+                onChange={(e) => { set("jurisdiction", e.target.value); }}
               />
             </Field>
             <Field label="Rule pack" error={shown.rulePack ?? null}>
@@ -588,7 +592,7 @@ export function RuleEditor({
           explanation rather than the API's 409. */}
       {shapeLocked && (
         <Notice tone="warn" eyebrow="The period shape is fixed now">
-          This rule has made {produced} filing{produced === 1 ? "" : "s"} on these periods. To
+          This rule has made {plural(produced, "filing")} on these periods. To
           change them, retire it and write a new one.
         </Notice>
       )}

@@ -37,6 +37,7 @@ import type { FeeGroup, LetterLine } from "@/lib/api/client";
 import { Button, Field, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { Card, CardTitle, Pill } from "@/components/tw";
 import { cleanAmount } from "@/lib/money";
+import { plural } from "@/lib/plural";
 
 /** The page's own `act`: run the call, show the API's refusal verbatim, and
  *  reload the letter on success — which it reports, so a form closes only
@@ -153,7 +154,7 @@ export function FeeGroups({
                 <Pill tone="warn">Covers no services yet</Pill>
               ) : (
                 <>
-                  Covers {covered.length} service{covered.length === 1 ? "" : "s"}:{" "}
+                  Covers {plural(covered.length, "service")}:{" "}
                   {covered
                     .map((l) =>
                       l.entity === null ? l.description : `${l.description} (${l.entity.displayName})`,

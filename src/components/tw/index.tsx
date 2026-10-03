@@ -274,7 +274,12 @@ export function Stat({
  * page body must never scroll sideways; the table does.
  */
 export function TableWrap({ children }: { children: ReactNode }): JSX.Element {
-  return <div className="w-full overflow-x-auto">{children}</div>;
+  // `relative` + layout containment, as `.tablewrap` has (components.css): an
+  // absolutely positioned descendant (a `.sr-only` label in a cell) otherwise
+  // takes the PAGE as its containing block, escapes this scroller's clip and
+  // widens the document. Measured at 390 (F20): /admin/brand 103px,
+  // /portal/documents 346px, a letter page 256px, all from one sr-only span.
+  return <div className="relative w-full overflow-x-auto [contain:layout_paint]">{children}</div>;
 }
 
 export function Table({ children }: { children: ReactNode }): JSX.Element {

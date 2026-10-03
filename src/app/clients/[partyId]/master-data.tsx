@@ -6,6 +6,7 @@ import { browserDay, longDay } from "@/lib/day";
 import { Button, ErrorNotice, Field, FieldRow, Input } from "@/components/ui";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
 
 /**
  * CORRECTING A CLIENT'S MASTER DATA (V2.5): the name, the company's facts and
@@ -243,7 +244,7 @@ export function CorrectEntity({
             <CountrySelect name="jurisdiction" defaultValue={current.jurisdiction} />
           </Field>
           <Field label="Kind of company">
-            <Input name="entityType" required defaultValue={current.entityType} placeholder="e.g. private_limited" />
+            <EntityKindSelect name="entityType" required defaultValue={current.entityType} />
           </Field>
         </FieldRow>
         <ErrorNotice error={error} />

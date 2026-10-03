@@ -64,6 +64,8 @@ export default function StructurePage() {
   const [routing, setRouting] = useState<RequestRouting>("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** The last change that held, said in a live region (CA#45). */
+  const [saved, setSaved] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
@@ -101,9 +103,15 @@ export default function StructurePage() {
 
   /** Every mutation funnels through here so one place owns the busy flag, the
    *  error message and the reload. */
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  async function act(
+    key: string,
+    call: () => Promise<{ error?: unknown }>,
+    /** Said once it held (CA#45): these choices saved with no sign. */
+    done?: string,
+  ): Promise<void> {
     setBusy(key);
     setError(null);
+    setSaved(null);
     const result = await call();
     if (result.error) {
       // Verbatim. The API's refusal is the whole explanation — "that list has
@@ -116,14 +124,18 @@ export default function StructurePage() {
     }
     await load();
     setBusy(null);
+    if (done !== undefined) setSaved(done);
   }
 
   function rename(axisId: string, name: string): void {
-    void act(axisId, () =>
-      api.PUT("/api/v1/tenancy/structure/axes/{axisId}", {
-        params: { path: { axisId } },
-        body: { name },
-      }),
+    void act(
+      axisId,
+      () =>
+        api.PUT("/api/v1/tenancy/structure/axes/{axisId}", {
+          params: { path: { axisId } },
+          body: { name },
+        }),
+      `Saved. It is now called ${name}.`,
     );
   }
 
@@ -146,14 +158,18 @@ export default function StructurePage() {
   }
 
   function chooseSplit(workSplitAxis: WorkSplitAxis): void {
-    void act("split", () =>
-      api.PUT("/api/v1/tenancy/structure/work-split", { body: { workSplitAxis } }),
+    void act(
+      "split",
+      () => api.PUT("/api/v1/tenancy/structure/work-split", { body: { workSplitAxis } }),
+      "Saved. Work will be split that way.",
     );
   }
 
   function chooseRouting(next: RequestRouting): void {
-    void act("routing", () =>
-      api.PUT("/api/v1/tenancy/client-request-routing", { body: { routing: next } }),
+    void act(
+      "routing",
+      () => api.PUT("/api/v1/tenancy/client-request-routing", { body: { routing: next } }),
+      "Saved. New client requests will go there.",
     );
   }
 
@@ -170,6 +186,10 @@ export default function StructurePage() {
           settings follow. */}
       <PageHeader title="Structure" />
       <ErrorNotice error={error} />
+      {/* A live region, so a choice made below says it held (CA#45). */}
+      <p className="text-md" role="status" aria-live="polite">
+        {saved}
+      </p>
 
       <AxisList
         axis="dept"

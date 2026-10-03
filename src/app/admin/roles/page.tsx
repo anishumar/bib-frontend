@@ -141,7 +141,6 @@ function PermissionChecklist({
           checked={held.includes(p.key)}
           onChange={(e) => { onToggle(p.key, e.target.checked); }}
           label={p.description}
-          note={p.key}
         />
       ))}
     </fieldset>
@@ -180,7 +179,7 @@ function RoleMatrix({
   };
 
   async function save(role: ConfigEntry): Promise<void> {
-    const label = readRoleBody(role.published?.body).label;
+    const { label, audience } = readRoleBody(role.published?.body);
     setBusy(role.entry.key);
     // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
     // APPEARS, so a second identical refusal has to be a second absent →
@@ -192,7 +191,16 @@ function RoleMatrix({
     // stays and the reason is shown.
     const draft = await api.POST("/api/v1/config/{kind}/{key}/versions", {
       params: { path: { kind: "role", key: role.entry.key } },
-      body: { body: { label, permissions: ticks(role) } },
+      // The AUDIENCE goes back too. Sending only label and permissions wrote a
+      // new version of a client role with no audience, which the API reads as
+      // STAFF: ticking one box on "Client contact" turned it into a staff role.
+      body: {
+        body: {
+          label,
+          permissions: ticks(role),
+          ...(audience === "CLIENT_PORTAL" ? { audience } : {}),
+        },
+      },
     });
     if (draft.error || !draft.data) {
       onError(apiError(draft.error).message);
@@ -237,13 +245,10 @@ function RoleMatrix({
         <tbody>
           {permissions.map((p) => (
             <tr key={p.key}>
+              {/* The plain sentence only (CA#39): the code under it
+                  ("party:read", "tenant:admin") meant nothing to a CA firm. */}
               <Td>
-                <span className="cell-text">
-                  {p.description}
-                  <Sub>
-                    <span className="mono">{p.key}</span>
-                  </Sub>
-                </span>
+                <span className="cell-text">{p.description}</span>
               </Td>
               {roles.map((role) => {
                 const label = readRoleBody(role.published?.body).label || role.entry.key;
@@ -255,7 +260,7 @@ function RoleMatrix({
                     <label className="check justify-center">
                       <input
                         type="checkbox"
-                        aria-label={`${p.key} for ${label}`}
+                        aria-label={`${p.description} (${label})`}
                         checked={ticks(role).includes(p.key)}
                         disabled={busy === role.entry.key}
                         onChange={(e) => {

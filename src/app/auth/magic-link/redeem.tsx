@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import { homeFor } from "@/lib/api/home";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { Button, Card } from "@/components/ui";
 import { Loading } from "@/components/states";
 
@@ -92,7 +93,7 @@ export function RedeemMagicLink() {
       <div>
         <div className="stack loose">
           <div>
-            <p className="eyebrow">10X Workspace</p>
+            <p className="eyebrow">{PRODUCT_NAME}</p>
             <h1>This link no longer works</h1>
           </div>
           <Card>
