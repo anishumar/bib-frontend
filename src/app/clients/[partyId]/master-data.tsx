@@ -8,6 +8,7 @@ import { countryName } from "@/lib/country";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * CORRECTING A CLIENT'S MASTER DATA (V2.5): the name, the company's facts and
@@ -76,9 +77,9 @@ export function EditDetails({
       <summary>Edit details</summary>
       <form
         className="stack"
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void save(form);
-        }}
+        })}
       >
         <FieldRow>
           <Field label="Name on screens and new documents">
@@ -236,9 +237,9 @@ export function CorrectEntity({
       <summary>Correct the country or kind</summary>
       <form
         className="stack"
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void save(form);
-        }}
+        })}
       >
         <FieldRow>
           <Field label="Country">

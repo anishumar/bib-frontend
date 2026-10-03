@@ -149,12 +149,19 @@ export function QuantityField({
       const q = data.get(name);
       if (value === undefined && q !== null) setTyped(String(q));
     };
+    // A form cleared after a save (F05's `keepTyped`) fires `reset` BEFORE
+    // the boxes go back, so the fee line reads them on the next tick.
+    const afterReset = (): void => {
+      setTimeout(read, 0);
+    };
     read();
     form.addEventListener("input", read);
     form.addEventListener("change", read);
+    form.addEventListener("reset", afterReset);
     return () => {
       form.removeEventListener("input", read);
       form.removeEventListener("change", read);
+      form.removeEventListener("reset", afterReset);
     };
   }, [name, value]);
 

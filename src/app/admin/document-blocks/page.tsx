@@ -39,6 +39,7 @@ import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The firm's STANDARD prose: the exclusions, the commercial notes, the team
@@ -929,9 +930,11 @@ function AddLine({
     <details className="disclosure" open={startOpen ? true : undefined}>
       <summary>{paragraph ? "Add a paragraph" : "Add a line"}</summary>
       <form
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           const jurisdiction = String(form.get("jurisdiction") ?? "");
-          void act(async () => {
+          // Cleared once it is saved (the disclosure stays open for the next
+          // one); a refusal keeps it as typed (F05).
+          return act(async () => {
             const result = await api.POST("/api/v1/document-blocks/standard", {
               body: {
                 kind,
@@ -948,7 +951,7 @@ function AddLine({
             });
             return result.error ? apiError(result.error).message : null;
           });
-        }}
+        })}
       >
         {/* NAMED, and no legend so nothing moves on screen: measured once,
             twelve controls answering to four names when three kinds drew

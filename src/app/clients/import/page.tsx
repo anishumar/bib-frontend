@@ -28,6 +28,7 @@ import {
   Th,
 } from "@/components/ui";
 import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Bringing a firm's existing book of clients in from a spreadsheet.
@@ -227,9 +228,9 @@ export default function ClientImportPage() {
         </CardHead>
         <form
           ref={formRef}
-          action={(form) => {
+          onSubmit={(event) => keepTyped(event, (form) => {
             void upload(form);
-          }}
+          })}
         >
           <div className="stack">
             <Field label="Clients" hint="Needs a “Client Name” column.">

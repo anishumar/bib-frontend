@@ -38,6 +38,7 @@ import { Loading } from "@/components/states";
 import { ChangePassword } from "@/components/account/change-password";
 import { Button, ErrorNotice, Field, Input, Meta, MetaItem, NotSet } from "@/components/ui";
 import { longInstantTime } from "@/lib/day";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 type Build = { readonly commit: string | null; readonly builtAt: string | null };
 
@@ -120,9 +121,9 @@ export default function AccountPage() {
             <summary>Change your name</summary>
             <form
               className="stack tight"
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 void rename(form);
-              }}
+              })}
             >
               <Field label="Your name" hint="Shown to everyone at every firm you belong to.">
                 <Input name="displayName" required defaultValue={me.displayName ?? ""} placeholder="e.g. Asha Verma" />

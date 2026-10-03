@@ -50,6 +50,7 @@ import { countryName } from "@/lib/country";
 import { entityKindLabel } from "@/lib/entity-kind";
 import { CountrySelect } from "@/components/country-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -220,7 +221,8 @@ export default function PartyPage() {
    * repo already runs on: a write with no read — or, here, with no writer — is
    * not a stored fact.
    */
-  async function registerEntity(form: FormData): Promise<void> {
+  /** True once registered: the form stays for another country and clears (F05). */
+  async function registerEntity(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
     const incorporatedOn = String(form.get("incorporatedOn") ?? "").trim();
@@ -237,9 +239,10 @@ export default function PartyPage() {
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     await load();
+    return true;
   }
 
   async function addIdentifier(form: FormData): Promise<void> {
@@ -292,11 +295,12 @@ export default function PartyPage() {
    * while `party_relationship.ended` sat in the ledger vocabulary with nothing
    * raising it, which is what this comment used to say instead.
    */
-  async function addRelationship(form: FormData): Promise<void> {
+  /** True once recorded: the form stays for the next one and clears (F05). */
+  async function addRelationship(form: FormData): Promise<boolean> {
     const other = String(form.get("otherParty") ?? "");
     // "parent_of:out" — the code and which end THIS party is standing at.
     const [type = "", end = ""] = String(form.get("relation") ?? "").split(":");
-    if (other === "" || type === "") return;
+    if (other === "" || type === "") return false;
     const validTo = String(form.get("relValidTo") ?? "").trim();
     setRelBusy(true);
     setError(null);
@@ -312,10 +316,11 @@ export default function PartyPage() {
     setRelBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     setRelOther("");
     await load();
+    return true;
   }
 
   /**
@@ -623,9 +628,7 @@ export default function PartyPage() {
               </summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void registerEntity(form);
-              }}
+              onSubmit={(event) => keepTyped(event, (form) => registerEntity(form))}
             >
               <FieldStack>
                 <FieldRow>
@@ -744,9 +747,9 @@ export default function PartyPage() {
               // Remounted after each add, so the phone box empties with the rest.
               key={profile.identifiers.length}
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 void addIdentifier(form);
-              }}
+              })}
             >
               <FieldStack>
                 <FieldRow>
@@ -916,7 +919,7 @@ export default function PartyPage() {
               {longDay(ending.relationship.validFrom)}.
             </p>
             <ErrorNotice error={endError} />
-            <form action={endRelationship}>
+            <form onSubmit={(event) => keepTyped(event, endRelationship)}>
               <FieldStack>
                 {/* A DATE BOX, NOT A BANNER — and `FieldRow` does not do it,
                     which was worth measuring rather than assuming.
@@ -967,9 +970,7 @@ export default function PartyPage() {
             </summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void addRelationship(form);
-              }}
+              onSubmit={(event) => keepTyped(event, (form) => addRelationship(form))}
             >
               {/* A NAMED GROUP WITH NO LEGEND, and it is not decoration.
                   Measured on this page with the form open: the account team's

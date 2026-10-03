@@ -24,6 +24,7 @@ import {
 import type { Member, TerritoryRule } from "@/lib/api/client";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Whose desk covers leads from a country.
@@ -77,7 +78,8 @@ export default function TerritoriesPage() {
     })();
   }, [load]);
 
-  async function set(form: FormData): Promise<void> {
+  /** True when it saved: the form stays on screen and clears for the next country (F05). */
+  async function set(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
     const note = String(form.get("note") ?? "");
@@ -91,10 +93,11 @@ export default function TerritoriesPage() {
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(false);
-      return;
+      return false;
     }
     await load();
     setBusy(false);
+    return true;
   }
 
   if (!loaded) return <Loading label="Loading territories" />;
@@ -161,9 +164,7 @@ export default function TerritoriesPage() {
           <p className="lede">One person per country. Setting it again moves new leads only.</p>
         </CardHead>
         <form
-          action={(form) => {
-            void set(form);
-          }}
+          onSubmit={(event) => keepTyped(event, (form) => set(form))}
         >
           <div className="stack">
             <FieldRow>

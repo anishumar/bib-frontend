@@ -52,6 +52,7 @@ import { RecordAcceptance, RecordedAcceptanceCard } from "@/components/record-ac
 import { reloadProposal, useProposal } from "./store";
 import { whatsAppMessage, whatsAppUrl } from "./words";
 import { formatPhone } from "@/lib/phone";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** What the last send or reissue handed back: the link (readable only now)
  *  and what happened to the email, if one was asked for. */
@@ -509,12 +510,14 @@ function EmailForm({
 }) {
   return (
     <form
-      action={(form) => {
-        void onSend({
+      onSubmit={(event) => keepTyped(event, (form) => {
+        // Cleared once it went (where the form is still on screen to send
+        // again); a refusal keeps the address and the note (F05).
+        return onSend({
           to: String(form.get("to") ?? "").trim(),
           note: String(form.get("note") ?? "").trim(),
         });
-      }}
+      })}
     >
       <FieldStack>
         <Field
@@ -561,11 +564,11 @@ function Decline({
       {declining ? (
         <div ref={panel} tabIndex={-1}>
           <form
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               void onDecline(String(form.get("declinedReason") ?? "").trim()).then((done) => {
                 if (done) setDeclining(false);
               });
-            }}
+            })}
           >
             <FieldStack>
               <Field label="Why did they say no?" hint="It cannot be added later.">

@@ -59,6 +59,7 @@ import {
 import { browserDay, longDay } from "@/lib/day";
 import { cleanAmount } from "@/lib/money";
 import { MissingMoney, Money, useSeesFees } from "@/components/fees";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -163,17 +164,19 @@ export default function InvoicePage() {
   /** Every write goes through here: run it, show the API's own words on
    *  failure, and re-read on success rather than patching local state — the
    *  totals and the balance are the database's answer, not this screen's. */
-  async function act(run: () => Promise<{ error?: unknown }>): Promise<void> {
+  /** True when the write went through: a form that stays on screen clears then (F05). */
+  async function act(run: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(true);
     setError(null);
     const result = await run();
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(false);
-      return;
+      return false;
     }
     await load();
     setBusy(false);
+    return true;
   }
 
   if (!loaded) return <Loading />;
@@ -541,11 +544,11 @@ export default function InvoicePage() {
         {draft && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const discount = cleanAmount(String(form.get("discountPercent") ?? ""));
               const tax = cleanAmount(String(form.get("taxPercent") ?? ""));
               const engagementId = String(form.get("engagementId") ?? "");
-              void act(async () => {
+              return act(async () => {
                 const result = await api.POST("/api/v1/invoices/{invoiceId}/lines", {
                   params: { path: { invoiceId } },
                   body: {
@@ -564,7 +567,7 @@ export default function InvoicePage() {
                 if (!result.error) setChosen(null);
                 return result;
               });
-            }}
+            })}
           >
             <FieldStack>
               {/* THE OTHER END OF THE CARRY-FORWARD. Walked: the letter's
@@ -795,14 +798,14 @@ export default function InvoicePage() {
               <summary>Record the e-invoice reference</summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void act(() =>
+              onSubmit={(event) => keepTyped(event, (form) => {
+                return act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/irn", {
                     params: { path: { invoiceId } },
                     body: { irn: String(form.get("irn")) },
                   }),
                 );
-              }}
+              })}
             >
               {/* The button was a CELL of the grid, held down with
                   `alignSelf: end` so it lined up with an input that has a hint
@@ -881,10 +884,10 @@ export default function InvoicePage() {
         {issued && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const reference = String(form.get("reference") ?? "");
               const note = String(form.get("note") ?? "");
-              void act(() =>
+              return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/payments", {
                   params: { path: { invoiceId } },
                   body: {
@@ -896,7 +899,7 @@ export default function InvoicePage() {
                   },
                 }),
               );
-            }}
+            })}
           >
             {/* A NAMED GROUP, no legend, so nothing moves on screen. This page
                 has two forms asking for an "Amount" — money coming in and money
@@ -993,9 +996,9 @@ export default function InvoicePage() {
             <summary>Issue a credit note</summary>
           <form
             style={{ marginTop: "var(--s-3)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const note = String(form.get("creditNote") ?? "");
-              void act(() =>
+              return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/credit-notes", {
                   params: { path: { invoiceId }, query: { asOf: browserDay() } },
                   body: {
@@ -1005,7 +1008,7 @@ export default function InvoicePage() {
                   },
                 }),
               );
-            }}
+            })}
           >
             <fieldset className="fieldset" aria-label="Issue a credit note">
               <FieldStack>

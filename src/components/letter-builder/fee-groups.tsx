@@ -38,6 +38,7 @@ import { Button, Field, Input, Select, Textarea, AmountInput } from "@/component
 import { Card, CardTitle, Pill } from "@/components/tw";
 import { cleanAmount } from "@/lib/money";
 import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** The page's own `act`: run the call, show the API's refusal verbatim, and
  *  reload the letter on success — which it reports, so a form closes only
@@ -293,11 +294,13 @@ function GroupForm({
   return (
     <form
       className="mt-4"
-      action={(form) => {
+      onSubmit={(event) => keepTyped(event, (form) => {
         const text = (name: string): string => String(form.get(name) ?? "").trim();
         const amount = cleanAmount(text("groupAmount"));
         const frequency = FREQUENCIES.find((f) => f === text("groupFrequency")) ?? "monthly";
-        void onSubmit({
+        // A new section's form stays open: it clears once the section is
+        // added (the caller resolves true), and a refusal keeps it (F05).
+        return onSubmit({
           title: text("groupTitle"),
           billingFrequency: frequency,
           ...(amount === "" ? {} : { amount }),
@@ -306,8 +309,8 @@ function GroupForm({
           intro: text("groupIntro"),
           deliverables: text("groupDeliverables"),
           clientObligations: text("groupClientObligations"),
-        });
-      }}
+        }).then((done) => done === true);
+      })}
     >
       <fieldset
         className="fieldset"
@@ -462,7 +465,7 @@ export function LineFee({
       {pricing && (
         <form
           className="mt-2"
-          action={(form) => {
+          onSubmit={(event) => keepTyped(event, (form) => {
             const unitAmount = cleanAmount(String(form.get("ownPrice") ?? ""));
             const pricingNote = String(form.get("ownNote") ?? "").trim();
             void act(`fee:${line.id}`, () =>
@@ -477,7 +480,7 @@ export function LineFee({
             ).then((ok) => {
               if (ok) setPricing(false);
             });
-          }}
+          })}
         >
           <fieldset className="fieldset" aria-label={`Price ${line.description} on its own`}>
             <div className="field-row">

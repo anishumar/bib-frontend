@@ -54,6 +54,7 @@ import type {
   StoredDocumentVersion,
   SubjectFile,
 } from "@/lib/api/client";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Who uploaded a file, in one line.
@@ -381,7 +382,7 @@ export function Documents({
 
       {canWrite && adding && (
         <div ref={addPanel} tabIndex={-1}>
-        <form ref={formRef} action={(fd) => void upload(fd)}>
+        <form ref={formRef} onSubmit={(event) => keepTyped(event, (fd) => upload(fd))}>
           <div className="stack">
             <FieldRow>
               <Field label="Title">

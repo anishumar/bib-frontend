@@ -45,6 +45,7 @@ import { CheckQueue } from "./checks";
 import { EscalationQueue, escalatedSubjects } from "./escalations";
 import { Workload } from "./workload";
 import { longDay } from "@/lib/day";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The board — what is owed, whose it is, and what is late (T3.1).
@@ -685,9 +686,9 @@ function NewTaskDialog({
     >
       <form
         id={formId}
-        action={(f) => {
+        onSubmit={(event) => keepTyped(event, (f) => {
           void submit(f);
-        }}
+        })}
       >
         <FieldStack>
           <ErrorNotice error={error} />

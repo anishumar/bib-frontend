@@ -50,6 +50,7 @@ import { MissingMoney } from "@/components/fees";
 import { ToRaiseTab } from "./to-raise";
 import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
  *  Your firm lands on it. Advances (0320): every advance and where it stands. */
@@ -527,9 +528,9 @@ function Invoices() {
       >
         <form
           id={raiseForm}
-          action={(form) => {
+          onSubmit={(event) => keepTyped(event, (form) => {
             void raise(form);
-          }}
+          })}
         >
           <FieldStack>
             <ErrorNotice error={error} />

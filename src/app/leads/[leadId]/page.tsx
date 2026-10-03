@@ -58,6 +58,7 @@ import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
 import { cleanAmount, previewAmount } from "@/lib/money";
 import { MissingMoney, useSeesFees } from "@/components/fees";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** "500000.00" as somebody would type it back: the API's two places are
  *  noise in an edit box when there are no paise. */
@@ -476,12 +477,12 @@ export default function LeadPage() {
 
             {closing !== null && (
               <form
-                action={(form) => {
+                onSubmit={(event) => keepTyped(event, (form) => {
                   move(
                     closing,
                     recordsLostReason(closing) ? String(form.get("lostReason") ?? "").trim() : undefined,
                   );
-                }}
+                })}
               >
                 {/* Its own group: two forms are open on this card once a close
                     begins, and "Stage" above and this box are different
@@ -539,9 +540,9 @@ export default function LeadPage() {
             className={canMove ? undefined : "card-foot"}
             style={canMove ? { marginTop: "var(--s-4)" } : undefined}
             key={`${lead.jurisdiction ?? ""}|${lead.estimatedValue?.amount ?? ""}`}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               saveDetails(form);
-            }}
+            })}
           >
             <FieldRow>
               <Field label="Country" hint="Changing it does not move it to another desk.">

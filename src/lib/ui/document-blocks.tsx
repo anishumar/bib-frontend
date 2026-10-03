@@ -75,6 +75,7 @@ import {
 } from "@/components/ui";
 import { Card, CardTitle } from "@/components/tw";
 import { cx } from "@/components/ui";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** Exactly one, mirroring the CHECK on `crm.document_block`. */
 export type BlockOwner = { proposalId: string } | { engagementLetterId: string };
@@ -171,7 +172,7 @@ export function DocumentBlocks({
                     <li key={b.id} className="list-none -ml-[18px]">
                       <div ref={editRef} tabIndex={-1}>
                         <form
-                          action={(form) => {
+                          onSubmit={(event) => keepTyped(event, (form) => {
                             void act(b.id, () =>
                               api.PATCH("/api/v1/document-blocks/{blockId}", {
                                 params: { path: { blockId: b.id } },
@@ -184,7 +185,7 @@ export function DocumentBlocks({
                             ).then((ok) => {
                               if (ok) setEditing(null);
                             });
-                          }}
+                          })}
                         >
                           {/* NAMED BY THE LINE'S OWN WORDS. Only one editor is
                               open at a time, so this is the only group on the
@@ -316,8 +317,8 @@ export function DocumentBlocks({
                 <summary className="text-md">{prose ? "Add a paragraph" : "Add a line"}</summary>
               <form
                 style={{ marginTop: "var(--s-3)" }}
-                action={(form) => {
-                  void act(`add:${kind}`, () =>
+                onSubmit={(event) => keepTyped(event, (form) => {
+                  return act(`add:${kind}`, () =>
                     api.POST("/api/v1/document-blocks", {
                       body: {
                         ...owner,
@@ -328,7 +329,7 @@ export function DocumentBlocks({
                       },
                     }),
                   );
-                }}
+                })}
               >
                 {/* ONE OF THESE PER KIND ON ONE CARD, so each is a named group
                     with no legend — the same fix `/admin/document-blocks`
