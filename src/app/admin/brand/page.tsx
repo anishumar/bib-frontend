@@ -50,6 +50,7 @@ import {
   Th,
 } from "@/components/tw";
 import { longInstant } from "@/lib/day";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 interface FirmEntity {
   readonly id: string;
@@ -562,13 +563,13 @@ function InvoiceNumbers({
               </Notice>
 
               <form
-                action={(form) => {
+                onSubmit={(event) => keepTyped(event, (form) => {
                   const next = String(form.get(`prefix-${entity.id}`) ?? "")
                     .trim()
                     .toUpperCase();
                   if (next === "" || next === current) return;
                   onSet(next);
-                }}
+                })}
               >
                 {/* NAMED BY THE COMPANY, with no legend. A firm with three
                     companies draws three of these forms on one page, each

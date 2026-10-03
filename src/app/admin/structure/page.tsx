@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The firm's own delivery structure — its Depts, its delivery teams, and how it
@@ -459,7 +460,8 @@ function AddAxis({
 }) {
   const [busy, setBusy] = useState(false);
 
-  async function add(form: FormData): Promise<void> {
+  /** True when it was added: the form stays open and clears for the next one (F05). */
+  async function add(form: FormData): Promise<boolean> {
     setBusy(true);
     // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
     // APPEARS, so a second identical refusal has to be a second absent →
@@ -480,9 +482,10 @@ function AddAxis({
     setBusy(false);
     if (result.error) {
       onError(apiError(result.error).message);
-      return;
+      return false;
     }
     onAdded();
+    return true;
   }
 
   return (
@@ -501,9 +504,7 @@ function AddAxis({
       </summary>
       <form
         style={{ marginTop: "var(--s-4)" }}
-        action={(form) => {
-          void add(form);
-        }}
+        onSubmit={(event) => keepTyped(event, (form) => add(form))}
       >
         {/* `.field-row` is a GRID. The three `flex:` declarations that used to
             sit on these columns — 1 1 160px, 2 1 220px, 0 1 100px — were read
