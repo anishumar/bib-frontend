@@ -193,6 +193,10 @@ export default function InvoicePage() {
   // CA#6 (0323): issuing, cancelling and crediting are `invoice:issue`, which
   // the roles that administer the firm hold by default.
   const mayIssue = permissions.includes("invoice:issue");
+  // B51 (never renumber): a draft numbered before 0322 whose number would now
+  // go out of order is refused at issue. The API says so on the read, in the
+  // refusal's own words, and the screen says it where Issue would be.
+  const issueBlocked = draft ? record.issueBlocked : null;
   // F10/F33/B27: a login that cannot see fees reads every amount as Hidden and
   // is not offered a write that sets one (lines, payments, credit notes): the
   // API refuses them to it.
@@ -232,7 +236,7 @@ export default function InvoicePage() {
           </span>
         }
         actions={
-          draft && mayIssue ? (
+          draft && mayIssue && issueBlocked === null ? (
             // Confirmed (V1.3): issuing locks the money on a numbered tax
             // document, and the only way back is to cancel it.
             <ConfirmAction
@@ -269,6 +273,12 @@ export default function InvoicePage() {
           ) : undefined
         }
       />
+
+      {issueBlocked !== null && (
+        <Notice tone="warn" eyebrow="This draft cannot be issued">
+          {issueBlocked.message}
+        </Notice>
+      )}
 
       <ErrorNotice error={error} />
 
