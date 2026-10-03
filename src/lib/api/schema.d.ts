@@ -16273,7 +16273,7 @@ export interface paths {
         put?: never;
         /**
          * Raise a draft invoice — it is numbered when it is issued
-         * @description A DRAFT, with no number (0322). The number comes from a gapless per-entity, per-financial-year series when the invoice is ISSUED, taken under a row lock inside the same transaction as the issue, so a draft cancelled before issue spends nothing. `seriesDate` chooses which financial year's series it will be numbered in.
+         * @description A DRAFT, with no number (0322). The number comes from a gapless per-entity, per-financial-year series when the invoice is ISSUED, taken under a row lock inside the same transaction as the issue, so a draft cancelled before issue spends nothing, and in the series of the year the issue date falls in (the firm's financial year, else 1 April).
          */
         post: {
             parameters: {
@@ -16571,7 +16571,7 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue. A draft whose due date is before the issue date is refused (DUE_BEFORE_ISSUE, 409: change it with PUT /due-date); one with no due date takes the firm's payment terms when it has set them (0327), else stays without one.
          */
         post: {
             parameters: {
@@ -16631,7 +16631,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not a draft, or it has no lines */
+                /** @description Not a draft, it has no lines, or its due date is before today's issue date */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -16798,6 +16798,98 @@ export interface paths {
                     };
                 };
                 /** @description The invoice is no longer a draft, or the person is not active staff here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/due-date": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set, change or clear a draft's due date
+         * @description Drafts only (INVOICE_NOT_EDITABLE, 409, once issued: the due date is what was sent). Today or later (DUE_DATE_IN_THE_PAST, 400); null clears it. A draft whose due date has passed by the time it is issued is refused at issue (DUE_BEFORE_ISSUE), so this is how it is fixed. Writes `invoice.due_date_set` when it changes (audit 2026-10-03, B20/B21).
+         */
+        put: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetInvoiceDueDateRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not a day, or a day already past */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -17211,7 +17303,7 @@ export interface paths {
         put?: never;
         /**
          * Take money off an invoice, with a reason
-         * @description Its own document with its own gapless series. The reason is mandatory and closed — without it revenue leakage is invisible, because the numbers always reconcile and why does not. A firm cannot credit more than it billed.
+         * @description Its own document with its own gapless series. The reason is mandatory and closed — without it revenue leakage is invisible, because the numbers always reconcile and why does not. A firm cannot credit more than it billed. `issuedOn` (default today) must be on or after the invoice's issue date and not after today (CREDIT_NOTE_DATE_OUT_OF_RANGE, 400); it is numbered in the series of its own date's year.
          */
         post: {
             parameters: {
@@ -17600,7 +17692,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not awaiting approval, or already decided */
+                /** @description Not awaiting approval, already decided, or (approving) the invoice was cancelled or is paid in full since the step fired (DUNNING_NOTHING_OWED): reject it instead */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -17767,7 +17859,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["BillingSchedule"];
+                        "application/json": components["schemas"]["BillingScheduleSet"];
                     };
                 };
                 /** @description Not a real date, or only one of the two given */
@@ -22980,6 +23072,8 @@ export interface components {
             };
             issuedOn: string;
             totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
+            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database. No one-off or custom fee is in it. Null when nothing priced recurs, or for a caller without the fee axis. */
+            annualValue: string | null;
             document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
@@ -24038,7 +24132,7 @@ export interface components {
             entityPartyId: string;
             /** @description `INV/2026-27/0001`. Drawn from a gapless per-entity series when the invoice is ISSUED (0322) and frozen by a trigger from then: an invoice number is never edited. NULL on a draft (show it as a draft), and on a draft cancelled before it was issued. Drafts made before 0322 keep the number they drew. A wrong issued invoice is cancelled and a new one issued, and both stay readable. */
             number: string | null;
-            /** @description The financial year whose series the number is (or will be) drawn from, chosen at the draft. */
+            /** @description The financial year whose series the number was drawn from. On a draft it is provisional: issuing takes the year of the issue date, in the firm's own financial year (B03). */
             financialYear: number;
             sequenceNumber: number | null;
             /** @enum {string} */
@@ -24064,11 +24158,13 @@ export interface components {
             /** Format: uuid */
             entityPartyId: string;
             currency: string;
-            fxRate: string;
-            fxRateDate: string;
+            /** @description How many of the firm's reporting currency one unit of `currency` was worth. REQUIRED when `currency` is not the firm's reporting currency (FX_RATE_REQUIRED, 400; it used to default to 1, B07); in the reporting currency leave it out (it is 1; anything else is FX_RATE_NOT_ONE). */
+            fxRate?: string;
+            /** @description The day the rate is from. Defaults to today. */
+            fxRateDate?: string;
             dueOn?: string;
             notes?: string;
-            /** @description Which financial year's series this belongs to. Defaults to today; a firm raising an invoice on 2 April for March's work sets it deliberately. */
+            /** @description The draft's provisional financial year (defaults to today). It does not decide the number: an invoice is numbered in the series of the year it is ISSUED in (B03). */
             seriesDate?: string;
             /**
              * Format: uuid
@@ -24142,6 +24238,15 @@ export interface components {
                 id: string;
                 ref: string;
             }[];
+            /** @description The tax rate a line added by hand starts at (CA#5), by the automatic advance's rule: the rate last invoiced on that engagement, else the issuing company's default tax rate (Your firm), else none. A tax rate is a statutory fact, not a price: never redacted. */
+            taxSuggestions: {
+                companyDefault: string | null;
+                byEngagement: {
+                    /** Format: uuid */
+                    engagementId: string;
+                    taxPercent: string;
+                }[];
+            };
         };
         AddInvoiceLineRequest: {
             /** Format: uuid */
@@ -24155,6 +24260,9 @@ export interface components {
         SetInvoiceManagerRequest: {
             /** Format: uuid */
             managerUserId: string | null;
+        };
+        SetInvoiceDueDateRequest: {
+            dueOn: string | null;
         };
         InvoiceSeries: {
             /** Format: uuid */
@@ -24264,6 +24372,11 @@ export interface components {
             outstanding: string | null;
             currency: string;
             dueOn: string | null;
+            /**
+             * @description The invoice as it stands now. A step on an invoice cancelled since (outstanding 0) can only be rejected (DUNNING_NOTHING_OWED, 409, on approve).
+             * @enum {string}
+             */
+            invoiceStatus: "draft" | "issued" | "cancelled";
         };
         BillingPerson: {
             /** Format: uuid */
@@ -24399,6 +24512,10 @@ export interface components {
                 firstInvoiceOn: string;
                 periodLabel: string;
             } | null;
+        };
+        BillingScheduleSet: components["schemas"]["BillingSchedule"] & {
+            /** @description Plain words to show the person who set it, or null: e.g. that "Bill from" is before the work started, so nothing before the start is billed (a period is billed only for the days the work ran). */
+            notice: string | null;
         };
         SetBillingSchedule: {
             billingFrom: string | null;
@@ -24608,11 +24725,15 @@ export interface components {
             advancePolicy: components["schemas"]["AdvancePolicy"];
             /** @description Each company's default tax rate. A company with none gets no automatic advance draft. */
             taxDefaults: components["schemas"]["TaxDefault"][];
+            /** @description The firm's own payment terms (0327): an invoice issued with no due date is due this many days after its date. Null (the default) means none: no due date unless a person types one. */
+            invoiceDueDays: number | null;
         };
         SetBillingSettings: {
             autoBilling?: boolean;
             advancePolicy?: components["schemas"]["AdvancePolicy"];
             taxDefaults?: components["schemas"]["TaxDefault"][];
+            /** @description Payment terms in days (0 = due on receipt); null clears them. */
+            invoiceDueDays?: number | null;
         };
         /** @description Who uploaded it. NULL means the system generated it, or the person's account has been erased. The email is what distinguishes those from a person whose display name is simply unset — the same arrangement the audit trail's actor uses. */
         DocumentUploader: {

@@ -40,6 +40,8 @@ import {
   type PillTone,
   AmountInput,
 } from "@/components/ui";
+import { totalWords } from "@/components/proposal-document";
+import { QuantityField } from "@/components/quantity-field";
 import { Loading } from "@/components/states";
 import { longDay } from "@/lib/day";
 import { Page, PageHeader, useSession } from "@/components/layout";
@@ -211,6 +213,13 @@ export default function ProposalPage() {
     const entry = services.find((e) => e.published?.id === picked) ?? services[0];
     return entry === undefined ? null : readServiceBody(entry.published?.body);
   })();
+  // How often the picked service is billed, as the catalogue says: the label
+  // and the live fee of the quantity box follow it (F03).
+  const pickedRecurrence = (() => {
+    const entry = services.find((e) => e.published?.id === picked) ?? services[0];
+    const raw = entry?.published?.body?.["recurrence"];
+    return typeof raw === "string" ? raw : null;
+  })();
   // COPY AS NEW DRAFT (0316): offered when the API says it would work, which
   // is a declined or expired proposal. The new draft is where the page goes.
   const canCopy = canWrite && record.copyRefusal === null;
@@ -370,6 +379,7 @@ export default function ProposalPage() {
         services={services}
         picked={picked}
         pickedService={pickedService}
+        pickedRecurrence={pickedRecurrence}
         onPick={setPicked}
         onAdd={addLine}
         onRemove={(lineId) => {
@@ -452,6 +462,7 @@ function ServicesAndPrices({
   services,
   picked,
   pickedService,
+  pickedRecurrence,
   onPick,
   onAdd,
   onRemove,
@@ -464,6 +475,8 @@ function ServicesAndPrices({
   services: readonly ConfigEntry[];
   picked: string;
   pickedService: ReturnType<typeof readServiceBody> | null;
+  /** How often the picked service is billed (the quantity box's label). */
+  pickedRecurrence: string | null;
   onPick: (versionId: string) => void;
   onAdd: (form: FormData) => void;
   onRemove: (lineId: string) => void;
@@ -484,7 +497,7 @@ function ServicesAndPrices({
               <thead>
                 <tr>
                   <Th>Line</Th>
-                  <Th align="right">Qty</Th>
+                  <Th align="right">How many</Th>
                   <Th align="right">List price</Th>
                   <Th align="right">Quoted</Th>
                   <Th align="right">Discount</Th>
@@ -559,12 +572,24 @@ function ServicesAndPrices({
             </Table>
           </TableWrap>
 
+          {/* PER FREQUENCY, AND A YEAR OF IT (CA#42). "Gross" added a monthly
+              fee to a quarterly and a yearly one: a number nobody is billed.
+              The fees per frequency are the database's sums, and the year is
+              its annual value (monthly x 12, quarterly x 4, yearly), the
+              answer to "what is this client worth a year?". */}
           <div style={{ textAlign: "right" }}>
-            <div className="muted text-md">
-              Gross <Money amount={totals.gross} currency={totals.currency} /> · discount{" "}
-              <Money amount={totals.discount} currency={totals.currency} />
+            <div className="num text-lg strong">
+              {(() => {
+                const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
+                if (withheld) return <span className="text-muted">Fees not shown to you</span>;
+                return sentence ?? <span className="text-muted">No fixed fee yet</span>;
+              })()}
             </div>
-            <div className="num text-lg strong"><Money amount={totals.net} currency={totals.currency} /></div>
+            {record.annualValue !== null && (
+              <div className="muted text-md">
+                <Money amount={record.annualValue} currency={totals.currency} /> a year from the fees that repeat
+              </div>
+            )}
           </div>
 
           {isDraft && (
@@ -605,9 +630,8 @@ function ServicesAndPrices({
                   </Field>
                 </FieldRow>
                 <FieldRow>
-                  <Field label="Quantity">
-                    <AmountInput decimals={4} name="quantity" defaultValue="1" required />
-                  </Field>
+                  {/* HOW MANY EACH PERIOD (F03): never a term in months. */}
+                  <QuantityField frequency={pickedRecurrence} currency={proposal.currency} />
                   <Field label={`Unit price (${proposal.currency})`}>
                     {/* THE LIST PRICE ONLY WHEN IT IS IN THIS DOCUMENT'S OWN
                         CURRENCY: a number beside the wrong currency is worse

@@ -9,6 +9,7 @@ import { cleanAmount } from "@/lib/money";
 import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
 import { FREQUENCIES } from "./data";
 import { useSeesFees } from "@/components/fees";
+import { QuantityField } from "@/components/quantity-field";
 import type { CatalogueService, Recurrence } from "./data";
 
 /** The four scope blocks, as the catalogue screen names them. */
@@ -346,12 +347,15 @@ function PriceLabel({
     if (blind) return <span className="not-set">Hidden</span>;
     if (line.unitAmount === null) return <span className="text-muted">No fixed fee</span>;
     const per = line.billingFrequency === null ? "" : ` ${FREQUENCY_WORDS[line.billingFrequency]}`;
-    const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : ` × ${formatCount(line.quantity)}`;
+    // HOW MANY, BEFORE THE PRICE (F03): "12 x INR 25,000 Monthly" reads as
+    // twelve each month, which is what it bills; "INR 25,000 Monthly x 12"
+    // read as a year of months.
+    const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : `${formatCount(line.quantity)} × `;
     return (
       <span className="tabular-nums">
+        {qty}
         {pdfMoney(line.unitAmount, line.currency)}
         {per}
-        {qty}
       </span>
     );
   }
@@ -529,14 +533,15 @@ function Details({
                 ))}
               </Select>
             </Field>
-            <Field label="Quantity">
-              <AmountInput decimals={4}
-                value={quantity}
-                onChange={(e) => {
-                  setQuantity(e.target.value);
-                }}
-              />
-            </Field>
+            {/* HOW MANY EACH PERIOD (F03): never a term in months. */}
+            <QuantityField
+              frequency={frequency === "" ? service.recurrence : frequency}
+              currency={currency}
+              unitAmount={fee}
+              discountPercent={discount}
+              value={quantity}
+              onChange={setQuantity}
+            />
             <Field label="Discount %">
               <AmountInput decimals={4}
                 value={discount}

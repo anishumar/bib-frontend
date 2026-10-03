@@ -1,5 +1,6 @@
 "use client";
 
+import { QuantityField } from "@/components/quantity-field";
 import { BillingTimingControl } from "@/components/billing-timing";
 import { AdvanceStatus } from "@/components/advance-status";
 import { LineAdvanceControl } from "@/components/line-advance";
@@ -19,6 +20,7 @@ import {
   formatCount,
   formatMoney,
   lawFits,
+  perPeriod,
   readClauseBody,
   readServiceBody,
 } from "@/lib/api/client";
@@ -255,6 +257,13 @@ export default function LetterPage() {
   const pickedService = (() => {
     const entry = services.find((e) => e.published?.id === picked) ?? services[0];
     return entry === undefined ? null : readServiceBody(entry.published?.body);
+  })();
+  // How often the picked service is billed, as the catalogue says: the label
+  // and the live fee of the quantity box follow it (F03).
+  const pickedRecurrence = (() => {
+    const entry = services.find((e) => e.published?.id === picked) ?? services[0];
+    const raw = entry?.published?.body?.["recurrence"];
+    return typeof raw === "string" ? raw : null;
   })();
   // A draft deleted as a mistake (0086) is still a draft by status, and FINAL:
   // nothing on this page may be offered for it, so it is not a draft here.
@@ -670,9 +679,13 @@ export default function LetterPage() {
               <Th>Line</Th>
               <Th>Begins</Th>
               <Th>Billed</Th>
-              <Th align="right">Qty</Th>
+              {/* HOW MANY EACH PERIOD, the price for one, what comes off it, and
+                  the fee for one period (F03, F17): "12 · INR 25,000 · INR
+                  2,70,000" read as an arithmetic error with the 10% hidden. */}
+              <Th align="right">How many</Th>
               <Th align="right">Rate</Th>
-              <Th align="right">Net</Th>
+              <Th align="right">Discount</Th>
+              <Th align="right">Fee</Th>
               {/* A SERVICE'S OWN ADVANCE (0320). Not on a letter with one
                   advance for the whole of it: never both. */}
               {!letter.advanceRequired && <Th align="right">Advance</Th>}
@@ -768,7 +781,7 @@ export default function LetterPage() {
                   {l.feeGroupId !== null ? (
                     // PRICED BY ITS SECTION (0083): no figure of its own to
                     // show, and a blank would read as free.
-                    <Td align="right" colSpan={2} className="text-sm text-muted">
+                    <Td align="right" colSpan={3} className="text-sm text-muted">
                       in {groupOf(l.feeGroupId)?.code ?? "a section"}
                       {(() => {
                         const g = groupOf(l.feeGroupId);
@@ -781,7 +794,17 @@ export default function LetterPage() {
                         <Money amount={l.unitAmount} currency={l.currency} />
                       </Td>
                       <Td align="right" className="nowrap">
+                        {l.discountPercent === null || /^0*(\.0+)?$/.test(l.discountPercent) ? (
+                          <span className="text-muted">None</span>
+                        ) : (
+                          `${formatCount(l.discountPercent)}%`
+                        )}
+                      </Td>
+                      <Td align="right" className="nowrap">
                         <Money amount={l.net} currency={l.currency} />
+                        {l.net !== null && l.billingFrequency !== null && perPeriod(l.billingFrequency) !== "" && (
+                          <div className="text-sm text-muted">{perPeriod(l.billingFrequency).trim()}</div>
+                        )}
                       </Td>
                     </>
                   )}
@@ -1202,9 +1225,8 @@ export default function LetterPage() {
               </div>
             )}
             <div className="field-row mb-4">
-              <Field label="Quantity">
-                <AmountInput decimals={4} name="quantity" defaultValue="1" required />
-              </Field>
+              {/* HOW MANY EACH PERIOD (F03): never a term in months. */}
+              <QuantityField frequency={pickedRecurrence} currency={letter.currency} />
               {addFee === "" && (
               <Field label={`Agreed price (${letter.currency})`}>
                 {/* THE LIST PRICE ONLY IN THIS LETTER'S OWN CURRENCY. A

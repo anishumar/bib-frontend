@@ -114,6 +114,7 @@ export function EngagementsPanel({
                           feeGroupTitle: e.feeGroup?.title ?? null,
                           billingFrom: e.billingFrom,
                           firstInvoiceOn: e.firstInvoiceOn,
+                          workStartedOn: e.effectiveFrom,
                         });
                       }}
                     />
@@ -146,7 +147,7 @@ export function EngagementsPanel({
             setSaid(
               set.firstInvoiceOn === null
                 ? `Billing for ${name} is off.`
-                : `${name} is billed from now on. First invoice ${longDay(set.firstInvoiceOn)}.`,
+                : `${name} is billed from now on. First invoice ${longDay(set.firstInvoiceOn)}.${set.notice === null ? "" : ` ${set.notice}`}`,
             );
           })();
         }}

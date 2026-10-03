@@ -105,13 +105,15 @@ export default function InvoicePage() {
   /** The engagement the new line is being billed from, or null for a one-off —
    *  a certificate, a recharge, something that never had a contract. */
   const [chosen, setChosen] = useState<BillableEngagement | null>(null);
+  /** The firm's reporting currency: a rate is shown only for another (F23). */
+  const [reportingCurrency, setReportingCurrency] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     const path = { params: { path: { invoiceId } } };
-    const [one, bal, paid, credited, dunning, me, staff] = await Promise.all([
+    const [one, bal, paid, credited, dunning, me, staff, firm] = await Promise.all([
       api.GET("/api/v1/invoices/{invoiceId}", path),
       api.GET("/api/v1/invoices/{invoiceId}/balance", path),
       api.GET("/api/v1/invoices/{invoiceId}/payments", path),
@@ -119,6 +121,7 @@ export default function InvoicePage() {
       api.GET("/api/v1/invoices/{invoiceId}/dunning", path),
       api.GET("/api/v1/auth/me", {}),
       api.GET("/api/v1/tenancy/colleagues", {}),
+      api.GET("/api/v1/firm-entities", {}),
     ]);
     if (one.response.status === 401) {
       router.push("/login");
@@ -136,6 +139,7 @@ export default function InvoicePage() {
     if (dunning.data) setChased(dunning.data.actions);
     if (me.data) setPermissions(me.data.permissions);
     setColleagues(staff.data ? [...staff.data.colleagues] : []);
+    setReportingCurrency(firm.data?.reportingCurrency ?? null);
 
     // A SECOND ROUND TRIP, and it needs the invoice first: the engagements
     // belong to the CLIENT, whose id is on the record that has only just
@@ -195,6 +199,8 @@ export default function InvoicePage() {
   const mayWriteMoney = permissions.includes("party:write") && seesFees === true;
   const money = (amount: string | null, currency: string) =>
     amount === null ? <MissingMoney seesFees={seesFees} /> : formatMoney(amount, currency);
+  // Money received against it, net of refunds (B05: then it is not cancelled).
+  const hasPayments = balance?.paid !== undefined && balance.paid !== null && !/^-?0*(\.0+)?$/.test(balance.paid);
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
   // is yesterday in India until 05:30 every morning — so something due
   // yesterday would not read as overdue for those five and a half hours.
@@ -238,6 +244,12 @@ export default function InvoicePage() {
                   {invoice.number === null
                     ? `It gets the next number in ${record.entity.displayName}'s series and becomes a tax invoice dated ${longDay(browserDay())}.`
                     : `${invoice.number} becomes a tax invoice dated ${longDay(browserDay())}.`}{" "}
+                  {invoice.dueOn !== null && invoice.dueOn < browserDay() && (
+                    <>
+                      Its due date, {longDay(invoice.dueOn)}, has already passed: change it below
+                      first, or it will not be issued.{" "}
+                    </>
+                  )}
                   Its lines and amounts are then locked, and its PDF is filed and shown to the
                   client. To correct it later, you cancel it and raise a new invoice.
                 </p>
@@ -272,23 +284,62 @@ export default function InvoicePage() {
             {invoice.issuedOn === null ? <NotSet>Not yet</NotSet> : longDay(invoice.issuedOn)}
           </MetaItem>
           <MetaItem label="Due">
-            {invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(invoice.dueOn)}
+            {/* A DRAFT'S DUE DATE CHANGES HERE (B20): bills raised from the
+                desk carried none, and nothing could give them one, so client
+                reminders never chased them. Saved when the box is left; today
+                or later. An issued invoice's due date is what was sent. */}
+            {draft && permissions.includes("party:write") ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <Input
+                  key={invoice.dueOn ?? "none"}
+                  type="date"
+                  size="sm"
+                  variant="quiet"
+                  aria-label="Due date"
+                  min={today}
+                  defaultValue={invoice.dueOn ?? ""}
+                  disabled={busy}
+                  onBlur={(e) => {
+                    const next = e.target.value;
+                    if (next === (invoice.dueOn ?? "")) return;
+                    void act(() =>
+                      api.PUT("/api/v1/invoices/{invoiceId}/due-date", {
+                        params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                        body: { dueOn: next === "" ? null : next },
+                      }),
+                    );
+                  }}
+                />
+                {invoice.dueOn === null && <span className="text-sm text-muted">No date: no reminders</span>}
+              </span>
+            ) : invoice.dueOn === null ? (
+              <NotSet>No date</NotSet>
+            ) : (
+              longDay(invoice.dueOn)
+            )}
           </MetaItem>
           <MetaItem label="Series">
-            FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")},
-            number {invoice.sequenceNumber}
+            {invoice.number === null ? (
+              /* A draft is numbered when it is issued, in the year of that
+                 day (B03): the year on a draft is not the one it will carry. */
+              <NotSet>Numbered when issued</NotSet>
+            ) : (
+              <>
+                FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")}, number{" "}
+                {invoice.sequenceNumber}
+              </>
+            )}
           </MetaItem>
-          <MetaItem label="Rate">
-            <span className="num">
-              {invoice.fxRate === null ? (
-                <NotSet>Hidden</NotSet>
-              ) : (
-                <>
-                  {formatCount(invoice.fxRate)} on {longDay(invoice.fxRateDate)}
-                </>
-              )}
-            </span>
-          </MetaItem>
+          {/* ONLY FOR ANOTHER CURRENCY (F23): "Rate 1 on 25 Sep 2026" on a
+              rupee invoice of a rupee firm said nothing anybody needed. */}
+          {reportingCurrency !== null && invoice.currency !== reportingCurrency && (
+            <MetaItem label={`${reportingCurrency} for one ${invoice.currency}`}>
+              <span className="num">
+                {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
+                {longDay(invoice.fxRateDate)}
+              </span>
+            </MetaItem>
+          )}
           {/* WHOSE REVENUE THIS IS (0318): the manager it was raised under,
               frozen once issued. A hand-raised invoice may name nobody. On a
               DRAFT it changes here, saved as it changes (T4): the number is
@@ -603,7 +654,7 @@ export default function InvoicePage() {
                 {/* The letter's figures as a person writes them: the API sends
                     the column's scale ("1.0000", "25000.0000"), and
                     `formatCount` trims it on the string, never via a number. */}
-                <Field label="Qty">
+                <Field label="How many">
                   <AmountInput decimals={4}
                     key={`q-${chosen?.engagementId ?? "none"}`}
                     name="quantity"
@@ -627,8 +678,20 @@ export default function InvoicePage() {
                     defaultValue={chosen === null ? "0" : formatCount(chosen.discountPercent)}
                   />
                 </Field>
-                <Field label="Tax %">
-                  <AmountInput decimals={4} name="taxPercent" defaultValue="0" />
+                {/* THE RATE IT STARTS AT (CA#5): the rate last invoiced on the
+                    chosen work, else the company's default (Your firm). It
+                    started at 0 whatever the firm had saved, and a hurried
+                    person issued a tax invoice with no tax. With neither, the
+                    box is empty and must be filled: never a guessed 0. */}
+                <Field label="Tax %" hint={taxHint(record, chosen)}>
+                  <AmountInput
+                    decimals={4}
+                    key={`t-${chosen?.engagementId ?? "none"}`}
+                    name="taxPercent"
+                    defaultValue={suggestedTax(record, chosen) ?? ""}
+                    required
+                    placeholder="e.g. 18"
+                  />
                 </Field>
               </FieldRow>
               <div className="cluster">
@@ -644,6 +707,15 @@ export default function InvoicePage() {
       {/* ── Issue, cancel, register ────────────────────────────────────── */}
       <Card>
         <CardTitle level={2}>The document</CardTitle>
+        {/* MONEY ON IT, NO CANCELLING (B05): the API refuses it, so it is not
+            offered, and the way to take money off is said instead. */}
+        {issued && mayIssue && hasPayments && (
+          <p className="max-w-[var(--measure)] text-sm text-muted">
+            Payments are recorded against this invoice, so it cannot be cancelled. To take money off
+            what the client owes, issue a credit note. If a payment was recorded by mistake, record a
+            refund of the same amount first.
+          </p>
+        )}
         {!mayIssue && (draft || issued) && (
           /* Both use up a number in the series. */
           <p className="max-w-[var(--measure)] text-sm text-muted">
@@ -653,7 +725,7 @@ export default function InvoicePage() {
         {/* Issue moved to the page header (Wave 4); Cancel stays here, away
             from it. */}
         <div className="cluster">
-          {(draft || issued) && mayIssue && (
+          {(draft || (issued && !hasPayments)) && mayIssue && (
             /* SAYS WHICH CANCEL, because the other one on this screen is
                nothing like it. Open the Documents dialog and there are two
                buttons reading "Cancel": that one closes an upload form, this
@@ -688,7 +760,9 @@ export default function InvoicePage() {
         </div>
         {invoice.status === "cancelled" && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Cancelled. It keeps its number; raise a new invoice to replace it.
+            {invoice.number === null
+              ? "Cancelled before it was issued. It never took a number, and the client never saw it."
+              : "Cancelled. It keeps its number; raise a new invoice to replace it."}
           </p>
         )}
 
@@ -1026,4 +1100,23 @@ export default function InvoicePage() {
       />
     </Page>
   );
+}
+
+/** The tax rate a line typed by hand starts at (CA#5): the one last invoiced
+ *  on the chosen work, else the issuing company's default, else none. */
+function suggestedTax(record: InvoiceRecord, chosen: BillableEngagement | null): string | null {
+  const last =
+    chosen === null
+      ? undefined
+      : record.taxSuggestions.byEngagement.find((t) => t.engagementId === chosen.engagementId)?.taxPercent;
+  const rate = last ?? record.taxSuggestions.companyDefault;
+  return rate === null ? null : formatCount(rate);
+}
+
+function taxHint(record: InvoiceRecord, chosen: BillableEngagement | null): string {
+  if (chosen !== null && record.taxSuggestions.byEngagement.some((t) => t.engagementId === chosen.engagementId)) {
+    return "As last billed for this work.";
+  }
+  if (record.taxSuggestions.companyDefault !== null) return `${record.entity.displayName}'s default rate.`;
+  return "Type 0 if no tax applies.";
 }

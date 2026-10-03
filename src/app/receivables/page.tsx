@@ -183,6 +183,9 @@ export default function ReceivablesPage() {
                         figure would hide it. */}
                     <Td align="right" className="nowrap">
                       {formatMoney(p.outstanding, p.currency)}
+                      {/* WITHDRAWN SINCE THE STEP FIRED (B22): nothing is owed,
+                          and only Reject is offered. */}
+                      {p.invoiceStatus === "cancelled" && <Sub>Invoice cancelled since</Sub>}
                     </Td>
                     {mayDecide && (
                       <Td>
@@ -290,6 +293,9 @@ function DecideRow({
 }) {
   const [why, setWhy] = useState("");
   const step = codeLabel(item.action.action).toLowerCase();
+  // NOTHING OWED, NOTHING TO APPROVE (B22): a cancelled invoice, or one paid
+  // since the step fired. The API refuses the approval too.
+  const nothingOwed = item.invoiceStatus !== "issued" || /^-?0*(\.0+)?$/.test(item.outstanding ?? "x") || (item.outstanding ?? "").startsWith("-");
   return (
     <div className="cluster">
       <Input
@@ -302,6 +308,7 @@ function DecideRow({
           setWhy(e.target.value);
         }}
       />
+      {!nothingOwed && (
       <ConfirmAction
         size="sm"
         variant="destructive-quiet"
@@ -323,6 +330,7 @@ function DecideRow({
       >
         Approve
       </ConfirmAction>
+      )}
       <Button
         size="sm"
         variant="secondary"
