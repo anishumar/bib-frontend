@@ -126,8 +126,10 @@ export function LetterServicesStep({
           description: s.name,
           quantity: t.quantity,
           discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
-          ...(t.unitAmount === null ? {} : { unitAmount: t.unitAmount }),
-          ...(t.pricingNote === null ? {} : { pricingNote: t.pricingNote }),
+          // B09: a login that cannot see fees sends neither, and the API
+          // quotes the catalogue's list price.
+          ...(t.unitAmount === null || t.feesUnchanged === true ? {} : { unitAmount: t.unitAmount }),
+          ...(t.pricingNote === null || t.feesUnchanged === true ? {} : { pricingNote: t.pricingNote }),
           ...(t.billingFrequency === null ? {} : { billingFrequency: t.billingFrequency }),
           ...(country === "" ? {} : { jurisdiction: country }),
           ...(t.overrides.scope === null ? {} : { scopeOverride: t.overrides.scope }),
@@ -164,8 +166,9 @@ export function LetterServicesStep({
       clientObligationsOverride: t.overrides.clientObligations,
       volumeLimitsOverride: t.overrides.volumeLimits,
       exclusionsOverride: t.overrides.exclusions,
-      // A line a section pays for keeps no price of its own.
-      ...(grouped
+      // A line a section pays for keeps no price of its own, and a login that
+      // cannot see fees leaves the price as it is (B09).
+      ...(grouped || t.feesUnchanged === true
         ? {}
         : {
             unitAmount: t.unitAmount,

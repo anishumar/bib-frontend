@@ -3,6 +3,7 @@
 import type { ConfigVersion } from "@/lib/api/client";
 import { EmptyRow, NotSet, Pill, Table, TableWrap, Td, Th } from "@/components/ui";
 import { longInstant } from "@/lib/day";
+import { useSeesFees } from "@/components/fees";
 import { changesBetween, priceWords, readServiceRecord, type Namer } from "../service";
 
 /**
@@ -24,6 +25,8 @@ export function ServiceHistory({
   versions: readonly ConfigVersion[];
   names: Namer;
 }) {
+  // B09/F09: the price is null for a login that cannot see fees: Hidden.
+  const seesFees = useSeesFees();
   const live = versions.find((v) => v.status === "published") ?? null;
   // The draft waiting to be published: the newest, and newer than the live
   // version (see `rowOf`). Any other draft was overtaken.
@@ -74,7 +77,7 @@ export function ServiceHistory({
                         : longInstant(next.publishedAt)}
                 </Td>
                 <Td align="right" className="nowrap">
-                  {price ?? <NotSet>No list price</NotSet>}
+                  {seesFees === false ? <NotSet>Hidden</NotSet> : (price ?? <NotSet>No list price</NotSet>)}
                 </Td>
                 <Td>
                   <span className="cell-text">

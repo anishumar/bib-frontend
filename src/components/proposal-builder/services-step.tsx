@@ -94,8 +94,10 @@ export function ServicesStep({
       description: s.name,
       quantity: t.quantity,
       discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
-      ...(t.unitAmount === null ? {} : { unitAmount: t.unitAmount }),
-      ...(t.pricingNote === null ? {} : { pricingNote: t.pricingNote }),
+      // B09: a login that cannot see fees sends neither, and the API quotes
+      // the catalogue's list price.
+      ...(t.unitAmount === null || t.feesUnchanged === true ? {} : { unitAmount: t.unitAmount }),
+      ...(t.pricingNote === null || t.feesUnchanged === true ? {} : { pricingNote: t.pricingNote }),
       ...(t.billingFrequency === null ? {} : { billingFrequency: t.billingFrequency }),
       // Where the work is: the country being quoted from, for a service
       // offered everywhere as much as for one offered in one place.
@@ -143,10 +145,16 @@ export function ServicesStep({
         params: { path: { proposalId, lineId: line.id } },
         body: {
           quantity: t.quantity,
-          unitAmount: t.unitAmount,
-          discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
+          // B09: what a login that cannot see fees never saw, it does not send;
+          // left out, the line keeps its fee, discount and note.
+          ...(t.feesUnchanged === true
+            ? {}
+            : {
+                unitAmount: t.unitAmount,
+                discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
+                pricingNote: t.pricingNote,
+              }),
           billingFrequency: t.billingFrequency,
-          pricingNote: t.pricingNote,
           scopeOverride: t.overrides.scope,
           clientObligationsOverride: t.overrides.clientObligations,
           volumeLimitsOverride: t.overrides.volumeLimits,

@@ -104,11 +104,15 @@ export default function NewServicePage() {
     );
   }
   if (ctx === null || draft === null) return <Loading label="Loading the form" />;
-  if (session !== null && !session.permissions.includes("tenant:admin")) {
+  if (session !== null && (!session.permissions.includes("tenant:admin") || session.commercialVisibility !== true)) {
     return (
       <Page>
         <PageHeader eyebrow={<Link href="/catalogue">Catalogue</Link>} title="Add a service" />
-        <Notice>Only an administrator can add a service.</Notice>
+        <Notice>
+          {session.permissions.includes("tenant:admin")
+            ? "A service carries its price, so it is added by somebody who can see fees."
+            : "Only an administrator can add a service."}
+        </Notice>
       </Page>
     );
   }

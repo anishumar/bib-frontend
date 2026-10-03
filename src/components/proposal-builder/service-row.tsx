@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { cleanAmount } from "@/lib/money";
 import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
 import { FREQUENCIES } from "./data";
+import { useSeesFees } from "@/components/fees";
 import type { CatalogueService, Recurrence } from "./data";
 
 /** The four scope blocks, as the catalogue screen names them. */
@@ -52,6 +53,12 @@ export interface LineTerms {
   readonly billingFrequency: Recurrence | null;
   readonly pricingNote: string | null;
   readonly overrides: Overrides;
+  /**
+   * B09: written by a login that cannot see fees. Its fee, discount and
+   * pricing note were never shown and are not sent: on a new line the API
+   * quotes the catalogue's list price, on an existing one it keeps them.
+   */
+  readonly feesUnchanged?: boolean;
 }
 
 export const NO_OVERRIDES: Overrides = {
@@ -106,6 +113,10 @@ export function ServiceRow<L extends RowLine>({
   blocked?: string | null;
 }) {
   const detailsId = useId();
+  // B09: a login that cannot see fees reads every list price and every line's
+  // fee as null. Its row says Hidden, a tick asks the API to quote the list
+  // price, and its Details leave the fee alone.
+  const blind = useSeesFees() === false;
   const [open, setOpen] = useState(false);
   /** A tick waiting for its fee: "fee" asks for an amount, "agreed" for why
    *  there is none. */
@@ -135,6 +146,17 @@ export function ServiceRow<L extends RowLine>({
       return;
     }
     if (blocked !== null) return;
+    if (blind) {
+      // Neither a fee nor a reason: the API quotes the list price, or says
+      // there is none, and then the fee box opens as it would for anybody.
+      void onAdd({ ...standard, unitAmount: null, pricingNote: null, feesUnchanged: true }).then((ok) => {
+        if (!ok) {
+          setFee("");
+          setAsking("fee");
+        }
+      });
+      return;
+    }
     if (priced !== null) {
       void onAdd(standard);
       return;
@@ -171,7 +193,7 @@ export function ServiceRow<L extends RowLine>({
           <span className="min-w-0 flex-1 text-md text-ink">{service.name}</span>
         </label>
         <span className="ml-auto text-right text-md">
-          <PriceLabel service={service} line={line} currency={currency} />
+          <PriceLabel service={service} line={line} currency={currency} blind={blind} />
         </span>
         <Button
           type="button"
@@ -202,7 +224,9 @@ export function ServiceRow<L extends RowLine>({
             <Field
               label={`Fee in ${currency}`}
               hint={
-                service.listPrice === null
+                blind
+                  ? "No list price in this currency. Press Enter to add."
+                  : service.listPrice === null
                   ? `No list price in the catalogue. ${service.pricingNote ?? ""}`.trim()
                   : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}. Press Enter to add.`
               }
@@ -289,6 +313,7 @@ export function ServiceRow<L extends RowLine>({
             editable={editable}
             busy={busy}
             noun={noun}
+            blind={blind}
             initial={line === null ? standard : termsOf(line)}
             onSubmit={async (terms) => {
               const ok = line === null ? await onAdd(terms) : await onSave(line, terms);
@@ -306,15 +331,19 @@ function PriceLabel({
   service,
   line,
   currency,
+  blind,
 }: {
   service: CatalogueService;
   line: RowLine | null;
   currency: string;
+  /** The login cannot see fees: every figure here is one it may not read. */
+  blind: boolean;
 }) {
   if (line !== null) {
     if (line.inSection !== undefined && line.inSection !== null) {
       return <span className="text-muted">In section {line.inSection}</span>;
     }
+    if (blind) return <span className="not-set">Hidden</span>;
     if (line.unitAmount === null) return <span className="text-muted">No fixed fee</span>;
     const per = line.billingFrequency === null ? "" : ` ${FREQUENCY_WORDS[line.billingFrequency]}`;
     const qty = line.quantity === "1" || formatCount(line.quantity) === "1" ? "" : ` × ${formatCount(line.quantity)}`;
@@ -334,6 +363,7 @@ function PriceLabel({
       </span>
     );
   }
+  if (blind) return <span className="not-set">Hidden</span>;
   return <span className="text-muted">Set fee</span>;
 }
 
@@ -373,6 +403,7 @@ function Details({
   editable,
   busy,
   noun,
+  blind,
   initial,
   onSubmit,
 }: {
@@ -382,6 +413,8 @@ function Details({
   editable: boolean;
   busy: boolean;
   noun: "proposal" | "letter";
+  /** The login cannot see fees: no fee, discount or pricing note here. */
+  blind: boolean;
   initial: LineTerms;
   onSubmit: (terms: LineTerms) => Promise<void>;
 }) {
@@ -412,6 +445,7 @@ function Details({
           billingFrequency: frequency === "" ? null : frequency,
           pricingNote: note.trim() === "" ? null : note.trim(),
           overrides,
+          ...(blind ? { feesUnchanged: true } : {}),
         });
       }}
     >
@@ -424,7 +458,39 @@ function Details({
           {section !== null && (
             <p className="text-sm text-muted">Paid by section {section}. Move it out of the section on the letter page.</p>
           )}
-          {section === null && (
+          {section === null && blind && (
+          <FieldRow>
+            <Field label="How often">
+              <Select
+                value={frequency}
+                onChange={(e) => {
+                  const f = FREQUENCIES.find((x) => x === e.target.value);
+                  setFrequency(f ?? "");
+                }}
+              >
+                <option value="">
+                  {service.recurrence === null
+                    ? "Not set"
+                    : `As the catalogue says (${FREQUENCY_WORDS[service.recurrence]})`}
+                </option>
+                {FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>
+                    {FREQUENCY_WORDS[f]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Quantity">
+              <AmountInput decimals={4}
+                value={quantity}
+                onChange={(e) => {
+                  setQuantity(e.target.value);
+                }}
+              />
+            </Field>
+          </FieldRow>
+          )}
+          {section === null && !blind && (
           <FieldRow>
             <Field
               label={`Fee (${currency})`}
@@ -481,7 +547,7 @@ function Details({
             </Field>
           </FieldRow>
           )}
-          {section === null && (
+          {section === null && !blind && (
           <Field
             label="Pricing note"
             optional={fee.trim() !== ""}
