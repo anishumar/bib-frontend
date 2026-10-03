@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
 import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
-import { Page, PageHeader, Stack } from "@/components/layout";
+import { Page, PageHeader, Stack, useSession } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ConfirmDialog } from "@/components/confirm-action";
 import {
@@ -64,6 +64,11 @@ export default function PeoplePage() {
   // Revoking access asks first (V1.3); restoring it does not.
   const [revoking, setRevoking] = useState<{ member: Member; from: HTMLElement | null } | null>(null);
   const { trigger: addTrigger } = useSwapFocus(adding);
+  // F33 (audit 2026-10-03): somebody who reaches this page by its address
+  // without administering the firm was offered Add somebody over an empty
+  // table. They are shown the API's refusal and nothing to press.
+  const session = useSession();
+  const administers = session?.permissions.includes("tenant:admin") === true;
 
   const load = useCallback(async (): Promise<void> => {
     const [roster, published, ladder] = await Promise.all([
@@ -160,6 +165,14 @@ export default function PeoplePage() {
   }
 
   if (!loaded) return <Loading label="Loading the roster" />;
+  if (session !== null && !administers) {
+    return (
+      <Page>
+        <PageHeader title="People" />
+        <ErrorNotice error={error} />
+      </Page>
+    );
+  }
 
   return (
     <Page>

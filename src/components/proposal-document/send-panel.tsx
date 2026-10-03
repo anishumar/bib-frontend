@@ -90,6 +90,9 @@ export function ProposalSendPanel({
 
   const may = (permission: string): boolean => session?.permissions.includes(permission) ?? false;
   const canWrite = may("party:write");
+  // B01: the PDF prints the fees, so it is downloaded only by a login that
+  // sees fees (the API refuses the rest). Sending it is not money and stays.
+  const seesFees = session?.commercialVisibility === true;
   const isDraft = proposal.status === "draft";
   // Whether any line gives a discount at all: a check for zero on the decimal
   // string, not arithmetic. Whether it is past the firm's limit is the API's
@@ -247,15 +250,17 @@ export function ProposalSendPanel({
             >
               Just give me the link
             </Button>
-            <Button
-              variant="secondary"
-              icon={<Icon name="download" size={16} />}
-              loading={busy === "pdf"}
-              disabled={busy !== null}
-              onClick={downloadPdf}
-            >
-              Download PDF
-            </Button>
+            {seesFees && (
+              <Button
+                variant="secondary"
+                icon={<Icon name="download" size={16} />}
+                loading={busy === "pdf"}
+                disabled={busy !== null}
+                onClick={downloadPdf}
+              >
+                Download PDF
+              </Button>
+            )}
           </div>
           {/* WhatsApp and the link both SEND it (marked sent, and a link the
               client opens to accept or decline), and where WhatsApp opens is
@@ -271,7 +276,7 @@ export function ProposalSendPanel({
         </div>
       )}
 
-      {!isDraft && (
+      {!isDraft && seesFees && (
         <div className="cluster mt-4">
           <Button
             variant="secondary"

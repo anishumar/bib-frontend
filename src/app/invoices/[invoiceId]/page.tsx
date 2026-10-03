@@ -58,6 +58,7 @@ import {
 } from "@/components/tw";
 import { browserDay, longDay } from "@/lib/day";
 import { cleanAmount } from "@/lib/money";
+import { MissingMoney, Money, useSeesFees } from "@/components/fees";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -88,6 +89,8 @@ export default function InvoicePage() {
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [chased, setChased] = useState<DunningAction[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  // F10/F33/B27: whether this login sees fees (see `money` and `mayWriteMoney`).
+  const seesFees = useSeesFees();
   /** Active staff, for a draft's Manager (T4). */
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
   /**
@@ -183,7 +186,15 @@ export default function InvoicePage() {
   const invoice = record.invoice;
   const draft = invoice.status === "draft";
   const issued = invoice.status === "issued";
-  const mayAdmin = permissions.includes("tenant:admin");
+  // CA#6 (0323): issuing, cancelling and crediting are `invoice:issue`, which
+  // the roles that administer the firm hold by default.
+  const mayIssue = permissions.includes("invoice:issue");
+  // F10/F33/B27: a login that cannot see fees reads every amount as Hidden and
+  // is not offered a write that sets one (lines, payments, credit notes): the
+  // API refuses them to it.
+  const mayWriteMoney = permissions.includes("party:write") && seesFees === true;
+  const money = (amount: string | null, currency: string) =>
+    amount === null ? <MissingMoney seesFees={seesFees} /> : formatMoney(amount, currency);
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
   // is yesterday in India until 05:30 every morning — so something due
   // yesterday would not read as overdue for those five and a half hours.
@@ -215,7 +226,7 @@ export default function InvoicePage() {
           </span>
         }
         actions={
-          draft && mayAdmin ? (
+          draft && mayIssue ? (
             // Confirmed (V1.3): issuing locks the money on a numbered tax
             // document, and the only way back is to cancel it.
             <ConfirmAction
@@ -269,8 +280,13 @@ export default function InvoicePage() {
           </MetaItem>
           <MetaItem label="Rate">
             <span className="num">
-              {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
-              {longDay(invoice.fxRateDate)}
+              {invoice.fxRate === null ? (
+                <NotSet>Hidden</NotSet>
+              ) : (
+                <>
+                  {formatCount(invoice.fxRate)} on {longDay(invoice.fxRateDate)}
+                </>
+              )}
             </span>
           </MetaItem>
           {/* WHOSE REVENUE THIS IS (0318): the manager it was raised under,
@@ -345,19 +361,19 @@ export default function InvoicePage() {
           <CardTitle level={2}>What is owed</CardTitle>
           <Meta>
             <MetaItem label="Invoiced">
-              <span className="num">{formatMoney(balance.invoiced, balance.currency)}</span>
+              <span className="num">{money(balance.invoiced, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Paid">
-              <span className="num">{formatMoney(balance.paid, balance.currency)}</span>
+              <span className="num">{money(balance.paid, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Credited">
-              <span className="num">{formatMoney(balance.credited, balance.currency)}</span>
+              <span className="num">{money(balance.credited, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Outstanding">
               {/* A NEGATIVE outstanding is not an error: the client overpaid, or
                   settled two invoices with one transfer. The API records what
                   actually arrived rather than what was tidy, and so does this. */}
-              <strong className="num">{formatMoney(balance.outstanding, balance.currency)}</strong>
+              <strong className="num">{money(balance.outstanding, balance.currency)}</strong>
             </MetaItem>
           </Meta>
           {balance.outstanding?.startsWith("-") === true && (
@@ -384,7 +400,7 @@ export default function InvoicePage() {
                 <Th align="right">Discount</Th>
                 <Th align="right">Tax</Th>
                 <Th align="right">Net</Th>
-                {draft && <Th />}
+                {draft && mayWriteMoney && <Th />}
               </tr>
             </thead>
             <tbody>
@@ -393,23 +409,23 @@ export default function InvoicePage() {
                   <Td>{l.description}</Td>
                   <Td align="right">{formatCount(l.quantity)}</Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(l.unitAmount, l.currency)}
+                    {money(l.unitAmount, l.currency)}
                   </Td>
                   {/* A discount is a price, so the fee axis takes it too — an
                       em dash rather than "0%", which would be a figure this
                       reader was not shown rather than one that is true. */}
                   <Td align="right">
-                    {l.discountPercent === null ? <NotSet>None</NotSet> : `${formatCount(l.discountPercent)}%`}
+                    {l.discountPercent === null ? <Money amount={null} currency={l.currency} unset="None" /> : `${formatCount(l.discountPercent)}%`}
                   </Td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
                   <Td align="right" className="nowrap">
-                    {formatCount(l.taxPercent)}% · {formatMoney(l.tax, l.currency)}
+                    {formatCount(l.taxPercent)}% · {money(l.tax, l.currency)}
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(l.net, l.currency)}
+                    {money(l.net, l.currency)}
                   </Td>
-                  {draft && (
+                  {draft && mayWriteMoney && (
                     <Td align="right">
                       {/* NAMED BY THE LINE, for the reason the proposal's is:
                           no demo invoice is a draft, so this column has only
@@ -442,9 +458,9 @@ export default function InvoicePage() {
                   Tax
                 </Td>
                 <Td align="right" className="nowrap">
-                  {formatMoney(record.totals.tax, record.totals.currency)}
+                  {money(record.totals.tax, record.totals.currency)}
                 </Td>
-                {draft && <Td />}
+                {draft && mayWriteMoney && <Td />}
               </tr>
               <tr>
                 <Td colSpan={4} />
@@ -452,16 +468,16 @@ export default function InvoicePage() {
                   Total
                 </Td>
                 <Td align="right" className="nowrap">
-                  <strong>{formatMoney(record.totals.total, record.totals.currency)}</strong>
+                  <strong>{money(record.totals.total, record.totals.currency)}</strong>
                 </Td>
-                {draft && <Td />}
+                {draft && mayWriteMoney && <Td />}
               </tr>
             </tfoot>
           </Table>
         </TableWrap>
         )}
 
-        {draft && (
+        {draft && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
@@ -628,16 +644,16 @@ export default function InvoicePage() {
       {/* ── Issue, cancel, register ────────────────────────────────────── */}
       <Card>
         <CardTitle level={2}>The document</CardTitle>
-        {!mayAdmin && (draft || issued) && (
+        {!mayIssue && (draft || issued) && (
           /* Both use up a number in the series. */
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Only a firm administrator can issue or cancel an invoice.
+            Issuing and cancelling are for whoever issues the firm&rsquo;s invoices.
           </p>
         )}
         {/* Issue moved to the page header (Wave 4); Cancel stays here, away
             from it. */}
         <div className="cluster">
-          {(draft || issued) && mayAdmin && (
+          {(draft || issued) && mayIssue && (
             /* SAYS WHICH CANCEL, because the other one on this screen is
                nothing like it. Open the Documents dialog and there are two
                buttons reading "Cancel": that one closes an upload form, this
@@ -769,7 +785,7 @@ export default function InvoicePage() {
                       it is a row of its own beside the original rather than the
                       original edited away. Both are shown, which is the point. */}
                   <Td align="right" className="nowrap">
-                    {formatMoney(p.amount, p.currency)}
+                    {money(p.amount, p.currency)}
                   </Td>
                 </tr>
               ))}
@@ -778,7 +794,7 @@ export default function InvoicePage() {
         </TableWrap>
         )}
 
-        {issued && (
+        {issued && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
             action={(form) => {
@@ -872,7 +888,7 @@ export default function InvoicePage() {
                     )}
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(c.amount, c.currency)}
+                    {money(c.amount, c.currency)}
                   </Td>
                 </tr>
               ))}
@@ -881,7 +897,7 @@ export default function InvoicePage() {
         </TableWrap>
         )}
 
-        {issued && mayAdmin && (
+        {issued && mayIssue && seesFees === true && (
           /* Behind a disclosure (Wave 4): rare, and a second open "Amount"
              form under the payments one. */
           <details style={{ marginTop: "var(--s-4)" }}>
@@ -937,9 +953,9 @@ export default function InvoicePage() {
           </form>
           </details>
         )}
-        {issued && !mayAdmin && (
+        {issued && !mayIssue && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Only a firm administrator can issue a credit note.
+            Credit notes are for whoever issues the firm&rsquo;s invoices.
           </p>
         )}
       </Card>

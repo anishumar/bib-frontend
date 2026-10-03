@@ -103,6 +103,11 @@ export function ProposalPdf({
 }) {
   const { record, error, loaded, reload } = useProposal(proposalId);
   const session = useSession();
+  // B01/F01: the document prints every fee, so it is drawn only for a login
+  // that sees fees (the API refuses /documents/preview and the PDF's bytes to
+  // the rest). Such a login is told so in place of the pages, and nothing is
+  // asked of the API.
+  const seesFees = session?.commercialVisibility === true;
   const [people, setPeople] = useState<readonly Choice[]>([]);
   const [colleagues, setColleagues] = useState<readonly Choice[]>([]);
 
@@ -118,10 +123,10 @@ export function ProposalPdf({
     kind: "proposal",
     subjectRef: proposalId,
     revision: record === null ? "" : JSON.stringify(record),
-    enabled: record !== null && !ofRecord,
+    enabled: record !== null && !ofRecord && seesFees,
   });
   const stored = useStoredPdf({
-    documentId: ofRecord && pinned !== null ? pinned.documentId : null,
+    documentId: seesFees && ofRecord && pinned !== null ? pinned.documentId : null,
     versionId: ofRecord && pinned !== null ? pinned.versionId : undefined,
   });
 
@@ -141,6 +146,7 @@ export function ProposalPdf({
     return <PdfWorkspace label="Proposal" data={null} anchors={[]} updating={false} groups={null} />;
   }
   if (record === null) return <Notice tone="danger">{error ?? "This proposal could not be read."}</Notice>;
+  if (session !== null && !seesFees) return <FeesNotShown what="proposal" />;
 
   const { proposal } = record;
   const label = `Proposal ${proposal.ref}`;
@@ -324,6 +330,17 @@ export function ProposalPdf({
         }
       />
     </div>
+  );
+}
+
+/** In place of a document that prints fees, for a login that cannot see them
+ *  (B01/F01): what is not shown, and who can open it. */
+export function FeesNotShown({ what }: { what: "proposal" | "letter" }) {
+  return (
+    <Notice tone="neutral">
+      The {what === "proposal" ? "proposal" : "engagement letter"} shows fees, so it is not shown to your login.
+      Ask somebody who can see fees to read or print it.
+    </Notice>
   );
 }
 

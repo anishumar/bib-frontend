@@ -61,6 +61,7 @@ import { EngagementActions, EngagementStatePill } from "@/components/engagement-
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
+import { Money } from "@/components/fees";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -777,10 +778,10 @@ export default function LetterPage() {
                   ) : (
                     <>
                       <Td align="right" className="nowrap">
-                        {formatMoney(l.unitAmount, l.currency)}
+                        <Money amount={l.unitAmount} currency={l.currency} />
                       </Td>
                       <Td align="right" className="nowrap">
-                        {formatMoney(l.net, l.currency)}
+                        <Money amount={l.net} currency={l.currency} />
                       </Td>
                     </>
                   )}
@@ -866,7 +867,7 @@ export default function LetterPage() {
           </div>
           {letter.advanceRequired && (
             <div className="text-md text-muted">
-              advance {formatMoney(letter.advanceAmount, totals.currency)}
+              advance <Money amount={letter.advanceAmount} currency={totals.currency} />
               {/* Where it stands is the Advance card's (0322: nothing writes
                   advanceRecordedAt any more; letters from before T3 keep it). */}
               {letter.advanceRecordedAt !== null && ` · recorded ${longInstant(letter.advanceRecordedAt)}`}

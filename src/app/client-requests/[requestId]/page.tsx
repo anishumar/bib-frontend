@@ -99,7 +99,9 @@ export default function ClientRequestRecordPage() {
   if (!loaded) return <Loading label="Loading the request" />;
   if (request === null) {
     return (
+      /* F21: a heading and a way back, not only the refusal. */
       <Page>
+        <PageHeader eyebrow={<Link href="/client-requests">Client requests</Link>} title="Request not found" />
         <Notice tone="danger">{error ?? "No such request at this firm."}</Notice>
       </Page>
     );

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui";
 import { Loading } from "@/components/states";
 import { Page, PageHeader, useSession } from "@/components/layout";
+import { useSeesFees } from "@/components/fees";
 import { countryName } from "@/lib/country";
 import { CountryCodes, DeptChip, StatusPill } from "./parts";
 import {
@@ -79,6 +80,10 @@ function Catalogue() {
   const pathname = usePathname();
   const params = useSearchParams();
   const session = useSession();
+  // B09/F09: list prices are null for a login that cannot see fees, and it
+  // may not write a service (the API refuses: it would wipe a price it never
+  // saw). The Price column says Hidden; Add a service is not offered.
+  const seesFees = useSeesFees();
   const tabsId = useId();
   const [entries, setEntries] = useState<ConfigEntry[]>([]);
   const [axes, setAxes] = useState<ServiceAxis[]>([]);
@@ -130,7 +135,7 @@ function Catalogue() {
 
   if (!loaded) return <Loading label="Loading the catalogue" />;
 
-  const canWrite = session?.permissions.includes("tenant:admin") ?? false;
+  const canWrite = (session?.permissions.includes("tenant:admin") ?? false) && seesFees === true;
   const rows = entries.map(rowOf).sort(catalogueOrder(axes));
 
   // Every country the catalogue names, by name. A service offered everywhere
@@ -312,7 +317,9 @@ function Catalogue() {
                           <CountryCodes codes={r.body.jurisdictions} />
                         </Td>
                         <Td align="right">
-                          {price !== null ? (
+                          {seesFees === false ? (
+                            <NotSet>Hidden</NotSet>
+                          ) : price !== null ? (
                             <span className="nowrap">{price}</span>
                           ) : r.body.pricingNote !== null ? (
                             // The note itself can run to a sentence and filled

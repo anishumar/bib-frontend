@@ -154,14 +154,19 @@ const GROUPS: NavGroup[] = [
       },
       /* Billing sits with the commercial work rather than under
          administration: raising an invoice and recording a payment are
-         `party:write`, the same permission drafting takes. Only ISSUING and
-         crediting need tenant:admin, and those gates live on the invoice. */
+         `party:write` (and, since the 2026-10-03 audit, a login that sees
+         fees). Issuing and crediting are `invoice:issue` (0323), and those
+         gates live on the invoice. */
       { href: "/invoices", label: "Invoices", icon: "invoices", needs: "party:read" },
+      /* What each client owes: nothing on it is not money, so a login that
+         cannot see fees is not offered it (F33/CA#54). The invoices list
+         stays: an invoice's number and status are not money. */
       {
         href: "/receivables",
         label: "Receivables",
         icon: "receivables",
         needs: "party:read",
+        when: (p) => p.commercialVisibility === true,
       },
       /* The FEE AXIS, not the role. Commercial visibility is a flag on the
          membership and is orthogonal to what somebody may reach — a manager

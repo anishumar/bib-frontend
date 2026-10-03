@@ -25,6 +25,7 @@ import {
   DOCUMENT_KIND_LABELS,
 } from "@/lib/api/client";
 import { Cluster } from "@/components/layout";
+import { useSeesFees } from "@/components/fees";
 import { longInstant } from "@/lib/day";
 import { Empty, Loading } from "@/components/states";
 import {
@@ -150,6 +151,11 @@ export function Documents({
   // focused button and focus falls to <body>. This component is on six
   // screens, so that is six screens. See `useSwapFocus`.
   const { panel: addPanel, trigger: addTrigger } = useSwapFocus(adding);
+  // B01/F01: a proposal, a letter, an invoice and a credit note print the
+  // firm's fees, and their PDFs open, and are made, only for a login that
+  // sees fees. The API refuses the rest (FEES_NOT_VISIBLE); this offers only
+  // what will work. Every kind this panel can make is one of the four.
+  const seesFees = useSeesFees();
 
   // WHAT THE BUTTON MAKES (2026-09-29). An invoice or a letter in draft is
   // printed as the firm's own draft copy. Once it has gone out, its first copy
@@ -340,7 +346,7 @@ export function Documents({
         aside={
           <>
             {documents.length > 0 && <Pill tone="quiet">{documents.length}</Pill>}
-            {canWrite && renderable !== undefined && make !== null && (
+            {canWrite && seesFees === true && renderable !== undefined && make !== null && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -445,6 +451,7 @@ export function Documents({
                 versions={versions[d.id]}
                 onToggle={() => void showVersions(d.id)}
                 onDownload={(versionId, filename) => void get(d.id, filename, versionId)}
+                mayOpen={!d.showsFees || seesFees === true}
                 canWrite={canWrite}
                 onShare={(visible) => void share(d.id, visible)}
                 onWithdraw={() => void withdraw(d.id)}
@@ -458,12 +465,19 @@ export function Documents({
   );
 }
 
+/** Where Download would be, for a document that shows fees and a login that
+ *  cannot see them: what it is, and why it does not open. */
+function FeesHidden() {
+  return <span className="not-set">Shows fees</span>;
+}
+
 function FileRows({
   doc,
   expanded,
   versions,
   onToggle,
   onDownload,
+  mayOpen,
   canWrite,
   onShare,
   onWithdraw,
@@ -473,6 +487,8 @@ function FileRows({
   versions: readonly StoredDocumentVersion[] | undefined;
   onToggle: () => void;
   onDownload: (versionId: string | undefined, filename: string) => void;
+  /** False for a document that shows fees, to a login that cannot see them. */
+  mayOpen: boolean;
   canWrite: boolean;
   onShare: (visible: boolean) => void;
   /** Take this file off the page it is on. `party:write`, like attaching. */
@@ -558,16 +574,20 @@ function FileRows({
                 {expanded ? "Hide" : `${String(doc.versionCount)} versions`}
               </Button>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Icon name="download" size={15} />}
-              onClick={() => {
-                onDownload(undefined, v.filename);
-              }}
-            >
-              Download
-            </Button>
+            {mayOpen ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="download" size={15} />}
+                onClick={() => {
+                  onDownload(undefined, v.filename);
+                }}
+              >
+                Download
+              </Button>
+            ) : (
+              <FeesHidden />
+            )}
             {/* Attached in error: take it off THIS page. The file and its
                 other attachments stay; the link is kept as history. Named by
                 the document, because a table draws one of these per row. An
@@ -619,16 +639,20 @@ function FileRows({
                         </Tooltip>
                       </Td>
                       <Td align="right">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Icon name="download" size={15} />}
-                          onClick={() => {
-                            onDownload(ver.id, ver.filename);
-                          }}
-                        >
-                          Download
-                        </Button>
+                        {mayOpen ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Icon name="download" size={15} />}
+                            onClick={() => {
+                              onDownload(ver.id, ver.filename);
+                            }}
+                          >
+                            Download
+                          </Button>
+                        ) : (
+                          <FeesHidden />
+                        )}
                       </Td>
                     </tr>
                   ))

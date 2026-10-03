@@ -42,6 +42,7 @@ import {
   textPiece,
 } from "@/components/proposal-document";
 import type { SaveOutcome } from "@/components/proposal-document";
+import { FeesNotShown } from "@/components/proposal-document";
 import { putLetter, useLetter } from "./store";
 import { letterFee } from "./words";
 
@@ -76,6 +77,9 @@ export function LetterPdf({
 }) {
   const { record, error, loaded, reload } = useLetter(letterId);
   const session = useSession();
+  // B01/F01: the letter prints every fee; it is drawn only for a login that
+  // sees fees, and nothing is asked of the API for one that does not.
+  const seesFees = session?.commercialVisibility === true;
   const [people, setPeople] = useState<readonly Choice[]>([]);
   const [signedCopy, setSignedCopy] = useState<StoredDoc | null>(null);
   const [today] = useState(browserDay);
@@ -91,7 +95,7 @@ export function LetterPdf({
   // which is how the provider's copy and a colleague's scan are both stored)
   // filed as the engagement letter on this letter. Renders are `generated`.
   useEffect(() => {
-    if (status === null || status === "draft") return;
+    if (status === null || status === "draft" || !seesFees) return;
     let live = true;
     void api
       .GET("/api/v1/subjects/{subjectKind}/{subjectRef}/documents", {
@@ -110,13 +114,13 @@ export function LetterPdf({
     return () => {
       live = false;
     };
-  }, [status, letterId]);
+  }, [status, letterId, seesFees]);
 
   const preview = usePreview({
     kind: "engagement_letter",
     subjectRef: letterId,
     revision: record === null ? "" : JSON.stringify(record),
-    enabled: record !== null && !ofRecord,
+    enabled: record !== null && !ofRecord && seesFees,
     asOf: isDraft ? today : undefined,
   });
   const stored = useStoredPdf({
@@ -137,6 +141,7 @@ export function LetterPdf({
     return <PdfWorkspace label="Engagement letter" data={null} anchors={[]} updating={false} groups={null} />;
   }
   if (record === null) return <Notice tone="danger">{error ?? "This letter could not be read."}</Notice>;
+  if (session !== null && !seesFees) return <FeesNotShown what="letter" />;
 
   const { letter, lines, feeGroups } = record;
   const currency = letter.currency;
