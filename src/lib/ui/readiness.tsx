@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import type { Readiness, ReadinessLine } from "@/lib/api/client";
+import { TIME_ZONES } from "@/lib/ui/time-zone";
 import {
   Card,
   CardHead,
@@ -28,11 +29,20 @@ import {
  *
  * The ladder line asks only that a ladder is PUBLISHED. Which days go on it is
  * the firm's decision (D3, still open), so nothing here suggests any.
+ *
+ * A line with nothing to look at yet (no clients, no services) says "Nothing
+ * to check yet" and is left out of the count (audit 2026-10-03, CA#15): an
+ * empty firm read "4 of 8 done" on its first morning.
  */
 
 type Key = ReadinessLine["key"];
 
 const LABELS: Readonly<Record<Key, string>> = {
+  company_details: "Your companies' country and address",
+  time_zone: "Your firm's time zone",
+  staff: "Colleagues added",
+  services: "A service in the Catalogue",
+  standard_terms: "Standard terms for letters",
   deadlines: "Go-live day and financial year",
   reporting_lines: "Who reports to whom",
   request_routing: "Who picks up client requests",
@@ -44,6 +54,11 @@ const LABELS: Readonly<Record<Key, string>> = {
 };
 
 const FIX: Readonly<Record<Key, Route>> = {
+  company_details: "/admin/firm#companies" as Route,
+  time_zone: "/admin/firm#time-zone" as Route,
+  staff: "/admin/people",
+  services: "/catalogue",
+  standard_terms: "/admin/standard-terms",
   deadlines: "/admin/firm#deadlines" as Route,
   reporting_lines: "/admin/people",
   request_routing: "/admin/structure",
@@ -56,6 +71,11 @@ const FIX: Readonly<Record<Key, Route>> = {
 
 /** A firm-level gap, in words. */
 const FIRM_GAP: Readonly<Record<string, string>> = {
+  company: "No company added",
+  time_zone: "Not chosen: days follow UTC, not your country",
+  colleagues: "Only one person so far",
+  service: "No service yet",
+  standard_terms: "No terms yet, so no letter can be written",
   go_live_floor: "Go-live day not set",
   fiscal_year_start: "Financial year start not set",
   routing: "Not set: requests land on nobody's desk",
@@ -75,6 +95,8 @@ function missingWords(missing: readonly string[]): string {
     if (m === "published_process") return "process not published";
     if (m === "confirmed") return "linked, not confirmed";
     if (m === "portal_login") return "no portal login";
+    if (m === "country") return "no country";
+    if (m === "address") return "no registered address";
     return m;
   });
   const text = words.join(", ");
@@ -90,13 +112,27 @@ function gapHref(key: Key, gap: ReadinessLine["gaps"][number]): Route | null {
   if (key === "ladders" && (gap.missing[0] === "chaser" || gap.missing[0] === "nudge")) {
     return "/admin/client-reminders";
   }
+  if (key === "company_details") return "/admin/firm#companies" as Route;
   return null;
 }
 
-/** How many of the lines are done, for "Setup: 5 of 8". */
-export function readinessCount(r: Readiness): { done: number; total: number } {
-  return { done: r.lines.filter((l) => l.done).length, total: r.lines.length };
+/** The zone a time-zone gap offers, in words: "India (Asia/Kolkata)". */
+export function zoneWords(zone: string): string {
+  return TIME_ZONES.find((z) => z.value === zone)?.label ?? zone;
 }
+
+/** How many of the lines that APPLY are done, for "Setup: 5 of 9". A line
+ *  with nothing to check yet is neither, so it is not counted. */
+export function readinessCount(r: Readiness): { done: number; total: number } {
+  const applies = r.lines.filter((l) => l.state !== "nothing_to_check");
+  return { done: applies.filter((l) => l.state === "done").length, total: applies.length };
+}
+
+const STATE_PILL: Readonly<Record<ReadinessLine["state"], { tone: "ok" | "warn" | "neutral"; words: string }>> = {
+  done: { tone: "ok", words: "Done" },
+  to_do: { tone: "warn", words: "To do" },
+  nothing_to_check: { tone: "neutral", words: "Nothing to check yet" },
+};
 
 /** The most gaps a line lists before "and N more". */
 const SHOWN = 3;
@@ -126,9 +162,12 @@ export function ReadinessCard({ readiness }: { readiness: Readiness }) {
                   <RowLink href={FIX[line.key]}>{LABELS[line.key]}</RowLink>
                   {line.gaps.slice(0, SHOWN).map((gap, i) => {
                     const href = gapHref(line.key, gap);
+                    const firmWords = FIRM_GAP[gap.missing[0] ?? ""] ?? missingWords(gap.missing);
                     const words =
                       gap.name === ""
-                        ? (FIRM_GAP[gap.missing[0] ?? ""] ?? missingWords(gap.missing))
+                        ? line.key === "time_zone" && gap.ref !== null
+                          ? `${firmWords}. Yours looks like ${zoneWords(gap.ref)}`
+                          : firmWords
                         : missingWords(gap.missing);
                     return (
                       <Sub key={`${gap.id ?? gap.ref ?? ""}-${String(i)}`}>
@@ -152,9 +191,7 @@ export function ReadinessCard({ readiness }: { readiness: Readiness }) {
                   )}
                 </Td>
                 <Td className="nowrap">
-                  <Pill dot tone={line.done ? "ok" : "warn"}>
-                    {line.done ? "Done" : "To do"}
-                  </Pill>
+                  <Pill dot tone={STATE_PILL[line.state].tone}>{STATE_PILL[line.state].words}</Pill>
                 </Td>
                 <RowChevron />
               </Tr>

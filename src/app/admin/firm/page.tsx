@@ -49,6 +49,7 @@ import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
+import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { cleanAmount } from "@/lib/money";
 
 /**
@@ -191,9 +192,11 @@ export default function FirmPage() {
   const [billing, setBilling] = useState<BillingSettings | null>(null);
   /** The firm's grades, for which one counts as the partner (0322). */
   const [grades, setGrades] = useState<StaffGrade[]>([]);
+  /** The firm's time zone (0071), here since 2026-10-03; null when refused. */
+  const [timeZone, setTimeZone] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/firm-signatory", {}),
@@ -205,6 +208,8 @@ export default function FirmPage() {
       api.GET("/api/v1/tenancy/readiness", {}),
       api.GET("/api/v1/billing/settings", {}),
       api.GET("/api/v1/tenancy/grades", {}),
+      // The time zone lives on this page (CA#16); Structure no longer has it.
+      api.GET("/api/v1/tenancy/structure", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -234,6 +239,7 @@ export default function FirmPage() {
     setReadiness(ready.data ?? null);
     setBilling(billed.data ?? null);
     setGrades(ladder.data?.grades ?? []);
+    setTimeZone(structure.data?.timeZone ?? null);
     setLoaded(true);
   }, [router]);
 
@@ -318,6 +324,20 @@ export default function FirmPage() {
           }
         />
       </Card>
+
+      {timeZone !== null && (
+        <TimeZoneCard
+          chosen={timeZone}
+          busy={busy === "zone"}
+          onChoose={(zone) =>
+            void act(
+              "zone",
+              () => api.PUT("/api/v1/tenancy/structure/time-zone", { body: { timeZone: zone } }),
+              "Time zone saved.",
+            )
+          }
+        />
+      )}
 
       <SigningCard
         signatory={signatory}
