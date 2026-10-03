@@ -210,7 +210,7 @@ export interface paths {
                         "application/json": components["schemas"]["SignInResponse"];
                     };
                 };
-                /** @description Request failed validation */
+                /** @description Request failed validation, or the password is too short or too long */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -230,6 +230,15 @@ export interface paths {
                 };
                 /** @description No active membership */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A password was sent and the account already has one (the link is not spent) */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -20188,6 +20197,8 @@ export interface components {
         };
         RedeemMagicLinkRequest: {
             token: string;
+            /** @description A colleague's FIRST password, chosen on their welcome link (CA#38). Only a welcome link takes one, and only for an account with no password: the same call sets it and signs them in. Left out, the link only signs them in. An account that already has a password is refused (409 PASSWORD_ALREADY_SET) and the link is NOT spent, so it can still be used without one. */
+            password?: string;
         };
         SwitchTenantRequest: {
             /** Format: uuid */
