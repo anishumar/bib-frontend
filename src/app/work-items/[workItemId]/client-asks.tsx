@@ -76,10 +76,22 @@ export function ClientAsks({
   workItemId,
   canWrite,
   isClientVisible,
+  about,
+  prefill,
+  hiddenHint = "Hidden from the client portal, so they will not see an ask. Turn it on above.",
 }: {
   workItemId: string;
   canWrite: boolean;
   isClientVisible: boolean;
+  /** Which task the asks hang off, said under the title where the panel is not
+   *  on the task's own page (a job's page, CA#37). */
+  about?: string;
+  /** Open the form with these words, each time `key` changes: a process step's
+   *  "Ask the client" (CA#37) starts the ask with the step's title. */
+  prefill?: { readonly key: number; readonly prompt: string } | null;
+  /** What to say when the task is hidden from the portal: the switch is on the
+   *  task's own page, so another page says where it is. */
+  hiddenHint?: string;
 }) {
   const [asks, setAsks] = useState<readonly ClientAsk[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +107,14 @@ export function ClientAsks({
    *  form of three fields on every task, asked of or not. */
   const [asking, setAsking] = useState(false);
   const { panel: formRef, trigger: openRef } = useSwapFocus(asking);
+  // A step's "Ask the client" (CA#37): React's recipe for following a prop,
+  // compared with what was last seen and set during render.
+  const [seenPrefill, setSeenPrefill] = useState<number | null>(null);
+  if (prefill !== undefined && prefill !== null && prefill.key !== seenPrefill) {
+    setSeenPrefill(prefill.key);
+    setAsking(true);
+    setPrompt(prefill.prompt);
+  }
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/work-items/{workItemId}/asks", {
@@ -157,6 +177,7 @@ export function ClientAsks({
         <CardTitle level={2}>Asked of the client</CardTitle>
         {open.length > 0 && <Pill tone="warn">{`${String(open.length)} open`}</Pill>}
       </CardHead>
+      {about !== undefined && <p className="text-sm text-ink-2">{about}</p>}
 
       <Stack gap="tight">
         {/* THE ONE PLACE THIS PANEL AND THE SWITCH ABOVE INTERACT. An ask about
@@ -166,7 +187,7 @@ export function ClientAsks({
             somebody to discover from an unanswered request. */}
         {!isClientVisible && (
           <Notice tone="warn">
-            <p>Hidden from the client portal, so they will not see an ask. Turn it on above.</p>
+            <p>{hiddenHint}</p>
           </Notice>
         )}
 
