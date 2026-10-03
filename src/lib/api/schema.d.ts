@@ -16317,7 +16317,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -16452,7 +16452,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -16526,7 +16526,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17123,7 +17123,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17257,7 +17257,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -18076,7 +18076,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or not a firm administrator */
+                /** @description No org selected, or not a firm administrator, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -18832,7 +18832,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not read */
+                /** @description No org selected, the role may not read, or the document shows fees and this login does not see them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -18907,7 +18907,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not read */
+                /** @description No org selected, the role may not read, or the document shows fees and this login does not see them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -19208,7 +19208,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not write */
+                /** @description No org selected, the role may not write, or this login does not see fees: all three kinds print them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -19305,7 +19305,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not write */
+                /** @description No org selected, the role may not write, or this login does not see fees: all three kinds print them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -20998,6 +20998,7 @@ export interface components {
             serviceVersionId: string;
             startedOn: string;
             billingFrequency: string;
+            /** @description The line's fee from the sheet. Null when the sheet gave none, and null for a login that does not see fees. */
             unitAmount: string | null;
             jurisdiction: string | null;
             basis: string | null;
@@ -22455,6 +22456,7 @@ export interface components {
             objectType: string;
             /** Format: uuid */
             objectId: string;
+            /** @description The facts the event recorded. For a login that does not see fees, each money field (an amount paid, credited, billed or owed, an exchange rate, a discount) is null. */
             payload: {
                 [key: string]: unknown;
             };
@@ -22555,7 +22557,7 @@ export interface components {
             lostReason: string | null;
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2. Null is ordinary — often nobody knows at capture — and an unknown country matches no territory rule, so the assignment rotation covers it. It is also the answer a proposal drafted from this lead needs for `clientJurisdiction`, which decides which of the firm's entities contracts. */
             jurisdiction: string | null;
-            /** @description What the opportunity could be worth: an ESTIMATE written at capture or later, not a quote (the quote is the proposal). In the firm's reporting currency, so every lead in a firm compares with every other. Null when nobody has said. */
+            /** @description What the opportunity could be worth: an ESTIMATE written at capture or later, not a quote (the quote is the proposal). In the firm's reporting currency, so every lead in a firm compares with every other. Null when nobody has said, and null for a login that does not see fees (B33), which the session's `commercialVisibility` tells apart. */
             estimatedValue: {
                 /** @description A decimal string, two places. */
                 amount: string;
@@ -22604,7 +22606,7 @@ export interface components {
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2 in UPPER CASE. Optional — often nobody knows at capture, and a capture is never refused for it. Demanded in canonical case rather than normalised, because it is compared against the firm's territory rules. */
             jurisdiction?: string;
             /**
-             * @description What the opportunity could be worth, as a decimal string with no commas or currency sign, in the firm's reporting currency. Optional. Like `notes`, a capture that MERGES onto a live opportunity does not apply it.
+             * @description What the opportunity could be worth, as a decimal string with no commas or currency sign, in the firm's reporting currency. Optional. Like `notes`, a capture that MERGES onto a live opportunity does not apply it. Refused to a login that does not see fees (FEES_NOT_VISIBLE, 403): leave it out.
              * @example 500000
              */
             estimatedValue?: string;
@@ -22673,10 +22675,10 @@ export interface components {
             /** @description Where the prospect is, ISO 3166-1 alpha-2 in UPPER CASE, or null for not known. Changing it does NOT reassign the lead: territory decides a desk at capture only. */
             jurisdiction: string | null;
             /**
-             * @description What the opportunity could be worth, as a decimal string in the firm's reporting currency, or null for not known.
+             * @description What the opportunity could be worth, as a decimal string in the firm's reporting currency, or null for not known. Leave it out to keep what is there. Sending it, null included, is refused to a login that does not see fees (FEES_NOT_VISIBLE, 403).
              * @example 500000
              */
-            estimatedValue: string | null;
+            estimatedValue?: string | null;
         };
         TerritoryRule: {
             /** Format: uuid */
@@ -23063,6 +23065,7 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
+            /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the proposal's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
@@ -23762,6 +23765,7 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
+            /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the letter's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
@@ -24632,6 +24636,8 @@ export interface components {
             /** @description The client's name, joined so a list never has to fetch one row per document. */
             partyName: string | null;
             createdBy: components["schemas"]["DocumentUploader"];
+            /** @description Whether this document prints the firm's fees: a proposal, an engagement letter, an invoice or a credit note (audit 2026-10-03). Its bytes open only for a login that sees fees (FEES_NOT_VISIBLE, 403), so a screen offers Download only where it will work. */
+            showsFees: boolean;
             versionCount: number;
             latestVersion: components["schemas"]["DocumentVersion"];
             createdAt: string;
