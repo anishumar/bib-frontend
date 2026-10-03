@@ -581,15 +581,19 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     fix: null,
     where: null,
   },
+  // F34 (audit 2026-10-03): "No filing is on this service" read as a claim
+  // about the client, beside a calendar that held filings for them from rules
+  // written before services carried their filings. What it means is that the
+  // SERVICE adds none, and what to do if it should.
   no_rule_names_this_service: {
-    title: "No filing is on this service",
-    what: "The usual case for advisory or one-off work.",
+    title: "This service adds no filings",
+    what: "Signing it puts nothing on the calendar. That is right for advisory or one-off work.",
     // A fix now, and a conditional one. Before T6.16 a rule on no service
     // reached every service, so this list really was only advisory work. Now
     // it is ALSO every service the firm has not yet given its filings, and the
     // sentence has to say where that is done without calling advisory work a
     // fault.
-    fix: "If it does owe a filing, add it to the service in the Catalogue.",
+    fix: "If this work owes a return, add the filing to the service in the Catalogue.",
     where: { href: "/catalogue", label: "Open the Catalogue" },
   },
 };

@@ -1,12 +1,13 @@
 "use client";
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Documents } from "@/lib/ui/documents";
-import { api, apiError, CHECK_INELIGIBILITY } from "@/lib/api/client";
-import type { AgentProposal, CheckLine, Job, JobStep, StepCheck } from "@/lib/api/client";
-import { Button, cx } from "@/components/ui";
+import { api, apiError, CHECK_INELIGIBILITY, codeLabel } from "@/lib/api/client";
+import type { AgentProposal, CheckLine, Job, JobStep, StepCheck, WorkItem } from "@/lib/api/client";
+import { Button, Checkbox, cx, Dialog, Field, FieldStack, Input, Textarea } from "@/components/ui";
+import { ClientAsks } from "@/app/work-items/[workItemId]/client-asks";
 import { Card, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { longInstant } from "@/lib/day";
 import { CheckLines } from "./check-lines";
@@ -37,6 +38,18 @@ import { ConfirmAction } from "@/components/confirm-action";
  * says which of the two it is. That is the API's own rule rendered, not a
  * convenience — a process must never break because engineering has not shipped
  * something yet.
+ *
+ * ── NO NATIVE PROMPTS (audit 2026-10-03, F16) ───────────────────────────────
+ *
+ * Send back, Reject and Correct used `window.prompt`, and Correct asked a
+ * person to edit raw JSON. Each is a dialog now: a note for the first two, and
+ * Correct is a form with one box per thing the answer says.
+ *
+ * ── ASKING THE CLIENT FROM A STEP (CA#37) ───────────────────────────────────
+ *
+ * A step can ask the client for what it needs, through the job's task: the
+ * same asks, portal and chaser an ad-hoc task has. Each open step offers "Ask
+ * the client", which opens the ask with the step's title in it.
  */
 /** Whether a job's window has not opened yet: a per-period job during its own
  *  month. Compared as instants, which is what `runnableAt` is. The same test
@@ -76,6 +89,16 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  /** The job's tasks: the asks of a step hang off its open task (CA#37). */
+  const [tasks, setTasks] = useState<WorkItem[]>([]);
+  const [askPrefill, setAskPrefill] = useState<{ key: number; prompt: string } | null>(null);
+  /** The one dialog open on this page, if any (F16). */
+  const [dialog, setDialog] = useState<
+    | { kind: "sendBack"; approvalId: string; stepLabel: string }
+    | { kind: "reject"; stepKey: string; stepLabel: string }
+    | { kind: "correct"; stepKey: string; stepLabel: string; proposal: AgentProposal }
+    | null
+  >(null);
 
   // TICKS ON ONE LIST ARE NOT SERIALISED, and their answers can arrive out of
   // order. Each PUT answers with the whole step (or check) as it stood after
@@ -102,7 +125,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   }
 
   const load = useCallback(async (): Promise<void> => {
-    const [result, header, me, checkList] = await Promise.all([
+    const [result, header, me, checkList, jobTasks] = await Promise.all([
       api.GET("/api/v1/jobs/{jobId}/steps", { params: { path: { jobId } } }),
       // The job itself, not just its steps. A merged job's steps say nothing
       // about WHOSE work they are, and after the merge that is a real question:
@@ -113,6 +136,8 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
       // rejections are the point: a step sent back twice and then approved
       // reads as a step that sailed through if only the open one is shown.
       api.GET("/api/v1/jobs/{jobId}/checks", { params: { path: { jobId } } }),
+      // The job's tasks, for asking the client from a step (CA#37).
+      api.GET("/api/v1/work-items", { params: { query: { jobId, includeDone: "true" } } }),
     ]);
     if (result.response.status === 401) {
       router.push("/login");
@@ -128,6 +153,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setJob(header.data ?? null);
     setPermissions(me.data?.permissions ?? []);
     setMe(me.data?.userId ?? null);
+    setTasks(jobTasks.data?.items ?? []);
     setError(null);
     setLoaded(true);
   }, [jobId, router]);
@@ -184,31 +210,17 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
     setBusy(null);
   }
 
-  /** Correcting edits the machine's own answer, so the box opens holding it —
-   *  a blank field would make "correct" mean "retype everything", and the API
-   *  refuses a correction that changed nothing anyway. */
-  async function correct(stepKey: string, proposal: AgentProposal): Promise<void> {
-    const edited = window.prompt(
-      "What should this say instead? The automatic answer is below. Change what is wrong.",
-      JSON.stringify(proposal.proposed),
-    );
-    if (edited === null) return;
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(edited) as Record<string, unknown>;
-    } catch {
-      setError("That text is not in the format it was shown in, so nothing was recorded.");
-      return;
-    }
-    await decide(stepKey, "corrected", parsed, null);
+  /** Correcting edits the machine's own answer, so the form opens holding it:
+   *  a blank form would make "correct" mean "retype everything", and the API
+   *  refuses a correction that changed nothing anyway (F16: a form, not JSON). */
+  function correct(step: JobStep, proposal: AgentProposal): void {
+    setDialog({ kind: "correct", stepKey: step.stepKey, stepLabel: step.label, proposal });
   }
 
-  /** A rejection has to say what was wrong — the schema insists, because that
+  /** A rejection has to say what was wrong: the schema insists, because that
    *  note is only ever written by somebody already in a hurry. */
-  async function reject(stepKey: string): Promise<void> {
-    const reason = window.prompt("What was wrong with it?");
-    if (reason === null || reason.trim() === "") return;
-    await decide(stepKey, "rejected", null, reason.trim());
+  function reject(step: JobStep): void {
+    setDialog({ kind: "reject", stepKey: step.stepKey, stepLabel: step.label });
   }
 
   /**
@@ -243,11 +255,9 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
   }
 
   /** Sending work back has to say what was wrong. The API insists and so does
-   *  the database — that note is the only thing that ever explains rework. */
-  async function sendBack(approvalId: string): Promise<void> {
-    const reason = window.prompt("What needs fixing?");
-    if (reason === null || reason.trim() === "") return;
-    await decideCheck(approvalId, "rejected", reason.trim());
+   *  the database: that note is the only thing that ever explains rework. */
+  function sendBack(approvalId: string, stepLabel: string): void {
+    setDialog({ kind: "sendBack", approvalId, stepLabel });
   }
 
   async function complete(stepKey: string): Promise<void> {
@@ -355,6 +365,8 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
 
   const canComplete = permissions.includes("work:write");
   const open = job !== null && job.status !== "done" && job.status !== "cancelled";
+  // The task a step's asks hang off: the job's first unfinished one (CA#37).
+  const askTask = tasks.find((t) => !t.state.isTerminal) ?? null;
 
   /** Stop the job for good (V2.4), behind V1.3's confirm. */
   async function cancelJob(): Promise<void> {
@@ -477,6 +489,19 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                     />
                   </div>
                   <Desk step={s} />
+                  {askTask !== null && canComplete && s.status === "blocked" && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      aria-label={`Ask the client for "${s.label}"`}
+                      onClick={() => {
+                        setAskPrefill({ key: Date.now(), prompt: `For "${s.label}": ` });
+                        document.getElementById("job-asks")?.scrollIntoView({ block: "start" });
+                      }}
+                    >
+                      Ask the client
+                    </Button>
+                  )}
                   {s.outcomeNote !== null && (
                     <p className="mt-1 text-sm text-ink-2">{s.outcomeNote}</p>
                   )}
@@ -536,10 +561,12 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                   {s.status === "blocked" && openCheckFor(checks, s.stepKey) !== null ? (
                     <CheckActions
                       check={openCheckFor(checks, s.stepKey) as StepCheck}
-                      stepKey={s.stepKey}
+                      stepLabel={s.label}
                       busy={busy}
                       onApprove={(id) => void decideCheck(id, "approved", null)}
-                      onSendBack={(id) => void sendBack(id)}
+                      onSendBack={(id) => {
+                        sendBack(id, s.label);
+                      }}
                     />
                   ) : null}
                   {s.status === "blocked" &&
@@ -561,7 +588,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                             an answer away finishes nothing. */}
                         <Button
                           disabled={busy === s.stepKey || s.subStepsOpen > 0}
-                          aria-label={`Accept ${s.stepKey}`}
+                          aria-label={`Accept "${s.label}"`}
                           onClick={() => {
                             void decide(s.stepKey, "accepted", null, null);
                           }}
@@ -572,9 +599,9 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           variant="secondary"
                           size="sm"
                           disabled={busy === s.stepKey || s.subStepsOpen > 0}
-                          aria-label={`Correct ${s.stepKey}`}
+                          aria-label={`Correct "${s.label}"`}
                           onClick={() => {
-                            if (s.proposal) void correct(s.stepKey, s.proposal);
+                            if (s.proposal) correct(s, s.proposal);
                           }}
                         >
                           Correct
@@ -583,9 +610,9 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                           variant="secondary"
                           size="sm"
                           disabled={busy === s.stepKey}
-                          aria-label={`Reject ${s.stepKey}`}
+                          aria-label={`Reject "${s.label}"`}
                           onClick={() => {
-                            void reject(s.stepKey);
+                            reject(s);
                           }}
                         >
                           Reject
@@ -599,7 +626,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                             variant="secondary"
                             size="sm"
                             disabled={busy === s.stepKey}
-                            aria-label={`Take: ${s.stepKey}`}
+                            aria-label={`Take "${s.label}"`}
                             onClick={() => {
                               void assign(s.stepKey, me);
                             }}
@@ -620,7 +647,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                               this page's to predict. */}
                           <ConfirmAction
                             disabled={busy === s.stepKey || s.subStepsOpen > 0}
-                            aria-label={`Done: ${s.stepKey}`}
+                            aria-label={`Done: "${s.label}"`}
                             title={`Mark "${s.label}" done?`}
                             confirmLabel="Mark it done"
                             consequence={
@@ -644,7 +671,7 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
                         <Button
                           variant="secondary"
                           disabled={busy === s.stepKey}
-                          aria-label={`Take: ${s.stepKey}`}
+                          aria-label={`Take "${s.label}"`}
                           onClick={() => {
                             void assign(s.stepKey, me);
                           }}
@@ -676,6 +703,71 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
           Done records that <strong>you</strong> did the step. It cannot be undone.
         </p>
       )}
+      {/* ASKING THE CLIENT FROM A STEP (CA#37): the job's task carries the asks,
+          so a client answers on their portal as they do for any task. */}
+      {askTask !== null && (
+        <div id="job-asks">
+          <ClientAsks
+            workItemId={askTask.id}
+            canWrite={canComplete}
+            isClientVisible={askTask.isClientVisible}
+            about={`Asks go on this job's task, ${askTask.title}.`}
+            prefill={askPrefill}
+            hiddenHint="This job's task is hidden from the client portal, so they will not see an ask. Show it from the task's own page."
+          />
+        </div>
+      )}
+
+      {dialog?.kind === "sendBack" && (
+        <NoteDialog
+          title={`Send back "${dialog.stepLabel}"?`}
+          label="What needs fixing?"
+          hint="Required. The person who did it sees this."
+          confirmLabel="Send back"
+          busy={busy === dialog.approvalId}
+          onClose={() => {
+            setDialog(null);
+          }}
+          onConfirm={(note) => {
+            const id = dialog.approvalId;
+            setDialog(null);
+            void decideCheck(id, "rejected", note);
+          }}
+        />
+      )}
+      {dialog?.kind === "reject" && (
+        <NoteDialog
+          title={`Reject the automatic answer for "${dialog.stepLabel}"?`}
+          label="What was wrong with it?"
+          hint="Required. The step then waits for a person."
+          confirmLabel="Reject it"
+          busy={busy === dialog.stepKey}
+          onClose={() => {
+            setDialog(null);
+          }}
+          onConfirm={(note) => {
+            const key = dialog.stepKey;
+            setDialog(null);
+            void decide(key, "rejected", null, note);
+          }}
+        />
+      )}
+      {dialog?.kind === "correct" && (
+        <CorrectDialog
+          stepLabel={dialog.stepLabel}
+          proposed={dialog.proposal.proposed}
+          busy={busy === dialog.stepKey}
+          onClose={() => {
+            setDialog(null);
+          }}
+          onSave={(applied) => {
+            const key = dialog.stepKey;
+            setDialog(null);
+            void decide(key, "corrected", applied, null);
+          }}
+        />
+      )}
+
       {/* Working papers, challans, the evidence a step was actually done. A
           job's files belong to the FIRM rather than to a client, so no partyId
           is passed — the column exists for the client portal's record scope,
@@ -842,15 +934,16 @@ function SubStepsLeft({ count }: { count: number }) {
  */
 function CheckActions({
   check,
-  stepKey,
+  stepLabel,
   busy,
   onApprove,
   onSendBack,
 }: {
   check: StepCheck;
-  /** The step's PERMANENT handle, so these two buttons can say which step they
-   *  are about. A process can have more than one step waiting to be checked. */
-  stepKey: string;
+  /** The step's TITLE, so these two buttons can say which step they are about:
+   *  a process can have more than one step waiting to be checked, and its key
+   *  is the process's handle, never shown (CA#37). */
+  stepLabel: string;
   busy: string | null;
   onApprove: (approvalId: string) => void;
   onSendBack: (approvalId: string) => void;
@@ -878,7 +971,7 @@ function CheckActions({
           they had no reason to finish. */}
       <Button
         disabled={busy === check.id || check.reviewPointsOpen > 0}
-        aria-label={`Approve ${stepKey}`}
+        aria-label={`Approve "${stepLabel}"`}
         onClick={() => {
           onApprove(check.id);
         }}
@@ -889,7 +982,7 @@ function CheckActions({
         variant="secondary"
         size="sm"
         disabled={busy === check.id}
-        aria-label={`Send back ${stepKey}`}
+        aria-label={`Send back "${stepLabel}"`}
         onClick={() => {
           onSendBack(check.id);
         }}
@@ -1114,7 +1207,7 @@ function HandOver({
       <select
         className="select"
         data-size="sm"
-        aria-label={`Hand ${step.stepKey} to`}
+        aria-label={`Hand "${step.label}" to`}
         value={choice}
         onChange={(e) => {
           setChoice(e.target.value);
@@ -1134,7 +1227,7 @@ function HandOver({
         variant="secondary"
         size="sm"
         disabled={busy || choice === ""}
-        aria-label={`Hand over ${step.stepKey}`}
+        aria-label={`Hand over "${step.label}"`}
         onClick={() => {
           onHand(choice);
           setChoice("");
@@ -1146,3 +1239,224 @@ function HandOver({
   );
 }
 
+/**
+ * A note somebody must write before an act (F16): Send back, and Reject. The
+ * native prompt it replaces could not be read back, styled or kept open on a
+ * mistake; this keeps what was typed until Cancel.
+ */
+function NoteDialog({
+  title,
+  label,
+  hint,
+  confirmLabel,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  title: string;
+  label: string;
+  hint: string;
+  confirmLabel: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (note: string) => void;
+}) {
+  const formId = useId();
+  const [note, setNote] = useState("");
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} variant="destructive" loading={busy} disabled={note.trim() === ""}>
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (note.trim() !== "") onConfirm(note.trim());
+        }}
+      >
+        <Field label={label} hint={hint}>
+          <Textarea
+            rows={3}
+            autoFocus
+            value={note}
+            onChange={(e) => {
+              setNote(e.target.value);
+            }}
+          />
+        </Field>
+      </form>
+    </Dialog>
+  );
+}
+
+/** One box per thing the answer says, by its kind. */
+type CorrectField =
+  | { readonly key: string; readonly kind: "text"; readonly wasNull: boolean }
+  | { readonly key: string; readonly kind: "number" }
+  | { readonly key: string; readonly kind: "yesno" }
+  | { readonly key: string; readonly kind: "data" };
+
+function fieldsOf(proposed: Record<string, unknown>): readonly CorrectField[] {
+  return Object.entries(proposed).map(([key, value]): CorrectField => {
+    if (typeof value === "number") return { key, kind: "number" };
+    if (typeof value === "boolean") return { key, kind: "yesno" };
+    if (typeof value === "string") return { key, kind: "text", wasNull: false };
+    if (value === null) return { key, kind: "text", wasNull: true };
+    return { key, kind: "data" };
+  });
+}
+
+function startValue(field: CorrectField, value: unknown): string | boolean {
+  if (field.kind === "yesno") return value === true;
+  if (field.kind === "number") return typeof value === "number" ? String(value) : "";
+  if (field.kind === "text") return typeof value === "string" ? value : "";
+  return JSON.stringify(value, null, 2);
+}
+
+/**
+ * CORRECT THE AUTOMATIC ANSWER, as a form (F16).
+ *
+ * It was a native prompt holding the answer as raw JSON for a partner to edit.
+ * Now each thing the answer says is its own labelled box: words, a number, or
+ * a yes/no tick. Only a value that is itself a list or a group stays as text in
+ * the shape it was shown in, in its own box, so nothing else on the form can be
+ * broken by a missing bracket. Saving with nothing changed is refused here, as
+ * the API refuses it.
+ */
+function CorrectDialog({
+  stepLabel,
+  proposed,
+  busy,
+  onClose,
+  onSave,
+}: {
+  stepLabel: string;
+  proposed: Record<string, unknown>;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (applied: Record<string, unknown>) => void;
+}) {
+  const formId = useId();
+  const fields = fieldsOf(proposed);
+  const [values, setValues] = useState<Record<string, string | boolean>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, startValue(f, proposed[f.key])])),
+  );
+  const [problem, setProblem] = useState<string | null>(null);
+
+  function build(): Record<string, unknown> | string {
+    const out: Record<string, unknown> = {};
+    for (const f of fields) {
+      const v = values[f.key];
+      const label = codeLabel(f.key);
+      if (f.kind === "yesno") {
+        out[f.key] = v === true;
+      } else if (f.kind === "number") {
+        const n = Number(String(v).trim());
+        if (String(v).trim() === "" || !Number.isFinite(n)) return `"${label}" needs a number.`;
+        out[f.key] = n;
+      } else if (f.kind === "text") {
+        const text = String(v);
+        out[f.key] = f.wasNull && text.trim() === "" ? null : text;
+      } else {
+        try {
+          out[f.key] = JSON.parse(String(v)) as unknown;
+        } catch {
+          return `"${label}" is not in the shape it was shown in. Undo the change to it, or fix the brackets.`;
+        }
+      }
+    }
+    return out;
+  }
+
+  return (
+    <Dialog
+      open
+      size="lg"
+      onClose={onClose}
+      title={`Correct the automatic answer for "${stepLabel}"`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={busy}>
+            Save the correction
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const applied = build();
+          if (typeof applied === "string") {
+            setProblem(applied);
+            return;
+          }
+          if (JSON.stringify(applied) === JSON.stringify(proposed)) {
+            setProblem("Nothing was changed. Change what is wrong, or cancel.");
+            return;
+          }
+          setProblem(null);
+          onSave(applied);
+        }}
+      >
+        <FieldStack>
+          <p className="text-md">Change what is wrong. Everything else stays as the system answered.</p>
+          {problem !== null && (
+            <p className="tone-danger" role="alert">
+              {problem}
+            </p>
+          )}
+          {fields.length === 0 && <p className="text-md">The answer says nothing that can be changed here.</p>}
+          {fields.map((f) =>
+            f.kind === "yesno" ? (
+              <Checkbox
+                key={f.key}
+                label={codeLabel(f.key)}
+                checked={values[f.key] === true}
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, [f.key]: e.target.checked }));
+                }}
+              />
+            ) : f.kind === "data" ? (
+              <Field key={f.key} label={codeLabel(f.key)} hint="A list or group: keep its shape.">
+                <Textarea
+                  rows={4}
+                  className="mono"
+                  value={String(values[f.key] ?? "")}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                  }}
+                />
+              </Field>
+            ) : (
+              <Field key={f.key} label={codeLabel(f.key)}>
+                <Input
+                  type={f.kind === "number" ? "number" : "text"}
+                  value={String(values[f.key] ?? "")}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                  }}
+                />
+              </Field>
+            ),
+          )}
+        </FieldStack>
+      </form>
+    </Dialog>
+  );
+}

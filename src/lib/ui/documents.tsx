@@ -382,10 +382,25 @@ export function Documents({
           <div className="stack">
             <FieldRow>
               <Field label="Title">
-                <Input name="title" required placeholder="e.g. PAN card" maxLength={200} />
+                <Input
+                  name="title"
+                  required
+                  placeholder={
+                    subjectKind === "work_item" || subjectKind === "job"
+                      ? "e.g. GSTR-3B challan, September"
+                      : "e.g. PAN card"
+                  }
+                  maxLength={200}
+                />
               </Field>
+              {/* NO KIND IS PICKED FOR THEM (audit 2026-10-03, CA#31). It
+                  opened on Identity proof, so a GST working paper attached in a
+                  hurry was filed as somebody's ID. The person chooses. */}
               <Field label="What it is">
-                <Select name="kind" defaultValue="identity_proof">
+                <Select name="kind" defaultValue="" required>
+                  <option value="" disabled>
+                    Choose what it is
+                  </option>
                   {DOCUMENT_KINDS.map((k) => (
                     <option key={k} value={k}>
                       {DOCUMENT_KIND_LABELS[k] ?? k}

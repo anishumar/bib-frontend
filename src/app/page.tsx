@@ -13,6 +13,7 @@ import type {
   Escalation,
   MyStep,
   Readiness,
+  SentBack,
   StepCheck,
   WorkItem,
   WorkItemCheckRow,
@@ -86,6 +87,19 @@ import { readinessCount } from "@/lib/ui/readiness";
  * desk that cannot start yet). Waiting on the
  * client for a TASK is not derivable yet (it needs the open asks on the board's
  * read, a P1 task), so a task is yours or a checker's.
+ *
+ * ── SENT BACK TO YOU (audit 2026-10-03, CA#29) ─────────────────────────────
+ *
+ * A task or step a checker sent back, and nobody has sent again, is "Sent back
+ * to you" with the checker's note under it, and it is on the desk NOW (Today,
+ * unless already late) whatever its due day. The roleplay's article was sent
+ * back with a note and this screen said she was up to date.
+ *
+ * ── THE COMPANY, NOT THE GROUP (F32) ───────────────────────────────────────
+ *
+ * The Client column names the company the work is for when the work names one
+ * ("TDS deposit · Cobalt Logistics" read "Cobalt Foods" before), and the group
+ * only when it does not.
  */
 
 type Bucket = "overdue" | "today" | "week" | "later";
@@ -434,17 +448,21 @@ function buildRows(input: {
     // The date is the LAW's, not the firm's turnaround (CA#11): said, so a
     // filing's deadline is not read as a soft target.
     if (t.isStatutoryDue && t.dueOn !== null) flags.push({ tone: "warn", text: "Legal due date" });
+    // SENT BACK TO YOU (CA#29): the checker's note, under the title.
+    const back = t.hasOpenReview ? null : t.sentBack;
+    if (back !== null) flags.unshift({ tone: "danger", text: sentBackWords(back) });
     out.push({
       key: `task-${t.id}`,
       what: t.title,
-      kind: `Task · ${t.state.name}`,
+      kind: back !== null ? "Sent back to you" : `Task · ${t.state.name}`,
       href: `/work-items/${t.id}` as Route,
-      clientId: t.clientPartyId,
-      clientName: t.clientName,
+      // The company the work is for, when it names one (F32).
+      clientId: t.entityPartyId ?? t.clientPartyId,
+      clientName: t.entityName ?? t.clientName,
       dueOn: t.dueOn,
       turn: t.hasOpenReview ? "checker" : "me",
       flags,
-      now: false,
+      now: back !== null,
     });
   }
 
@@ -458,23 +476,27 @@ function buildRows(input: {
   const mySteps = new Set(input.steps.map((s) => stepKey(s.jobId, s.stepKey)));
   for (const s of input.steps) {
     const waitingForCheck = checking.has(stepKey(s.jobId, s.stepKey));
+    const back = waitingForCheck ? null : s.sentBack;
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (back !== null) flags.push({ tone: "danger", text: sentBackWords(back) });
+    // The job's date is a filing's legal date when that came first (CA#11).
+    if (s.job !== null && s.job.filingDueOn !== null && s.job.filingDueOn === s.job.dueOn) {
+      flags.push({ tone: "warn", text: "Legal due date" });
+    }
     out.push({
       key: `step-${s.id}`,
       what: s.label,
-      kind: `${waitingForCheck ? "Step, done" : "Step"} · ${jobWords(s.job)}`,
+      kind: back !== null ? `Sent back to you · ${jobWords(s.job)}` : `${waitingForCheck ? "Step, done" : "Step"} · ${jobWords(s.job)}`,
       href: `/work/${s.jobId}` as Route,
-      clientId: s.job?.clientPartyId ?? null,
-      clientName: s.job?.clientName ?? null,
+      // The company the job is for (F32), else whoever is billed.
+      clientId: s.job?.entityPartyId ?? s.job?.clientPartyId ?? null,
+      clientName: s.job?.entityName ?? s.job?.clientName ?? null,
       dueOn: s.job?.dueOn ?? null,
       // `blocked` on a step is the engine waiting on a PERSON: this one, unless
       // the step is done and a check is open on it.
       turn: waitingForCheck ? "checker" : s.status === "pending" ? "earlier" : "me",
-      // The job's date is a filing's legal date when that came first (CA#11).
-      flags:
-        s.job !== null && s.job.filingDueOn !== null && s.job.filingDueOn === s.job.dueOn
-          ? [{ tone: "warn", text: "Legal due date" }]
-          : [],
-      now: false,
+      flags,
+      now: back !== null,
     });
   }
 
@@ -487,8 +509,8 @@ function buildRows(input: {
       what: c.workItemTitle,
       kind: `Check${c.submittedByName === null ? "" : ` · by ${c.submittedByName}`}`,
       href: `/work-items/${c.workItemId}` as Route,
-      clientId: c.clientPartyId,
-      clientName: c.clientName,
+      clientId: c.entityPartyId ?? c.clientPartyId,
+      clientName: c.entityName ?? c.clientName,
       dueOn: c.dueOn,
       turn: "me",
       flags: [],
@@ -511,8 +533,8 @@ function buildRows(input: {
         mineToDecide && c.submittedByName !== null ? ` · by ${c.submittedByName}` : ""
       }`,
       href: `/work/${c.jobId}` as Route,
-      clientId: c.job?.clientPartyId ?? null,
-      clientName: c.job?.clientName ?? null,
+      clientId: c.job?.entityPartyId ?? c.job?.clientPartyId ?? null,
+      clientName: c.job?.entityName ?? c.job?.clientName ?? null,
       dueOn: c.job?.dueOn ?? null,
       turn: mineToDecide ? "me" : "checker",
       flags: [],
@@ -552,7 +574,7 @@ function buildRows(input: {
       kind: `Escalated to you${holder === null ? "" : ` · with ${holder}`}`,
       href: (e.workItemId !== null ? `/work-items/${e.workItemId}` : "/calendar") as Route,
       clientId: e.clientPartyId,
-      clientName: e.clientName ?? e.entityName,
+      clientName: e.entityName ?? e.clientName,
       dueOn: e.dueOn,
       turn: "me",
       flags: [],
@@ -564,6 +586,12 @@ function buildRows(input: {
   out.push(...advanceRows(input.advances));
 
   return out;
+}
+
+/** "Sent back by Priya Mehta: two bills missing" (CA#29). */
+function sentBackWords(back: SentBack): string {
+  const who = back.decidedByName === null ? "Sent back" : `Sent back by ${back.decidedByName}`;
+  return back.notes === null || back.notes.trim() === "" ? who : `${who}: ${back.notes}`;
 }
 
 const DUTY_WORDS: Readonly<Record<Exclude<BillingAdvanceDuty, "admin">, string>> = {

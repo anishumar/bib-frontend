@@ -42,7 +42,8 @@ import {
 } from "@/components/ui";
 import { WorkBoard } from "./board";
 import { CheckQueue } from "./checks";
-import { EscalationQueue } from "./escalations";
+import { EscalationQueue, escalatedSubjects } from "./escalations";
+import { Workload } from "./workload";
 import { longDay } from "@/lib/day";
 
 /**
@@ -95,6 +96,15 @@ import { longDay } from "@/lib/day";
  * (the state in danger tone with its reason, or "Waiting on" another task),
  * never a column somebody has to scroll to. The board is one click away.
  * `?tab=&view=` hold the place, so Back from a task lands where you were.
+ *
+ * ── BY PERSON, AND COUNTS THAT SAY WHAT THEY COUNT (audit 2026-10-03) ───────
+ *
+ * A manager could not see who was overloaded (CA#32): By person is one row per
+ * colleague with their open, late and waiting-for-a-check tasks, and a name
+ * opens All tasks filtered to them (`?person=`, kept in the URL like the tab).
+ * "Escalated 45" sat beside "Everything 26" (F28): one counted notices, the
+ * other tasks. Every tab now counts pieces of work: Escalated counts the tasks
+ * and filings escalated, and its panel says how many notices that was.
  */
 export default function WorkItemsPage() {
   // `useSearchParams` suspends during prerender; the boundary is the
@@ -106,7 +116,7 @@ export default function WorkItemsPage() {
   );
 }
 
-const TABS = ["mine", "unassigned", "checks", "escalated", "all"] as const;
+const TABS = ["mine", "unassigned", "checks", "escalated", "people", "all"] as const;
 type BoardTab = (typeof TABS)[number];
 type BoardView = "board" | "list";
 
@@ -140,6 +150,9 @@ function WorkBoardPage() {
    * would have left "Mine, as a board" nowhere to live. The LIST by default.
    */
   const [view, setView] = useState<BoardView>(() => (params.get("view") === "board" ? "board" : "list"));
+  /** All tasks of one person (a user id), of nobody (`""`), or everybody
+   *  (null). CA#32: picked from By person or the filter on All tasks. */
+  const [person, setPerson] = useState<string | null>(() => params.get("person"));
   /**
    * Tab and view, written into the URL with `history.replaceState`: not a
    * history entry of its own, so Back from a task returns to this exact place.
@@ -149,11 +162,13 @@ function WorkBoardPage() {
    */
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    if (q.get("tab") === tab && q.get("view") === view) return;
+    if (q.get("tab") === tab && q.get("view") === view && q.get("person") === person) return;
     q.set("tab", tab);
     q.set("view", view);
+    if (person === null) q.delete("person");
+    else q.set("person", person);
     window.history.replaceState(null, "", `${pathname}?${q.toString()}`);
-  }, [tab, view, pathname]);
+  }, [tab, view, person, pathname]);
   const [raising, setRaising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -236,8 +251,13 @@ function WorkBoardPage() {
   // filtered by this, but the notice has to say what waits on the reader.
   const mineToCheck = checks.filter((c) => c.viewer.eligible).length;
   const unassigned = items.filter((i) => i.assignee === null);
+  // All tasks, narrowed to one person when one is picked (CA#32).
+  const everyone =
+    person === null
+      ? items
+      : items.filter((i) => (person === "" ? i.assignee === null : i.assignee?.userId === person));
   const shown = datedOrder(
-    tab === "mine" ? mine : tab === "unassigned" ? unassigned : items,
+    tab === "mine" ? mine : tab === "unassigned" ? unassigned : everyone,
     localToday,
   );
   // Rank -> the firm's name for it, from the grades its active staff hold.
@@ -299,22 +319,46 @@ function WorkBoardPage() {
           { value: "mine", label: "Mine", count: mine.length },
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
           { value: "checks", label: "To check", count: checks.length },
-          { value: "escalated", label: "Escalated", count: escalations.length },
-          { value: "all", label: "Everything", count: items.length },
+          // Pieces of WORK, like every other tab, not notices (F28).
+          { value: "escalated", label: "Escalated", count: escalatedSubjects(escalations) },
+          { value: "people", label: "By person" },
+          { value: "all", label: "All tasks", count: items.length },
         ]}
       />
 
       {/* Neither control means anything on the two QUEUES: neither has a board
           shape, and neither lists finished work. */}
-      {tab !== "escalated" && tab !== "checks" && (
+      {tab !== "escalated" && tab !== "checks" && tab !== "people" && (
         <div className="row">
-          <Checkbox
-            label="Include finished work"
-            checked={includeDone}
-            onChange={(e) => {
-              setIncludeDone(e.target.checked);
-            }}
-          />
+          <span className="cluster">
+            <Checkbox
+              label="Include finished work"
+              checked={includeDone}
+              onChange={(e) => {
+                setIncludeDone(e.target.checked);
+              }}
+            />
+            {/* WHOSE TASKS (CA#32), on All tasks: Mine and Unassigned are
+                already one desk each. */}
+            {tab === "all" && staff.length > 0 && (
+              <Select
+                size="sm"
+                aria-label="Whose tasks"
+                value={person ?? "*"}
+                onChange={(e) => {
+                  setPerson(e.target.value === "*" ? null : e.target.value);
+                }}
+              >
+                <option value="*">Everybody&rsquo;s tasks</option>
+                <option value="">On nobody&rsquo;s desk</option>
+                {staff.map((c) => (
+                  <option key={c.userId} value={c.userId}>
+                    {colleagueLabel(c)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </span>
           {/* A pair of toggle buttons rather than a `<Tabs>`: the same panel
               drawn two ways, not navigation between panels. */}
           <span className="cluster tight">
@@ -355,6 +399,16 @@ function WorkBoardPage() {
             rows={escalations}
             ladderPublished={ladderPublished}
             gradeNames={gradeNames}
+          />
+        ) : tab === "people" ? (
+          <Workload
+            items={items}
+            staff={staff}
+            today={localToday}
+            onPick={(userId) => {
+              setPerson(userId);
+              setTab("all");
+            }}
           />
         ) : shown.length === 0 ? (
           <Card>
@@ -643,11 +697,15 @@ function NewTaskDialog({
                 <option value="" disabled>
                   Choose a client
                 </option>
-                {parties.map((party) => (
-                  <option key={party.id} value={party.id}>
-                    {party.displayName}
-                  </option>
-                ))}
+                {/* NOT the firm's own companies (F14, CA#59): they are who
+                    does the work, never whom it is for. */}
+                {parties
+                  .filter((party) => !party.isOwnCompany)
+                  .map((party) => (
+                    <option key={party.id} value={party.id}>
+                      {party.displayName}
+                    </option>
+                  ))}
               </Select>
             </Field>
             <Field label="What has to be done">
@@ -658,8 +716,12 @@ function NewTaskDialog({
             {/* Only when the picker loaded; `party:read`, like the board. */}
             {staff.length > 0 && (
               <Field label="Whose desk" optional>
+                {/* A task raised here is not routed: with nobody picked it
+                    waits on the Unassigned tab. The empty option said "The
+                    client's SPOC", which the API never did for a hand-raised
+                    task. */}
                 <Select name="assigneeUserId" defaultValue="">
-                  <option value="">The client&apos;s SPOC</option>
+                  <option value="">Nobody yet</option>
                   {staff.map((m) => (
                     <option key={m.userId} value={m.userId}>
                       {colleagueLabel(m)}

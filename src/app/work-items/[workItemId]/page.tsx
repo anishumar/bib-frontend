@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import {
   Button,
   cx,
+  Dialog,
   Field,
   FieldStack,
   Input,
@@ -23,10 +24,13 @@ import type {
   ChecklistItem,
   Colleague,
   Principal,
+  ReviewRule,
+  TaskFiling,
   WorkItem,
   WorkItemChecker,
   WorkItemDependency,
   WorkItemDetail,
+  WorkItemNote,
   WorkItemReview,
   WorkVocabulary,
 } from "@/lib/api/client";
@@ -62,18 +66,14 @@ import { Documents } from "@/lib/ui/documents";
  * a firm renames "Blocked" to "Stuck" on /admin/work-vocabulary and this screen
  * keeps demanding a reason, because the demand is keyed on `isBlocked`.
  *
- * The reason box therefore appears when the SELECTED state is flagged blocked —
- * for whatever the firm has called it, including a second state it flagged
- * itself. Asking for it here rather than letting the API refuse is not a
- * duplicated rule: the API refuses regardless, and a person who has already
- * clicked Save has lost the sentence they were about to write.
+ * ── THE REVIEW CLOSES THE LOOP (audit 2026-10-03) ───────────────────────────
  *
- * ── WHAT IS NOT OFFERED, AND WHY ────────────────────────────────────────────
- *
- * There is no "approve and mark done" button. Nothing says which of the firm's
- * terminal states an approval should move work into — a firm has at least two,
- * Completed and Cancelled — and picking one would be this product deciding what
- * approval MEANS. So the two acts are separate and the screen shows both.
+ * Approving FINISHES the task: the API moves it to the firm's finished-and-done
+ * state (CA#28), so Send for review is not offered again on finished work. Send
+ * for review waits for the checklist (CA#30), carries a note for the checker,
+ * and is checked under the firm's own rule (CA#27): the dialog says which, or
+ * asks when the firm has several. Work sent back says so at the top, with the
+ * checker's note, until it is sent again (CA#29).
  *
  * ── AND THE REVIEW SECTION SHOWS REJECTIONS ─────────────────────────────────
  *
@@ -90,23 +90,28 @@ export default function WorkItemPage() {
   const [vocabulary, setVocabulary] = useState<WorkVocabulary | null>(null);
   const [roster, setRoster] = useState<Colleague[]>([]);
   const [me, setMe] = useState<Principal | null>(null);
+  const [filing, setFiling] = useState<TaskFiling | null>(null);
+  const [rules, setRules] = useState<ReviewRule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  // How many of the job's steps went with the task on the last Save, so the
-  // person handing it out sees the job moved, not only the card.
+  const [sending, setSending] = useState(false);
+  // How many of the job's steps went with the task on the last hand-over, so
+  // the person handing it out sees the job moved, not only the card.
   const [stepsHandedOver, setStepsHandedOver] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [item, vocab, people, principal] = await Promise.all([
+    const [item, vocab, people, principal, filingRead, rulesRead] = await Promise.all([
       api.GET("/api/v1/work-items/{workItemId}", { params: { path: { workItemId } } }),
       api.GET("/api/v1/work-vocabulary", {}),
       // The colleagues PICKER (`party:read`, like this page), not the roster
-      // (`tenant:admin`). Until 2026-09-25 this read the roster, so a manager
-      // who holds `work:write` and may assign was shown no picker at all: the
-      // gap G3.2 recorded and left consistent. Names and rungs, no emails.
+      // (`tenant:admin`). Names and rungs, no emails.
       api.GET("/api/v1/tenancy/colleagues", {}),
       api.GET("/api/v1/auth/me", {}),
+      // The filing this task files, and the company's open ones (CA#36).
+      api.GET("/api/v1/work-items/{workItemId}/filing", { params: { path: { workItemId } } }),
+      // The firm's rules for who checks work, for Send for review (CA#27).
+      api.GET("/api/v1/review-rules", {}),
     ]);
     if (item.response.status === 401) {
       router.push("/login");
@@ -121,6 +126,8 @@ export default function WorkItemPage() {
     setVocabulary(vocab.error ? null : vocab.data);
     setRoster(people.error ? [] : people.data.colleagues);
     setMe(principal.error ? null : principal.data);
+    setFiling(filingRead.error ? null : filingRead.data);
+    setRules(rulesRead.error ? [] : rulesRead.data.rules);
     setError(null);
     setLoaded(true);
   }, [router, workItemId]);
@@ -136,20 +143,15 @@ export default function WorkItemPage() {
    * error message and the reload.
    *
    * IT RETURNS WHETHER IT WORKED, and that is not bookkeeping. A panel that
-   * closes its own form on submit closes it on a REFUSAL too — measured on the
-   * dependency picker: the API refused a cycle, the sentence rendered at the
-   * top of a 3,000px page, and the form the reader would have corrected it in
-   * had already gone. Callers that do not care go on writing `void act(…)`.
+   * closes its own form on submit closes it on a REFUSAL too. Callers that do
+   * not care go on writing `void act(…)`.
    */
   async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(key);
+    // Cleared first, so a REPEAT refusal is a second appearance and takes focus.
     setError(null);
     const result = await call();
     if (result.error) {
-      // `setError(null)` above is what makes a REPEAT press re-focus: the
-      // notice moves focus when a message appears, so the second press has to
-      // be another absent → present transition rather than the same string
-      // arriving twice.
       setError(apiError(result.error).message);
       setBusy(null);
       return false;
@@ -174,6 +176,8 @@ export default function WorkItemPage() {
   const item = detail.item;
   const openReview = detail.reviews.find((r) => r.decision === "pending") ?? null;
   const canWrite = me?.permissions.includes("work:write") ?? false;
+  const openLines = detail.checklist.filter((l) => l.doneAt === null);
+  const finished = item.state.isTerminal;
   // The reviews, and WHERE they go: at the bottom as history, or straight under
   // the details while a check is open, because Approve is then the page's act.
   const reviews = (
@@ -181,6 +185,7 @@ export default function WorkItemPage() {
       reviews={detail.reviews}
       openReview={openReview}
       openReviewViewer={detail.openReviewViewer}
+      openLines={openLines.length}
       canWrite={canWrite}
       busy={busy}
       onDecide={(approvalId, decision, notes) => {
@@ -213,8 +218,9 @@ export default function WorkItemPage() {
           </>
         }
         /* The two things this item hangs off, and the page's one brand action:
-           sending the work for review, while nothing is waiting to be checked.
-           Once a check is open, Approve in the Reviews card is the action. */
+           sending the work for review, while nothing is waiting to be checked
+           and the work is not finished. Once a check is open, Approve in the
+           Reviews card is the action. */
         actions={
           <>
             {item.jobId !== null && (
@@ -225,16 +231,11 @@ export default function WorkItemPage() {
             <LinkButton size="sm" variant="ghost" href={`/clients/${item.clientPartyId}`}>
               The client
             </LinkButton>
-            {canWrite && openReview === null && (
+            {canWrite && openReview === null && !finished && (
               <Button
                 disabled={busy === "review"}
                 onClick={() => {
-                  void act("review", () =>
-                    api.POST("/api/v1/work-items/{workItemId}/review", {
-                      params: { path: { workItemId } },
-                      body: {},
-                    }),
-                  );
+                  setSending(true);
                 }}
               >
                 Send for review
@@ -246,6 +247,22 @@ export default function WorkItemPage() {
       {/* A REFUSAL TAKES FOCUS, and `ErrorNotice` is where that lives. */}
       <ErrorNotice error={error} />
 
+      {/* SENT BACK (CA#29): said first, with the checker's note, until the work
+          goes to be checked again. */}
+      {item.sentBack !== null && (
+        <Notice tone="warn">
+          <p>
+            <strong>
+              Sent back
+              {item.sentBack.decidedByName === null ? "" : ` by ${item.sentBack.decidedByName}`} on{" "}
+              {longInstant(item.sentBack.decidedAt)}
+            </strong>
+            {item.sentBack.notes !== null && <>: {item.sentBack.notes}</>}
+          </p>
+          <p className="text-sm">Fix what it says, then send it for review again.</p>
+        </Notice>
+      )}
+
       <Details
         item={item}
         canWrite={canWrite}
@@ -253,14 +270,14 @@ export default function WorkItemPage() {
         roster={roster}
         busy={busy}
         stepsHandedOver={stepsHandedOver}
-        onMove={(stateId, blockedReason) => {
-          void act("state", () =>
+        onMove={(stateId, blockedReason) =>
+          act("state", () =>
             api.POST("/api/v1/work-items/{workItemId}/state", {
               params: { path: { workItemId } },
               body: { stateId, blockedReason },
             }),
-          );
-        }}
+          )
+        }
         onVisibility={(isClientVisible) => {
           void act("visibility", () =>
             api.PATCH("/api/v1/work-items/{workItemId}", {
@@ -316,6 +333,44 @@ export default function WorkItemPage() {
         }}
       />
 
+      <Notes
+        notes={detail.notes}
+        canWrite={canWrite}
+        busy={busy === "note"}
+        onAdd={(body) =>
+          act("note", () =>
+            api.POST("/api/v1/work-items/{workItemId}/notes", {
+              params: { path: { workItemId } },
+              body: { body },
+            }),
+          )
+        }
+      />
+
+      {/* THE FILING THIS TASK FILES (CA#36). Completing the task marks it
+          filed on the calendar and the client's portal. */}
+      {filing !== null && (
+        <Filing
+          filing={filing}
+          company={item.entityName ?? item.clientName}
+          canWrite={canWrite}
+          busy={busy === "filing"}
+          onLink={(obligationId) =>
+            act("filing", () =>
+              api.PUT("/api/v1/work-items/{workItemId}/filing", {
+                params: { path: { workItemId } },
+                body: { obligationId },
+              }),
+            )
+          }
+          onUnlink={() => {
+            void act("filing", () =>
+              api.DELETE("/api/v1/work-items/{workItemId}/filing", { params: { path: { workItemId } } }),
+            );
+          }}
+        />
+      )}
+
       {/* WHAT THIS WAITS ON. The checklist is what is INSIDE this task; this is
           what is outside it, and it decides whether the task can start. */}
       <Dependencies
@@ -350,11 +405,7 @@ export default function WorkItemPage() {
         isClientVisible={item.isClientVisible}
       />
 
-      {/* ── THE FILES ON THIS TASK (T6.7) ───────────────────────────────────
-          `subject_kind = 'work_item'` (0063) so a client's uploaded answer files
-          itself against the job that asked for it. It is also where each
-          document's client-visibility switch lives (0066). `partyId` is the
-          task's CLIENT, so a file uploaded here belongs to them. */}
+      {/* ── THE FILES ON THIS TASK (T6.7) ─────────────────────────────────── */}
       <Documents
         subjectKind="work_item"
         subjectRef={workItemId}
@@ -364,31 +415,149 @@ export default function WorkItemPage() {
       />
 
       {openReview === null && reviews}
+
+      <SendForReview
+        open={sending}
+        rules={rules}
+        openLines={openLines.map((l) => l.label)}
+        busy={busy === "review"}
+        onClose={() => {
+          setSending(false);
+        }}
+        onSend={(policyKey, note) => {
+          void act("review", () =>
+            api.POST("/api/v1/work-items/{workItemId}/review", {
+              params: { path: { workItemId } },
+              body: { ...(policyKey === null ? {} : { policyKey }), note },
+            }),
+          ).then((ok) => {
+            if (ok) setSending(false);
+          });
+        }}
+      />
     </Page>
+  );
+}
+
+/**
+ * SEND FOR REVIEW, in a dialog (audit 2026-10-03).
+ *
+ * Three things a person must see before the work leaves their desk, none of
+ * which the one-click button said: which of the firm's rules checks it (CA#27,
+ * the firm's own, never "anyone but you" when the firm has one), that the
+ * checklist is finished (CA#30, the API refuses otherwise and this says which
+ * lines), and a box for what to tell the checker (CA#30).
+ */
+function SendForReview({
+  open,
+  rules,
+  openLines,
+  busy,
+  onClose,
+  onSend,
+}: {
+  open: boolean;
+  rules: readonly ReviewRule[];
+  openLines: readonly string[];
+  busy: boolean;
+  onClose: () => void;
+  onSend: (policyKey: string | null, note: string | null) => void;
+}) {
+  const formId = useId();
+  const [note, setNote] = useState("");
+  const [rule, setRule] = useState("");
+  const blocked = openLines.length > 0;
+  const mustPick = rules.length > 1;
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Send for review"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={busy} disabled={blocked || (mustPick && rule === "")}>
+            Send for review
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (blocked || (mustPick && rule === "")) return;
+          onSend(mustPick ? rule : null, note.trim() === "" ? null : note.trim());
+        }}
+      >
+        <FieldStack>
+          {blocked && (
+            <Notice tone="warn">
+              <p>
+                {openLines.length === 1
+                  ? "One checklist line is not ticked:"
+                  : `${String(openLines.length)} checklist lines are not ticked:`}{" "}
+                {openLines.slice(0, 5).join(", ")}
+                {openLines.length > 5 ? ` and ${String(openLines.length - 5)} more` : ""}.
+              </p>
+              <p className="text-sm">Tick them, or remove a line that does not apply, first.</p>
+            </Notice>
+          )}
+          {rules.length === 0 ? (
+            <p className="text-md">Anyone at the firm except you can check it.</p>
+          ) : rules.length === 1 ? (
+            <p className="text-md">
+              Checked under your firm&rsquo;s rule: <strong>{rules[0]?.label}</strong>.
+            </p>
+          ) : (
+            <Field label="Who checks it" hint="Your firm has more than one rule.">
+              <Select
+                value={rule}
+                required
+                onChange={(e) => {
+                  setRule(e.target.value);
+                }}
+              >
+                <option value="" disabled>
+                  Choose a rule
+                </option>
+                {rules.map((r) => (
+                  <option key={r.key} value={r.key}>
+                    {r.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Note for the checker" optional>
+            <Textarea
+              rows={3}
+              value={note}
+              maxLength={2000}
+              placeholder="e.g. Two purchase bills were added late, see sheet 2"
+              onChange={(e) => {
+                setNote(e.target.value);
+              }}
+            />
+          </Field>
+        </FieldStack>
+      </form>
+    </Dialog>
   );
 }
 
 /**
  * THE TASK AT A GLANCE, and the three things you change about it.
  *
- * One card (Wave 4, 2026-09-28). It was four: the facts, then "Change state",
- * "What the client sees" and "Whose desk" each in a titled card of its own, so
- * the same state and the same owner were printed once as a fact and again in a
- * select one card lower. Now the State and Whose desk facts ARE the controls
- * for somebody with `work:write`, and plain words for everybody else.
+ * ── STATE AND WHOSE DESK SAVE WHEN PICKED (audit 2026-10-03, CA#30) ─────────
  *
- * ── THE STATE PICKER IS THE FIRM'S OWN VOCABULARY ───────────────────────────
- *
- * Offers only ACTIVE states (a retired one still renders where it is held), and
- * the reason box is keyed on the SELECTED state's `isBlocked` FLAG, so it
- * follows the firm's own configuration rather than a name this screen knows.
- * Asking before the API refuses is not a duplicated rule: a person who has
- * already pressed Save has lost the sentence they were about to write.
- *
- * ── WHAT THE CLIENT SEES is `is_client_visible` (0051; enforced by 0062) ────
- *
- * A switch and not a checkbox in a form: it takes effect on the client's page
- * immediately, which is what a switch means.
+ * They each needed a separate Save, while the client-portal switch and the
+ * checklist saved at once: one card, two behaviours, and a changed select that
+ * nobody saved read as done. Both now save the moment a choice is made. The one
+ * exception is a state the firm marks BLOCKED, which owes a reason: picking it
+ * opens the reason box, and that box's Save moves it.
  */
 function Details({
   item,
@@ -407,70 +576,54 @@ function Details({
   roster: Colleague[];
   busy: string | null;
   stepsHandedOver: number | null;
-  onMove: (stateId: string, blockedReason: string | null) => void;
+  onMove: (stateId: string, blockedReason: string | null) => Promise<boolean>;
   onVisibility: (visible: boolean) => void;
   onAssign: (userId: string | null) => void;
 }) {
   const currentStateId = item.state.id;
   const currentUserId = item.assignee?.userId ?? null;
-  const [stateId, setStateId] = useState(currentStateId);
+  // A BLOCKED state picked and waiting for its reason. Null otherwise: every
+  // other pick has already been saved.
+  const [blockedPick, setBlockedPick] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [userId, setUserId] = useState(currentUserId ?? "");
-
-  /**
-   * RE-SYNC WHEN THE ITEM MOVES UNDER US. `useState(currentStateId)` reads the
-   * prop once and this never unmounts, so sending a task for review (0073
-   * MOVES it into the firm's "with a checker" state) left the picker on the old
-   * state. React's recipe: compare against what was last seen and set during
-   * render. Only the SELECTION is reset; a half-typed reason is the typist's.
-   */
-  const [seenStateId, setSeenStateId] = useState(currentStateId);
-  if (seenStateId !== currentStateId) {
-    setSeenStateId(currentStateId);
-    setStateId(currentStateId);
-  }
-  const target = vocabulary?.states.find((s) => s.id === stateId) ?? null;
-  const needsReason = target?.isBlocked ?? false;
   const mayMove = canWrite && vocabulary !== null;
   const mayAssign = canWrite && roster.length > 0;
+  const shownStateId = blockedPick ?? currentStateId;
+  const blockedTarget = vocabulary?.states.find((s) => s.id === blockedPick) ?? null;
 
   return (
     <Card>
       <Meta>
         <MetaItem label="State">
           {mayMove ? (
-            <span className="cluster tight">
-              <Select
-                variant="quiet"
-                aria-label="State"
-                value={stateId}
-                onChange={(e) => {
-                  setStateId(e.target.value);
-                }}
-              >
-                {vocabulary.states
-                  .filter((s) => s.isActive || s.id === currentStateId)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </Select>
-              {stateId !== currentStateId && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  /* Two Saves on this card, each named by what it saves. */
-                  aria-label="Save the new state"
-                  disabled={busy === "state" || (needsReason && reason.trim() === "")}
-                  onClick={() => {
-                    onMove(stateId, needsReason ? reason.trim() : null);
-                  }}
-                >
-                  Save
-                </Button>
-              )}
-            </span>
+            <Select
+              variant="quiet"
+              aria-label="State"
+              value={shownStateId}
+              disabled={busy === "state"}
+              onChange={(e) => {
+                const next = vocabulary.states.find((s) => s.id === e.target.value);
+                if (next === undefined) return;
+                if (next.id === currentStateId) {
+                  setBlockedPick(null);
+                  return;
+                }
+                if (next.isBlocked) {
+                  setBlockedPick(next.id);
+                  return;
+                }
+                setBlockedPick(null);
+                void onMove(next.id, null);
+              }}
+            >
+              {vocabulary.states
+                .filter((s) => s.isActive || s.id === currentStateId)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </Select>
           ) : (
             <Pill
               dot
@@ -482,39 +635,25 @@ function Details({
         </MetaItem>
         <MetaItem label="Whose desk">
           {mayAssign ? (
-            <span className="cluster tight">
-              <Select
-                variant="quiet"
-                aria-label="Whose desk"
-                {...(userId !== (currentUserId ?? "") ? { "aria-describedby": "assign-hint" } : {})}
-                value={userId}
-                onChange={(e) => {
-                  setUserId(e.target.value);
-                }}
-              >
-                <option value="">Nobody</option>
-                {/* Active staff only, already: the API leaves out a revoked
-                    membership, because offering it would produce a refusal. */}
-                {roster.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {colleagueLabel(m)}
-                  </option>
-                ))}
-              </Select>
-              {userId !== (currentUserId ?? "") && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  aria-label="Save whose desk this sits on"
-                  disabled={busy === "assign"}
-                  onClick={() => {
-                    onAssign(userId === "" ? null : userId);
-                  }}
-                >
-                  Save
-                </Button>
-              )}
-            </span>
+            <Select
+              variant="quiet"
+              aria-label="Whose desk"
+              aria-describedby="assign-hint"
+              value={currentUserId ?? ""}
+              disabled={busy === "assign"}
+              onChange={(e) => {
+                onAssign(e.target.value === "" ? null : e.target.value);
+              }}
+            >
+              <option value="">Nobody</option>
+              {/* Active staff only, already: the API leaves out a revoked
+                  membership, because offering it would produce a refusal. */}
+              {roster.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {colleagueLabel(m)}
+                </option>
+              ))}
+            </Select>
           ) : item.assignee === null ? (
             <NotSet>Nobody</NotSet>
           ) : (
@@ -524,8 +663,7 @@ function Details({
         <MetaItem label="Due">
           {item.dueOn === null ? <NotSet>No due date</NotSet> : longDay(item.dueOn)}
           {/* The SNAPSHOT: a catalogue revision must not make finished work
-              retroactively late, so this is the turnaround that applied when
-              the work was raised, not what the service says today. */}
+              retroactively late. */}
           {item.slaDaysSnapshot !== null && (
             <Sub>{`${String(item.slaDaysSnapshot)}-day turnaround`}</Sub>
           )}
@@ -550,9 +688,6 @@ function Details({
           ) : (
             "Hidden"
           )}
-          {/* The consequence, both ways, because the cost is asymmetric: a task
-              wrongly hidden leaves a client in the dark, one wrongly shown puts
-              an internal note in front of the person it is about. */}
           <Sub>
             <span id="visibility-hint">
               {item.isClientVisible ? "Never shows whose desk or priority." : "The client cannot see it."}
@@ -561,22 +696,51 @@ function Details({
         </MetaItem>
       </Meta>
 
-      {needsReason && mayMove && stateId !== currentStateId && (
+      {blockedTarget !== null && mayMove && (
         /* A `hint`, not a span in the label: a label's text is the control's
            NAME and a screen reader would read the whole sentence on focus. */
-        <Field label="Why is it stuck?" hint="Required. It stays on the task.">
-          <Textarea
-            value={reason}
-            rows={2}
-            placeholder="e.g. Waiting for the client's revised challan"
-            onChange={(e) => {
-              setReason(e.target.value);
-            }}
-          />
-        </Field>
+        <form
+          className="stack tight"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (reason.trim() === "") return;
+            void onMove(blockedTarget.id, reason.trim()).then((ok) => {
+              if (ok) {
+                setBlockedPick(null);
+                setReason("");
+              }
+            });
+          }}
+        >
+          <Field label={`Why is it ${blockedTarget.name.toLowerCase()}?`} hint="Required. It stays on the task.">
+            <Textarea
+              value={reason}
+              rows={2}
+              autoFocus
+              placeholder="e.g. Waiting for the client's revised challan"
+              onChange={(e) => {
+                setReason(e.target.value);
+              }}
+            />
+          </Field>
+          <div className="cluster">
+            <Button type="submit" size="sm" disabled={busy === "state" || reason.trim() === ""}>
+              Save
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setBlockedPick(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
       )}
-      {/* Said where somebody acts: once they have picked someone else. */}
-      {mayAssign && userId !== (currentUserId ?? "") && (
+      {mayAssign && (
         <p className="field-hint" id="assign-hint">
           Handing it on also hands over the job&rsquo;s untaken steps, where grade allows.
         </p>
@@ -648,21 +812,11 @@ function Checklist({
                 onTick(line.id, e.target.checked);
               }}
             />
-            {/* A ticked line is STRUCK THROUGH and dimmed. It carried
-                `data-inactive`, which is styled by `.table tbody tr[data-inactive]`
-                and by nothing else — on a <span> that selector never matches, so
-                a line somebody had ticked measured opacity 1 and the same ink as
-                one nobody had touched. The checkbox was the only difference on a
-                list whose whole job is what is left to do. */}
             <span className={cx(line.doneAt !== null && "text-muted line-through")}>
               {line.label}
             </span>
           </label>
           {canWrite && line.doneAt === null && (
-            /* NAMED BY THE LINE. A checklist is a LIST — five lines draw five
-               buttons saying only "Remove", and the demo's checklist is empty,
-               which is why no sweep has seen them. The label is what the row
-               is, and nothing on this screen renames a line. */
             <Button
               variant="ghost"
               size="sm"
@@ -708,11 +862,168 @@ function Checklist({
           </Button>
         </div>
       )}
-      {/* A ticked line cannot be removed, and the screen says so before somebody
-          goes looking for the button. The tick is the record that a person did
-          something and it lives nowhere else. */}
+      {lines.length > 0 && done < lines.length && (
+        <p className="field-hint">Every line is ticked before the task goes for review.</p>
+      )}
       {lines.some((l) => l.doneAt !== null) && (
         <p className="field-hint">Untick a line to remove it.</p>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * NOTES ON THE TASK (audit 2026-10-03, CA#30): "challan shared on WhatsApp".
+ * Oldest first, each with who and when. A note is never edited; a correction is
+ * a second note. Staff only: the client portal never shows them.
+ */
+function Notes({
+  notes,
+  canWrite,
+  busy,
+  onAdd,
+}: {
+  notes: readonly WorkItemNote[];
+  canWrite: boolean;
+  busy: boolean;
+  onAdd: (body: string) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState("");
+  return (
+    <Card>
+      <CardTitle level={2}>Notes</CardTitle>
+      {notes.length === 0 ? (
+        <p className="text-md">No notes yet.</p>
+      ) : (
+        <ol className="m-0 list-none p-0">
+          {notes.map((n) => (
+            <li key={n.id} className="border-t border-line py-2 first:border-t-0">
+              <p className="m-0 whitespace-pre-wrap">{n.body}</p>
+              <p className="m-0 text-sm text-ink-2">
+                {n.authorName ?? "Somebody"} · {longInstant(n.createdAt)}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+      {canWrite && (
+        <form
+          className="stack tight mt-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const body = draft.trim();
+            if (body === "") return;
+            void onAdd(body).then((ok) => {
+              if (ok) setDraft("");
+            });
+          }}
+        >
+          <Field label="Add a note" hint="Your colleagues see it. The client does not.">
+            <Textarea
+              rows={2}
+              value={draft}
+              maxLength={2000}
+              placeholder="e.g. Challan shared with the client on WhatsApp"
+              onChange={(e) => {
+                setDraft(e.target.value);
+              }}
+            />
+          </Field>
+          <div className="cluster">
+            <Button type="submit" variant="secondary" size="sm" loading={busy} disabled={draft.trim() === ""}>
+              Add note
+            </Button>
+          </div>
+        </form>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * THE FILING THIS TASK FILES (audit 2026-10-03, CA#36).
+ *
+ * The roleplay firm approved "File GSTR-3B for September" and the calendar and
+ * the client's portal still said Pending. Linking makes this task the one that
+ * files it: completing the task marks the filing filed, as completing the
+ * calendar's own task does, and the calendar raises no second task for it.
+ */
+function Filing({
+  filing,
+  company,
+  canWrite,
+  busy,
+  onLink,
+  onUnlink,
+}: {
+  filing: TaskFiling;
+  company: string;
+  canWrite: boolean;
+  busy: boolean;
+  onLink: (obligationId: string) => Promise<boolean>;
+  onUnlink: () => void;
+}) {
+  const [choice, setChoice] = useState("");
+  const linked = filing.linked;
+  if (linked === null && filing.open.length === 0) return null;
+  return (
+    <Card>
+      <CardTitle level={2}>Filing</CardTitle>
+      {linked !== null ? (
+        <div className="cluster">
+          <p className="m-0">
+            This task files <strong>{`${linked.name} · ${linked.periodLabel}`}</strong>, due{" "}
+            {longDay(linked.statutoryDueOn)}.{" "}
+            {linked.filedOn !== null ? (
+              <Pill dot tone="ok">{`Filed ${longDay(linked.filedOn)}`}</Pill>
+            ) : (
+              <span className="text-ink-2">Completing the task marks it filed.</span>
+            )}
+          </p>
+          {canWrite && linked.filedOn === null && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={onUnlink}>
+              Not this filing
+            </Button>
+          )}
+        </div>
+      ) : canWrite ? (
+        <form
+          className="stack tight"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (choice === "") return;
+            void onLink(choice).then((ok) => {
+              if (ok) setChoice("");
+            });
+          }}
+        >
+          <Field
+            label="Which filing does this task file?"
+            hint={`Open filings for ${company} with no task yet. Completing this task marks the one you pick filed.`}
+            optional
+          >
+            <Select
+              value={choice}
+              onChange={(e) => {
+                setChoice(e.target.value);
+              }}
+            >
+              <option value="">Not a filing</option>
+              {filing.open.map((f) => (
+                <option key={f.obligationId} value={f.obligationId}>
+                  {`${f.name} · ${f.periodLabel} (due ${longDay(f.statutoryDueOn)})`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="cluster">
+            <Button type="submit" variant="secondary" size="sm" loading={busy} disabled={choice === ""}>
+              Link the filing
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <p className="text-md">Not linked to a filing.</p>
       )}
     </Card>
   );
@@ -723,6 +1034,7 @@ function Reviews({
   reviews,
   openReview,
   openReviewViewer,
+  openLines,
   canWrite,
   busy,
   onDecide,
@@ -732,6 +1044,8 @@ function Reviews({
   /** The API's verdict on whether the CALLER may decide the open review. Null
    *  when there is none open. */
   openReviewViewer: WorkItemDetail["openReviewViewer"];
+  /** Checklist lines still unticked: Approve waits for them (CA#30). */
+  openLines: number;
   canWrite: boolean;
   busy: string | null;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
@@ -747,6 +1061,7 @@ function Reviews({
         <DecideReview
           review={openReview}
           viewer={openReviewViewer}
+          openLines={openLines}
           canWrite={canWrite}
           busy={busy}
           onDecide={onDecide}
@@ -755,55 +1070,63 @@ function Reviews({
 
       {reviews.length > 0 && (
         <TableWrap>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Sent</Th>
-              <Th>Done by</Th>
-              <Th>Rule</Th>
-              <Th>Outcome</Th>
-              <Th>Note</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {reviews.map((r) => (
-              <tr key={r.id}>
-                {/* `longInstant`, not `.slice(0, 10)`. Slicing an ISO instant
-                    takes the UTC day, and a check submitted at 00:20 in Delhi
-                    is 18:50 UTC the day BEFORE. The same class of bug this repo
-                    has now fixed on eleven screens. */}
-                <Td>{longInstant(r.submittedAt)}</Td>
-                {/* Null is a real answer: the task was unassigned when the check
-                    opened, so nobody is recorded as having made it — and maker
-                    != checker then has nothing to compare. */}
-                <Td>{r.submittedByName ?? <NotSet>Nobody recorded</NotSet>}</Td>
-                <Td>{r.policyLabel ?? "Anyone but the maker"}</Td>
-                <Td>
-                  {/* `approved` is the OK one. This column read the other way
-                      round — `pending` in the product's status teal and
-                      `approved` in grey — so the outcome that means "somebody
-                      signed this off" was the quietest thing in the column and
-                      the one that means "nobody has looked yet" was the
-                      reassuring one. Waiting is `warn`, which is what "held up"
-                      is everywhere else in this product. */}
-                  <Pill
-                    dot
-                    tone={
-                      r.decision === "rejected"
-                        ? "danger"
-                        : r.decision === "approved"
-                          ? "ok"
-                          : "warn"
-                    }
-                  >
-                    {DECISION_WORDS[r.decision]}
-                  </Pill>
-                </Td>
-                <Td>{r.notes ?? <NotSet>No note</NotSet>}</Td>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Sent</Th>
+                <Th>Done by</Th>
+                <Th>Rule</Th>
+                <Th>Outcome</Th>
+                <Th>Notes</Th>
               </tr>
-            ))}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {reviews.map((r) => (
+                <tr key={r.id}>
+                  {/* `longInstant`, not `.slice(0, 10)`: slicing an ISO instant
+                      takes the UTC day. */}
+                  <Td>{longInstant(r.submittedAt)}</Td>
+                  <Td>{r.submittedByName ?? <NotSet>Nobody recorded</NotSet>}</Td>
+                  <Td>{r.policyLabel ?? "Anyone but the maker"}</Td>
+                  <Td>
+                    <Pill
+                      dot
+                      tone={
+                        r.decision === "rejected"
+                          ? "danger"
+                          : r.decision === "approved"
+                            ? "ok"
+                            : "warn"
+                      }
+                    >
+                      {DECISION_WORDS[r.decision]}
+                    </Pill>
+                  </Td>
+                  {/* BOTH NOTES IN ONE COLUMN, each wrapping: two sentence
+                      columns side by side pushed the second off the card at
+                      1280. The maker's, said when sending, then the checker's. */}
+                  <Td>
+                    {r.requestNote === null && r.notes === null ? (
+                      <NotSet>No note</NotSet>
+                    ) : (
+                      <span className="cell-text" data-size="narrow">
+                        {r.requestNote !== null && (
+                          <span className="block">
+                            <strong>Sent with:</strong> {r.requestNote}
+                          </span>
+                        )}
+                        {r.notes !== null && (
+                          <span className="block">
+                            <strong>Checker:</strong> {r.notes}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </TableWrap>
       )}
     </Card>
@@ -813,31 +1136,39 @@ function Reviews({
 /**
  * The open check, and the two buttons.
  *
- * The eligible-checkers list is fetched lazily, when somebody expands it: it is
- * the whole roster with a verdict each, and it is only interesting when the
- * answer is "not you".
+ * "Who may check this?" is loaded when it is OPENED, by the disclosure's own
+ * toggle (CA#48). It was loaded from a click on the summary and a failed read
+ * was never caught, so a refusal or a dropped connection left "Loading…" on
+ * screen for good. A failure now says so and offers to try again.
  */
 function DecideReview({
   review,
   viewer,
+  openLines,
   canWrite,
   busy,
   onDecide,
 }: {
   review: WorkItemReview;
   viewer: WorkItemDetail["openReviewViewer"];
+  openLines: number;
   canWrite: boolean;
   busy: string | null;
   onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
 }) {
   const [notes, setNotes] = useState("");
-  const [checkers, setCheckers] = useState<WorkItemChecker[] | null>(null);
+  const [checkers, setCheckers] = useState<WorkItemChecker[] | "failed" | null>(null);
 
   async function loadCheckers(): Promise<void> {
-    const result = await api.GET("/api/v1/work-item-checks/{approvalId}/checkers", {
-      params: { path: { approvalId: review.id } },
-    });
-    setCheckers(result.error ? [] : result.data.checkers);
+    setCheckers(null);
+    try {
+      const result = await api.GET("/api/v1/work-item-checks/{approvalId}/checkers", {
+        params: { path: { approvalId: review.id } },
+      });
+      setCheckers(result.error ? "failed" : result.data.checkers);
+    } catch {
+      setCheckers("failed");
+    }
   }
 
   return (
@@ -847,49 +1178,31 @@ function DecideReview({
         {review.submittedByName !== null && `, done by ${review.submittedByName}`}
         {review.policyLabel !== null && ` · ${review.policyLabel}`}
       </p>
+      {review.requestNote !== null && (
+        <p className="text-md">
+          <strong>Their note:</strong> {review.requestNote}
+        </p>
+      )}
 
-      {/* THE WHOLE RULE, FROM THE API — and it used to be a third of it.
-          This screen derived maker != checker from `submittedBy` and could see
-          nothing else, so a Manager who was not senior enough, or who was not
-          on the firm's ladder at all, was offered a button whose only outcome
-          was a 403. The queue screen has shown the full verdict since T2.9
-          because `/work-item-checks` sends one per row; the same person, asking
-          the same question, got two different answers depending on which screen
-          they were standing on. `openReviewViewer` closes that, and it is the
-          queue's own computation rather than a second copy of it.
-
-          IT SAYS WHY rather than greying the button out. "You did this work"
-          and "nobody has put you on the ladder" are different problems and only
-          one of them is the reader's to fix — the API returns the sentence, and
-          this prints it. */}
+      {/* THE WHOLE RULE, FROM THE API, and the sentence it gives. */}
       {canWrite && viewer !== null && !viewer.eligible && (
-        /* THE API'S SENTENCE ALONE. It ended "…Somebody else on the list
-           below has to" while the local rule was the only thing here, and the
-           API's own maker sentence already ends "Somebody else has to — that is
-           the rule the firm is audited on" — so the two ran together and said
-           it twice, which is this repo's oldest bug in its newest costume.
-           Every message in `INELIGIBILITY_MESSAGES` is a complete sentence, and
-           the list of who CAN is a disclosure directly beneath this. */
         <Notice tone="warn">{viewer.reason ?? "You cannot check this one."}</Notice>
       )}
 
       {canWrite && (viewer === null || viewer.eligible) && (
         <>
-          {/* Measured on the page: this control's accessible NAME was
-              "NoteRequired when you send it back. Why work came back is the only
-              thing that ever explains rework…" — the whole paragraph, read back
-              on every focus, because the <span> sat inside the <label>. As a
-              `hint` it is a description, which is what it is. */}
           <Field label="Note" hint="Required to send it back.">
             <Textarea
               rows={2}
               value={notes}
-              onChange={(e) => { setNotes(e.target.value); }}
+              onChange={(e) => {
+                setNotes(e.target.value);
+              }}
             />
           </Field>
           <div className="cluster">
             <Button
-              disabled={busy === review.id}
+              disabled={busy === review.id || openLines > 0}
               onClick={() => {
                 onDecide(review.id, "approved", notes.trim() || null);
               }}
@@ -907,44 +1220,65 @@ function DecideReview({
               Send back
             </Button>
           </div>
+          {openLines > 0 ? (
+            <p className="field-hint">
+              {openLines === 1
+                ? "A checklist line is not ticked. Send it back so it can be finished."
+                : `${String(openLines)} checklist lines are not ticked. Send it back so they can be finished.`}
+            </p>
+          ) : (
+            <p className="field-hint">Approving marks the task done.</p>
+          )}
         </>
       )}
 
-      <details className="mt-3">
-        <summary
-          onClick={() => {
-            if (checkers === null) void loadCheckers();
-          }}
-        >
-          Who may check this?
-        </summary>
+      <details
+        className="mt-3"
+        onToggle={(e) => {
+          if (e.currentTarget.open && (checkers === null || checkers === "failed")) void loadCheckers();
+        }}
+      >
+        <summary>Who may check this?</summary>
         {checkers === null ? (
-          <p className="muted text-sm">
-            Loading…
+          <p className="muted text-sm">Loading…</p>
+        ) : checkers === "failed" ? (
+          <p className="text-sm">
+            The list did not load.{" "}
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => {
+                void loadCheckers();
+              }}
+            >
+              Try again
+            </Button>
           </p>
+        ) : checkers.length === 0 ? (
+          <p className="text-sm">Nobody at the firm can check it yet.</p>
         ) : (
           <TableWrap>
-          <Table>
-            <tbody>
-              {checkers.map((c) => (
-                <tr key={c.userId}>
-                  <Td>{c.displayName}</Td>
-                  <Td>{c.gradeName ?? <NotSet>No grade</NotSet>}</Td>
-                  <Td>
-                    {c.eligible ? (
-                      <Pill dot tone="ok">
-                        Can check
-                      </Pill>
-                    ) : (
-                      // The REASON, always. "You cannot check this" with no
-                      // reason is how a person concludes the button is broken.
-                      <span className="text-ink-2">{c.reason}</span>
-                    )}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+            <Table>
+              <tbody>
+                {checkers.map((c) => (
+                  <tr key={c.userId}>
+                    <Td>{c.displayName}</Td>
+                    <Td>{c.gradeName ?? <NotSet>No grade</NotSet>}</Td>
+                    <Td>
+                      {c.eligible ? (
+                        <Pill dot tone="ok">
+                          Can check
+                        </Pill>
+                      ) : (
+                        // The REASON, always. "You cannot check this" with no
+                        // reason is how a person concludes the button is broken.
+                        <span className="text-ink-2">{c.reason}</span>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           </TableWrap>
         )}
       </details>
@@ -955,51 +1289,9 @@ function DecideReview({
 /**
  * WHAT THIS TASK WAITS ON — add one, and lift one (T3.1's last unrendered read).
  *
- * ## It had no screen at all, and the read had no reader
- *
- * `POST /work-items/{id}/dependencies` and its DELETE shipped with the module,
- * `WorkItemDetail.dependencies` came back on every read of this page, and
- * nothing rendered any of it. So "the annual filing waits on twelve monthly
- * ones" — the API's own example — was a curl command, and the only place the
- * relationship surfaced was a refusal when somebody tried to start the task.
- *
- * ## The API is the thing that refuses, and its sentences are shown verbatim
- *
- * Three refusals live behind these two buttons and none of them is
- * re-implemented here:
- *
- * - **A cycle.** Direct or through a chain, and the service walks the firm's
- *   whole edge list to find it — reachability is not expressible as a CHECK, so
- *   the database catches only the self-edge. A picker cannot prevent this
- *   without duplicating that walk in the browser, which is a second answer to a
- *   question that must only have one.
- * - **A duplicate.** "this item already waits on that one".
- * - **Starting while it still waits.** Moving out of the starting state is
- *   refused while any blocker is unfinished — and moving straight to a terminal
- *   state is still allowed, because cancelling something that never started is
- *   a real act. That refusal arrives on the state picker, not here, and this
- *   panel is what explains it.
- *
- * ## Finished blockers are shown, and shown as finished
- *
- * A dependency does not disappear when the thing it waits on is done — it
- * becomes the record of what this task used to wait on. Drawing it like a live
- * one would put a reason in front of somebody to lift a dependency that is not
- * costing anything; hiding it would make the history vanish. `dependsOnIsTerminal`
- * is the FLAG, so a firm that calls its finished state "Filed" gets the right
- * answer without this screen knowing the word.
- *
- * ## The picker offers this client's OTHER work, and nothing else
- *
- * A firm's board is thousands of rows and a `<select>` over it is not a choice
- * anybody can make. The dependency that actually gets recorded is between two
- * pieces of work for the same client — the API's own example is one company's
- * twelve monthly returns and its annual one — so the list is
- * `?clientPartyId=…&includeDone=true`, minus this item and minus what it
- * already waits on. **A dependency across two clients cannot be recorded from
- * this screen**, and that is a real limit rather than an oversight: the
- * alternative is a picker nobody can read, and the route is still there for the
- * day somebody needs one.
+ * The API is the thing that refuses (a cycle, a duplicate, starting while it
+ * still waits), and its sentences are shown verbatim. Finished blockers are
+ * shown, and shown as finished. The picker offers this client's OTHER work.
  */
 function Dependencies({
   workItemId,
@@ -1015,8 +1307,7 @@ function Dependencies({
   deps: readonly WorkItemDependency[];
   canWrite: boolean;
   busy: string | null;
-  /** Resolves true when the API accepted it. The form stays open otherwise —
-   *  see the note on the `action` below. */
+  /** Resolves true when the API accepted it. The form stays open otherwise. */
   onAdd: (dependsOnWorkItemId: string) => Promise<boolean>;
   onRemove: (dependencyId: string) => void;
 }) {
@@ -1024,16 +1315,7 @@ function Dependencies({
   const [adding, setAdding] = useState(false);
   const { panel: formRef, trigger: openRef } = useSwapFocus(adding);
 
-  /**
-   * The candidate list, loaded when the FORM opens and not when the select is
-   * focused.
-   *
-   * A native `<select>` opens the instant it is clicked, so options fetched on
-   * its own focus arrive after the reader is already looking at an empty list —
-   * `/client-requests` shipped that bug and this is the same shape. Opening the
-   * disclosure is the earliest honest moment, and it is a whole interaction
-   * ahead of the click.
-   */
+  /** Loaded when the FORM opens, a whole interaction ahead of the select. */
   async function open(): Promise<void> {
     setAdding(true);
     if (candidates !== null) return;
@@ -1041,9 +1323,6 @@ function Dependencies({
       params: {
         query: {
           clientPartyId,
-          // Finished work is offered too. It records what this task used to
-          // wait on, which is a legitimate thing to write down after the fact,
-          // and the option says so rather than the list quietly being short.
           includeDone: "true",
           asOf: browserDay(),
         },
@@ -1074,10 +1353,6 @@ function Dependencies({
           <div key={d.id} className="cluster py-1">
             <span>
               <Link href={`/work-items/${d.dependsOnWorkItemId}`}>{d.dependsOnTitle}</Link>{" "}
-              {/* THE FIRM'S OWN WORD FOR THE STATE, with the tone taken from
-                  the FLAG. Nothing here compares a state code — a firm may call
-                  its finished state anything, and `/work-items` and this page
-                  must not disagree about which of its own states means done. */}
               <Pill dot tone={d.dependsOnIsTerminal ? "ok" : "warn"}>
                 {d.dependsOnStateName}
               </Pill>
@@ -1087,8 +1362,6 @@ function Dependencies({
                 variant="ghost"
                 size="sm"
                 loading={busy === d.id}
-                /* NAMED BY WHAT IT WAITS ON. A task waiting on four things
-                   draws four of these and the visible word never changes. */
                 aria-label={`Stop waiting on ${d.dependsOnTitle}`}
                 onClick={() => {
                   onRemove(d.id);
@@ -1106,11 +1379,7 @@ function Dependencies({
           <div ref={formRef} tabIndex={-1}>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              /* CLOSES ONLY ON SUCCESS. A form that closes on submit closes
-                 on a REFUSAL too, and the API refuses a cycle through a chain —
-                 which is not something a picker could have prevented. Measured:
-                 the sentence rendered at the top of the page and the form the
-                 reader would have corrected it in had already gone. */
+              /* CLOSES ONLY ON SUCCESS: a refusal keeps the form to correct. */
               action={(form) => {
                 const id = String(form.get("dependsOn") ?? "");
                 if (id === "") return;
@@ -1122,9 +1391,6 @@ function Dependencies({
               <fieldset className="fieldset" aria-label="Make this task wait on another">
                 <FieldStack>
                   <Field label="Wait on" hint="Only this client's other tasks are listed.">
-                    {/* NO PRE-SELECTED TASK. A dependency recorded against
-                        whatever sorted first is a wrong fact rather than a
-                        typo, and it is one that stops work. */}
                     <Select name="dependsOn" required defaultValue="" disabled={candidates === null}>
                       <option value="" disabled>
                         {candidates === null
@@ -1134,10 +1400,6 @@ function Dependencies({
                             : "Choose a task"}
                       </option>
                       {offerable.map((i) => (
-                        /* PARENTHESES, NOT AN EM DASH. A calendar-raised
-                           title is already "TDS deposit — Cobalt Logistics
-                           Private Limited — Jul 2026", so a dash before the
-                           state made it read as a fourth part of the title. */
                         <option key={i.id} value={i.id}>
                           {i.title} ({i.state.name})
                         </option>
@@ -1157,12 +1419,6 @@ function Dependencies({
                     >
                       Cancel
                     </Button>
-                    {/* THE REFUSAL IS BETTER THAN ANY PICKER. A loop through a
-                        chain is not visible in a dropdown, and the service
-                        walks the firm's whole edge list to find one — so the
-                        screen says the check exists rather than pretending to
-                        have prevented it. The sentence itself is rendered raw
-                        by the page's error notice. */}
                     <p className="field-hint">Two tasks cannot wait on each other.</p>
                   </div>
                 </FieldStack>

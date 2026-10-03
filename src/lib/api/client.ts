@@ -236,6 +236,17 @@ export type WorkItemDetail =
 
 export type ChecklistItem = WorkItemDetail["checklist"][number];
 export type WorkItemReview = WorkItemDetail["reviews"][number];
+/** One note on a task (0330, CA#30): append-only, with its author's name. */
+export type WorkItemNote = WorkItemDetail["notes"][number];
+/** Sent back and not yet sent again (CA#29): the checker's note, when, by whom. */
+export type SentBack = NonNullable<WorkItem["sentBack"]>;
+/** The filing a task files, and the company's open filings it could (CA#36). */
+export type TaskFiling =
+  paths["/api/v1/work-items/{workItemId}/filing"]["get"]["responses"][200]["content"]["application/json"];
+export type LinkableFiling = TaskFiling["open"][number];
+/** The firm's rules for who checks work, by label (CA#27). */
+export type ReviewRule =
+  paths["/api/v1/review-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];
 
 /**
  * One thing a task waits on, with the task at the other end RESOLVED.

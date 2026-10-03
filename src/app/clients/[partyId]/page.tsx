@@ -1000,8 +1000,10 @@ export default function PartyPage() {
                       <option value="" disabled>
                         Choose a company or a person
                       </option>
+                      {/* Not the firm's own companies (CA#59): they are who
+                          does the work, never related to a client this way. */}
                       {parties
-                        .filter((c) => c.id !== partyId)
+                        .filter((c) => c.id !== partyId && !c.isOwnCompany)
                         .map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.displayName}

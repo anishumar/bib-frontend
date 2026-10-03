@@ -293,7 +293,8 @@ function CheckQueue({ checks, jobs }: { checks: StepCheck[]; jobs: readonly Job[
     return (
       <Card>
         <Empty title="Nothing is waiting to be checked" icon="verification">
-          A step comes here when its process says it is checked. Set that on Processes.
+          A step comes here when its process says it is checked. Set that on{" "}
+          <Link href="/admin/workflows">Processes</Link>.
         </Empty>
       </Card>
     );
@@ -408,7 +409,10 @@ function JobState({ job }: { job: Job }) {
         <Pill dot tone="danger">
           No process yet
         </Pill>
-        <Sub>Publish one for this service on Processes</Sub>
+        {/* A LINK (F27): it named the screen and did not go there. */}
+        <Sub>
+          Publish one for this service on <Link href="/admin/workflows">Processes</Link>
+        </Sub>
       </>
     );
   }

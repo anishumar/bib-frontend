@@ -41,7 +41,7 @@
  * junior directly.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { api, apiError } from "@/lib/api/client";
 import type { PortalRequest, PortalRequestReply, PortalRequests } from "@/lib/api/client";
 import {
@@ -79,10 +79,20 @@ export function AskTheFirm({
   const [composing, setComposing] = useState(false);
   const { panel: composePanel, trigger: composeTrigger } = useSwapFocus(composing);
 
+  // THE LATEST READ WINS (audit 2026-10-03, F19). Two reads can be in flight
+  // at once: React reads twice on mount in development, and a slow answer to
+  // any read can land after the read that followed Send. Applied blindly, that
+  // late answer put back the list from BEFORE the ask, and the new request
+  // stayed off the page until a reload. Reproduced by holding one mount read
+  // (demo-assets/tools/audit-work/f19-race.mjs). Only the newest read's answer
+  // is applied now.
+  const reads = useRef(0);
   const load = useCallback(async (): Promise<void> => {
-    // // No day is sent (F-07-1): which companies this login may see is resolved
+    const mine = ++reads.current;
+    // No day is sent (F-07-1): which companies this login may see is resolved
     // on the firm's own day, and a day from here can no longer reach it.
     const result = await api.GET("/api/v1/portal/requests");
+    if (mine !== reads.current) return;
     if (result.error) {
       setError(apiError(result.error).message);
       setLoaded(true);

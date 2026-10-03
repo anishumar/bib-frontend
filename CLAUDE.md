@@ -1694,6 +1694,39 @@ at four different heights. `/admin/workflows` learnt this and the paragraph belo
 compliance-rules editor re-made it in T6.4 and it was found by looking at the page again. Put the
 hint in a `<p className="field-hint">` under the row.
 
+### The task, the board and My day after the audit's work cluster (2026-10-03)
+
+- **The task page closes the review loop.** Send for review is a dialog: the rule the firm checks
+  it under (`GET /api/v1/review-rules`: one is applied and named, several are a required pick,
+  none reads "anyone at the firm except you"), the unticked checklist lines that hold it (the API
+  refuses `CHECKLIST_OPEN` regardless), and a note for the checker. Approve says it marks the task
+  done and waits for the checklist; finished work is never offered Send for review. A sent-back
+  task says so at the top with the checker's note (`item.sentBack`). State and Whose desk SAVE
+  WHEN PICKED; a blocked state opens its reason box, whose Save moves it. Notes are an
+  append-only list with who and when. The Filing card links the task to an open filing of its
+  company (`GET/PUT/DELETE /work-items/{id}/filing`) so completing it files the filing. "Who may
+  check this?" loads on the disclosure's `onToggle` and says when it failed, with Try again.
+- **My day** puts work sent back to you (tasks and steps, `sentBack`) under Today as "Sent back to
+  you" with the note, and the Client column names the company the work is for (`entityName`),
+  the group only when the work names none.
+- **The work board** has By person (open, late, waiting for a check per colleague; a name opens
+  All tasks for them, `?person=` in the URL) and a Whose tasks filter on All tasks. Every tab
+  counts pieces of work: Escalated counts the tasks and filings escalated (its panel says how many
+  notices), and Everything is now All tasks. New task and the Relationships picker never offer the
+  firm's own companies (`isOwnCompany`).
+- **The job page** uses dialogs, never `window.prompt` (Send back and Reject take a required note;
+  Correct is a form with one box per thing the automatic answer says), names every step control by
+  the step's TITLE, never its key, and offers "Ask the client" on each open step: the job task's
+  `ClientAsks` panel, opened with the step's title in it (`about`, `prefill`, `hiddenHint`).
+- **The process editor** makes short names from titles (`lib/short-name.ts`, to the API's two key
+  shapes; under More), a step added there waits for the step before it, "Waits for" names steps by
+  title, and a review rule can be written in place (`lib/ui/check-rule-form.tsx`, shared with Who
+  checks work, `putInForce`) and chosen for the step.
+- **Files** never default their kind: "What it is" starts empty and is required.
+- **A list read that can race keeps only the newest answer.** `/portal/requests` lost a client's
+  first request behind a late mount read (F19, reproduced with a held response); a counter in a
+  ref drops any answer that is not the latest read's.
+
 ## `/calendar` and `/admin/obligation-rules` — the calendar, and the rules behind it (T3.2)
 
 **`/calendar` IS READ-ONLY AND MUST STAY THAT WAY.** There is no "add a filing" button because
