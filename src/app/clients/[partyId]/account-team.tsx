@@ -30,6 +30,7 @@ import type {
 } from "@/lib/api/client";
 import { longDay } from "@/lib/day";
 import { ConfirmAction } from "@/components/confirm-action";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Who at the firm owns this client (G3.2).
@@ -120,7 +121,9 @@ export function AccountTeamPanel({
     })();
   }, [load, asOf]);
 
-  async function assign(form: FormData): Promise<void> {
+  /** True once it is assigned: the form clears for the next one, the role
+   *  with it so the Dept box shows for SPOC again (F05). A refusal keeps it. */
+  async function assign(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
     // Cleared BEFORE the call, so a second assignment says what IT moved.
@@ -141,10 +144,12 @@ export function AccountTeamPanel({
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     setMoved(caughtUpWords(result.data.caughtUp, staff, clientName));
     await load(asOf);
+    setRole("spoc");
+    return true;
   }
 
   async function end(assignment: ClientAssignment): Promise<void> {
@@ -379,9 +384,7 @@ export function AccountTeamPanel({
            word say what it is. */
         <form
           className="card-foot"
-          action={(form) => {
-            void assign(form);
-          }}
+          onSubmit={(event) => keepTyped(event, (form) => assign(form))}
         >
           <FieldStack>
             <FieldRow>

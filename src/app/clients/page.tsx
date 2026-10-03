@@ -32,6 +32,7 @@ import {
   ThChevron,
   Tr,
 } from "@/components/ui";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The firm's book: every counterparty it stores.
@@ -316,9 +317,9 @@ export default function ClientsPage() {
           />
           <form
             id={addForm}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               void create(form);
-            }}
+            })}
           >
             <TabPanel tabsId={kindTabs} value={kind}>
               {kind === "organization" ? (
