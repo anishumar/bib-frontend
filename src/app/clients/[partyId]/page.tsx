@@ -221,7 +221,7 @@ export default function PartyPage() {
    * repo already runs on: a write with no read — or, here, with no writer — is
    * not a stored fact.
    */
-  /** True once registered: the form stays for another country and clears (F05). */
+  /** True once registered (F05 clears the form); after that the form is gone, since a company registers once. */
   async function registerEntity(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -618,14 +618,19 @@ export default function PartyPage() {
 
           {/* The write that had no caller. Offered on `party:write`, the same
               permission the identifier form below takes — registering a company
-              is a fact about a client, not an administrative act. OPEN while
-              there is no registration (it is why the calendar is empty), behind
-              a disclosure once there is one. */}
-          {permissions.includes("party:write") && (
-            <details className="card-foot" open={profile.legalEntities.length === 0}>
-              <summary>
-                {profile.legalEntities.length === 0 ? "Register it" : "Register in another country"}
-              </summary>
+              is a fact about a client, not an administrative act. Offered only
+              while there is NO registration: a company is registered once, and
+              a company in another country is its own client (the API refuses a
+              second one, ALREADY_REGISTERED). */}
+          {permissions.includes("party:write") && profile.legalEntities.length > 0 && (
+            <p className="card-foot text-sm text-muted">
+              A company is registered in one country. For a company in another country, add it as its
+              own client and link the two as one group.
+            </p>
+          )}
+          {permissions.includes("party:write") && profile.legalEntities.length === 0 && (
+            <details className="card-foot" open>
+              <summary>Register it</summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
               onSubmit={(event) => keepTyped(event, (form) => registerEntity(form))}
