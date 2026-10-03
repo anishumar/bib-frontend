@@ -188,6 +188,8 @@ export default function InvoicePage() {
   const draft = invoice.status === "draft";
   const issued = invoice.status === "issued";
   const mayAdmin = permissions.includes("tenant:admin");
+  // Money received against it, net of refunds (B05: then it is not cancelled).
+  const hasPayments = balance?.paid !== undefined && balance.paid !== null && !/^-?0*(\.0+)?$/.test(balance.paid);
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
   // is yesterday in India until 05:30 every morning — so something due
   // yesterday would not read as overdue for those five and a half hours.
@@ -694,6 +696,15 @@ export default function InvoicePage() {
       {/* ── Issue, cancel, register ────────────────────────────────────── */}
       <Card>
         <CardTitle level={2}>The document</CardTitle>
+        {/* MONEY ON IT, NO CANCELLING (B05): the API refuses it, so it is not
+            offered, and the way to take money off is said instead. */}
+        {issued && mayAdmin && hasPayments && (
+          <p className="max-w-[var(--measure)] text-sm text-muted">
+            Payments are recorded against this invoice, so it cannot be cancelled. To take money off
+            what the client owes, issue a credit note. If a payment was recorded by mistake, record a
+            refund of the same amount first.
+          </p>
+        )}
         {!mayAdmin && (draft || issued) && (
           /* Both use up a number in the series. */
           <p className="max-w-[var(--measure)] text-sm text-muted">
@@ -703,7 +714,7 @@ export default function InvoicePage() {
         {/* Issue moved to the page header (Wave 4); Cancel stays here, away
             from it. */}
         <div className="cluster">
-          {(draft || issued) && mayAdmin && (
+          {(draft || (issued && !hasPayments)) && mayAdmin && (
             /* SAYS WHICH CANCEL, because the other one on this screen is
                nothing like it. Open the Documents dialog and there are two
                buttons reading "Cancel": that one closes an upload form, this
@@ -738,7 +749,9 @@ export default function InvoicePage() {
         </div>
         {invoice.status === "cancelled" && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Cancelled. It keeps its number; raise a new invoice to replace it.
+            {invoice.number === null
+              ? "Cancelled before it was issued. It never took a number, and the client never saw it."
+              : "Cancelled. It keeps its number; raise a new invoice to replace it."}
           </p>
         )}
 
