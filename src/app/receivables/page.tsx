@@ -15,6 +15,7 @@ import {
   Input,
   LinkButton,
   NotSet,
+  Notice,
   Pill,
   RowChevron,
   RowLink,
@@ -29,6 +30,7 @@ import {
 import { browserDay, longDay } from "@/lib/day";
 import { ConfirmAction } from "@/components/confirm-action";
 import { OwedPicture } from "./owed-picture";
+import { useSeesFees } from "@/components/fees";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -54,6 +56,10 @@ export default function ReceivablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // F10/F33 (audit 2026-10-03): every figure here is what a client owes, and
+  // a login that cannot see fees reads them all as null. It is told so in one
+  // line rather than shown a table of Hidden (the nav does not offer it).
+  const seesFees = useSeesFees();
 
   const load = useCallback(async (): Promise<void> => {
     const [list, queue, me] = await Promise.all([
@@ -100,6 +106,14 @@ export default function ReceivablesPage() {
   }
 
   if (!loaded) return <Loading label="Loading receivables" />;
+  if (seesFees === false) {
+    return (
+      <Page>
+        <PageHeader title="Receivables" />
+        <Notice>These are what clients owe the firm, and your login is not set to see fees.</Notice>
+      </Page>
+    );
+  }
 
   const mayDecide = permissions.includes("tenant:admin");
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which

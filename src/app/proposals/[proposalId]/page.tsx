@@ -53,6 +53,7 @@ import {
   useProposal,
 } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
+import { Money } from "@/components/fees";
 
 /** Somebody at the client a letter may be addressed to. */
 interface Contact {
@@ -517,17 +518,17 @@ function ServicesAndPrices({
                           {l.service.listPrice.currency !== l.currency && <Sub>Other currency</Sub>}
                         </>
                       ) : (
-                        <NotSet>No list price</NotSet>
+                        <Money amount={null} currency={l.currency} unset="No list price" />
                       )}
                     </Td>
                     <Td align="right" className="nowrap">
-                      {formatMoney(l.unitAmount, l.currency)}
+                      <Money amount={l.unitAmount} currency={l.currency} />
                     </Td>
                     <Td align="right">
-                      {l.discountPercent === null ? <NotSet>None</NotSet> : `${formatCount(l.discountPercent)}%`}
+                      {l.discountPercent === null ? <Money amount={null} currency={l.currency} unset="None" /> : `${formatCount(l.discountPercent)}%`}
                     </Td>
                     <Td align="right" className="nowrap">
-                      {formatMoney(l.net, l.currency)}
+                      <Money amount={l.net} currency={l.currency} />
                     </Td>
                     <Td align="right">
                       {isDraft && (
@@ -560,10 +561,10 @@ function ServicesAndPrices({
 
           <div style={{ textAlign: "right" }}>
             <div className="muted text-md">
-              Gross {formatMoney(totals.gross, totals.currency)} · discount{" "}
-              {formatMoney(totals.discount, totals.currency)}
+              Gross <Money amount={totals.gross} currency={totals.currency} /> · discount{" "}
+              <Money amount={totals.discount} currency={totals.currency} />
             </div>
-            <div className="num text-lg strong">{formatMoney(totals.net, totals.currency)}</div>
+            <div className="num text-lg strong"><Money amount={totals.net} currency={totals.currency} /></div>
           </div>
 
           {isDraft && (

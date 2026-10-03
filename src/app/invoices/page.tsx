@@ -46,6 +46,7 @@ import {
   AmountInput,
 } from "@/components/ui";
 import { cleanAmount } from "@/lib/money";
+import { MissingMoney } from "@/components/fees";
 import { ToRaiseTab } from "./to-raise";
 import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
@@ -304,6 +305,10 @@ function Invoices() {
   const notSetUp = new Set(unscheduled.map((u) => u.feeGroup?.id ?? u.engagementId)).size;
   const canWrite = session?.permissions.includes("party:write") === true;
   const isAdmin = session?.permissions.includes("tenant:admin") === true;
+  // F10/F33/B27: a login that cannot see fees reads amounts as Hidden, and is
+  // not offered Raise an invoice (the API refuses a manual invoice to it).
+  const seesFees = session === null ? null : session.commercialVisibility === true;
+  const mayRaise = canWrite && seesFees === true;
   // An advance overdue (a draft not issued, or unpaid past the firm's days):
   // that is what the tab counts (0322).
   const waitingStart = advances.filter((a) => a.pending && a.overdue).length;
@@ -317,6 +322,8 @@ function Invoices() {
         canWrite={canWrite}
         canSkip={session?.permissions.includes("billing:skip") === true}
         isAdmin={isAdmin}
+        mayIssue={session?.permissions.includes("invoice:issue") === true}
+        seesFees={seesFees === true}
         refunds={refunds}
         billNow={billNow}
         onChanged={load}
@@ -328,7 +335,7 @@ function Invoices() {
     ) : invoices.length === 0 ? (
       <Card>
         <Empty title="Nothing billed yet" icon="invoices">
-          Raise the first one with Raise an invoice.
+          {mayRaise ? "Raise the first one with Raise an invoice." : "No invoice has been raised yet."}
         </Empty>
       </Card>
     ) : (
@@ -373,7 +380,11 @@ function Invoices() {
                     )}
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(i.totals.total, i.totals.currency)}
+                    {i.totals.total === null ? (
+                      <MissingMoney seesFees={seesFees} />
+                    ) : (
+                      formatMoney(i.totals.total, i.totals.currency)
+                    )}
                     {/* The line count is what tells a zero total apart from
                         an empty draft — the API refuses to issue the second. */}
                     <Sub>
@@ -396,8 +407,15 @@ function Invoices() {
                     {i.balance === null ? (
                       /* A DRAFT OWES NOTHING because nobody has been asked,
                          and that is not the same as nothing being
-                         outstanding — a zero here would read as settled. */
-                      <NotSet>Not issued</NotSet>
+                         outstanding — a zero here would read as settled.
+                         For a login that cannot see fees the balance of an
+                         ISSUED invoice is null too, and it is Hidden, never
+                         "Not issued": the status is not money (F10). */
+                      i.invoice.issuedOn === null ? (
+                        <NotSet>Not issued</NotSet>
+                      ) : (
+                        <MissingMoney seesFees={seesFees} />
+                      )
                     ) : isZero(i.balance.outstanding) ? (
                       <Pill dot tone="ok">
                         Settled
@@ -437,7 +455,7 @@ function Invoices() {
             <LinkButton variant="ghost" href="/receivables" iconAfter={<Icon name="arrowRight" size={16} />}>
               Receivables
             </LinkButton>
-            <Button onClick={openRaise}>Raise an invoice</Button>
+            {mayRaise && <Button onClick={openRaise}>Raise an invoice</Button>}
           </>
         }
       />

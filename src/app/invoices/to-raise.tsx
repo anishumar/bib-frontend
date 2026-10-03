@@ -83,6 +83,8 @@ export function ToRaiseTab({
   canWrite,
   canSkip,
   isAdmin,
+  mayIssue,
+  seesFees,
   refunds,
   billNow,
   onChanged,
@@ -94,9 +96,15 @@ export function ToRaiseTab({
   canWrite: boolean;
   /** The firm's `billing:skip` (0321): skipping a bill gives up revenue. */
   canSkip: boolean;
-  /** Giving an advance back, or keeping it, is an administrator's; so is
-   *  linking an advance to an invoice already raised (it starts the work). */
+  /** Linking an advance to an invoice already raised is an administrator's
+   *  (it starts the work). */
   isAdmin: boolean;
+  /** `invoice:issue` (0323, CA#6): giving an advance back or keeping it, as
+   *  issuing a credit note is. */
+  mayIssue: boolean;
+  /** B27: giving it back writes a credit note, money, so it is offered only
+   *  to a login that sees fees. */
+  seesFees: boolean;
   refunds: readonly BillingRefund[];
   billNow: readonly BillingBillNow[];
   onChanged: () => Promise<void>;
@@ -464,8 +472,9 @@ export function ToRaiseTab({
                       <Sub>with tax</Sub>
                     </Td>
                     <Td className="nowrap">
-                      {isAdmin ? (
+                      {mayIssue ? (
                         <span className="cluster">
+                          {seesFees && (
                           <ConfirmAction
                             variant="secondary"
                             size="sm"
@@ -484,6 +493,7 @@ export function ToRaiseTab({
                           >
                             Give it back
                           </ConfirmAction>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -498,7 +508,7 @@ export function ToRaiseTab({
                         </span>
                       ) : (
                         <Pill dot tone="warn">
-                          For an admin
+                          For whoever issues invoices
                         </Pill>
                       )}
                     </Td>
