@@ -1012,8 +1012,11 @@ export default function PartyPage() {
                     </option>
                     {relationChoices(
                       types,
-                      profile.party.displayName,
-                      parties.find((c) => c.id === relOther)?.displayName ?? "",
+                      { name: profile.party.displayName, kind: profile.party.kind },
+                      (() => {
+                        const o = parties.find((c) => c.id === relOther);
+                        return o === undefined ? null : { name: o.displayName, kind: o.kind };
+                      })(),
                     ).map((c) => (
                       <option key={c.value} value={c.value}>
                         {c.sentence}
@@ -1173,15 +1176,40 @@ function relationSentence(r: PartyRelationship, types: readonly RelationshipType
  * blank in it is not a sentence, and offering "Cobalt Foods is the parent of"
  * with nothing after it invites somebody to choose it.
  */
+type PartyKind = "organization" | "person";
+
+/**
+ * Which way round each relationship can be true, by the kinds of the two
+ * parties (CA#53). Every type was offered both ways for any two parties, so
+ * the list held "Deccan Agro Foods is a director of Anil Deshpande". Only the
+ * plainly impossible is left out (the API refuses the same, `relationshipFits`):
+ * nobody is a director or a shareholder OF a person, and only a person is
+ * somebody's employee or signatory. A company as a director is left in, since
+ * some countries allow it. A code not listed is offered both ways, as before.
+ */
+const FITS: Readonly<Record<string, (from: PartyKind, to: PartyKind) => boolean>> = {
+  director_of: (_from, to) => to === "organization",
+  shareholder_of: (_from, to) => to === "organization",
+  authorised_signatory_of: (from) => from === "person",
+  employee_of: (from) => from === "person",
+  parent_of: (from, to) => from === "organization" && to === "organization",
+};
+
 function relationChoices(
   types: readonly RelationshipType[],
-  thisName: string,
-  otherName: string,
+  thisParty: { readonly name: string; readonly kind: PartyKind },
+  other: { readonly name: string; readonly kind: PartyKind } | null,
 ): { value: string; sentence: string }[] {
-  if (otherName === "") return [];
+  if (other === null || other.name === "") return [];
+  const fits = (code: string, from: PartyKind, to: PartyKind): boolean =>
+    FITS[code]?.(from, to) ?? true;
   return types.flatMap((t) => [
-    { value: `${t.code}:out`, sentence: `${thisName} is ${t.label} ${otherName}` },
-    { value: `${t.code}:in`, sentence: `${otherName} is ${t.label} ${thisName}` },
+    ...(fits(t.code, thisParty.kind, other.kind)
+      ? [{ value: `${t.code}:out`, sentence: `${thisParty.name} is ${t.label} ${other.name}` }]
+      : []),
+    ...(fits(t.code, other.kind, thisParty.kind)
+      ? [{ value: `${t.code}:in`, sentence: `${other.name} is ${t.label} ${thisParty.name}` }]
+      : []),
   ]);
 }
 
