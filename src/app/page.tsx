@@ -170,6 +170,9 @@ export default function MyDayPage() {
   const userId = session?.userId ?? null;
   // Only an administrator sees the firm's setup (the API refuses anybody else).
   const admin = session?.permissions.includes("tenant:admin") === true;
+  // CA#6 (0323): issuing a draft invoice is `invoice:issue`, not the whole of
+  // administering the firm.
+  const issuer = session?.permissions.includes("invoice:issue") === true;
 
   useEffect(() => {
     // The shell knows who is signed in; until it does there is nothing to ask.
@@ -204,7 +207,7 @@ export default function MyDayPage() {
       }
       const built = buildRows({
         me: userId,
-        admin,
+        issuer,
         tasks: tasks.data.items,
         steps: steps.data?.steps ?? [],
         taskChecks: taskChecks.data?.checks ?? [],
@@ -228,7 +231,7 @@ export default function MyDayPage() {
     return () => {
       live = false;
     };
-  }, [userId, admin, router, reportCounts]);
+  }, [userId, admin, issuer, router, reportCounts]);
 
   if (session === null || rows === null) return <Loading label="Loading your day" />;
 
@@ -385,8 +388,8 @@ function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
  */
 function buildRows(input: {
   me: string;
-  /** Holds `tenant:admin`: only an administrator issues an invoice. */
-  admin: boolean;
+  /** Holds `invoice:issue` (0323): issues a draft invoice. */
+  issuer: boolean;
   tasks: readonly WorkItem[];
   steps: readonly MyStep[];
   taskChecks: readonly WorkItemCheckRow[];
@@ -541,7 +544,7 @@ function buildRows(input: {
     });
   }
 
-  out.push(...billRows(input.me, input.admin, input.dues));
+  out.push(...billRows(input.me, input.issuer, input.dues));
   out.push(...advanceRows(input.advances));
 
   return out;
@@ -641,7 +644,7 @@ function advanceRows(advances: readonly BillingAdvance[]): Row[] {
  * and since 0322 it has no number until then: an admin reads "Issue the draft
  * invoice", anybody else "With an admin to issue" (review item 14b).
  */
-function billRows(me: string, admin: boolean, dues: readonly BillingDue[]): Row[] {
+function billRows(me: string, issuer: boolean, dues: readonly BillingDue[]): Row[] {
   const groups = new Map<string, BillingDue[]>();
   for (const d of dues) {
     const key =
@@ -672,7 +675,7 @@ function billRows(me: string, admin: boolean, dues: readonly BillingDue[]): Row[
     rows.push({
       key,
       what: drafted
-        ? `${admin ? "Issue the draft invoice" : "With an admin to issue"}: ${billLabel(first)}${more}`
+        ? `${issuer ? "Issue the draft invoice" : "Waiting to be issued"}: ${billLabel(first)}${more}`
         : `Raise the invoice: ${billLabel(first)}${more}`,
       kind: mine
         ? drafted
@@ -683,9 +686,9 @@ function billRows(me: string, admin: boolean, dues: readonly BillingDue[]): Row[
       clientId: first.party.id,
       clientName: first.party.displayName,
       dueOn: addDays(first.billOn, 6),
-      turn: drafted && !admin ? "admin" : "me",
+      turn: drafted && !issuer ? "admin" : "me",
       flags,
-      now: !drafted || admin,
+      now: !drafted || issuer,
     });
   }
   return rows;
