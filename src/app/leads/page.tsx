@@ -47,6 +47,7 @@ import { PhoneInput } from "@/components/phone-input";
 import { countryName } from "@/lib/country";
 import { cleanAmount, fromMinorUnits, previewAmount, toMinorUnits } from "@/lib/money";
 import { MissingMoney, useSeesFees } from "@/components/fees";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * A value box in the filter: blank is "no bound", a plain amount is a bound,
@@ -690,7 +691,7 @@ export default function LeadsPage() {
                           <tr>
                             <Td colSpan={7}>
                               <form
-                                action={(form) => {
+                                onSubmit={(event) => keepTyped(event, (form) => {
                                   move(
                                     l.lead.id,
                                     l.lead.title,
@@ -700,7 +701,7 @@ export default function LeadsPage() {
                                     null,
                                     String(form.get("lostReason") ?? "").trim(),
                                   );
-                                }}
+                                })}
                               >
                                 <FieldStack>
                                   <Field
@@ -873,9 +874,7 @@ export default function LeadsPage() {
       >
         <form
           id={captureForm}
-          action={(form) => {
-            void capture(form);
-          }}
+          onSubmit={(event) => keepTyped(event, (form) => capture(form))}
         >
           <FieldStack>
             <ErrorNotice error={captureError} />
