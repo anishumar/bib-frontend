@@ -51,6 +51,7 @@ import {
 import { browserDay, longDay, longInstant } from "@/lib/day";
 import { ClientAsks } from "./client-asks";
 import { Documents } from "@/lib/ui/documents";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * One work item — the page where it is actually worked (T3.1).
@@ -1380,13 +1381,13 @@ function Dependencies({
             <form
               style={{ marginTop: "var(--s-3)" }}
               /* CLOSES ONLY ON SUCCESS: a refusal keeps the form to correct. */
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 const id = String(form.get("dependsOn") ?? "");
                 if (id === "") return;
                 void onAdd(id).then((ok) => {
                   if (ok) setAdding(false);
                 });
-              }}
+              })}
             >
               <fieldset className="fieldset" aria-label="Make this task wait on another">
                 <FieldStack>
