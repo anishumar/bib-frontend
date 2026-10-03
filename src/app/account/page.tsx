@@ -145,7 +145,12 @@ export default function AccountPage() {
             }}
           />
 
-          {build === null ? null : (
+          {/* For an ADMINISTRATOR, and only when the build says something
+              (CA#57): "Build Not set / Built Not set" meant nothing to anybody
+              else, and support asks the administrator anyway. */}
+          {build === null ||
+          !me.permissions.includes("tenant:admin") ||
+          (build.commit === null && build.builtAt === null) ? null : (
             <details className="disclosure">
               <summary>Technical details</summary>
               <Meta>
