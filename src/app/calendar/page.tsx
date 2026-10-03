@@ -537,7 +537,7 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     title: "This company has no registered country",
     what: "A filing matches a company by its registered country.",
     fix: "Register the company with its country and entity type.",
-    where: { href: "/clients", label: "Open the book" },
+    where: { href: "/clients", label: "Open Clients" },
   },
   rules_need_a_formula: {
     title: "A filing on this service cannot work out a date yet",

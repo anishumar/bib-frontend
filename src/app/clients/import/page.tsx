@@ -199,7 +199,7 @@ export default function ClientImportPage() {
     return (
       <Page>
         <Denied permission="tenant:admin">
-          Loading the book creates clients, letters and assignments in one go, so only a firm
+          Importing creates clients, letters and assignments in one go, so only a firm
           administrator can do it.
         </Denied>
       </Page>
@@ -212,7 +212,7 @@ export default function ClientImportPage() {
       {/* Wave 4: one line under the title. A client already on file is
           skipped, never overwritten. */}
       <PageHeader
-        title="Bring in the book"
+        title="Import clients from Excel"
         lede="Every row is checked first. Nothing is saved until you confirm."
       />
 

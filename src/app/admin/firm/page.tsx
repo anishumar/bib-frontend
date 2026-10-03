@@ -390,7 +390,7 @@ export default function FirmPage() {
             act(
               "tax-rates",
               () => api.PUT("/api/v1/billing/settings", { body: { taxDefaults } }),
-              "Tax rates saved. New advance drafts use them.",
+              "Tax rates saved. New advance invoices use them.",
             )
           }
         />

@@ -148,7 +148,7 @@ export default function ClientsPage() {
                 variant="secondary"
                 icon={<Icon name="upload" size={16} />}
               >
-                Bring in the book
+                Import from Excel
               </LinkButton>
             )}
             <Button
@@ -231,7 +231,7 @@ export default function ClientsPage() {
           )
         ) : parties.length === 0 ? (
           <Card>
-            <Empty title="Nobody in the book yet" icon="clients">
+            <Empty title="No clients yet" icon="clients">
               Add the first one with Add a client.
             </Empty>
           </Card>
