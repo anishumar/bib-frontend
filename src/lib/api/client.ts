@@ -1327,9 +1327,11 @@ export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
   // and the mark sits on the line rather than in a white box.
   logo: "Heads every letter, invoice and proposal. PNG or JPG.",
   signature: "Signs engagement letters once sent. A PNG with a clear background.",
-  // The letterhead is stored and not drawn on anything yet: said on the row,
-  // because a control that looks live and is inert is the thing to avoid.
-  letterhead: "Stored only. Not printed on anything yet.",
+  // The uploaded FILE is kept and not drawn: said on the row, because a
+  // control that looks live and is inert is the thing to avoid. The letterhead
+  // a document prints is the company's details, from Your firm (CA#18).
+  letterhead:
+    "The file is kept, not drawn. Letters, invoices and proposals print the company's address, tax numbers and contact from Your firm.",
   // WHERE the two names land is the layout's, so the artwork has to leave room
   // for them: "Prepared for" in dark text about 40% down on the right, and
   // "Prepared by" in white about 78% down on the right.
