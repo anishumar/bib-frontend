@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { api, apiError, BILLING_FREQUENCY_LABELS } from "@/lib/api/client";
 import type { BillingSchedule } from "@/lib/api/client";
 import { Button, Dialog, ErrorNotice, Field, FieldRow, FieldStack, Input } from "@/components/ui";
+import { longDay } from "@/lib/day";
 
 /**
  * SET BILLING: the two dates that make an engagement billed on its own
@@ -32,6 +33,10 @@ export interface ScheduleSubject {
   readonly feeGroupTitle: string | null;
   readonly billingFrom: string | null;
   readonly firstInvoiceOn: string | null;
+  /** The day the work started (the engagement's effective date): a period is
+   *  billed only for the days the work ran, so nothing before it is billed
+   *  however early "Bill from" is set (CA#35). Said, not hidden. */
+  readonly workStartedOn?: string | null | undefined;
 }
 
 export interface ScheduleSuggestion {
@@ -73,6 +78,8 @@ export function BillingScheduleDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "clear" | null>(null);
   const [fetched, setFetched] = useState<{ id: string; value: ScheduleSuggestion | null } | null>(null);
+  /** What "Bill from" holds as it is typed, for the warning under it. */
+  const [typedFrom, setTypedFrom] = useState<string | null>(null);
 
   const engagementId = subject?.engagementId ?? null;
   const isSet = subject !== null && subject.billingFrom !== null && subject.firstInvoiceOn !== null;
@@ -119,8 +126,16 @@ export function BillingScheduleDialog({
 
   function close(): void {
     setError(null);
+    setTypedFrom(null);
     onClose();
   }
+
+  // BILL FROM BEFORE THE WORK STARTED (CA#35): saved as asked, and the months
+  // before the start still get no bill, because a period is billed only for
+  // the days the work ran. It was silent; now it is said while it is typed.
+  const fromNow = typedFrom ?? from ?? "";
+  const started = subject.workStartedOn ?? null;
+  const before = started !== null && fromNow !== "" && fromNow < started;
 
   return (
     <Dialog
@@ -170,9 +185,28 @@ export function BillingScheduleDialog({
           <FieldRow key={`${from ?? ""}|${first ?? ""}`}>
             <Field
               label="Bill from"
-              hint={offered !== null && !isSet ? `${offered.periodLabel} is the first period billed.` : "Nothing before this period is billed."}
+              hint={
+                before ? (
+                  <strong role="status" className="font-semibold text-danger">
+                    This work started on {longDay(started ?? "")}. A period is billed only for the days the work
+                    ran, so nothing before {longDay(started ?? "")} will be billed.
+                  </strong>
+                ) : offered !== null && !isSet ? (
+                  `${offered.periodLabel} is the first period suggested. Nothing before it is billed.`
+                ) : (
+                  "Nothing before this period is billed."
+                )
+              }
             >
-              <Input name="billingFrom" type="date" required defaultValue={from ?? ""} />
+              <Input
+                name="billingFrom"
+                type="date"
+                required
+                defaultValue={from ?? ""}
+                onChange={(e) => {
+                  setTypedFrom(e.target.value);
+                }}
+              />
             </Field>
             <Field
               label="First invoice on"

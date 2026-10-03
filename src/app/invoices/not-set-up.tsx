@@ -130,7 +130,7 @@ export function NotSetUpTab({
             setSaid(
               set.firstInvoiceOn === null
                 ? `Billing for ${name} is off.`
-                : `${name} is billed from now on. First invoice ${longDay(set.firstInvoiceOn)}.`,
+                : `${name} is billed from now on. First invoice ${longDay(set.firstInvoiceOn)}.${set.notice === null ? "" : ` ${set.notice}`}`,
             );
           })();
         }}
@@ -172,5 +172,6 @@ function subjectOf(r: Row): ScheduleSubject {
     feeGroupTitle: r.first.feeGroup?.title ?? null,
     billingFrom: r.first.billingFrom,
     firstInvoiceOn: r.first.firstInvoiceOn,
+    workStartedOn: r.first.effectiveFrom,
   };
 }
