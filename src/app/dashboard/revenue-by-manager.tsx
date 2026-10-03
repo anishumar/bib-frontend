@@ -52,6 +52,21 @@ function periodsOf(data: RevenueByManager): Period[] {
   return out;
 }
 
+/**
+ * The period the section OPENS on (F25). The current month while it has
+ * anything in it; before the firm has billed or collected anything this month
+ * (on the 3rd, say), the last complete month instead, so the section opens on
+ * figures rather than a page of "Nothing". Any period can still be chosen.
+ */
+function openingPeriod(data: RevenueByManager, periods: readonly Period[]): string {
+  const current = periods[0];
+  if (current === undefined) return "all";
+  const now = figures(data.total.months, current);
+  const quiet = isZero(now.billed) && isZero(now.collected) && now.invoices === 0;
+  const previous = periods.find((p) => p.months.length === 1 && p.key !== current.key);
+  return quiet && previous !== undefined ? previous.key : current.key;
+}
+
 /** One row's figures for a period, summed exactly from the API's months. */
 function figures(months: Manager["months"], period: Period) {
   const inPeriod = months.filter((m) => period.months.includes(m.month));
@@ -85,7 +100,7 @@ function Money({ amount, currency }: { amount: string; currency: string }) {
  */
 export function RevenueByManagerSection({ data }: { data: RevenueByManager }) {
   const periods = periodsOf(data);
-  const [periodKey, setPeriodKey] = useState(periods[0]?.key ?? "all");
+  const [periodKey, setPeriodKey] = useState(() => openingPeriod(data, periods));
   const selectId = useId();
   const period = periods.find((p) => p.key === periodKey) ?? periods[0];
   if (period === undefined) return null;
@@ -174,14 +189,16 @@ export function RevenueByManagerSection({ data }: { data: RevenueByManager }) {
                 <tfoot>
                   <tr>
                     <Td className="font-semibold">Total</Td>
+                    {/* The rows' own word for zero (F25): rows said
+                        "Nothing" while the Total said "₹0". */}
                     <Td align="right" className="nowrap font-semibold">
-                      {formatMoney(total.billed, cur)}
+                      <Money amount={total.billed} currency={cur} />
                     </Td>
                     <Td align="right" className="nowrap font-semibold">
-                      {formatMoney(total.collected, cur)}
+                      <Money amount={total.collected} currency={cur} />
                     </Td>
                     <Td align="right" className="nowrap font-semibold">
-                      {formatMoney(data.total.outstanding, cur)}
+                      <Money amount={data.total.outstanding} currency={cur} />
                     </Td>
                     <Td align="right" className="font-semibold">
                       {total.invoices}
