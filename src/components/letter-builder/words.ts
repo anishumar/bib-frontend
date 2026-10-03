@@ -1,25 +1,20 @@
 /**
  * How the ANNEXURE LETTER's PDF words money and frequency, so the preview says
- * them the same way (`render-source.ts`: `money`, `FREQUENCY_LABELS`,
- * `PER_PERIOD`). The letter is not the proposal: its PDF prints two decimals
- * ("INR 5,000.00"), "Annually" and "One-off", and a section's fee "per month".
- * A preview in the proposal's words would be a second document.
+ * them the same way (`render-source.ts`: `documentMoney`, `FREQUENCY_LABELS`,
+ * `PER_PERIOD`). The letter is not the proposal: it says "Annually" and
+ * "One-off", and a section's fee "per month". Its money, since the audit of
+ * 2026-10-03 (B19 / CA#49), is the screens' own: "₹5,000", paise only when
+ * there are some.
  */
 
+import { formatMoney } from "@/lib/api/client";
 import type { FeeGroup } from "@/lib/api/client";
 
 type Frequency = FeeGroup["billingFrequency"];
-type NumericLiteral = `${number}`;
 
-/** `money`: always two decimals and the ISO code; the string goes to Intl as
- *  it is, never through a JS number. */
+/** `documentMoney`: the screens' formatter, as the letter's PDF now prints. */
 export function letterMoney(amount: string, currency: string): string {
-  if (!/^-?\d+(?:\.\d+)?$/.test(amount)) return `${currency} ${amount}`;
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount as NumericLiteral);
-  return `${currency} ${formatted}`;
+  return formatMoney(amount, currency);
 }
 
 /** `FREQUENCY_LABELS`, the Summary of Fees' own column. */
