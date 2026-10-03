@@ -640,7 +640,7 @@ function LetterTerms({ record, onChanged }: { record: LetterRecord; onChanged: (
           {standardTerms.added.length === 0 && standardTerms.skipped.length === 0 && (
             <StandardsHelp
               opening={false}
-              terms
+              terms="none"
               issuerPartyId={record.issuer.partyId}
               issuerHasCountry={record.issuer.jurisdiction !== null}
             />

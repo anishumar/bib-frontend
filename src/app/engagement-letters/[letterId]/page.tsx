@@ -1020,7 +1020,7 @@ export default function LetterPage() {
                   {standardTerms.added.length === 0 && standardTerms.skipped.length === 0 && (
                     <StandardsHelp
                       opening={false}
-                      terms
+                      terms="none"
                       issuerPartyId={record.issuer.partyId}
                       issuerHasCountry={record.issuer.jurisdiction !== null}
                     />
@@ -1413,7 +1413,7 @@ export default function LetterPage() {
               <Notice tone="warn" eyebrow="Before it can be sent">
                 <StandardsHelp
                   opening={!record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "")}
-                  terms={record.clauses.length === 0}
+                  terms={record.clauses.length === 0 ? "missing" : false}
                   issuerPartyId={record.issuer.partyId}
                   issuerHasCountry={record.issuer.jurisdiction !== null}
                   writeAt={`/engagement-letters/${letter.id}/build?step=preview` as Route}

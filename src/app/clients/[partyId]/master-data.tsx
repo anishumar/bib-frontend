@@ -345,8 +345,8 @@ export function BillingAddressCard({
         </address>
       )}
       <p className="text-sm text-muted">
-        Printed under the client&rsquo;s name on invoices, with its GSTIN from Identifiers. An invoice already
-        issued keeps the address it went out with.
+        Printed under the client&rsquo;s name on invoices, with its tax number from Identifiers. An invoice
+        already issued keeps the address it went out with.
       </p>
       {canWrite && (
         <details

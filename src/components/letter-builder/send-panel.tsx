@@ -128,7 +128,7 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
                 {/* Where the words come from, and who can write them (CA#3). */}
                 <StandardsHelp
                   opening={!hasOpening}
-                  terms={record.clauses.length === 0}
+                  terms={record.clauses.length === 0 ? "missing" : false}
                   issuerPartyId={record.issuer.partyId}
                   issuerHasCountry={record.issuer.jurisdiction !== null}
                 />

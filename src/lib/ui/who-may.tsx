@@ -78,8 +78,11 @@ export function StandardsHelp({
 }: {
   /** The letter has no opening paragraph. */
   opening: boolean;
-  /** The firm has no standard terms this letter can use. */
-  terms: boolean;
+  /**
+   * The letter has no terms: "missing" when the firm may well have some to
+   * add, "none" once adding them found the firm has none for this company.
+   */
+  terms: "missing" | "none" | false;
   issuerPartyId: string;
   /** Whether the issuing company has a country: its own terms tab exists. */
   issuerHasCountry: boolean;
@@ -89,8 +92,8 @@ export function StandardsHelp({
 }) {
   const session = useSession();
   const mayWrite = session?.permissions.includes("tenant:admin") ?? false;
-  const names = useWhoMay("tenant:admin", !mayWrite && (opening || terms));
-  if (!opening && !terms) return null;
+  const names = useWhoMay("tenant:admin", !mayWrite && (opening || terms !== false));
+  if (!opening && terms === false) return null;
   const here =
     writeAt === undefined ? (
       <>under Cover letter on this page</>
@@ -112,7 +115,13 @@ export function StandardsHelp({
             <Link href={wordingHref}>Standard wording</Link> so every new letter starts with it.
           </li>
         )}
-        {terms && (
+        {terms === "missing" && (
+          <li>
+            Add the terms with &ldquo;Add all standard terms&rdquo;. To write or change the firm&rsquo;s terms, open{" "}
+            <Link href={termsHref}>Standard terms</Link>.
+          </li>
+        )}
+        {terms === "none" && (
           <li>
             Write the firm&rsquo;s terms in <Link href={termsHref}>Standard terms</Link>, then add them here.
           </li>
@@ -129,7 +138,13 @@ export function StandardsHelp({
           set by {who}.
         </li>
       )}
-      {terms && (
+      {terms === "missing" && (
+        <li>
+          Add the terms with &ldquo;Add all standard terms&rdquo;. If the firm has none for this company yet, only{" "}
+          {who} can write them.
+        </li>
+      )}
+      {terms === "none" && (
         <li>
           The firm has no standard terms for this letter yet. Only {who} can write them: ask them to, then add
           them here.
