@@ -42,6 +42,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { homeFor } from "@/lib/api/home";
 import { Button, Card, ErrorNotice, Field, FieldStack, Input, Notice } from "@/components/ui";
 
@@ -97,7 +98,7 @@ function ResetPassword() {
       <div>
         <div className="stack loose">
           <div>
-            <p className="eyebrow">10X Workspace</p>
+            <p className="eyebrow">{PRODUCT_NAME}</p>
             <h1>Choose a new password</h1>
           </div>
 

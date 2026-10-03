@@ -14,6 +14,8 @@ import {
 } from "react";
 import { api } from "@/lib/api/client";
 import type { Membership, Principal } from "@/lib/api/client";
+import { PRODUCT_NAME, firmInitials } from "@/lib/brand";
+import { readSession, retryDelayMs } from "@/lib/session";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
@@ -391,6 +393,34 @@ function isBare(pathname: string): boolean {
  * see, so anything specific here would be either a promise about where they are
  * going or a statement about a firm that is not theirs.
  */
+/**
+ * The API is busy (429) or out of reach, and we do not yet know who is
+ * reading. Calm, one line, and a way to try at once (F15).
+ */
+function Busy({ seconds, onRetry }: { seconds: number; onRetry: () => void }) {
+  return (
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        font: "inherit",
+      }}
+    >
+      <div role="status" style={{ textAlign: "center", display: "grid", gap: "var(--s-3, 12px)" }}>
+        <p>
+          The workspace is busy. Trying again in {seconds} {seconds === 1 ? "second" : "seconds"}.
+        </p>
+        <div>
+          <Button variant="secondary" onClick={onRetry}>
+            Try now
+          </Button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function Leaving() {
   return (
     <main
@@ -442,6 +472,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [switching, setSwitching] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   /**
+   * The API was busy or unreachable on the last read (F15): how many reads in
+   * a row have failed that way, and when the next one is due. Null when the
+   * last read got an answer. Never a reason to sign anybody out: see
+   * `@/lib/session`.
+   */
+  const [busy, setBusy] = useState<{ attempt: number; retryMs: number } | null>(null);
+  /** Bumped to ask again: by the backoff timer, or by "Try now". */
+  const [retryTick, setRetryTick] = useState(0);
+  /**
    * What the sidebar's search box holds.
    *
    * It filters the map of the product rather than searching the firm's DATA —
@@ -479,21 +518,40 @@ export function AppShell({ children }: { children: ReactNode }) {
       // tenant-scoped route answers 403 — so this is what the shell needs to
       // know whether it can show the workspace at all.
       const [me, mine] = await Promise.all([
-        api.GET("/api/v1/auth/me", {}),
-        api.GET("/api/v1/tenancy/me/memberships", {}),
+        readSession(),
+        api.GET("/api/v1/tenancy/me/memberships", {}).catch(() => null),
       ]);
       if (!live) return;
-      // Not signed in is an ordinary state here, not a failure to report. The
-      // shell does NOT redirect: the page is already doing that, and two
-      // racing redirects is how a login loop starts.
-      setPrincipal(me.data ?? null);
-      setMemberships(mine.data?.memberships ?? []);
+      // ONLY A 401 SIGNS ANYBODY OUT (F15). A 429, a 5xx or no answer at all
+      // keeps whatever was known and asks again after a backoff; on a first
+      // load that shows "busy, retrying" instead of the sign-in form.
+      const membershipsFailed = mine === null || (mine.error !== undefined && mine.response.status !== 401);
+      if (me.kind === "busy" || (me.kind === "in" && membershipsFailed)) {
+        const waitMs = me.kind === "busy" ? me.waitMs : 0;
+        setBusy((was) => {
+          const attempt = was === null ? 0 : was.attempt + 1;
+          return { attempt, retryMs: retryDelayMs(attempt, waitMs) };
+        });
+        return;
+      }
+      setBusy(null);
+      // Not signed in is an ordinary state here, not a failure to report.
+      setPrincipal(me.kind === "in" ? me.principal : null);
+      setMemberships(mine?.data?.memberships ?? []);
       setChecked(true);
     })();
     return () => {
       live = false;
     };
-  }, [bare, pathname]);
+  }, [bare, pathname, retryTick]);
+
+  // The backoff: ask again once the wait is over. One timer at a time; a new
+  // answer (or leaving the page) clears it.
+  useEffect(() => {
+    if (busy === null) return;
+    const timer = window.setTimeout(() => { setRetryTick((n) => n + 1); }, busy.retryMs);
+    return () => { window.clearTimeout(timer); };
+  }, [busy]);
 
   /**
    * WHICH APP IS THIS PERSON IN — the gate that was only ever a sidebar filter.
@@ -608,6 +666,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   // by being brief.
   if (wrongApp || signedOut) return <Leaving />;
 
+  // Busy before we have ever known who this is: say so and keep trying,
+  // rather than drawing a screen that does not know whose it is. Once a
+  // principal is known, a busy re-read on navigation keeps it silently.
+  if (!checked && busy !== null) {
+    return (
+      <Busy
+        seconds={Math.ceil(busy.retryMs / 1000)}
+        onRetry={() => { setRetryTick((n) => n + 1); }}
+      />
+    );
+  }
+
   /*
    * THE LOCKOUT.
    *
@@ -709,13 +779,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           Skip to the page
         </a>
         <aside className="sidebar">
+          {/* THE FIRM'S OWN MARK (CA#40). The badge read "10x" on every
+              firm's workspace; it is now this firm's initials and name, and
+              the product's name sits under it. */}
           <Link href="/" className="brand">
             <span className="mark" aria-hidden="true">
-              10x
+              {firmInitials(principal?.tenantName)}
             </span>
             <span className="brand-id">
-              <b>BiB</b>
-              <span>Staff workspace</span>
+              <b>{principal?.tenantName ?? PRODUCT_NAME}</b>
+              <span>{PRODUCT_NAME}</span>
             </span>
           </Link>
 
@@ -964,7 +1037,7 @@ function ChooseFirm({
       <div>
         <div className="stack loose">
           <div>
-            <p className="eyebrow">10X Workspace</p>
+            <p className="eyebrow">{PRODUCT_NAME}</p>
             <h1>Choose a firm</h1>
             <p className="lede">
               This account belongs to more than one firm, so the session has not picked one yet.
