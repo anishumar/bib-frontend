@@ -437,16 +437,22 @@ export type PermissionInfo =
 export interface RoleBody {
   readonly label: string;
   readonly permissions: readonly string[];
+  /** Which surface the role is for (T6.6). Absent in a role body means STAFF,
+   *  as the API reads it. Used to offer a staff member only staff roles and a
+   *  client contact only client roles (F18). */
+  readonly audience: "STAFF" | "CLIENT_PORTAL";
 }
 
 export function readRoleBody(body: Record<string, unknown> | undefined): RoleBody {
   const label = body?.["label"];
   const permissions = body?.["permissions"];
+  const audience = body?.["audience"];
   return {
     label: typeof label === "string" ? label : "",
     permissions: Array.isArray(permissions)
       ? permissions.filter((p): p is string => typeof p === "string")
       : [],
+    audience: audience === "CLIENT_PORTAL" ? "CLIENT_PORTAL" : "STAFF",
   };
 }
 
