@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import { CountrySelect } from "@/components/country-select";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader, useSession } from "@/components/layout";
@@ -346,7 +347,7 @@ export default function ClientsPage() {
                     <Input name="fullName" required autoFocus placeholder="e.g. Asha Verma" />
                   </Field>
                   <Field label="Nationality" optional>
-                    <Input name="nationality" placeholder="e.g. IN" />
+                    <CountrySelect name="nationality" />
                   </Field>
                   <Field label="Date of birth" optional>
                     <Input name="dateOfBirth" type="date" />
