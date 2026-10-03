@@ -569,9 +569,15 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     fix: "Write the filing for this country on the service in the Catalogue.",
     where: { href: "/catalogue", label: "Open the Catalogue" },
   },
+  // It said "Every period so far ended before the engagement began", which was
+  // untrue the day a client signed: the calendar simply had not been filled
+  // yet, and September's returns due in October arrived that night (audit
+  // 2026-10-03, CA#24). Signing fills it now; what is left here is a filing
+  // with nothing due in the coming year, or work started some other way that
+  // tonight's pass fills.
   nothing_due_yet: {
-    title: "Covered, with nothing due in the window yet",
-    what: "Every period so far ended before the engagement began. It clears next period.",
+    title: "Covered, with nothing due yet",
+    what: "Filings are added when a letter is signed and again each night. None is due in the next 12 months yet.",
     fix: null,
     where: null,
   },
