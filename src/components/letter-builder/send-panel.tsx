@@ -111,6 +111,16 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
                 </Field>
               </FieldRow>
             )}
+            {/* NO E-SIGNATURE SERVICE (CA#23): the press locks the letter and
+                marks it sent, and nothing is emailed. It said "Send for
+                signature" and the manager believed the client had it. */}
+            {!signing.sends && (
+              <p className="text-sm text-muted">
+                No e-signature service is set up, so nothing is emailed from here. This locks the
+                letter. Download the PDF and send it to the client yourself, then record their
+                signature on the letter page.
+              </p>
+            )}
             {missing.length > 0 && (
               <p className="text-sm text-muted">Add {missing.join(" and ")} before sending.</p>
             )}
@@ -121,7 +131,7 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
             )}
             <div className="cluster">
               <Button type="submit" loading={busy} disabled={busy || missing.length > 0}>
-                {signing.sends ? `Send with ${providerName}` : "Send for signature"}
+                {signing.sends ? `Send with ${providerName}` : "Lock it as sent"}
               </Button>
             </div>
           </form>
@@ -130,7 +140,7 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
         {letter.status === "sent" && (
           <Notice tone="neutral" role="status">
             {signing.request === null
-              ? "Sent for signature. Record the client's signature on the letter page when it comes back."
+              ? "Locked as sent. Nothing was emailed from here: send the PDF to the client yourself, then record their signature on the letter page."
               : signing.request.envelopeId === null
                 ? `Sent, but ${providerName} has not emailed it yet. Try again from the letter page.`
                 : `Out for signature with ${providerName}, sent to ${signing.request.signerName}.`}
