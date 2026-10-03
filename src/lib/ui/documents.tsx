@@ -544,6 +544,12 @@ function FileRows({
         <Td>
           {doc.partyId === null ? (
             <span>The firm&rsquo;s own</span>
+          ) : doc.role === "draft_copy" && !doc.isClientVisible ? (
+            /* B10 (audit 2026-10-03): a draft copy is the firm's own and is
+               never shared, so no switch is offered. The API refuses it too
+               (DRAFT_NOT_SHAREABLE), and still lets one that was shared come
+               off, which is why the switch stays while it is on. */
+            <span className="text-muted">Not for the client: a draft</span>
           ) : canWrite ? (
             <Switch
               checked={doc.isClientVisible}
