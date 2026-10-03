@@ -1,4 +1,5 @@
 import { longDay, longMoment } from "@/lib/day";
+import { countryName } from "@/lib/country";
 
 /**
  * Plain words for the audit trail.
@@ -319,7 +320,26 @@ const KEY_WORDS: Record<string, string> = {
   serviceKey: "Service",
   serviceName: "Service",
   how: "How",
+  // Countries and steps in words (F24): the trail read "Jurisdiction to: DD"
+  // and "Rung key: second".
+  jurisdiction: "Country",
+  jurisdictions: "Countries",
+  jurisdictionFrom: "Country before",
+  jurisdictionTo: "Country now",
+  fromJurisdiction: "Country before",
+  toJurisdiction: "Country now",
+  jurisdictionStated: "Country given",
+  clientJurisdiction: "Client's country",
+  issuerJurisdiction: "Issuer's country",
+  governingLawJurisdiction: "Governing law of",
+  courtsJurisdiction: "Courts of",
+  rungKey: "Step",
+  rung: "Step",
 };
+
+/** A payload key that holds a country code, whose value prints as a name. */
+const COUNTRY_KEY = /jurisdiction/i;
+const COUNTRY_CODE = /^[A-Z]{2}$/;
 
 /**
  * A HANDLE, and the payload key naming the same thing in words when the event
@@ -416,8 +436,14 @@ export function detailRows(payload: Record<string, unknown>): DetailRow[] {
       key === "how" && typeof value === "string"
         ? ((payload["catchUp"] === true ? CAUGHT_UP_WORDS[value] : undefined) ?? HOW_WORDS[value])
         : undefined;
+    const country =
+      COUNTRY_KEY.test(key) && typeof value === "string" && COUNTRY_CODE.test(value)
+        ? countryName(value)
+        : COUNTRY_KEY.test(key) && Array.isArray(value)
+          ? value.map((v) => (typeof v === "string" && COUNTRY_CODE.test(v) ? countryName(v) : String(v))).join(", ")
+          : undefined;
     const shown =
-      said ?? (typeof name === "string" && name.trim() !== "" ? name : plainValue(value));
+      said ?? country ?? (typeof name === "string" && name.trim() !== "" ? name : plainValue(value));
     if (shown === null) continue;
     rows.push({ label: KEY_WORDS[key] ?? capitalise(words(key)), value: shown });
   }

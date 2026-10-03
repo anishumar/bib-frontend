@@ -174,9 +174,9 @@ export default function ReceivablesPage() {
                     </Td>
                     <Td>
                       <Pill tone="danger">{codeLabel(p.action.action)}</Pill>
-                      <Sub>
-                        Step {p.action.step}, {p.action.afterDays} days after due
-                      </Sub>
+                      {/* The step's own key ("credit-hold") is the firm's
+                          internal name for it and repeats the pill (F24). */}
+                      <Sub>{p.action.afterDays} days after the due date</Sub>
                     </Td>
                     {/* Read NOW, not when the rung fired. A debt settled since
                         is exactly the case a partner rejects, and a stale
