@@ -279,9 +279,13 @@ export default function PeoplePage() {
                         firm's lists sets a select's width and pushed the last
                         columns out of view. `.select` declares its own
                         max-width, so the cap cannot sit on the select. */}
+                    {/* A FLOOR as well as a cap (CA#46): the select measured its
+                        width before the web font arrived and cut "Associate"
+                        and "Siddharth Rao" short by a few pixels. */}
                     <span className="inline-block max-w-44 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Role for ${m.displayName ?? m.email}`}
                         value={m.membership.role}
                         disabled={busy === m.membership.id}
@@ -329,6 +333,7 @@ export default function PeoplePage() {
                     <span className="inline-block max-w-44 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Grade for ${m.displayName ?? m.email}`}
                         value={m.grade?.id ?? ""}
                         disabled={busy === m.membership.id}
@@ -357,9 +362,10 @@ export default function PeoplePage() {
                         firm's lists sets a select's width and pushed the last
                         columns out of view. `.select` declares its own
                         max-width, so the cap cannot sit on the select. */}
-                    <span className="inline-block max-w-44 align-middle">
+                    <span className="inline-block max-w-56 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Reporting line for ${m.displayName ?? m.email}`}
                         value={m.membership.reportsToUserId ?? ""}
                         disabled={busy === m.membership.id}
