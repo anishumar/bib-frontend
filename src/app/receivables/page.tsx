@@ -290,8 +290,11 @@ function DecideRow({
 }) {
   const [why, setWhy] = useState("");
   const step = codeLabel(item.action.action).toLowerCase();
+  // THE REASON ABOVE THE TWO BUTTONS, in a column of a fixed width (F20). In
+  // one row the box and both buttons made the column wider than the card at
+  // 1280, and Approve / Reject sat partly out of view.
   return (
-    <div className="cluster">
+    <div className="stack tight" style={{ width: "16rem" }}>
       <Input
         size="sm"
         name="why"
@@ -302,6 +305,7 @@ function DecideRow({
           setWhy(e.target.value);
         }}
       />
+      <div className="cluster">
       <ConfirmAction
         size="sm"
         variant="destructive-quiet"
@@ -333,6 +337,7 @@ function DecideRow({
       >
         Reject
       </Button>
+      </div>
     </div>
   );
 }
