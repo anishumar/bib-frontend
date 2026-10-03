@@ -12,6 +12,7 @@ import type { SharedProposal } from "@/lib/api/client";
 import { longDay, longInstantTime } from "@/lib/day";
 import { addDecimals } from "@/lib/money";
 import { FREQUENCY_WORDS } from "@/components/proposal-document/words";
+import { plural } from "@/lib/plural";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -368,8 +369,7 @@ function FrequencyTotals({ shared }: { shared: SharedProposal }) {
       </Strip>
       {shared.totals.unpricedLineCount > 0 && (
         <p className="text-md">
-          Plus {String(shared.totals.unpricedLineCount)} service
-          {shared.totals.unpricedLineCount === 1 ? "" : "s"} as mutually agreed.
+          Plus {plural(shared.totals.unpricedLineCount, "service")} as mutually agreed.
         </p>
       )}
     </div>

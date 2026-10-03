@@ -21,6 +21,7 @@ import {
   Table,
   Td,
 } from "@/components/ui";
+import { plural } from "@/lib/plural";
 
 /**
  * The form a partner answers a compliance rule with (T6.4).
@@ -588,7 +589,7 @@ export function RuleEditor({
           explanation rather than the API's 409. */}
       {shapeLocked && (
         <Notice tone="warn" eyebrow="The period shape is fixed now">
-          This rule has made {produced} filing{produced === 1 ? "" : "s"} on these periods. To
+          This rule has made {plural(produced, "filing")} on these periods. To
           change them, retire it and write a new one.
         </Notice>
       )}

@@ -27,6 +27,7 @@ import {
   Td,
   Th,
 } from "@/components/ui";
+import { plural } from "@/lib/plural";
 
 /**
  * Bringing a firm's existing book of clients in from a spreadsheet.
@@ -514,8 +515,7 @@ function ImportReport({
 
         {r.compliance.floor === null && r.compliance.engagementsBeforeReachBack > 0 && (
           <Notice tone="warn" eyebrow="Compliance calendar">
-            {r.compliance.engagementsBeforeReachBack} engagement
-            {r.compliance.engagementsBeforeReachBack === 1 ? "" : "s"} started before{" "}
+            {plural(r.compliance.engagementsBeforeReachBack, "engagement")} started before{" "}
             {r.compliance.reachBackFrom}. The calendar looks back ninety days, so until you set the
             date deadlines are tracked from, every filing you already made will show as missed. Set
             “ask about deadlines from” under{" "}
@@ -531,7 +531,7 @@ function ImportReport({
               loading={busy === "confirm"}
               onClick={onConfirm}
             >
-              Load {r.counts.clientsToCreate} client{r.counts.clientsToCreate === 1 ? "" : "s"}
+              {`Load ${plural(r.counts.clientsToCreate, "client")}`}
             </Button>
             <span className="muted">
               {r.blocking > 0

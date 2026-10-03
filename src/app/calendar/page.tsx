@@ -16,6 +16,7 @@ import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, NotSet, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { plural } from "@/lib/plural";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -468,8 +469,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                           size="sm"
                           href={`/admin/obligation-rules?rules=${g.blockedRuleIds.join(",")}`}
                         >
-                          {g.blockedRuleIds.length} rule
-                          {g.blockedRuleIds.length === 1 ? "" : "s"}
+                          {plural(g.blockedRuleIds.length, "rule")}
                         </LinkButton>
                       )}
                     </Td>
