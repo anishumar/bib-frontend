@@ -5,8 +5,17 @@ import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, codeLabel } from "@/lib/api/client";
-import type { ConfigEntry, FirmEntity, FirmEntityPreference, Readiness } from "@/lib/api/client";
+import { api, apiError, codeLabel, formatCount } from "@/lib/api/client";
+import type {
+  AdvancePolicy,
+  BillingSettings,
+  ConfigEntry,
+  FirmEntity,
+  FirmEntityPreference,
+  Readiness,
+  StaffGrade,
+  TaxDefault,
+} from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -178,11 +187,13 @@ export default function FirmPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<FirmEntity | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
-  /** The firm's billing switch (0318); null when the read was refused. */
-  const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
+  /** The firm's billing settings (0318; 0322); null when the read was refused. */
+  const [billing, setBilling] = useState<BillingSettings | null>(null);
+  /** The firm's grades, for which one counts as the partner (0322). */
+  const [grades, setGrades] = useState<StaffGrade[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies, ready, billing] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/firm-signatory", {}),
@@ -193,6 +204,7 @@ export default function FirmPage() {
       // gap turns its line done in the same reload.
       api.GET("/api/v1/tenancy/readiness", {}),
       api.GET("/api/v1/billing/settings", {}),
+      api.GET("/api/v1/tenancy/grades", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -220,7 +232,8 @@ export default function FirmPage() {
     setLimit(max === undefined || max === null ? null : String(max));
     setLimitExists(policyEntries.some((e) => e.entry.key === "discount"));
     setReadiness(ready.data ?? null);
-    setAutoBilling(billing.data?.autoBilling ?? null);
+    setBilling(billed.data ?? null);
+    setGrades(ladder.data?.grades ?? []);
     setLoaded(true);
   }, [router]);
 
@@ -331,10 +344,12 @@ export default function FirmPage() {
         }
       />
 
-      {autoBilling !== null && (
+      {billing !== null && (
         <BillingCard
-          on={autoBilling}
-          busy={busy === "billing"}
+          settings={billing}
+          entities={entities}
+          grades={grades}
+          busy={busy}
           onSet={(on) =>
             act(
               "billing",
@@ -342,6 +357,20 @@ export default function FirmPage() {
               on
                 ? "Automatic billing is on. Bills appear under Invoices, To raise."
                 : "Automatic billing is off. No new bills are made.",
+            )
+          }
+          onPolicy={(advancePolicy) =>
+            act(
+              "advance-policy",
+              () => api.PUT("/api/v1/billing/settings", { body: { advancePolicy } }),
+              "Advance reminders saved.",
+            )
+          }
+          onTaxRates={(taxDefaults) =>
+            act(
+              "tax-rates",
+              () => api.PUT("/api/v1/billing/settings", { body: { taxDefaults } }),
+              "Tax rates saved. New advance drafts use them.",
             )
           }
         />
@@ -853,6 +882,7 @@ function SetOnce({
   isSet,
   view,
   form,
+  nested = false,
 }: {
   /** An anchor another screen can link to (`/admin/firm#deadlines`). */
   id?: string;
@@ -860,23 +890,37 @@ function SetOnce({
   isSet: boolean;
   view: ReactNode;
   form: (close: (() => void) | null) => ReactNode;
+  /** A part of another card (a rule above, an h3), not a card of its own. */
+  nested?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const changing = isSet && open;
+  const head = (
+    <CardHead
+      level={nested ? 3 : 2}
+      title={title}
+      aside={
+        isSet && !open ? (
+          <Button variant="secondary" size="sm" onClick={() => setOpen(true)} aria-label={`Change ${title.toLowerCase()}`}>
+            Change
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+  const body = isSet && !open ? view : form(changing ? () => setOpen(false) : null);
+  if (nested) {
+    return (
+      <div className="card-foot" {...(id === undefined ? {} : { id })}>
+        {head}
+        {body}
+      </div>
+    );
+  }
   return (
     <Card {...(id === undefined ? {} : { id })}>
-      <CardHead
-        level={2}
-        title={title}
-        aside={
-          isSet && !open ? (
-            <Button variant="secondary" size="sm" onClick={() => setOpen(true)} aria-label={`Change ${title.toLowerCase()}`}>
-              Change
-            </Button>
-          ) : undefined
-        }
-      />
-      {isSet && !open ? view : form(changing ? () => setOpen(false) : null)}
+      {head}
+      {body}
     </Card>
   );
 }
@@ -1035,23 +1079,42 @@ function DeadlinesCard({
  * on bills no old month nobody chose. It saves as it is switched, like the
  * country table above; a quarter or a year needs the financial year, set in
  * Deadlines.
+ *
+ * And, since 0322, how ADVANCES are chased and taxed. Signing drafts the
+ * advance invoice and starts the work (Ashish, 2026-10-02); the SPOC, the Key
+ * Manager and the partner above them are reminded on My day, and the admins get
+ * a weekly summary. Every number is the firm's own (the first firm's answers
+ * are the defaults): when a draft and an unpaid advance turn Overdue, which
+ * grade counts as the partner, and the summary's day and hour in the firm's
+ * zone. An automatic draft needs a tax rate: the last rate on that work, else
+ * the issuing company's default below; with neither, no draft is made and the
+ * advance waits under To raise. Both blocks save with a partial PUT, so one
+ * never overwrites the other.
  */
 function BillingCard({
-  on,
+  settings,
+  entities,
+  grades,
   busy,
   onSet,
+  onPolicy,
+  onTaxRates,
 }: {
-  on: boolean;
-  busy: boolean;
+  settings: BillingSettings;
+  entities: readonly FirmEntity[];
+  grades: readonly StaffGrade[];
+  busy: string | null;
   onSet: (on: boolean) => Promise<boolean>;
+  onPolicy: (policy: AdvancePolicy) => Promise<boolean>;
+  onTaxRates: (rates: TaxDefault[]) => Promise<boolean>;
 }) {
   return (
     <Card id="billing">
       <CardHead level={2} title="Automatic billing" />
       <Switch
         label="Make a bill when each period falls due"
-        checked={on}
-        disabled={busy}
+        checked={settings.autoBilling}
+        disabled={busy === "billing"}
         onChange={(event) => {
           void onSet(event.target.checked);
         }}
@@ -1060,9 +1123,223 @@ function BillingCard({
         Only for services with billing set up.{" "}
         <Link href={"/invoices?tab=setup" as Route}>See which are not</Link>
       </p>
+      <AdvanceReminders
+        policy={settings.advancePolicy}
+        grades={grades}
+        busy={busy === "advance-policy"}
+        onSave={onPolicy}
+      />
+      <TaxRates
+        rates={settings.taxDefaults}
+        entities={entities}
+        busy={busy === "tax-rates"}
+        onSave={onTaxRates}
+      />
     </Card>
   );
 }
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** "10:00", "09:00": the summary's hour as a clock reads it. */
+function hourWords(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+/** The firm's grades by rank, one option per rank ("Director / Partner" when
+ *  two rungs share one), most senior last, retired rungs left out. */
+function rankOptions(grades: readonly StaffGrade[]): { rank: number; label: string }[] {
+  const byRank = new Map<number, string[]>();
+  for (const g of grades) {
+    if (!g.isActive) continue;
+    byRank.set(g.rank, [...(byRank.get(g.rank) ?? []), g.name]);
+  }
+  return [...byRank.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([rank, names]) => ({ rank, label: names.join(" / ") }));
+}
+
+function AdvanceReminders({
+  policy,
+  grades,
+  busy,
+  onSave,
+}: {
+  policy: AdvancePolicy;
+  grades: readonly StaffGrade[];
+  busy: boolean;
+  onSave: (policy: AdvancePolicy) => Promise<boolean>;
+}) {
+  const ranks = rankOptions(grades);
+  const partner = ranks.find((r) => r.rank === policy.partnerMinRank);
+  // A rank no active rung holds any more (the ladder changed): still shown, so
+  // the select never silently reads as another grade.
+  const options = partner === undefined ? [...ranks, { rank: policy.partnerMinRank, label: `Rank ${String(policy.partnerMinRank)}` }] : ranks;
+  const days = (n: number): string => (n === 1 ? "1 day" : `${String(n)} days`);
+  return (
+    <SetOnce
+      nested
+      id="advance-reminders"
+      title="Advance reminders"
+      isSet
+      view={
+        <Meta>
+          <MetaItem label="Draft overdue after">{days(policy.draftOverdueDays)}</MetaItem>
+          <MetaItem label="Unpaid overdue after">{`${days(policy.unpaidOverdueDays)} from issue`}</MetaItem>
+          <MetaItem label="Partner reminded">{`${partner?.label ?? `Rank ${String(policy.partnerMinRank)}`} or above`}</MetaItem>
+          <MetaItem label="Weekly summary to admins">
+            {`${WEEKDAYS[policy.digestWeekday - 1] ?? "Monday"}, ${hourWords(policy.digestHour)}`}
+          </MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const whole = (name: string): number => Number(cleanAmount(String(form.get(name) ?? "")));
+            void (async () => {
+              const ok = await onSave({
+                draftOverdueDays: whole("draftOverdueDays"),
+                unpaidOverdueDays: whole("unpaidOverdueDays"),
+                partnerMinRank: Number(form.get("partnerMinRank")),
+                digestWeekday: Number(form.get("digestWeekday")),
+                digestHour: Number(form.get("digestHour")),
+              });
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldStack>
+            <FieldRow>
+              <Field label="Draft overdue after (days)" hint="Counted from signing.">
+                <AmountInput decimals={0} name="draftOverdueDays" required defaultValue={String(policy.draftOverdueDays)} />
+              </Field>
+              <Field label="Unpaid overdue after (days)" hint="Counted from issue.">
+                <AmountInput decimals={0} name="unpaidOverdueDays" required defaultValue={String(policy.unpaidOverdueDays)} />
+              </Field>
+              <Field label="Partner reminded" hint="First one above the Key Manager at this grade or higher.">
+                <Select name="partnerMinRank" defaultValue={String(policy.partnerMinRank)}>
+                  {options.map((r) => (
+                    <option key={r.rank} value={String(r.rank)}>
+                      {r.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+            <FieldRow>
+              <Field label="Weekly summary on" hint="To every admin, in your firm's time zone.">
+                <Select name="digestWeekday" defaultValue={String(policy.digestWeekday)}>
+                  {WEEKDAYS.map((d, i) => (
+                    <option key={d} value={String(i + 1)}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="At">
+                <Select name="digestHour" defaultValue={String(policy.digestHour)}>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={String(h)}>
+                      {hourWords(h)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <SaveCancel busy={busy} close={close} />
+            </FieldRow>
+          </FieldStack>
+        </form>
+      )}
+    />
+  );
+}
+
+/**
+ * Each company's default tax rate (0322): what an automatic advance draft
+ * carries when that work was never invoiced before. One box per company; a box
+ * left empty sends nothing, and the API keeps a rate it is not sent (it cannot
+ * be removed, only changed), so emptying a box that had one is refused here.
+ */
+function TaxRates({
+  rates,
+  entities,
+  busy,
+  onSave,
+}: {
+  rates: readonly TaxDefault[];
+  entities: readonly FirmEntity[];
+  busy: boolean;
+  onSave: (rates: TaxDefault[]) => Promise<boolean>;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const rateOf = (partyId: string): string | null => rates.find((r) => r.entityPartyId === partyId)?.taxPercent ?? null;
+  if (entities.length === 0) return null;
+  return (
+    <SetOnce
+      nested
+      id="tax-rates"
+      title="Default tax rate"
+      isSet={rates.length > 0}
+      view={
+        <Meta>
+          {entities.map((e) => {
+            const rate = rateOf(e.partyId);
+            return (
+              <MetaItem key={e.partyId} label={e.name}>
+                {rate === null ? <NotSet /> : `${formatCount(rate)}%`}
+              </MetaItem>
+            );
+          })}
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const out: TaxDefault[] = [];
+            for (const e of entities) {
+              const typed = cleanAmount(String(form.get(`rate-${e.partyId}`) ?? ""));
+              if (typed === "") {
+                if (rateOf(e.partyId) !== null) {
+                  setProblem(`${e.name} has a rate. It can be changed, not removed.`);
+                  return;
+                }
+                continue;
+              }
+              out.push({ entityPartyId: e.partyId, taxPercent: typed });
+            }
+            setProblem(null);
+            void (async () => {
+              const ok = await onSave(out);
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldStack>
+            <ErrorNotice error={problem} />
+            <FieldRow>
+              {entities.map((e) => (
+                <Field key={e.partyId} label={`${e.name} (%)`} optional={rateOf(e.partyId) === null}>
+                  <AmountInput
+                    decimals={4}
+                    name={`rate-${e.partyId}`}
+                    defaultValue={rateOf(e.partyId) === null ? "" : formatCount(rateOf(e.partyId) ?? "")}
+                    placeholder="e.g. 18"
+                  />
+                </Field>
+              ))}
+              <SaveCancel busy={busy} close={close} />
+            </FieldRow>
+          </FieldStack>
+        </form>
+      )}
+    />
+  );
+}
+
 
 // ── The discount limit ─────────────────────────────────────────────────────
 

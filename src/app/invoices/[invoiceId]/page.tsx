@@ -17,6 +17,7 @@ import {
   colleagueLabel,
   formatCount,
   formatMoney,
+  invoiceNumberWords,
   perPeriod,
 } from "@/lib/api/client";
 import type {
@@ -195,14 +196,14 @@ export default function InvoicePage() {
           engagement letter. Walked with several tabs open and this one was
           "BiB — 10X Workspace" while its neighbours said which document they
           were: the tab strip is how a person finds their way back. */}
-      <title>{`${invoice.number} · ${record.party.displayName}`}</title>
+      <title>{`${invoiceNumberWords(invoice.number, invoice.status)} · ${record.party.displayName}`}</title>
 
       {/* THE WAVE 4 SHAPE (2026-09-28): the number in the sans face (it was
           the typewriter), the status a pill in words under it, and Issue — a
           draft's one committing act — the brand button where the eye lands.
           It is still offered only to an administrator (it uses a number). */}
       <PageHeader
-        title={invoice.number ?? "Draft invoice"}
+        title={invoice.number ?? (invoice.status === "cancelled" ? "Cancelled draft" : "Draft invoice")}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             {record.party.displayName}
@@ -219,12 +220,14 @@ export default function InvoicePage() {
             // document, and the only way back is to cancel it.
             <ConfirmAction
               disabled={busy}
-              title={`Issue ${invoice.number}?`}
+              title={invoice.number === null ? "Issue this invoice?" : `Issue ${invoice.number}?`}
               confirmLabel="Issue it"
               consequence={
                 <p>
-                  {invoice.number} becomes a tax invoice dated {longDay(browserDay())}. Its
-                  lines and amounts are then locked, and its PDF is filed and shown to the
+                  {invoice.number === null
+                    ? `It gets the next number in ${record.entity.displayName}'s series and becomes a tax invoice dated ${longDay(browserDay())}.`
+                    : `${invoice.number} becomes a tax invoice dated ${longDay(browserDay())}.`}{" "}
+                  Its lines and amounts are then locked, and its PDF is filed and shown to the
                   client. To correct it later, you cancel it and raise a new invoice.
                 </p>
               }
@@ -645,14 +648,16 @@ export default function InvoicePage() {
               variant="destructive-quiet"
               size="sm"
               disabled={busy}
-              aria-label={`Cancel invoice ${invoice.number}`}
-              title={`Cancel ${invoice.number}?`}
+              aria-label={invoice.number === null ? "Cancel this draft invoice" : `Cancel invoice ${invoice.number}`}
+              title={invoice.number === null ? "Cancel this draft?" : `Cancel ${invoice.number}?`}
               confirmLabel="Cancel the invoice"
               destructive
               consequence={
                 <p>
-                  {invoice.number} is voided. It keeps this number, which cannot be used
-                  again. Raise a new invoice to replace it.
+                  {invoice.number === null
+                    ? "The draft is voided. It has no number yet, so none is used up."
+                    : `${invoice.number} is voided. It keeps this number, which cannot be used again.`}{" "}
+                  Raise a new invoice to replace it.
                 </p>
               }
               onConfirm={() =>

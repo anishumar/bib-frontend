@@ -3,12 +3,22 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useId, useState } from "react";
-import { api, apiError, billLabel, billingPersonName, codeLabel, formatCount, formatMoney, noPriceWords } from "@/lib/api/client";
+import {
+  api,
+  apiError,
+  billLabel,
+  billingPersonName,
+  codeLabel,
+  formatCount,
+  formatMoney,
+  invoiceNumberWords,
+  noPriceWords,
+} from "@/lib/api/client";
 import type { BillingBillNow, BillingDue, BillingRefund, InvoiceSummary } from "@/lib/api/client";
 import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant } from "@/lib/day";
 import { cleanAmount, commonUnits } from "@/lib/money";
-import { Empty } from "@/components/states";
+import { Empty, Loading } from "@/components/states";
 import {
   AmountInput,
   Button,
@@ -100,11 +110,21 @@ export function ToRaiseTab({
   const [keeping, setKeeping] = useState<BillingRefund | null>(null);
   const [said, setSaid] = useState<Said | null>(null);
   const [showDone, setShowDone] = useState(false);
+  /** Raised, covered and skipped bills: read only when asked for. The list the
+   *  page reads is pending only (the API's default since review item 14), so
+   *  history is its own read, `status=all`, newest first. */
+  const [done, setDone] = useState<readonly BillingDue[] | null>(null);
   const [acting, setActing] = useState(false);
 
   const pending = dues.filter((d) => d.status === "open" || d.status === "drafted");
-  const done = dues.filter((d) => d.status === "billed" || d.status === "skipped" || d.status === "covered");
   const groups = groupDues(pending);
+
+  async function loadDone(): Promise<void> {
+    const result = await api.GET("/api/v1/billing/dues", { params: { query: { status: "all" } } });
+    setDone(
+      (result.data?.dues ?? []).filter((d) => d.status === "billed" || d.status === "skipped" || d.status === "covered"),
+    );
+  }
 
   function toggle(id: string, on: boolean): void {
     setUnticked((was) => {
@@ -125,6 +145,7 @@ export function ToRaiseTab({
     // saying why (found by the walk).
     setUnticked(new Set());
     await onChanged();
+    if (showDone) await loadDone();
     setSaid(next);
   }
 
@@ -184,7 +205,9 @@ export function ToRaiseTab({
             {said.invoice !== undefined && (
               <>
                 {" "}
-                <Link href={`/invoices/${said.invoice.id}` as Route}>Open {said.invoice.number}</Link>
+                <Link href={`/invoices/${said.invoice.id}` as Route}>
+                  {said.invoice.number === null ? "Open the draft" : `Open ${said.invoice.number}`}
+                </Link>
               </>
             )}
           </p>
@@ -336,7 +359,7 @@ export function ToRaiseTab({
                                 On a draft
                               </Pill>
                               <Sub>
-                                <Link href={`/invoices/${d.invoice.id}` as Route}>{d.invoice.number}</Link>
+                                <Link href={`/invoices/${d.invoice.id}` as Route}>{invoiceNumberWords(d.invoice.number)}</Link>
                               </Sub>
                             </>
                           ) : canWrite ? (
@@ -539,23 +562,29 @@ export function ToRaiseTab({
         </Card>
       )}
 
-      {done.length > 0 && (
-        <div className="cluster">
-          <Button
-            variant="ghost"
-            aria-expanded={showDone}
-            aria-controls="billing-done"
-            onClick={() => {
-              setShowDone((v) => !v);
-            }}
-          >
-            {showDone ? "Hide raised and skipped" : `Show raised and skipped (${String(done.length)})`}
-          </Button>
-        </div>
-      )}
-      {showDone && done.length > 0 && (
+      <div className="cluster">
+        <Button
+          variant="ghost"
+          aria-expanded={showDone}
+          aria-controls="billing-done"
+          onClick={() => {
+            const next = !showDone;
+            setShowDone(next);
+            if (next) void loadDone();
+          }}
+        >
+          {showDone ? "Hide raised and skipped" : "Show raised and skipped"}
+        </Button>
+      </div>
+      {showDone && (
         <div id="billing-done">
-          <DoneTable dues={done} />
+          {done === null ? (
+            <Loading label="Loading raised and skipped bills" />
+          ) : done.length === 0 ? (
+            <p className="text-ink-2">Nothing raised or skipped yet.</p>
+          ) : (
+            <DoneTable dues={done} />
+          )}
         </div>
       )}
 
@@ -599,7 +628,9 @@ export function ToRaiseTab({
 function raisedWords(out: Raised, count: number): Said {
   const covered = out.covered.length;
   const coveredWords = `${String(covered)} ${covered === 1 ? "bill was" : "bills were"} paid in full by the advance`;
-  if (out.invoiceId === null || out.number === null) {
+  // No invoice id = the advance paid every bill. A draft has no number until
+  // an admin issues it (0322), so `number` is null on every new draft.
+  if (out.invoiceId === null) {
     return { tone: "ok", text: `No invoice needed: ${coveredWords}.` };
   }
   const invoice = { id: out.invoiceId, number: out.number };
@@ -607,13 +638,13 @@ function raisedWords(out: Raised, count: number): Said {
   if (out.conflicts.length > 0) {
     return {
       tone: "warn",
-      text: `Drafted ${out.number}, but ${String(out.conflicts.length)} of its bills were settled by somebody else meanwhile. Remove those lines from the draft.`,
+      text: `Drafted an invoice, but ${String(out.conflicts.length)} of its bills were settled by somebody else meanwhile. Remove those lines from the draft.`,
       invoice,
     };
   }
   return {
     tone: "ok",
-    text: `Drafted ${out.number} with ${String(lines)} ${lines === 1 ? "bill" : "bills"}${covered > 0 ? `; ${coveredWords}` : ""}. Check it and issue it.`,
+    text: `Drafted an invoice with ${String(lines)} ${lines === 1 ? "bill" : "bills"}${covered > 0 ? `; ${coveredWords}` : ""}. It gets its number when it is issued.`,
     invoice,
   };
 }
@@ -622,7 +653,7 @@ function raisedWords(out: Raised, count: number): Said {
 interface Said {
   readonly tone: "ok" | "warn";
   readonly text: string;
-  readonly invoice?: { readonly id: string; readonly number: string };
+  readonly invoice?: { readonly id: string; readonly number: string | null };
 }
 
 interface DueGroup {
@@ -694,7 +725,7 @@ function DoneTable({ dues }: { dues: readonly BillingDue[] }) {
                   <>Covered by the advance on {d.advanceApplied.invoiceNumber}</>
                 ) : d.status === "billed" && d.invoice !== null ? (
                   <>
-                    Billed on <Link href={`/invoices/${d.invoice.id}` as Route}>{d.invoice.number}</Link>
+                    Billed on <Link href={`/invoices/${d.invoice.id}` as Route}>{invoiceNumberWords(d.invoice.number)}</Link>
                   </>
                 ) : d.skipped !== null ? (
                   <>
@@ -1089,7 +1120,8 @@ function LinkDialog({
       setError(apiError(result.error).message);
       return;
     }
-    await onLinked(due, fits.find((i) => i.invoice.id === invoiceId)?.invoice.number ?? "the invoice");
+    const picked = fits.find((i) => i.invoice.id === invoiceId)?.invoice;
+    await onLinked(due, picked === undefined ? "the invoice" : (picked.number ?? "the draft invoice"));
   }
 
   function close(): void {
@@ -1135,7 +1167,10 @@ function LinkDialog({
                 </option>
                 {fits.map((i) => (
                   <option key={i.invoice.id} value={i.invoice.id}>
-                    {i.invoice.number} · {codeLabel(i.invoice.status)} · {formatMoney(i.totals.total, i.totals.currency)}
+                    {i.invoice.number === null
+                      ? "Draft"
+                      : `${i.invoice.number} · ${codeLabel(i.invoice.status)}`}{" "}
+                    · {formatMoney(i.totals.total, i.totals.currency)}
                   </option>
                 ))}
               </Select>

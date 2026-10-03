@@ -867,16 +867,16 @@ export default function LetterPage() {
           {letter.advanceRequired && (
             <div className="text-md text-muted">
               advance {formatMoney(letter.advanceAmount, totals.currency)}
-              {letter.advanceRecordedAt === null
-                ? " · outstanding"
-                : ` · started ${longInstant(letter.advanceRecordedAt)}`}
+              {/* Where it stands is the Advance card's (0322: nothing writes
+                  advanceRecordedAt any more; letters from before T3 keep it). */}
+              {letter.advanceRecordedAt !== null && ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
             </div>
           )}
         </div>
       </Card>
 
-      {/* THE ADVANCE (0320): its invoice, where it stands, and an admin's
-          Approve start on a part payment. Nothing when there is no advance. */}
+      {/* THE ADVANCE (0320; 0322): its invoice and where it stands. It holds no
+          work since 0322 (signing starts it). Nothing when there is no advance. */}
       {isSigned && <AdvanceStatus letterId={letterId} />}
 
       {/* ── The letter's own prose ─────────────────────────────────────

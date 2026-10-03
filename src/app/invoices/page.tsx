@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { api, apiError, codeLabel, colleagueLabel, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel, colleagueLabel, formatMoney, invoiceNumberWords } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type {
   BillingAdvance,
@@ -353,7 +353,7 @@ function Invoices() {
               return (
                 <Tr key={i.invoice.id} linked>
                   <Td className="nowrap">
-                    <RowLink href={`/invoices/${i.invoice.id}`}>{i.invoice.number}</RowLink>
+                    <RowLink href={`/invoices/${i.invoice.id}`}>{invoiceNumberWords(i.invoice.number, i.invoice.status)}</RowLink>
                     {/* An IRN is the government registry's identifier for this
                         document. Shown here because a firm chasing an
                         e-invoice failure wants to see at a glance which are

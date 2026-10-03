@@ -24464,6 +24464,8 @@ export interface components {
             daysPending: number | null;
             /** @description Past the firm's days for its step: a draft `advanceDraftOverdueDays` after signing, unpaid `advanceUnpaidOverdueDays` after issue (Your firm, Automatic billing). */
             overdue: boolean;
+            /** @description The day it turns (or turned) Overdue at its current step. Null once paid or skipped. */
+            overdueOn: string | null;
             /** @description Still pending a week or more after signing: the administrators hear about it weekly. */
             escalated: boolean;
             /** @description Who is reminded on My day: the client's SPOCs for the work, its Key Manager, and the first person above the Key Manager at the firm's partner grade. Active staff only. */

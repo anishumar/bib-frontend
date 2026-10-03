@@ -1015,6 +1015,15 @@ export function billingPersonName(p: BillingPerson): string {
 export type BillingAdvance =
   paths["/api/v1/billing/advances"]["get"]["responses"][200]["content"]["application/json"]["advances"][number];
 export type BillingAdvanceStage = BillingAdvance["stage"];
+/** The firm's billing settings (0318; 0322): the switch, how advances are
+ *  chased, and each company's default tax rate for an automatic advance draft. */
+export type BillingSettings =
+  paths["/api/v1/billing/settings"]["get"]["responses"][200]["content"]["application/json"];
+export type AdvancePolicy = BillingSettings["advancePolicy"];
+export type TaxDefault = BillingSettings["taxDefaults"][number];
+/** Why an advance is on somebody's My day (`?mine=true`): the client's SPOC for
+ *  the work, its Key Manager, the partner above them, or an administrator. */
+export type BillingAdvanceDuty = BillingAdvance["duties"][number];
 /** An advance left over once the work it covered is finished: "To refund". */
 export type BillingRefund =
   paths["/api/v1/billing/refunds"]["get"]["responses"][200]["content"]["application/json"]["refunds"][number];
@@ -1045,9 +1054,20 @@ export function daysWords(n: number | null): string {
   return n === 1 ? "1 day" : `${String(n)} days`;
 }
 
-/** An invoice's number, or "Draft" while it has none (0322: numbered at issue). */
-export function invoiceNumberWords(number: string | null): string {
-  return number ?? "Draft";
+/** "today", "1 day ago", "3 days ago": how long since a day, for a line of words. */
+export function agoWords(n: number | null): string {
+  return n === null || n <= 0 ? "today" : `${daysWords(n)} ago`;
+}
+
+/**
+ * An invoice's number, or what stands in for one (0322: the number is drawn at
+ * ISSUE, so a draft has none): "Draft", and "Cancelled draft" for a draft
+ * cancelled before it was issued, which never had one. Drafts made before 0322
+ * keep the number they drew, and show it.
+ */
+export function invoiceNumberWords(number: string | null, status?: string): string {
+  if (number !== null) return number;
+  return status === "cancelled" ? "Cancelled draft" : "Draft";
 }
 
 /**

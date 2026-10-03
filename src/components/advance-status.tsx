@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useState } from "react";
-import { ADVANCE_STAGE_WORDS, api, daysWords, formatMoney, invoiceNumberWords } from "@/lib/api/client";
+import { ADVANCE_STAGE_WORDS, agoWords, api, formatMoney, invoiceNumberWords } from "@/lib/api/client";
 import type { BillingAdvance, BillingAdvanceStage } from "@/lib/api/client";
 import { Card, CardTitle, NotSet, Pill, Sub, Table, TableWrap, Td, Th, type PillTone } from "@/components/ui";
 
@@ -103,11 +103,11 @@ export function advanceLine(a: BillingAdvance): string {
     if (a.draftBlocked === "billed_by_hand" && a.handRaised !== null) {
       return `Already invoiced by hand on ${a.handRaised.number}? An admin links it.`;
     }
-    return `Not invoiced for ${daysWords(a.daysPending)}.`;
+    return `Not invoiced. Signed ${agoWords(a.daysPending)}.`;
   }
-  if (a.stage === "on_draft") return `Waiting for an admin to issue it, ${daysWords(a.daysPending)}.`;
+  if (a.stage === "on_draft") return `Waiting for an admin to issue it. Signed ${agoWords(a.daysPending)}.`;
   if (a.stage === "part_paid" && a.balance !== null && a.balance.paid !== null && a.balance.invoiced !== null) {
-    return `${formatMoney(a.balance.paid, a.currency)} of ${formatMoney(a.balance.invoiced, a.currency)} paid, issued ${daysWords(a.daysPending)} ago.`;
+    return `${formatMoney(a.balance.paid, a.currency)} of ${formatMoney(a.balance.invoiced, a.currency)} paid. Issued ${agoWords(a.daysPending)}.`;
   }
-  return `Issued ${daysWords(a.daysPending)} ago.`;
+  return `Issued ${agoWords(a.daysPending)}.`;
 }

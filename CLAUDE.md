@@ -892,6 +892,12 @@ this existed).
   an open review, and a step that is done with a check open on it, is the checker's; a request
   answered and not yet replied to is the client's; a `pending` step waits on an earlier step.
   Waiting on the client for a TASK needs the open asks on the board's read and is a P1 task.
+  Since 0322 there is also **An admin**: a draft invoice (a bill's, or an advance) only an
+  administrator may issue, on a non-admin's desk.
+- **Billing reads (auto-invoice):** `/billing/dues?mine=true` (bills to raise, drafts to issue,
+  no-price reminders) and `/billing/advances?mine=true` (advances the reader chases as SPOC, Key
+  Manager, partner or admin, 0322). Both for every staff login; the rows are described under
+  "Automatic billing" below.
 - **One row per thing.** An escalation about the reader's OWN task is the flag "Escalated" on
   that task's row; about somebody else's work it is its own row ("Escalated to you · with
   Ananya Nair"), one per piece of work however many rungs fired. A done step waiting for its
@@ -2731,9 +2737,9 @@ four zeros that read as settled. The card is for `issued` only; a draft says "No
 nothing is owed." and a cancelled one "Cancelled, so nothing is owed.", as the list and
 Receivables already did.
 
-**The company that signed the client's letters charges for the work (2026-09-28).** A number is
-drawn from "Charged by"'s series the moment the draft is made and can only be cancelled, so the
-raise dialog no longer defaults to the first company. Choosing "Bill to" reads that client's
+**The company that signed the client's letters charges for the work (2026-09-28).** The number
+comes from "Charged by"'s series (since 0322 when the invoice is ISSUED, not at the draft) and a
+company cannot be changed on an invoice, so the raise dialog no longer defaults to the first company. Choosing "Bill to" reads that client's
 `billable-engagements`: when every letter was issued by ONE company it is preselected and the
 letters are named under it ("Issued EL-2026-0001."); with none, or letters from several, the
 select stays on "Choose the company…" and `required` stops the form. On the invoice, "What is
@@ -2766,8 +2772,9 @@ approving: the firm looked and chose not to, which is a fact somebody wants late
 
 Ashish's rule: no service is delivered unbilled. The daily sweep writes a **bill** (`billing_due`)
 for each period that has fallen due on an engagement whose billing is set up, and a person raises
-the invoice from it. **The sweep never makes an invoice**: a draft draws its number from the gapless
-series, so an auto-draft a manager skipped would leave a cancelled number for an auditor.
+the invoice from it. **The sweep never makes a period invoice**: a manager decides what goes on one
+(which bills, the tax, a price the letter left open). Since 0322 a draft has NO number (it is drawn
+at issue), so the one automatic draft there is, the advance at signing, burns nothing if cancelled.
 `bib/prompts/auto-invoice/PLAN.md` has the rules and the API; these are the screens.
 
 - **To raise** (`src/app/invoices/to-raise.tsx`) is one card per invoice that COULD be raised:
@@ -2821,19 +2828,62 @@ series, so an auto-draft a manager skipped would leave a cancelled number for an
   "With its section". Signing with the firm's switch on sets each engagement's schedule from it
   (the API's GoLiveScheduler), so those never reach "Billing not set up". The builder's services
   step does not offer it yet: it is chosen on the letter page. Walk: `ai-1b-walk.mjs` (16 checks).
-- **The advance and the final bill (phase 2, 0320).** Every advance is a tax invoice and the work it
-  holds starts when that invoice is PAID IN FULL; a part payment waits for an admin's **Approve start**.
-  To raise: an advance bill has its own **Raise invoice** (no tick: the API raises it alone) and no
+- **The advance and the final bill (phase 2, 0320).** Every advance is a tax invoice (since 0322 it
+  holds no work: see the next bullet). To raise: an advance bill with no automatic draft (no tax
+  rate, or its draft was cancelled) has its own **Raise invoice** (no tick: the API raises it alone) and no
   Skip; a final bill (one-time work done) is marked; a bill with an issued advance says "Less up to
   ₹X advance" (the API takes it off, earliest bill first, before tax, and a raise the advance pays in
   full answers `invoiceId: null` + `covered`: "No invoice needed"). Below the cards: **To refund** (an
   admin's "Give it back" = credit note `advance_refund` with its tax, or "Keep it" with a reason) and
-  **One-time work with no process** (Bill it now). The **Advances** tab (`advances.tsx`) lists every
-  advance by state, part-paid first, counted on the tab. The letter page has an **Advance** column for
+  **One-time work with no process** (Bill it now). The letter page has an **Advance** column for
   a service's own advance (`LineAdvanceControl`, saved on blur; no column on a letter with one advance
-  for all) and an Advance card (`AdvanceStatus`) where "Record the advance" was. My day gives each
-  admin "Approve the start" rows. `billLabel(d)` names any bill. Walk: `ai-t3-walk.mjs` (24 checks,
-  fresh fixture `notes/ai-t3.json`).
+  for all) and an Advance card (`AdvanceStatus`) where "Record the advance" was. `billLabel(d)` names
+  any bill. Walk: `ai-t3-walk.mjs` (fresh fixture with NO default tax rate, so the advance is raised
+  by hand; FIFO and the refund).
+- **The advance starts the work and is chased (0322).** Ashish: the advance invoice is drafted at
+  signing and the work starts at once; the SPOC, the Key Manager and the partner are reminded until
+  it is paid, and the admins weekly. Approve start is GONE.
+  - **"Draft" where a number will be.** `invoiceNumberWords(number, status)` ("Draft", "Cancelled
+    draft") on the invoice list, To raise ("On a draft"), the Link dialog, the Advances tab and My
+    day; the invoice page is titled "Draft invoice", its Issue confirm says "It gets the next number
+    in <company>'s series", and Cancel on a draft says no number is used up. A raise answers
+    `number: null`: only `invoiceId: null` means "No invoice needed" (the walk caught the screen
+    reading every new draft as covered).
+  - **Advances tab** (`advances.tsx`): every advance, pending first, Overdue first among them; the
+    `AdvanceStage` pill (No invoice yet · Draft, not issued · Not paid yet · Part paid · Paid in full,
+    "…, overdue" in the danger tone) and one line (`advanceLine`: "No tax rate for <company>. Set one
+    on Your firm.", "Waiting for an admin to issue it. Signed 2 days ago.", "₹20,000 of ₹59,000 paid.
+    Issued today."); who is reminded under the letter. No buttons.
+  - **My day** reads `/billing/advances?mine=true` for EVERY staff login (the API answers only what
+    the caller chases, with `duties`). An admin: "Issue the advance invoice", "Raise the advance
+    invoice", "Set a tax rate for <company>" or "Link INV/… as the advance". Anybody else on a draft:
+    "Advance invoice: with an admin to issue", whose turn **An admin** (a new `Turn`). Issued: "Advance
+    not paid: INV/…" / "Advance part paid: INV/…", whose turn **The client**. The kind line says the
+    letter, "signed/issued N days ago" and "you are the SPOC, Key Manager"; "Escalated" a week after
+    signing. Dated `overdueOn` minus a day (the API's, from the firm's days), so it turns Overdue the
+    morning the tab does, and **Today until then**: dated by its due day an unpaid advance sat in the
+    closed Later bucket for its first week, which the walk found, and Ashish asked for the reminder to
+    stay on the dashboard. A bill's draft (`/billing/dues?mine`) reads "Issue the draft invoice: …" to
+    an admin and "With an admin to issue: …" to anybody else (review item 14b), because issuing is
+    `tenant:admin`.
+  - **To raise → Show raised and skipped** reads `/billing/dues?status=all` when opened (the page's
+    list is pending only since 0322's 14a), and again after any act while open.
+  - **Your firm → Automatic billing** (`#billing`) gained two parts under the switch, each a nested
+    `SetOnce` (a rule above, an h3, Change): **Advance reminders** (`#advance-reminders`: draft overdue
+    after N days, unpaid overdue after N days from issue, the partner's grade from `/tenancy/grades`
+    by RANK, "Director or above", ranks shared by two rungs read "Director / Partner", a rank no rung
+    holds still shown; the weekly summary's weekday and hour, in the firm's zone) and **Default tax
+    rate** (`#tax-rates`: one box per company, `AmountInput decimals={4}`). Each saves with its own
+    partial `PUT /billing/settings`, so one never overwrites the other. The API keeps a rate it is not
+    sent, so emptying a box that had one is refused on the screen ("It can be changed, not removed").
+  - The letter page's "advance ₹X · outstanding" line lost its suffix: nothing writes
+    `advanceRecordedAt` since T3, and "outstanding" stayed after the advance was paid. The Advance
+    card says where it stands.
+  - Walk: `bib/demo-assets/tools/ai-adv-walk.mjs` on a fresh `ai-fixture.mjs` firm: the settings form,
+    signing (draft, no number, everything active), each role's My day (admin, SPOC, partner, someone
+    with no duty, a non-admin manager's bill draft), issue, a week on (signing moved back by psql on
+    THAT tenant only), the weekly email in Mailpit through `ai-digest-tenant.mts` (the worker's
+    sweep, its firm list cut to the fixture), FIFO and the refund.
 - **Revenue by manager (T4, no migration).** `/dashboard` has a **Revenue by manager** section
   (`src/app/dashboard/revenue-by-manager.tsx`) reading `/dashboard/revenue/by-manager?months=12`: a
   **Period** select (each month, newest first; **This financial year**, from the firm's own

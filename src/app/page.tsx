@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError, billLabel, billingPersonName, noPriceWords } from "@/lib/api/client";
+import { agoWords, api, apiError, billLabel, billingPersonName, invoiceNumberWords, noPriceWords } from "@/lib/api/client";
 import type {
   BillingAdvance,
+  BillingAdvanceDuty,
   BillingDue,
   ClientRequest,
   Escalation,
@@ -57,8 +58,11 @@ import { readinessCount } from "@/lib/ui/readiness";
  *   /escalations?mine         what the ladder told me about
  *   /billing/dues?mine        bills to raise: mine as the manager, and my
  *                             reports' once a week has passed (0318)
+ *   /billing/advances?mine    advances still a draft or unpaid that I chase:
+ *                             as the client's SPOC, Key Manager or partner,
+ *                             and as an admin to issue, or a week on (0322)
  *
- * Seven calls on load (eight for an administrator, who also gets the firm's setup
+ * Eight calls on load (nine for an administrator, who also gets the firm's setup
  * readiness as one line at the top, V2.6), and nothing per row: every read carries the client BY ID
  * and the due day, which the API grew for this screen. An escalation about one
  * of my own tasks is a FLAG on that task's row, not a second row.
@@ -76,14 +80,16 @@ import { readinessCount } from "@/lib/ui/readiness";
  * ── WHOSE TURN ─────────────────────────────────────────────────────────────
  *
  * Every row says who has to move next: you; a checker (your task or step is
- * waiting for a check); the client (you replied and they have not come back);
- * or an earlier step (a step on your desk that cannot start yet). Waiting on the
+ * waiting for a check); the client (you replied and they have not come back,
+ * or an advance invoice they have not paid); an admin (a draft invoice only an
+ * administrator may issue, `tenant:admin`); or an earlier step (a step on your
+ * desk that cannot start yet). Waiting on the
  * client for a TASK is not derivable yet (it needs the open asks on the board's
  * read, a P1 task), so a task is yours or a checker's.
  */
 
 type Bucket = "overdue" | "today" | "week" | "later";
-type Turn = "me" | "checker" | "client" | "earlier";
+type Turn = "me" | "checker" | "client" | "admin" | "earlier";
 
 interface Row {
   readonly key: string;
@@ -105,6 +111,7 @@ const TURN_WORDS: Readonly<Record<Turn, string>> = {
   me: "You",
   checker: "A checker",
   client: "The client",
+  admin: "An admin",
   earlier: "An earlier step",
 };
 
@@ -179,8 +186,9 @@ export default function MyDayPage() {
         api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
         api.GET("/api/v1/billing/dues", { params: { query: { mine: "true" } } }),
         admin ? api.GET("/api/v1/tenancy/readiness", {}) : Promise.resolve(null),
-        // An advance part paid waits for an admin's Approve start (0320).
-        admin ? api.GET("/api/v1/billing/advances", {}) : Promise.resolve(null),
+        // Every staff login: the API answers only the advances this person
+        // chases, each with why (`duties`), so nobody else's is listed (0322).
+        api.GET("/api/v1/billing/advances", { params: { query: { mine: "true" } } }),
       ]);
       if (!live) return;
       if (tasks.response.status === 401) {
@@ -196,6 +204,7 @@ export default function MyDayPage() {
       }
       const built = buildRows({
         me: userId,
+        admin,
         tasks: tasks.data.items,
         steps: steps.data?.steps ?? [],
         taskChecks: taskChecks.data?.checks ?? [],
@@ -203,7 +212,7 @@ export default function MyDayPage() {
         requests: requests.data?.requests ?? [],
         escalations: escalated.data?.rows ?? [],
         dues: bills.data?.dues ?? [],
-        advances: advances?.data?.advances ?? [],
+        advances: advances.data?.advances ?? [],
       });
       setRows(built);
       setReadiness(ready?.data ?? null);
@@ -376,6 +385,8 @@ function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
  */
 function buildRows(input: {
   me: string;
+  /** Holds `tenant:admin`: only an administrator issues an invoice. */
+  admin: boolean;
   tasks: readonly WorkItem[];
   steps: readonly MyStep[];
   taskChecks: readonly WorkItemCheckRow[];
@@ -383,7 +394,7 @@ function buildRows(input: {
   requests: readonly ClientRequest[];
   escalations: readonly Escalation[];
   dues: readonly BillingDue[];
-  /** Read only for an admin: those part paid wait for their Approve start. */
+  /** `?mine=true`: the advances I chase, each with its `duties`. */
   advances: readonly BillingAdvance[];
 }): Row[] {
   const out: Row[] = [];
@@ -530,33 +541,86 @@ function buildRows(input: {
     });
   }
 
-  out.push(...billRows(input.me, input.dues));
+  out.push(...billRows(input.me, input.admin, input.dues));
   out.push(...advanceRows(input.advances));
 
   return out;
 }
 
+const DUTY_WORDS: Readonly<Record<Exclude<BillingAdvanceDuty, "admin">, string>> = {
+  spoc: "SPOC",
+  key_manager: "Key Manager",
+  partner: "Partner",
+};
+
 /**
- * AN ADVANCE PART PAID (0320): the work it holds waits for an admin's Approve
- * start, so it is on every admin's desk until somebody decides. Due today: the
- * client is waiting for the work they paid towards.
+ * ADVANCES I CHASE (0322). The work started at signing and the advance invoice
+ * was drafted then (Ashish, 2026-10-02); until it is paid it is on the desks of
+ * the client's SPOC for the work, its Key Manager and the partner above them
+ * (`duties`, worked out by the API). An administrator gets the ones waiting for
+ * an admin (no invoice yet, or a draft to issue) and any still pending a week
+ * after signing ("Escalated", the weekly summary's list).
+ *
+ * Whose turn: a draft is an admin's (only they issue), an issued one the
+ * client's (they pay). The row is dated the last day before the firm's
+ * Overdue days run out (`overdueOn`, Your firm), so it turns Overdue here the
+ * same morning the Advances tab says so. Until then it is Today, every day:
+ * Ashish asked for the reminder to stay on the dashboard until the money is
+ * in, and dated by its due day an unpaid advance sat in Later (closed) for its
+ * first week, which the walk found.
  */
 function advanceRows(advances: readonly BillingAdvance[]): Row[] {
-  const today = browserDay();
-  return advances
-    .filter((a) => a.state === "part_paid")
-    .map((a) => ({
+  return advances.map((a) => {
+    const asAdmin = a.duties.includes("admin");
+    const roles = a.duties.filter((d): d is Exclude<BillingAdvanceDuty, "admin"> => d !== "admin");
+    const forWhat = a.engagementId === null ? a.letter.ref : `${a.serviceName} · ${a.letter.ref}`;
+    const invoice = a.invoice !== null && a.invoice.status !== "cancelled" ? a.invoice : null;
+    const issued = a.stage === "unpaid" || a.stage === "part_paid";
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (a.escalated) flags.push({ tone: "warn", text: "Escalated" });
+
+    let what: string;
+    let turn: Turn;
+    let href: Route = (invoice === null ? "/invoices?tab=advances" : `/invoices/${invoice.id}`) as Route;
+    if (issued) {
+      what = `Advance ${a.stage === "part_paid" ? "part paid" : "not paid"}: ${invoiceNumberWords(invoice?.number ?? null)}`;
+      turn = "client";
+    } else if (!asAdmin) {
+      // Item 14b: issuing is an admin's, so a SPOC or a manager is told where it is.
+      what = "Advance invoice: with an admin to issue";
+      turn = "admin";
+    } else if (a.stage === "on_draft") {
+      what = "Issue the advance invoice";
+      turn = "me";
+    } else if (a.draftBlocked === "no_tax_rate") {
+      what = `Set a tax rate for ${a.issuer.displayName}`;
+      turn = "me";
+      href = "/admin/firm#billing" as Route;
+    } else if (a.draftBlocked === "billed_by_hand" && a.handRaised !== null) {
+      what = `Link ${a.handRaised.number} as the advance`;
+      turn = "me";
+      href = "/invoices?tab=raise" as Route;
+    } else {
+      what = "Raise the advance invoice";
+      turn = "me";
+      href = "/invoices?tab=raise" as Route;
+    }
+
+    const since = `${issued ? "issued" : "signed"} ${agoWords(a.daysPending)}`;
+    const role = roles.length === 0 ? "" : ` · you are the ${roles.map((d) => DUTY_WORDS[d]).join(", ")}`;
+    return {
       key: `advance-${a.id}`,
-      what: `Approve the start: advance ${a.invoice?.number ?? a.letter.ref} is part paid`,
-      kind: "Advance part paid",
-      href: "/invoices?tab=advances" as Route,
+      what,
+      kind: `Advance · ${forWhat} · ${since}${role}`,
+      href,
       clientId: a.party.id,
       clientName: a.party.displayName,
-      dueOn: today,
-      turn: "me" as const,
-      flags: [],
+      dueOn: a.overdueOn === null ? null : addDays(a.overdueOn, -1),
+      turn,
+      flags,
       now: true,
-    }));
+    };
+  });
 }
 
 /**
@@ -572,8 +636,12 @@ function advanceRows(advances: readonly BillingAdvance[]): Row[] {
  * administrator's (Ashish: the SPOC, the manager and the admin, every week):
  * "Needs a price · with <manager>", and a flag counting the weeks it has waited,
  * which is the weekly reminder. The manager's own row carries the same flag.
+ *
+ * A draft made from bills is issued by an administrator only (`tenant:admin`),
+ * and since 0322 it has no number until then: an admin reads "Issue the draft
+ * invoice", anybody else "With an admin to issue" (review item 14b).
  */
-function billRows(me: string, dues: readonly BillingDue[]): Row[] {
+function billRows(me: string, admin: boolean, dues: readonly BillingDue[]): Row[] {
   const groups = new Map<string, BillingDue[]>();
   for (const d of dues) {
     const key =
@@ -604,7 +672,7 @@ function billRows(me: string, dues: readonly BillingDue[]): Row[] {
     rows.push({
       key,
       what: drafted
-        ? `Issue ${first.invoice?.number ?? "the draft invoice"}`
+        ? `${admin ? "Issue the draft invoice" : "With an admin to issue"}: ${billLabel(first)}${more}`
         : `Raise the invoice: ${billLabel(first)}${more}`,
       kind: mine
         ? drafted
@@ -615,9 +683,9 @@ function billRows(me: string, dues: readonly BillingDue[]): Row[] {
       clientId: first.party.id,
       clientName: first.party.displayName,
       dueOn: addDays(first.billOn, 6),
-      turn: "me",
+      turn: drafted && !admin ? "admin" : "me",
       flags,
-      now: true,
+      now: !drafted || admin,
     });
   }
   return rows;
