@@ -589,7 +589,7 @@ export default function LeadsPage() {
           {open.length === 0 ? (
             <p className="muted">No leads yet. Capture the first one with the button above.</p>
           ) : shownOpen.length === 0 ? (
-            <p className="muted">No open lead matches these filters.</p>
+            <p className="muted">No open lead matches these filters. Change them, or press Clear filters.</p>
           ) : (
             <TableWrap>
               <Table>
@@ -752,6 +752,26 @@ export default function LeadsPage() {
         </Card>
       )}
 
+      {/* A filter for closed leads on a pipeline with none: the card is still
+          drawn, and says why it is empty and what to do (F22). It used to
+          vanish, leaving only "Showing 0 of 4." */}
+      {closed.length === 0 && onlyClosed && (
+        <Card>
+          <CardHead
+            level={2}
+            title={
+              <>
+                Closed <Pill>0</Pill>
+              </>
+            }
+          />
+          <p className="muted">
+            No closed leads yet. A lead lands here once it is won, lost or abandoned. Press Clear
+            filters to see the open ones.
+          </p>
+        </Card>
+      )}
+
       {closed.length > 0 && !onlyOpen && (
         <Card>
           <CardHead
@@ -779,7 +799,7 @@ export default function LeadsPage() {
                 {shownClosed.length === 0 && (
                   <tr>
                     <Td colSpan={7} className="muted">
-                      No closed lead matches these filters.
+                      No closed lead matches these filters. Change them, or press Clear filters.
                     </Td>
                   </tr>
                 )}
