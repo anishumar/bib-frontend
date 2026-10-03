@@ -1076,9 +1076,8 @@ function Reviews({
                 <Th>Sent</Th>
                 <Th>Done by</Th>
                 <Th>Rule</Th>
-                <Th>Their note</Th>
                 <Th>Outcome</Th>
-                <Th>Checker&rsquo;s note</Th>
+                <Th>Notes</Th>
               </tr>
             </thead>
             <tbody>
@@ -1089,7 +1088,6 @@ function Reviews({
                   <Td>{longInstant(r.submittedAt)}</Td>
                   <Td>{r.submittedByName ?? <NotSet>Nobody recorded</NotSet>}</Td>
                   <Td>{r.policyLabel ?? "Anyone but the maker"}</Td>
-                  <Td>{r.requestNote ?? <NotSet>No note</NotSet>}</Td>
                   <Td>
                     <Pill
                       dot
@@ -1104,7 +1102,27 @@ function Reviews({
                       {DECISION_WORDS[r.decision]}
                     </Pill>
                   </Td>
-                  <Td>{r.notes ?? <NotSet>No note</NotSet>}</Td>
+                  {/* BOTH NOTES IN ONE COLUMN, each wrapping: two sentence
+                      columns side by side pushed the second off the card at
+                      1280. The maker's, said when sending, then the checker's. */}
+                  <Td>
+                    {r.requestNote === null && r.notes === null ? (
+                      <NotSet>No note</NotSet>
+                    ) : (
+                      <span className="cell-text" data-size="narrow">
+                        {r.requestNote !== null && (
+                          <span className="block">
+                            <strong>Sent with:</strong> {r.requestNote}
+                          </span>
+                        )}
+                        {r.notes !== null && (
+                          <span className="block">
+                            <strong>Checker:</strong> {r.notes}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </Td>
                 </tr>
               ))}
             </tbody>
