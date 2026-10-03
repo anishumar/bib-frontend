@@ -585,22 +585,22 @@ function advanceRows(advances: readonly BillingAdvance[]): Row[] {
     if (issued) {
       what = `Advance ${a.stage === "part_paid" ? "part paid" : "not paid"}: ${invoiceNumberWords(invoice?.number ?? null)}`;
       turn = "client";
-    } else if (!asAdmin) {
-      // Item 14b: issuing is an admin's, so a SPOC or a manager is told where it is.
-      what = "Advance invoice: with an admin to issue";
-      turn = "admin";
     } else if (a.stage === "on_draft") {
-      what = "Issue the advance invoice";
-      turn = "me";
-    } else if (a.draftBlocked === "no_tax_rate") {
+      // Item 14b: issuing is an admin's, so a SPOC or a manager is told where it is.
+      what = asAdmin ? "Issue the advance invoice" : "Advance invoice: with an admin to issue";
+      turn = asAdmin ? "me" : "admin";
+    } else if (a.draftBlocked === "billed_by_hand" && a.handRaised !== null) {
+      // Linking an advance is an admin's too (0321).
+      what = asAdmin ? `Link ${a.handRaised.number} as the advance` : `Advance: with an admin to link ${a.handRaised.number}`;
+      turn = asAdmin ? "me" : "admin";
+      href = "/invoices?tab=raise" as Route;
+    } else if (a.draftBlocked === "no_tax_rate" && asAdmin) {
       what = `Set a tax rate for ${a.issuer.displayName}`;
       turn = "me";
       href = "/admin/firm#billing" as Route;
-    } else if (a.draftBlocked === "billed_by_hand" && a.handRaised !== null) {
-      what = `Link ${a.handRaised.number} as the advance`;
-      turn = "me";
-      href = "/invoices?tab=raise" as Route;
     } else {
+      // No invoice yet: anybody who may raise (the SPOC, a manager) can, typing
+      // the tax rate in the dialog.
       what = "Raise the advance invoice";
       turn = "me";
       href = "/invoices?tab=raise" as Route;

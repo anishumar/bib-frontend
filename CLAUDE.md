@@ -2857,7 +2857,8 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   - **My day** reads `/billing/advances?mine=true` for EVERY staff login (the API answers only what
     the caller chases, with `duties`). An admin: "Issue the advance invoice", "Raise the advance
     invoice", "Set a tax rate for <company>" or "Link INV/… as the advance". Anybody else on a draft:
-    "Advance invoice: with an admin to issue", whose turn **An admin** (a new `Turn`). Issued: "Advance
+    "Advance invoice: with an admin to issue", whose turn **An admin** (a new `Turn`); with no invoice
+    yet they may raise it themselves (`party:write`, the tax rate typed in the dialog). Issued: "Advance
     not paid: INV/…" / "Advance part paid: INV/…", whose turn **The client**. The kind line says the
     letter, "signed/issued N days ago" and "you are the SPOC, Key Manager"; "Escalated" a week after
     signing. Dated `overdueOn` minus a day (the API's, from the firm's days), so it turns Overdue the
