@@ -20,7 +20,7 @@ import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
-import { CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
+import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import {
   Button,
   Card,
@@ -534,6 +534,17 @@ export default function PartyPage() {
         canFreeze={permissions.includes("tenant:admin")}
         rungs={rungs}
       />
+
+      {/* CA#22 (audit 2026-10-03): where the client is billed. Not for one
+          of the firm's own companies, whose address is on Your firm. */}
+      {!profile.party.isOwnCompany && (
+        <BillingAddressCard
+          partyId={partyId}
+          current={profile.party.billingAddress}
+          canWrite={canWrite && profile.party.archivedAt === null}
+          onSaved={load}
+        />
+      )}
 
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
           company is not a blank space on this page — it is the reason its

@@ -10164,7 +10164,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Correct a client's name, trade name, industry or website
+         * Correct a client's name, trade name, industry, website or billing address
          * @description Absent means unchanged; null or blank clears an optional field. Every list and every NEW PDF reads the new name; a signed letter and a filed PDF do not change. The audit trail records which fields changed, never their values.
          */
         patch: {
@@ -15599,7 +15599,7 @@ export interface paths {
         head?: never;
         /**
          * Change one of the firm's own companies
-         * @description Its name, entity type and registered address — and, for a company with no country recorded yet, where it is registered.
+         * @description Its name, entity type, registered address (with its state and postal code) and the numbers that print under its name: tax registration, PAN, phone, email (audit 2026-10-03). And, for a company with no country recorded yet, where it is registered.
          */
         patch: {
             parameters: {
@@ -19051,7 +19051,7 @@ export interface paths {
         head?: never;
         /**
          * Share this document with its client, or stop sharing it
-         * @description A DISCLOSURE decision, and it is recorded as one — its own audit verb rather than a document edit, because 'when did this become visible to the client' is asked after something has reached somebody it should not have. Every document gets a sensible first value from its KIND when it is stored: a challan, an invoice, a credit note and a signed engagement letter are things the client is a party to; a working paper is your own thinking. This is how you disagree with that in either direction. A document with no `partyId` is the firm's own and belongs to no client, so there is nobody to share it with — it answers 404.
+         * @description A DISCLOSURE decision, and it is recorded as one — its own audit verb rather than a document edit, because 'when did this become visible to the client' is asked after something has reached somebody it should not have. Every document gets a sensible first value from its KIND when it is stored: a challan, an invoice, a credit note and a signed engagement letter are things the client is a party to; a working paper is your own thinking. This is how you disagree with that in either direction. A document with no `partyId` is the firm's own and belongs to no client, so there is nobody to share it with — it answers 404. A DRAFT is never shared (B10): a draft copy, or a copy drawn while its proposal, letter or invoice was still a draft, answers 409 `DRAFT_NOT_SHAREABLE`. Taking any document off the portal always works.
          */
         patch: {
             parameters: {
@@ -19097,6 +19097,15 @@ export interface paths {
                 };
                 /** @description No such document at this firm, or it belongs to no client */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is a draft, and a draft is never shared with the client (DRAFT_NOT_SHAREABLE) */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -22431,6 +22440,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        BillingAddress: {
+            lines: string[];
+            region: string | null;
+            postalCode: string | null;
+            /** @description ISO 3166-1 alpha-2: IN */
+            country: string | null;
+        } | null;
         Party: {
             /** Format: uuid */
             id: string;
@@ -22442,12 +22458,20 @@ export interface components {
             archivedAt: string | null;
             /** @description One of the firm's OWN companies: the firm itself, or a company on Our companies (`crm.is_firm_entity`, 0313). Such a party is never a client: a proposal, an engagement letter, a lead and an invoice all refuse it. Listed all the same, so a screen that may name the firm (a task about it) still can; the client screens hide it. */
             isOwnCompany: boolean;
+            billingAddress: components["schemas"]["BillingAddress"];
         };
         UpdateParty: {
             displayName?: string;
             tradeName?: string | null;
             industry?: string | null;
             website?: string | null;
+            /** @description Where the client is billed (CA#22): printed in an invoice's Billed to block from the next invoice issued. Null clears it. An issued invoice keeps the address it went out with. */
+            billingAddress?: {
+                lines: string[];
+                region?: string | null;
+                postalCode?: string | null;
+                country?: string | null;
+            } | null;
         };
         CorrectLegalEntity: {
             /** @example IN */
@@ -24005,6 +24029,15 @@ export interface components {
         };
         RegisteredAddress: {
             lines: string[];
+            /** @description The state, province, emirate or region: Maharashtra. Printed on invoices and letters. */
+            region?: string | null;
+            /** @description 411001 */
+            postalCode?: string | null;
+        } | null;
+        FirmEntityNumber: {
+            /** @description gstin (India), trn (UAE), ein (US), vat (anywhere else) */
+            type: string;
+            value: string;
         } | null;
         FirmEntity: {
             /** Format: uuid */
@@ -24016,6 +24049,10 @@ export interface components {
             isFirmSelf: boolean;
             routedCountries: string[];
             isFallback: boolean;
+            taxRegistration: components["schemas"]["FirmEntityNumber"];
+            pan: string | null;
+            phone: string | null;
+            email: string | null;
             defaultCurrency: string;
         };
         FirmEntitiesResponse: {
@@ -24027,12 +24064,26 @@ export interface components {
             jurisdiction: string;
             entityType: string;
             registeredAddress?: components["schemas"]["RegisteredAddress"];
+            /** @description Its tax registration: a GSTIN for a company registered in India (held to the GSTIN's shape), a TRN in the UAE, an EIN in the US, a VAT number anywhere else. */
+            taxRegistration?: string | null;
+            /** @description Its PAN; India only. */
+            pan?: string | null;
+            /** @description Stored in E.164; a number without a country code takes the company's. */
+            phone?: string | null;
+            email?: string | null;
         };
         EditFirmEntityRequest: {
             name?: string;
             entityType?: string;
             registeredAddress?: components["schemas"]["RegisteredAddress"];
             jurisdiction?: string;
+            /** @description Its tax registration: a GSTIN for a company registered in India (held to the GSTIN's shape), a TRN in the UAE, an EIN in the US, a VAT number anywhere else. */
+            taxRegistration?: string | null;
+            /** @description Its PAN; India only. */
+            pan?: string | null;
+            /** @description Stored in E.164; a number without a country code takes the company's. */
+            phone?: string | null;
+            email?: string | null;
         };
         FirmEntityPreference: {
             /** Format: uuid */

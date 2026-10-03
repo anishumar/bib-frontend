@@ -524,7 +524,7 @@ function CompanyTable({
 }
 
 /** The address as the firm typed it: one printed line per row, blank rows
- *  dropped. Stored now, not printed yet (D15). */
+ *  dropped. Printed on invoices, letters and proposals (audit 2026-10-03). */
 function linesOf(raw: FormDataEntryValue | null): string[] {
   return String(raw ?? "")
     .split(/\r?\n/)
@@ -532,11 +532,150 @@ function linesOf(raw: FormDataEntryValue | null): string[] {
     .filter((l) => l !== "");
 }
 
-interface NewCompany {
+function textOf(form: FormData, name: string): string {
+  return String(form.get(name) ?? "").trim();
+}
+
+interface CompanyAddress {
+  lines: string[];
+  region?: string | null;
+  postalCode?: string | null;
+}
+
+/** The numbers that print under a company's name (B12 / CA#18). Absent keeps
+ *  the current one; null clears it. */
+interface CompanyNumbers {
+  taxRegistration?: string | null;
+  pan?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+interface NewCompany extends CompanyNumbers {
   name: string;
   jurisdiction: string;
   entityType: string;
-  registeredAddress?: { lines: string[] };
+  registeredAddress?: CompanyAddress;
+}
+
+/**
+ * WHAT PRINTS UNDER THE COMPANY'S NAME (audit 2026-10-03: B12 / CA#1, CA#18):
+ * its address with the state and postal code, its tax registration (the GSTIN
+ * in India), its PAN (India only), and how to reach it. Invoices, letters and
+ * proposals made from now on print what is filled in here; documents already
+ * issued keep what they went out with.
+ */
+function CompanyIdentityFields({
+  country,
+  entity,
+  disabled,
+}: {
+  /** Where it is registered, or "" before that is chosen. */
+  country: string;
+  entity: FirmEntity | null;
+  disabled: boolean;
+}) {
+  const india = country === "IN";
+  return (
+    <>
+      <Field label="Registered address" optional hint="One line per row, as it should print. Clear it to remove it.">
+        <Textarea
+          name="address"
+          rows={3}
+          disabled={disabled}
+          defaultValue={(entity?.registeredAddress?.lines ?? []).join("\n")}
+          placeholder={"e.g. 4th Floor, Pinnacle House\n12 MG Road, Camp, Pune"}
+        />
+      </Field>
+      <FieldRow>
+        <Field label={india ? "State" : "State or region"} optional>
+          <Input
+            name="region"
+            maxLength={100}
+            disabled={disabled}
+            defaultValue={entity?.registeredAddress?.region ?? ""}
+            placeholder={india ? "e.g. Maharashtra" : "e.g. Dubai"}
+          />
+        </Field>
+        <Field label={india ? "PIN code" : "Postal code"} optional>
+          <Input
+            name="postalCode"
+            maxLength={20}
+            disabled={disabled}
+            defaultValue={entity?.registeredAddress?.postalCode ?? ""}
+            placeholder={india ? "e.g. 411001" : "e.g. 19805"}
+          />
+        </Field>
+      </FieldRow>
+      <FieldRow>
+        <Field
+          label={india ? "GSTIN" : "Tax registration number"}
+          optional
+          hint={
+            india
+              ? "15 characters, like 27ABCDE1234F1Z5. Printed on invoices and letters."
+              : "Printed on invoices and letters: the TRN in the UAE, the EIN in the US."
+          }
+        >
+          <Input
+            name="taxRegistration"
+            maxLength={40}
+            disabled={disabled}
+            autoComplete="off"
+            defaultValue={entity?.taxRegistration?.value ?? ""}
+          />
+        </Field>
+        {india && (
+          <Field label="PAN" optional hint="10 characters, like ABCDE1234F.">
+            <Input name="pan" maxLength={20} disabled={disabled} autoComplete="off" defaultValue={entity?.pan ?? ""} />
+          </Field>
+        )}
+      </FieldRow>
+      <FieldRow>
+        <Field label="Phone" optional hint="With its country code, or the company's is added.">
+          <Input name="phone" type="tel" maxLength={40} disabled={disabled} defaultValue={entity?.phone ?? ""} placeholder={india ? "e.g. +91 20 2612 3456" : "e.g. +971 4 123 4567"} />
+        </Field>
+        <Field label="Email" optional>
+          <Input name="email" type="email" maxLength={254} disabled={disabled} defaultValue={entity?.email ?? ""} placeholder="e.g. office@yourfirm.in" />
+        </Field>
+      </FieldRow>
+    </>
+  );
+}
+
+/** The address and numbers a dialog's form holds, against what the company
+ *  has: only what changed is sent (an unchanged number is not rewritten). */
+function identityChanges(
+  form: FormData,
+  entity: FirmEntity | null,
+  country: string,
+): { registeredAddress?: CompanyAddress | null } & CompanyNumbers {
+  const lines = linesOf(form.get("address"));
+  const region = textOf(form, "region");
+  const postalCode = textOf(form, "postalCode");
+  const before = entity?.registeredAddress ?? null;
+  const out: { registeredAddress?: CompanyAddress | null } & CompanyNumbers = {};
+  const empty = lines.length === 0 && region === "" && postalCode === "";
+  const same =
+    lines.join("\n") === (before?.lines ?? []).join("\n") &&
+    region === (before?.region ?? "") &&
+    postalCode === (before?.postalCode ?? "");
+  if (!same) {
+    out.registeredAddress = empty
+      ? null
+      : { lines, ...(region === "" ? {} : { region }), ...(postalCode === "" ? {} : { postalCode }) };
+  }
+  const number = (name: keyof CompanyNumbers, current: string | null): void => {
+    if (!form.has(name)) return;
+    const typed = textOf(form, name);
+    if (typed === (current ?? "")) return;
+    out[name] = typed === "" ? null : typed;
+  };
+  number("taxRegistration", entity?.taxRegistration?.value ?? null);
+  if (country === "IN") number("pan", entity?.pan ?? null);
+  number("phone", entity?.phone ?? null);
+  number("email", entity?.email ?? null);
+  return out;
 }
 
 function AddCompany({
@@ -561,12 +700,13 @@ function AddCompany({
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const lines = linesOf(form.get("address"));
+    const { registeredAddress, ...numbers } = identityChanges(form, null, country);
     void onAdd({
       name: String(form.get("name") ?? "").trim(),
       jurisdiction: country,
       entityType: String(form.get("entityType") ?? "").trim(),
-      ...(lines.length === 0 ? {} : { registeredAddress: { lines } }),
+      ...(registeredAddress === undefined || registeredAddress === null ? {} : { registeredAddress }),
+      ...numbers,
     });
   }
 
@@ -606,9 +746,7 @@ function AddCompany({
               <Input name="entityType" required maxLength={100} autoComplete="off" placeholder="e.g. Private Limited, FZE, Inc." />
             </Field>
           </FieldRow>
-          <Field label="Registered address" optional hint="One line per row. Not printed on documents yet.">
-            <Textarea name="address" rows={3} placeholder="e.g. Office 12, Dubai Silicon Oasis" />
-          </Field>
+          <CompanyIdentityFields country={country} entity={null} disabled={false} />
           {served !== null && (
             <Notice tone="warn">
               <p>
@@ -623,11 +761,11 @@ function AddCompany({
   );
 }
 
-interface CompanyChange {
+interface CompanyChange extends CompanyNumbers {
   name?: string;
   entityType?: string;
   jurisdiction?: string;
-  registeredAddress?: { lines: string[] } | null;
+  registeredAddress?: CompanyAddress | null;
 }
 
 function EditCompany({
@@ -655,10 +793,9 @@ function EditCompany({
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim();
     const entityType = String(form.get("entityType") ?? "").trim();
-    const lines = linesOf(form.get("address"));
-    const before = entity.registeredAddress?.lines ?? [];
+    const identity = identityChanges(form, entity, needsCountry ? country : (entity.jurisdiction ?? ""));
 
-    // Only what CHANGED is sent. Sending all three every time would record an
+    // Only what CHANGED is sent. Sending everything every time would record an
     // edit on the company's history that changed nothing.
     const body: CompanyChange = {};
     if (name !== entity.name) body.name = name;
@@ -666,13 +803,12 @@ function EditCompany({
       if (country !== "") {
         body.jurisdiction = country;
         body.entityType = entityType;
-        if (lines.length > 0) body.registeredAddress = { lines };
+        Object.assign(body, identity);
+        if (body.registeredAddress === null) delete body.registeredAddress;
       }
     } else {
       if (entityType !== (entity.entityType ?? "")) body.entityType = entityType;
-      if (lines.join("\n") !== before.join("\n")) {
-        body.registeredAddress = lines.length === 0 ? null : { lines };
-      }
+      Object.assign(body, identity);
     }
     if (Object.keys(body).length === 0) {
       setUnchanged(true);
@@ -726,14 +862,11 @@ function EditCompany({
               placeholder="e.g. Private Limited"
             />
           </Field>
-          <Field label="Registered address" optional hint="One line per row. Clear it to remove it.">
-            <Textarea
-              name="address"
-              rows={4}
-              disabled={waiting}
-              defaultValue={(entity.registeredAddress?.lines ?? []).join("\n")}
-            />
-          </Field>
+          <CompanyIdentityFields
+            country={needsCountry ? country : (entity.jurisdiction ?? "")}
+            entity={entity}
+            disabled={waiting}
+          />
           {unchanged && (
             <p className="field-hint" role="status">
               Nothing has changed yet.
