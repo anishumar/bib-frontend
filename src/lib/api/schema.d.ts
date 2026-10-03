@@ -7644,7 +7644,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description It is already in that state, the state has been retired, or it is still waiting on unfinished work */
+                /** @description It is already in that state, the state has been retired, it is still waiting on unfinished work, or (into a finished-and-done state) a checklist line is unticked */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -8095,20 +8095,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/work-items/{workItemId}/review": {
+    "/api/v1/work-items/{workItemId}/filing": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
+        /** The filing this task files, and the ones it could */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The filing link */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaskFilingResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         /**
-         * Send a work item to be checked
-         * @description The MAKER is not a parameter and cannot be: the database derives it from the item's assignee and freezes it, because a maker the caller could choose is not a maker-checker control. The state is deliberately not moved to 'Under Review' — there is no flag saying which of the firm's states means that, and comparing the name is the one thing this module never does.
+         * Make this task the one that files a filing
+         * @description Audit 2026-10-03, CA#36. Writes the task into the column the calendar's own raised task uses, so completing it marks the filing filed and the calendar raises no second task. A task already finished files it at once. Refused (409) for another company's filing, one already filed, taken off the calendar, decided after a missed deadline, or with a task of its own, and when the task already files a different filing.
          */
-        post: {
+        put: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -8119,17 +8167,80 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["RequestWorkItemReviewRequest"];
+                    "application/json": components["schemas"]["LinkTaskFilingRequest"];
                 };
             };
             responses: {
-                /** @description Waiting to be checked */
-                201: {
+                /** @description Linked */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["WorkItemReview"];
+                        "application/json": components["schemas"]["TaskFilingResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item or filing at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The filing cannot be linked to this task; the message says why */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take this task off the filing it files
+         * @description Only while the filing is not filed. The calendar raises its own task when it is due.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Unlinked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaskFilingResponse"];
                     };
                 };
                 /** @description No authenticated session */
@@ -8159,7 +8270,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description A review is already open on it */
+                /** @description The filing is already filed by this task */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -8170,6 +8281,233 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a note on a task
+         * @description Append-only (0330): a correction is a second note. The ledger records that a note was written and never what it says.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddWorkItemNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Written */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemNote"];
+                    };
+                };
+                /** @description A blank note, or one over 2,000 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a work item to be checked
+         * @description The MAKER is not a parameter and cannot be: the database derives it from the item's assignee and freezes it, because a maker the caller could choose is not a maker-checker control. The item moves into the firm's 'with a checker' state when the firm has flagged one (0073); without one, a task still in its starting state moves to the firm's working state (F28). Refused while a checklist line is unticked (CHECKLIST_OPEN): sending work to be checked says it is done, as a process step's Done waits for its sub-steps.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestWorkItemReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description Waiting to be checked */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemReview"];
+                    };
+                };
+                /** @description No rule named, and the firm has more than one in force (REVIEW_RULE_NEEDED) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, the role may not write work, or the rule named is not in force */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A review is already open on it, or a checklist line is unticked */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's rules for who checks work, as a task's sender picks from them
+         * @description Labels and keys only, on `party:read`: whoever sends a task to be checked sees which rule it will be checked under. The rules themselves are written on Who checks work.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rules */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReviewRulesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8253,7 +8591,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a work item, or send it back */
+        /**
+         * Approve a work item, or send it back
+         * @description Approving FINISHES the task: it moves to the firm's finished-and-done state (terminal and a success), which stamps the completion and tells the compliance calendar, exactly as moving it there by hand does. Sending it back puts a task that is in the firm's 'with a checker' state back into its working state. A task already finished or cancelled is left where it is. Approve is refused while a checklist line is unticked.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -8314,7 +8655,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Somebody else already decided it */
+                /** @description Somebody else already decided it, or (Approve) a checklist line is unticked */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -21794,6 +22135,12 @@ export interface components {
             hasOpenReview: boolean;
             /** @description Unfinished items this one is waiting on. Starting is refused while this is non-empty — that is what a dependency SAYS. Moving straight to a terminal state is still allowed, because cancelling something that never started is a real act. */
             blockedByOpen: components["schemas"]["WorkItemBlocker"][];
+            /** @description Sent back and not yet sent again (CA#29): the latest decided review was a send-back, none is open, and the task is not finished. The checker's note, when, and by whom. Null otherwise. My day shows it on the maker's desk. */
+            sentBack: {
+                notes: string | null;
+                decidedAt: string;
+                decidedByName: string | null;
+            } | null;
         };
         WorkBoardResponse: {
             items: components["schemas"]["WorkItem"][];
@@ -21833,6 +22180,8 @@ export interface components {
             submittedByName: string | null;
             submittedAt: string;
             policyKey: string | null;
+            /** @description What the MAKER said when sending it to be checked (0330). Null when nothing was said. Prose: on the row, never in the ledger. */
+            requestNote: string | null;
             /** @description The rule's own label as it was PINNED when the check opened — so a firm raising its review bar in April never restates what was allowed in March. */
             policyLabel: string | null;
             /** @enum {string} */
@@ -21842,12 +22191,25 @@ export interface components {
             decidedBy: string | null;
             decidedAt: string | null;
         };
+        WorkItemNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workItemId: string;
+            /** Format: uuid */
+            authorUserId: string;
+            authorName: string | null;
+            body: string;
+            createdAt: string;
+        };
         WorkItemDetailResponse: {
             item: components["schemas"]["WorkItem"];
             checklist: components["schemas"]["ChecklistItem"][];
             dependencies: components["schemas"]["WorkItemDependency"][];
             /** @description Every review this item has ever had, newest first. The REJECTIONS are the point: a list of only open ones makes work that came back twice read as work that sailed through. */
             reviews: components["schemas"]["WorkItemReview"][];
+            /** @description The task's own notes, oldest first (0330). Append-only: a correction is a second note. Staff only; the client portal never reads them. */
+            notes: components["schemas"]["WorkItemNote"][];
             /** @description May the CALLER decide the open review — the same verdict `/work-item-checks` puts on every one of its rows, and null when there is no open review. One field rather than one per row, because the question only exists for the open one: 'may you check this' is not asked of a review already approved or sent back. Before this the item's page could derive only maker != checker from `submittedBy` — one third of the rule — so the ladder and the grade threshold were found by pressing Approve and reading a 403, while the queue screen had been showing the same person the full answer since T2.9. */
             openReviewViewer: {
                 eligible: boolean;
@@ -21904,9 +22266,55 @@ export interface components {
             /** Format: uuid */
             dependsOnWorkItemId: string;
         };
+        LinkableFiling: {
+            /** Format: uuid */
+            obligationId: string;
+            /** @description The filing, e.g. GSTR-3B. */
+            name: string;
+            periodLabel: string;
+            statutoryDueOn: string;
+            entityName: string | null;
+            /** @description The firm's own word for where the filing stands. */
+            stateName: string;
+            filedOn: string | null;
+        };
+        TaskFilingResponse: {
+            /** @description The filing this task files (CA#36): completing the task marks it filed, as completing the calendar's own task does. Null when it files none. */
+            linked: {
+                /** Format: uuid */
+                obligationId: string;
+                /** @description The filing, e.g. GSTR-3B. */
+                name: string;
+                periodLabel: string;
+                statutoryDueOn: string;
+                entityName: string | null;
+                /** @description The firm's own word for where the filing stands. */
+                stateName: string;
+                filedOn: string | null;
+            } | null;
+            /** @description The company's open filings with no task yet, by due date: what this task could file. The company is the task's entity, or else its client. */
+            open: components["schemas"]["LinkableFiling"][];
+        };
+        LinkTaskFilingRequest: {
+            /** Format: uuid */
+            obligationId: string;
+        };
+        AddWorkItemNoteRequest: {
+            /** @description The note, at most 2,000 characters once trimmed. Who wrote it is the session's user. */
+            body: string;
+        };
         RequestWorkItemReviewRequest: {
-            /** @description Which of the firm's published verification policies decides who may check this. OPTIONAL, and no default is invented: there is no template step here to name one, and picking a rule on the firm's behalf would be this product deciding who signs off its work. Absent means maker != checker alone. */
+            /** @description Which of the firm's published verification policies decides who may check this. Absent means the FIRM'S OWN: its one published rule, applied; with several, a 400 (REVIEW_RULE_NEEDED) naming them so the sender picks; with none, maker != checker alone. `GET /api/v1/review-rules` lists them. */
             policyKey?: string | null;
+            /** @description What the maker says to the checker (0330), at most 2,000 characters. Blank means none. */
+            note?: string | null;
+        };
+        ReviewRulesResponse: {
+            /** @description The firm's review rules in force, by key. One is applied to a task sent with no rule named; with several the sender picks. */
+            rules: {
+                key: string;
+                label: string;
+            }[];
         };
         WorkItemCheckerOption: {
             /** Format: uuid */
@@ -21935,6 +22343,12 @@ export interface components {
             viewer: components["schemas"]["WorkItemCheckViewer"];
             /** Format: uuid */
             clientPartyId: string;
+            /**
+             * Format: uuid
+             * @description The company the work is for, when the task names one (F32).
+             */
+            entityPartyId: string | null;
+            entityName: string | null;
             /** @description The task's own due day, or null when it has none. */
             dueOn: string | null;
         };
@@ -22126,6 +22540,12 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
             job: components["schemas"]["StepJobContext"];
+            /** @description Sent back and not done again (CA#29): the latest decided check on the step was a send-back and none is open. The checker's note, when, and by whom. Null otherwise. */
+            sentBack: {
+                notes: string | null;
+                decidedAt: string;
+                decidedByName: string | null;
+            } | null;
         };
         MyStepsResponse: {
             steps: components["schemas"]["MyStep"][];
