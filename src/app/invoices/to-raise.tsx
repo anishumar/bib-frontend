@@ -42,6 +42,7 @@ import {
   Textarea,
   Th,
 } from "@/components/ui";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * TO RAISE: the bills the daily sweep says have fallen due, and nobody has
@@ -864,9 +865,9 @@ function RaiseDialog({
     >
       <form
         id={formId}
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void raise(form);
-        }}
+        })}
       >
         <FieldStack>
           <ErrorNotice error={error} />
@@ -1017,9 +1018,9 @@ function SkipDialog({
     >
       <form
         id={formId}
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void skip(form);
-        }}
+        })}
       >
         <FieldStack>
           <ErrorNotice error={error} />
@@ -1090,9 +1091,9 @@ function KeepDialog({
     >
       <form
         id={formId}
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void keep(form);
-        }}
+        })}
       >
         <FieldStack>
           <ErrorNotice error={error} />
@@ -1178,9 +1179,9 @@ function LinkDialog({
     >
       <form
         id={formId}
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void link(form);
-        }}
+        })}
       >
         <FieldStack>
           <ErrorNotice error={error} />
