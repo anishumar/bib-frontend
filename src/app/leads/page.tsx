@@ -9,11 +9,12 @@ import {
   LEAD_SOURCES,
   LEAD_STAGES,
   colleagueLabel,
+  CONTACT_ROLE_OPTIONS,
   formatMoney,
   recordsLostReason,
   TERMINAL_STAGES,
 } from "@/lib/api/client";
-import type { Colleague, LeadRecord, LeadStage } from "@/lib/api/client";
+import type { Colleague, ContactRole, LeadRecord, LeadStage } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -306,9 +307,21 @@ export default function LeadsPage() {
     setNote(null);
     // The API deduplicates on these three, normalised. Blank ones are dropped
     // rather than sent — an empty identifier is not a fact about anybody.
-    const identifiers = (["email", "phone", "pan"] as const)
+    const identifiers = (["email", "phone", "pan", "gstin"] as const)
       .map((type) => ({ type, value: String(form.get(type) ?? "").trim() }))
       .filter((i) => i.value !== "");
+    // The person at the company (CA#20). Named, the email and phone are
+    // THEIRS and the API files them on that person, not on the company.
+    const contactName = String(form.get("contactName") ?? "").trim();
+    const contactRole = String(form.get("contactRole") ?? "");
+    if (contactName !== "" && contactRole === "") {
+      setBusy(null);
+      setCaptureError("Choose the contact person's role, or clear their name.");
+      return;
+    }
+    // Whose desk (CA#19): "auto" is the firm's own rule, as before; "none"
+    // leaves it in the unassigned queue; anything else is that colleague.
+    const owner = String(form.get("owner") ?? "auto");
     // Both optional, and a blank one is SENT AS ABSENT: an unknown country and
     // an unknown value are real answers at capture, never a reason to refuse.
     const jurisdiction = String(form.get("jurisdiction") ?? "");
@@ -326,6 +339,10 @@ export default function LeadsPage() {
         // same company twice, because the party's name was all a row had.
         title: String(form.get("title")).trim(),
         identifiers,
+        ...(contactName === ""
+          ? {}
+          : { contact: { name: contactName, role: contactRole as ContactRole } }),
+        ...(owner === "auto" ? {} : { ownerUserId: owner === "none" ? null : owner }),
         ...(jurisdiction === "" ? {} : { jurisdiction }),
         ...(estimatedValue === "" ? {} : { estimatedValue }),
       },
@@ -844,13 +861,18 @@ export default function LeadsPage() {
             <ErrorNotice error={captureError} />
             <FieldRow>
               <Field label="Company">
-                <Input name="name" required autoFocus placeholder="e.g. Desert Rose LLC" />
+                <Input name="name" required autoFocus placeholder="e.g. Acme Industries Pvt Ltd" />
               </Field>
               <Field label="Opportunity">
                 <Input name="title" placeholder="e.g. FY26 statutory audit" required />
               </Field>
+              {/* Nothing preselected (F13): it defaulted to Referral, so every
+                  lead nobody touched this on was recorded as a referral. */}
               <Field label="Source">
-                <Select name="source">
+                <Select name="source" required defaultValue="">
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {LEAD_SOURCES.map((s) => (
                     <option key={s} value={s}>
                       {codeLabel(s)}
@@ -859,20 +881,54 @@ export default function LeadsPage() {
                 </Select>
               </Field>
             </FieldRow>
+            <FieldRow>
+              <Field label="Contact person" optional>
+                <Input name="contactName" autoComplete="off" placeholder="e.g. Ravi Kumar" />
+              </Field>
+              <Field label="Their role" optional>
+                <Select name="contactRole" defaultValue="">
+                  <option value="">Choose…</option>
+                  {CONTACT_ROLE_OPTIONS.map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
             <div>
               <FieldRow>
                 <Field label="Email">
-                  <Input name="email" type="email" placeholder="e.g. accounts@desertrose.ae" />
+                  <Input name="email" type="email" placeholder="e.g. ravi@acme.example" />
                 </Field>
                 <Field label="Phone">
                   <PhoneInput name="phone" country={captureCountry} />
                 </Field>
+              </FieldRow>
+              <FieldRow>
                 <Field label="PAN">
                   <Input name="pan" placeholder="e.g. AAACL1234M" />
                 </Field>
+                <Field label="GSTIN">
+                  <Input name="gstin" placeholder="e.g. 27AAACL1234M1Z5" />
+                </Field>
               </FieldRow>
-              <p className="field-hint">Give at least one, so a repeat is spotted.</p>
+              <p className="field-hint">
+                Give at least one email, phone or PAN, so a repeat is spotted. With a contact named,
+                the email and phone are theirs.
+              </p>
             </div>
+            <Field label="Owner">
+              <Select name="owner" defaultValue="auto">
+                <option value="auto">The firm&rsquo;s rule picks</option>
+                {staff.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {colleagueLabel(m)}
+                  </option>
+                ))}
+                <option value="none">Leave unassigned</option>
+              </Select>
+            </Field>
             <FieldRow>
               <Field label="Country" optional>
                 <CountrySelect

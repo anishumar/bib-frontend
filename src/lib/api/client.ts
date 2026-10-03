@@ -616,6 +616,19 @@ export const LEAD_STAGES = [
   "abandoned",
 ] as const satisfies readonly LeadStage[];
 
+/** A contact person's role at a company (CA#20), off the generated schema. */
+export type ContactRole = NonNullable<
+  paths["/api/v1/leads"]["post"]["requestBody"]["content"]["application/json"]["contact"]
+>["role"];
+
+/** The roles a lead's contact person can hold, in words, for a picker. */
+export const CONTACT_ROLE_OPTIONS: readonly { readonly code: ContactRole; readonly label: string }[] = [
+  { code: "director_of", label: "Director" },
+  { code: "authorised_signatory_of", label: "Authorised signatory" },
+  { code: "employee_of", label: "Employee" },
+  { code: "shareholder_of", label: "Shareholder" },
+];
+
 export const LEAD_SOURCES = [
   "referral",
   "inbound",

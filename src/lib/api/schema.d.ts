@@ -22633,6 +22633,12 @@ export interface components {
              */
             ownerUserId?: string | null;
             notes?: string;
+            /** @description The person the firm deals with at a COMPANY prospect, and their role there (CA#20). With one named, the email and phone in `identifiers` are the contact's: they go on a person linked to the company in that role, and the company keeps the PAN and GSTIN. Refused for a person prospect (INVALID_LEAD_CONTACT). */
+            contact?: {
+                name: string;
+                /** @enum {string} */
+                role: "director_of" | "authorised_signatory_of" | "employee_of" | "shareholder_of";
+            };
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2 in UPPER CASE. Optional — often nobody knows at capture, and a capture is never refused for it. Demanded in canonical case rather than normalised, because it is compared against the firm's territory rules. */
             jurisdiction?: string;
             /**
