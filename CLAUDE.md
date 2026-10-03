@@ -3082,3 +3082,12 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   query parameter the API puts on the link (display only, capped).
 - **No e-signature service**: a letter's send button reads "Lock it as sent" and the page says
   nothing is emailed and what to do; with DocuSign the flow is unchanged.
+- **A refused form keeps what was typed (F05).** Never `<form action={fn}>`: React 19 resets
+  such a form once `fn` has run, whatever the API answered, so a refusal arrived over empty boxes.
+  Every form submits through `onSubmit={(event) => keepTyped(event, fn)}` (`@/lib/ui/keep-typed`),
+  which hands `fn` the same `FormData` (the pressed button included) and resets nothing. `fn`
+  resolves `true` only when the save went through AND the form stays on screen for the next entry
+  (add a line, record a payment); only then is it cleared. A form that closes, navigates or
+  remounts on success returns nothing. The handler still clears its refusal BEFORE the call. A
+  lint rule refuses `action` on a `<form>`; `demo-assets/tools/audit-verify/f05-walk.mjs` refuses
+  every form twice and checks the boxes, the focus and the second press.

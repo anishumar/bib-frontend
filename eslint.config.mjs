@@ -68,6 +68,13 @@ const config = [
           message:
             "Radius and elevation are tokens (--r, --r-sm, --shadow). Use the component that carries them — <Card>, <Pill>, <Button>.",
         },
+        {
+          // F05 (audit 2026-10-03): React 19 resets a <form action={fn}> once
+          // fn has run, refusal or not, so a refused form came back empty.
+          selector: 'JSXOpeningElement[name.name="form"] > JSXAttribute[name.name="action"]',
+          message:
+            "A form the API can refuse must keep what was typed. Use onSubmit={(event) => keepTyped(event, fn)} from @/lib/ui/keep-typed.",
+        },
       ],
     },
   },
