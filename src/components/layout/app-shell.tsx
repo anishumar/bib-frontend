@@ -18,6 +18,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { ThemeSwitch } from "./theme";
+import { NotificationBell } from "@/components/notify/bell";
 
 /**
  * The frame every signed-in page sits in.
@@ -460,6 +461,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     setCounts((was) => ({ ...was, ...next }));
   }, []);
   const searchRef = useRef<HTMLInputElement>(null);
+  /** Asks `/auth/me` again after an answer that was not a 401 (see below). */
+  const [retry, setRetry] = useState(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bare = isBare(pathname);
 
@@ -478,6 +482,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         api.GET("/api/v1/tenancy/me/memberships", {}),
       ]);
       if (!live) return;
+      // ONLY A 401 MEANS SIGNED OUT. A 429 (the address spent its 300 a minute:
+      // a busy office behind one router), a 5xx or a dropped connection says
+      // nothing about the session, and reading it as "signed out" sent people
+      // to the sign-in page mid-work. Keep what is on screen and ask again.
+      if (me.data === undefined && me.response.status !== 401) {
+        retryTimer.current = setTimeout(() => {
+          setRetry((n) => n + 1);
+        }, 5_000);
+        return;
+      }
       // Not signed in is an ordinary state here, not a failure to report. The
       // shell does NOT redirect: the page is already doing that, and two
       // racing redirects is how a login loop starts.
@@ -487,8 +501,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     })();
     return () => {
       live = false;
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
     };
-  }, [bare, pathname]);
+  }, [bare, pathname, retry]);
 
   /**
    * WHICH APP IS THIS PERSON IN — the gate that was only ever a sidebar filter.
@@ -912,7 +927,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
               {principal?.commercialVisibility === true && " · fees visible"}
             </p>
-            <ThemeSwitch />
+            <div className="topbar-tools">
+              {/* Only once a firm is chosen: every notification is a firm's. */}
+              {principal !== null && principal.tenantId !== null && (
+                <NotificationBell enabled />
+              )}
+              <ThemeSwitch />
+            </div>
           </header>
           {children}
         </div>

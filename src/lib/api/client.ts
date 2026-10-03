@@ -32,6 +32,13 @@ export const api = createClient<paths>({
 
 /** The shapes the app actually names, pulled off the generated schema so they
  *  track the API rather than being retyped by hand. */
+/** One notification as the bell and `/notifications` show it (0323): the words
+ *  are the API's, rendered for this reader (no amount without fee access). */
+export type NotificationItem =
+  paths["/api/v1/notifications"]["get"]["responses"][200]["content"]["application/json"]["rows"][number];
+/** One category's settings, per channel (0323). */
+export type NotificationCategorySettings =
+  paths["/api/v1/notifications/preferences"]["get"]["responses"][200]["content"]["application/json"]["categories"][number];
 export type Principal = paths["/api/v1/auth/me"]["get"]["responses"][200]["content"]["application/json"];
 /**
  * What signing in answers with — the principal, and every firm this login
