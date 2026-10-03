@@ -112,7 +112,7 @@ export function Supersede({
             input sits higher than the ones beside it. */}
         <p className="field-hint">
           The start of the period, not the due date: August follows August&rsquo;s law.
-          Replacing <span className="mono">{rule.rulePack}</span>.
+          Replacing the rule as it stands.
         </p>
 
         <FieldRow>

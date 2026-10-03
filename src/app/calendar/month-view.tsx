@@ -16,6 +16,7 @@ import {
 } from "@/components/shadcn/command";
 import { ChevronDownIcon } from "@/components/shadcn/chevron";
 import { browserDay, localDate, longDay } from "@/lib/day";
+import { rulePackLabel } from "@/lib/rule-pack";
 
 /**
  * The compliance calendar as a MONTH — the second way to read the Due tab.
@@ -653,7 +654,7 @@ function FilingCard({
             statute, and the plausible-looking wrong one is the dangerous kind. */}
         {row.ruleUnconfirmed && (
           <span
-            title={`Rule pack ${row.rulePack}`}
+            title={rulePackLabel(row.rulePack)}
             className="rounded-sm bg-warn-wash px-2 py-0.5 text-xs text-warn-ink"
           >
             Unconfirmed rule

@@ -17,6 +17,7 @@ import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, NotSet, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
 import { plural } from "@/lib/plural";
+import { rulePackLabel } from "@/lib/rule-pack";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -310,7 +311,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
             due date is the dangerous kind precisely because nobody re-reads it. */}
         {row.ruleUnconfirmed && (
           <Sub>
-            <Tooltip text={`Rule pack ${row.rulePack}`}>
+            <Tooltip text={rulePackLabel(row.rulePack)}>
               <Pill tone="warn">Unconfirmed rule</Pill>
             </Tooltip>
           </Sub>

@@ -35,11 +35,13 @@ import {
   Exceptions,
   MONTHS,
   RuleEditor,
+  rulePackLabel,
   type RuleDraft,
 } from "./rule-editor";
 import { Supersede } from "./supersede";
 import { longDay } from "@/lib/day";
 import { plural } from "@/lib/plural";
+import { countryName } from "@/lib/country";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
@@ -684,7 +686,7 @@ function OpenRule({
             h3. */}
         <h2>{open.name}</h2>
         <p className="sub">
-          {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
+          {countryName(open.jurisdiction)} &middot; {rulePackLabel(open.rulePack)}
         </p>
       </div>
       {messages}
