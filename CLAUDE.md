@@ -232,6 +232,16 @@ lowercase-only pattern reports an empty set, which is how three chevrons got dra
 owns the focus trap, Escape, the inert background and the top layer. Radix reimplements all of
 that on a `<div>`. `ui/tabs.tsx` likewise already has the full ARIA tablist with arrow keys,
 Home/End and a roving tabindex. The hand-rolled one genuinely worth replacing is `menu.tsx`.
+Since the audit of 2026-10-03 (CA#17) it is at least never clipped: a button with a
+`popover="auto"` panel in the TOP LAYER, placed under its button when it opens, so a `.tablewrap`
+(overflow plus paint containment) can no longer cut "More" down to a 10px strip. The browser
+gives it light dismiss and Escape; arrow keys are still not there.
+
+**Who can supply what a letter lacks (CA#2 / CA#3).** `lib/ui/who-may.tsx`: `useWhoMay(permission)`
+names the active colleagues whose role holds a permission (roles and colleagues the login can
+already read), and `StandardsHelp` says, on the send panel, the letter page and an empty "Add all
+standard terms", where a missing opening or missing terms come from: links to Standard wording and
+Standard terms for a login with `tenant:admin`, the names of who has it for anybody else.
 
 ### Dates live in `@/lib/day`, and two of the four are opposites
 

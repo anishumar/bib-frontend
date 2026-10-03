@@ -27,6 +27,7 @@ import { Page, PageHeader, useSession } from "@/components/layout";
 import { countryName } from "@/lib/country";
 import { CountriesPicker } from "@/app/catalogue/parts";
 import { keyFrom } from "@/app/catalogue/service";
+import { orList, useWhoMay } from "@/lib/ui/who-may";
 
 /**
  * STANDARD TERMS: the clauses engagement letters are built from, beside
@@ -181,6 +182,9 @@ function StandardTerms() {
           {said}
         </Notice>
       )}
+      {/* CA#3: a login that cannot write terms is told who can, by name,
+          instead of finding no button and no reason. */}
+      {!canWrite && <WhoWritesTerms />}
 
       <Tabs
         id={tabsId}
@@ -216,11 +220,28 @@ function StandardTerms() {
           {(company === null || company.jurisdiction !== null) && (
             <Card>
               {shown.length === 0 ? (
-                <p className="text-md">
-                  {company === null
-                    ? "No terms here yet."
-                    : `No terms under ${countryName(company.jurisdiction ?? "")} law yet, so ${company.name}'s letters get only the Default terms.`}
-                </p>
+                <div className="stack tight">
+                  <p className="text-md">
+                    {company === null
+                      ? "No terms here yet."
+                      : `No terms under ${countryName(company.jurisdiction ?? "")} law yet, so ${company.name}'s letters get only the Default terms.`}
+                  </p>
+                  {/* CA#3 (audit 2026-10-03): the empty state is where a new
+                      firm starts, so the way forward is offered right here. */}
+                  {canWrite && (
+                    <div>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setSaid(null);
+                          setWriting(true);
+                        }}
+                      >
+                        Write the first term
+                      </Button>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <ul className="stack m-0 list-none pl-0">
                   {shown.map((t) => (
@@ -454,5 +475,18 @@ function WriteTerm({
         </FieldStack>
       </form>
     </Dialog>
+  );
+}
+
+/** For a login that may read the terms and not write them (CA#3). */
+function WhoWritesTerms() {
+  const names = useWhoMay("tenant:admin");
+  if (names === null) return null;
+  return (
+    <Notice tone="neutral">
+      {names.length === 0
+        ? "Only an administrator of the firm can write or change its standard terms."
+        : `Only ${orList(names)} can write or change the firm's standard terms. Ask them to add what your letters need.`}
+    </Notice>
   );
 }

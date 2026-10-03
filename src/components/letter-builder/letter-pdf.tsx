@@ -44,6 +44,7 @@ import {
 import type { SaveOutcome } from "@/components/proposal-document";
 import { FeesNotShown } from "@/components/proposal-document";
 import { putLetter, useLetter } from "./store";
+import { StandardsHelp } from "@/lib/ui/who-may";
 import { letterFee } from "./words";
 
 type LineChange = components["schemas"]["UpdateEngagementLetterLineRequest"];
@@ -626,12 +627,24 @@ function LetterTerms({ record, onChanged }: { record: LetterRecord; onChanged: (
         </p>
       )}
       {standardTerms !== null && (
-        <div role="status" className="text-sm">
+        <div role="status" className="flex flex-col gap-2 text-sm">
           <p>
-            {standardTerms.added.length === 0
-              ? "No term was added."
-              : `Added ${String(standardTerms.added.length)} ${standardTerms.added.length === 1 ? "term" : "terms"}.`}
+            {standardTerms.added.length > 0
+              ? `Added ${String(standardTerms.added.length)} ${standardTerms.added.length === 1 ? "term" : "terms"}.`
+              : standardTerms.skipped.length === 0
+                ? // CA#3 (audit 2026-10-03): the firm has written none. Say so,
+                  // and where they are written, instead of a bare "none".
+                  `No term was added: the firm has no standard terms for ${record.issuer.name} yet.`
+                : "No term was added."}
           </p>
+          {standardTerms.added.length === 0 && standardTerms.skipped.length === 0 && (
+            <StandardsHelp
+              opening={false}
+              terms="none"
+              issuerPartyId={record.issuer.partyId}
+              issuerHasCountry={record.issuer.jurisdiction !== null}
+            />
+          )}
           {skipped.length > 0 && (
             <ul className="mt-1 list-disc pl-5 text-muted">
               {skipped.map((s) => (
