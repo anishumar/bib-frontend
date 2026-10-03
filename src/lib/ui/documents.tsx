@@ -80,6 +80,9 @@ function uploader(doc: StoredDocument): string {
 function madeAs(doc: SubjectFile): string | null {
   if (doc.role === "copy_of_record") return doc.kind === "invoice" ? "Issued copy" : "Copy as sent";
   if (doc.role === "draft_copy") return "Draft, firm only";
+  // The signing provider's own files, filed when an envelope completes (F30).
+  if (doc.role === "signed") return "Signed copy";
+  if (doc.role === "certificate_of_completion") return "Signing certificate";
   return doc.origin === "generated" ? "Generated" : null;
 }
 
