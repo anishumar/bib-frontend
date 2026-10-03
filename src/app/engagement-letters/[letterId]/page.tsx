@@ -64,6 +64,7 @@ import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
 import { Money } from "@/components/fees";
+import { StandardsHelp } from "@/lib/ui/who-may";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -1009,10 +1010,21 @@ export default function LetterPage() {
               <Notice tone={standardTerms.added.length > 0 ? "ok" : "info"} role="status">
                 <div>
                   <p>
-                    {standardTerms.added.length === 0
-                      ? "No term was added."
-                      : `Added ${String(standardTerms.added.length)}: ${standardTerms.added.map((a) => a.title).join(", ")}.`}
+                    {standardTerms.added.length > 0
+                      ? `Added ${String(standardTerms.added.length)}: ${standardTerms.added.map((a) => a.title).join(", ")}.`
+                      : standardTerms.skipped.length === 0
+                        ? // CA#3: the firm has written none; say so and who can.
+                          `No term was added: the firm has no standard terms for ${record.issuingEntity.displayName} yet.`
+                        : "No term was added."}
                   </p>
+                  {standardTerms.added.length === 0 && standardTerms.skipped.length === 0 && (
+                    <StandardsHelp
+                      opening={false}
+                      terms
+                      issuerPartyId={record.issuer.partyId}
+                      issuerHasCountry={record.issuer.jurisdiction !== null}
+                    />
+                  )}
                   {standardTerms.skipped.length > 0 && (
                     <ul className="mt-1 text-sm">
                       {standardTerms.skipped.map((s) => {
@@ -1392,6 +1404,22 @@ export default function LetterPage() {
           {(isDraft || letter.status === "sent") && routing !== null && (
             <RoutingWarning routing={routing} client={record.party} />
           )}
+
+          {/* CA#2 / CA#3 (audit 2026-10-03): what the API will refuse a send
+              for, said before the press, with where the words come from. */}
+          {isDraft &&
+            (!record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "") ||
+              record.clauses.length === 0) && (
+              <Notice tone="warn" eyebrow="Before it can be sent">
+                <StandardsHelp
+                  opening={!record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "")}
+                  terms={record.clauses.length === 0}
+                  issuerPartyId={record.issuer.partyId}
+                  issuerHasCountry={record.issuer.jurisdiction !== null}
+                  writeAt={`/engagement-letters/${letter.id}/build?step=preview` as Route}
+                />
+              </Notice>
+            )}
 
           {isDraft && signing.sends && (
             // WHOM DOCUSIGN SHOULD ASK. The client's signatory, by name and
