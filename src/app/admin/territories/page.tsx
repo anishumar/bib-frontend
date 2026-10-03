@@ -173,7 +173,10 @@ export default function TerritoriesPage() {
                 <CountrySelect name="jurisdiction" blankLabel="Choose a country" required />
               </Field>
               <Field label="Goes to">
-                <Select name="ownerUserId" required>
+                <Select name="ownerUserId" required defaultValue="">
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {desks.map((m) => (
                     <option key={m.membership.userId} value={m.membership.userId}>
                       {m.displayName ?? m.email}

@@ -89,7 +89,9 @@ export function ClientAsks({
   // no screen can draw a control for" from a compile error into a 400 somebody
   // sees in the browser.
   const [kind, setKind] = useState<AskKind>("document");
-  const [documentKind, setDocumentKind] = useState<AskDocumentKind>("working_paper");
+  // Nothing preselected (F13): an untouched form filed every client document
+  // as a working paper.
+  const [documentKind, setDocumentKind] = useState<AskDocumentKind | "">("");
   const [prompt, setPrompt] = useState("");
   /** The ask form, closed until somebody means to ask (Wave 4): it was an open
    *  form of three fields on every task, asked of or not. */
@@ -126,8 +128,12 @@ export function ClientAsks({
     await load();
   }
 
-  const raise = () =>
-    act("raise", async () => {
+  const raise = () => {
+    if (kind === "document" && documentKind === "") {
+      setError("Choose how to file what the client sends.");
+      return Promise.resolve();
+    }
+    return act("raise", async () => {
       const result = await api.POST("/api/v1/work-items/{workItemId}/asks", {
         params: { path: { workItemId } },
         body: {
@@ -136,15 +142,17 @@ export function ClientAsks({
           // Sent ONLY for a document ask — the API refuses it on the other two,
           // because a filing decision on an approval is a field somebody filled
           // in without meaning to.
-          documentKind: kind === "document" ? documentKind : null,
+          documentKind: kind === "document" && documentKind !== "" ? documentKind : null,
         },
       });
       if (!result.error) {
         setPrompt("");
+        setDocumentKind("");
         setAsking(false);
       }
       return result;
     });
+  };
 
   if (asks === null && error === null) return null;
 
@@ -244,8 +252,12 @@ export function ClientAsks({
                 <Field label="File it as" hint="The client never sees this.">
                   <Select
                     value={documentKind}
+                    required
                     onChange={(e) => setDocumentKind(e.target.value as AskDocumentKind)}
                   >
+                    <option value="" disabled>
+                      Choose…
+                    </option>
                     {DOCUMENT_KINDS.map((k) => (
                       <option key={k.value} value={k.value}>
                         {k.label}

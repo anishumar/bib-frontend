@@ -385,7 +385,12 @@ export function Documents({
                 <Input name="title" required placeholder="e.g. PAN card" maxLength={200} />
               </Field>
               <Field label="What it is">
-                <Select name="kind" defaultValue="identity_proof">
+                {/* Nothing preselected (F13, CA#31): a GST working paper was
+                    filed as "Identity proof" because nobody changed it. */}
+                <Select name="kind" required defaultValue="">
+                  <option value="" disabled>
+                    Choose…
+                  </option>
                   {DOCUMENT_KINDS.map((k) => (
                     <option key={k} value={k}>
                       {DOCUMENT_KIND_LABELS[k] ?? k}

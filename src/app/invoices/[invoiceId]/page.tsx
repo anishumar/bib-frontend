@@ -827,7 +827,12 @@ export default function InvoicePage() {
                     <Input name="receivedOn" type="date" defaultValue={today} required />
                   </Field>
                   <Field label="Method">
-                    <Select name="method" defaultValue="bank_transfer">
+                    {/* Nothing preselected (F13): an untouched form recorded
+                        every payment as a bank transfer. */}
+                    <Select name="method" required defaultValue="">
+                      <option value="" disabled>
+                        Choose…
+                      </option>
                       {PAYMENT_METHODS.map((m) => (
                         <option key={m} value={m}>
                           {PAYMENT_METHOD_LABELS[m]}
@@ -931,7 +936,12 @@ export default function InvoicePage() {
                     label="Why"
                     hint="A category, so credits total by reason."
                   >
-                    <Select name="reason" required>
+                    {/* Nothing preselected (F13): it opened on "Service
+                        failure (our fault)", a real answer nobody chose. */}
+                    <Select name="reason" required defaultValue="">
+                      <option value="" disabled>
+                        Choose…
+                      </option>
                       {CREDIT_REASONS.map((r) => (
                         <option key={r} value={r}>
                           {CREDIT_REASON_LABELS[r]}

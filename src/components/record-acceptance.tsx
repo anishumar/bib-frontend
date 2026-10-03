@@ -59,7 +59,9 @@ export function RecordAcceptance({
   const isLetter = subject.kind === "engagement_letter";
   const today = browserDay();
   const [open, setOpen] = useState(false);
-  const [channel, setChannel] = useState<Channel>("email");
+  // Nothing preselected (F13): the record is evidence, and "Email" was what
+  // an untouched form said whether or not the yes came by email.
+  const [channel, setChannel] = useState<Channel | "">("");
   const [acceptedOn, setAcceptedOn] = useState(today);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -93,6 +95,7 @@ export function RecordAcceptance({
 
   /** What is missing, said before the confirmation opens. */
   function problem(): string | null {
+    if (channel === "") return "Choose how the client said yes.";
     if (name.trim() === "") return "Say who at the client accepted it.";
     if (note.trim() === "") return "Add a note: what the client said and where.";
     if (acceptedOn === "") return "Choose the day the client said yes.";
@@ -121,6 +124,10 @@ export function RecordAcceptance({
   }
 
   async function record(): Promise<void> {
+    if (channel === "") {
+      setError("Choose how the client said yes.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -164,10 +171,14 @@ export function RecordAcceptance({
           <Field label="How they said yes">
             <Select
               value={channel}
+              required
               onChange={(e) => {
                 setChannel(e.target.value as Channel);
               }}
             >
+              <option value="" disabled>
+                Choose…
+              </option>
               {CHANNELS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
