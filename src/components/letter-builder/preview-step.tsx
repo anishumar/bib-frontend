@@ -39,7 +39,17 @@ export function LetterPreviewStep({ record }: { record: LetterRecord }) {
           title="Letter PDF"
           renderable="engagement_letter"
           wentOut={letter.status !== "draft"}
-          emptyHint="No PDF yet. Make a draft copy to read the letter on paper."
+          emptyHint={
+            // F30 (audit 2026-10-03): a letter that went out has no draft to
+            // print. What it lacks is its copy as sent, which the button
+            // above makes from the frozen letter, and the signed copy, which
+            // is filed here when it comes back.
+            letter.status === "draft"
+              ? "No PDF yet. Make a draft copy to read the letter on paper."
+              : letter.status === "signed"
+                ? "The signed letter is not on file here yet. Make the copy as sent to keep it exactly as the client signed it, or add the signed copy you received."
+                : "The copy as sent is not on file yet. Make it to keep the letter exactly as the client received it."
+          }
         />
       </div>
 
