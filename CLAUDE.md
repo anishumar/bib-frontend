@@ -2927,7 +2927,7 @@ state a firm needs to see and fix, and the proposal screen correctly refuses to 
 `/audit` shows payloads raw. An audit trail is read when something has gone wrong, and a
 friendlier rendering is one more thing between the reader and what was actually recorded.
 
-## The bell: notifications (0323, 2026-10-03)
+## The bell and the email: notifications (0323, 0324)
 
 The API writes and words them (backend CLAUDE.md, "Notifications"); this side shows them.
 
@@ -2943,15 +2943,18 @@ The API writes and words them (backend CLAUDE.md, "Notifications"); this side sh
   (`upTo`), "Done" on a resolved one. The words (`title`, `detail`) are the API's, already
   without an amount for a reader who may not see fees: never add one here.
 - **Settings** (`components/notify/settings.tsx`): Your account (`owner="mine"`, the person's
-  over the firm's, "Your choice. The firm has it on.") and Your firm (`owner="firm"`). The
-  bell column only: an email switch would do nothing until the email channel ships. Locked
-  categories show ticked and disabled ("Always on"). The box moves at once and the API's
-  answer replaces the table (a refusal reloads it).
+  over the firm's, "· Your choice", the firm's value in the box's title) and Your firm
+  (`owner="firm"`, plus "Daily email at", 00:00 to 23:00). Columns: In the bell, By email
+  (0324). One line above says how mail goes: escalations and missed filings at once, the rest
+  in one email a day at the firm's hour. The locked bells show ticked and disabled ("Always in
+  the bell"); their email can still be switched off. The box moves at once and the API's
+  answer replaces the table (a refusal reloads it). No push column until push exists.
 - **THE SHELL READS ONLY A 401 AS SIGNED OUT.** It used to send anybody to `/login` whenever
   `/auth/me` failed, so a 429 from a busy office signed people out mid-work. A 429, a 5xx or a
   dropped connection now asks again in 5 s and keeps the page. Not yet exercised against a real
   429 in a browser.
-- Walk: `bib/demo-assets/tools/nt-walk.mjs` on a fresh `ai-fixture.mjs` firm (32/32). Run the
+- Walk: `bib/demo-assets/tools/nt-walk.mjs` on a fresh `ai-fixture.mjs` firm (42/42, emails read
+  back from Mailpit). Run the
   fixture and the walk 60 s apart, or the fixture meets a 429.
 
 ## Commands
