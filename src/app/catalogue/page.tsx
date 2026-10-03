@@ -292,7 +292,7 @@ function Catalogue() {
                     </EmptyRow>
                   )}
                   {rows.length > 0 && shown.length === 0 && (
-                    <EmptyRow colSpan={columns}>No service matches these filters.</EmptyRow>
+                    <EmptyRow colSpan={columns}>No service matches these filters. Change them, or press Clear filters.</EmptyRow>
                   )}
                   {shown.map((r) => {
                     const tint = deptTint(axes, r.body.module);

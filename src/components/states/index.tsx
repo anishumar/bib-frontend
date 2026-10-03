@@ -111,7 +111,7 @@ export function Empty({
  * first when the second is true tells somebody their book is empty.
  */
 export function NoResults({
-  children = "Nothing matches the current filters.",
+  children = "Nothing matches the current filters. Change them, or clear them to see everything.",
   action,
 }: {
   children?: ReactNode;
