@@ -332,7 +332,11 @@ function Catalogue() {
                             <NotSet />
                           )}
                         </Td>
-                        {filings !== null && <Td align="right">{filingsOf(r)}</Td>}
+                        {/* None, in words, rather than a bare 0 (F34): the
+                            service adds no filings to the calendar. */}
+                        {filings !== null && (
+                          <Td align="right">{filingsOf(r) === 0 ? <NotSet>None</NotSet> : filingsOf(r)}</Td>
+                        )}
                         <Td className="nowrap">
                           <StatusPill status={r.status} />
                         </Td>

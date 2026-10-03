@@ -434,7 +434,9 @@ function Rules() {
   const count = (c: RuleCoverage): number => counts.get(c) ?? 0;
   const filterTabs: TabItem<string>[] = [
     { value: "all", label: "All", count: rules.filter((r) => r.isActive).length },
-    { value: "generating", label: "Producing dates", count: count("generating") },
+    // "Producing dates 0" said nothing a partner could act on (F34): these
+    // are the rules that put filings on the calendar.
+    { value: "generating", label: "On the calendar", count: count("generating") },
     { value: "unlinked", label: "Not used by a service", count: count("unlinked") },
     ...(count("unconfirmed") > 0
       ? [{ value: "unconfirmed", label: "Not yet confirmed", count: count("unconfirmed") }]
@@ -562,6 +564,8 @@ function Rules() {
             <p className="field-hint">
               {filter === "needs_formula"
                 ? "Some never apply to your clients. It is fine to leave those."
+                : filter === "generating" && count("generating") === 0
+                  ? "None yet. A rule reaches the calendar once it has a date, is ticked Confirmed, and a service in the Catalogue uses it. "
                 : filter === "unconfirmed"
                   ? "Nothing reaches the calendar from these until somebody confirms them."
                   : "A rule reaches clients once a service in the Catalogue uses it. "}
@@ -987,7 +991,7 @@ function otherRowToday(
 }
 
 const LABEL: Record<RuleCoverage, string> = {
-  generating: "Producing dates",
+  generating: "On the calendar",
   needs_formula: "Waiting on a fact",
   event_driven: "Event-driven",
   unlinked: "Not used by a service",
