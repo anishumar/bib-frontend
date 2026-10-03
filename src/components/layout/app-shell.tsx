@@ -131,15 +131,11 @@ const GROUPS: NavGroup[] = [
     icon: "home",
     items: [{ href: "/", label: "My day", icon: "home" }],
   },
-  {
-    /* The Copilot is where the product is heading (ask the firm a question in
-       words) and it cannot answer yet, so it is one link that says so, not the
-       screen staff land on (V1.1). It was `/`, and every role started the day
-       on "Not live yet". */
-    label: "Workspace",
-    icon: "copilot",
-    items: [{ href: "/copilot", label: "AI Copilot", icon: "copilot", note: "Not live yet" }],
-  },
+  /* NO AI COPILOT LINK until it can answer (CA#51). It sat in every staff
+     member's menu reading "Not live yet", which says nothing anybody can use.
+     The page still exists at /copilot; put the link back here, as
+     `{ label: "Workspace", icon: "copilot", items: [{ href: "/copilot",
+     label: "AI Copilot", icon: "copilot" }] }`, the day it goes live. */
   {
     /* The book, the pipeline, what the firm has quoted and what it has agreed. */
     label: "Commercial",
