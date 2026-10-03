@@ -496,7 +496,7 @@ function ServicesAndPrices({
               <thead>
                 <tr>
                   <Th>Line</Th>
-                  <Th align="right">Qty</Th>
+                  <Th align="right">How many</Th>
                   <Th align="right">List price</Th>
                   <Th align="right">Quoted</Th>
                   <Th align="right">Discount</Th>
