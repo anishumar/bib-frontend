@@ -178,7 +178,12 @@ function EscalationRow({
         ) : null}
       </Td>
       <Td align="right">
-        {row.daysPast}
+        {/* How late it is TODAY, on the firm's calendar (audit 2026-10-03,
+            F11). It printed `daysPast`, frozen on the day the rung fired: 18
+            on a filing the calendar called 26 days late. The day it fired is
+            still said underneath when it differs. */}
+        {row.daysPastNow}
+        {row.daysPastNow !== row.daysPast && <Sub>{`${String(row.daysPast)} when raised`}</Sub>}
       </Td>
     </tr>
   );
