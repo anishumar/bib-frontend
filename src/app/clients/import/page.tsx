@@ -359,10 +359,27 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
   return (
     <Card>
       <CardHead title="The sheets" level={2}>
-        {/* Headers are matched by name, so a title row above them is fine;
-            23/08/2026 can be read two ways. */}
-        <p className="lede">Write dates as 2026-08-23 or 23-Aug-2026, never 23/08/2026.</p>
+        {/* Excel date cells are read as dates (fix/import-excel-dates). A
+            date typed as TEXT, which is all a .csv holds, is refused when it
+            can be read two ways: 03/04/2026 is March or April. */}
+        <p className="lede">
+          In Excel, type dates as you normally do. In a .csv, write them as 2026-08-23 or
+          23-Aug-2026.
+        </p>
       </CardHead>
+      {/* ALL THREE TEMPLATES, in one row above the tabs (CA#61). Each used to
+          sit inside its own tab, so a reader on Clients never saw that People
+          and Engagements had one. CSV: the import reads .csv and .xlsx alike,
+          and the product has an xlsx READER but no writer, so an .xlsx with
+          dropdowns would mean a new dependency. */}
+      <Cluster>
+        <span className="muted">Templates:</span>
+        {template.sheets.map((s) => (
+          <Button key={s.key} variant="secondary" size="sm" onClick={() => download(s.key)}>
+            {SHEET_LABEL[s.key]} (.csv)
+          </Button>
+        ))}
+      </Cluster>
       <Tabs
         id={tabsId}
         label="Sheets"
@@ -376,14 +393,7 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
         return (
           <TabPanel tabsId={tabsId} value={s.key}>
             <div className="stack" style={{ marginTop: "var(--s-4)" }}>
-              <Cluster>
-                <Button variant="secondary" size="sm" onClick={() => download(s.key)}>
-                  Download {SHEET_LABEL[s.key].toLowerCase()} template
-                </Button>
-                <span className="muted">
-                  The header row must include &ldquo;{s.marker}&rdquo;.
-                </span>
-              </Cluster>
+              <p className="muted">The header row must include &ldquo;{s.marker}&rdquo;.</p>
               <TableWrap>
                 <Table>
                   <thead>
