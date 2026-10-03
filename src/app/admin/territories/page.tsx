@@ -185,7 +185,7 @@ export default function TerritoriesPage() {
                 </Select>
               </Field>
               <Field label="Why" optional>
-                <Input name="note" placeholder="e.g. Ravi covers the UK" />
+                <Input name="note" placeholder="e.g. Looks after our UK clients" />
               </Field>
             </FieldRow>
             <div>
