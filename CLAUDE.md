@@ -2331,6 +2331,20 @@ A `null` amount is not zero and not an error: it is the fee axis. Somebody witho
 visibility gets the proposal with its money removed rather than a refusal, so these screens
 say so ("Hidden" on the proposals list) and show everything else.
 
+**Hidden, never Not set (audit 2026-10-03, F10).** `formatMoney(null)` says "Not set", which
+reads as "the firm forgot". For a money value that may be redacted use `<Money>` or
+`<MissingMoney>` from `@/components/fees`: Hidden for a login that cannot see fees
+(`useSeesFees()`, off the session's `commercialVisibility`), the `unset` words for everybody
+else. A STATUS is not money: "Not issued" is decided by `issuedOn`, never by a null balance.
+
+**What such a login is not offered (F33, B01, B27, B09).** The API refuses it every money write
+(manual invoice, lines, payments, credit notes, a refund, a lead's value, a catalogue service)
+and every PDF that prints fees (`Document.showsFees`), so the screens do not offer them: Raise an
+invoice, Record a payment, Download on a fee document ("Shows fees"), the proposal / letter
+preview (one line instead), Receivables in the nav. The builders still let it pick services:
+a tick sends neither fee nor note and the API quotes the list price, and Details saves with
+`feesUnchanged` so the fee is never overwritten with a null it was shown.
+
 **The shape (Wave 4, 2026-09-28), and none of it follows the reader's browser:** INR in Indian
 grouping with the rupee sign (`₹12,00,000`, never `₹1,200,000`), every other currency with its code
 in its own grouping (`AED 5,000`), and no `.00` when there are no paise (`₹25,00,000.50` keeps
