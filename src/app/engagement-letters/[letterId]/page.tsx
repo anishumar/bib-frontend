@@ -65,6 +65,7 @@ import { totalWords } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
 import { Money } from "@/components/fees";
 import { StandardsHelp } from "@/lib/ui/who-may";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -1050,14 +1051,14 @@ export default function LetterPage() {
         {isDraft && (
           <form
             className="mt-4"
-            action={(form) => {
-              void act("clause", () =>
+            onSubmit={(event) => keepTyped(event, (form) => {
+              return act("clause", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/clauses", {
                   params: { path: { letterId } },
                   body: { clauseVersionId: String(form.get("clauseVersionId")) },
                 }),
               );
-            }}
+            })}
           >
             <div className="field-row">
               <Field
@@ -1101,7 +1102,7 @@ export default function LetterPage() {
             <summary className="card-title">Add a service</summary>
           <form
             className="mt-4"
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
               // Only the tailored blocks somebody actually wrote. An empty box
               // means "print the catalogue's words", and the API refuses a
@@ -1118,7 +1119,9 @@ export default function LetterPage() {
                   .map((k) => [k, String(form.get(k) ?? "").trim()] as const)
                   .filter(([, v]) => v !== ""),
               );
-              void act("line", () =>
+              // Cleared only once it is on the letter (F05), the section
+              // choice with it: a refusal keeps all nine boxes as typed.
+              return act("line", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/lines", {
                   params: { path: { letterId } },
                   body: {
@@ -1141,8 +1144,11 @@ export default function LetterPage() {
                     ...tailored,
                   },
                 }),
-              );
-            }}
+              ).then((added) => {
+                if (added) setAddFee("");
+                return added;
+              });
+            })}
           >
             {/* `<Field>` throughout, which is what wires a label to its
                 control and points `aria-describedby` at the hint. Hand-rolled,
@@ -1429,7 +1435,7 @@ export default function LetterPage() {
             <form
               ref={sendForm}
               className="mt-2"
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 void act("send", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/send", {
                     // An undated letter is dated today where you are, not on
@@ -1443,7 +1449,7 @@ export default function LetterPage() {
                     },
                   }),
                 );
-              }}
+              })}
             >
               <p className="text-md text-muted">
                 {providerName} emails them the letter to sign. It shows as signed minutes later.
@@ -1610,7 +1616,7 @@ export default function LetterPage() {
           {letter.status === "sent" && recordsByHand && (
             <form
               className="mt-4"
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
                 void act("sign", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/signature", {
@@ -1626,7 +1632,7 @@ export default function LetterPage() {
                     },
                   }),
                 );
-              }}
+              })}
             >
               <p className="text-md text-muted">
                 {/* Said plainly, because the audit trail will say it too: this

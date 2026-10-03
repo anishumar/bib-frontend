@@ -13,6 +13,7 @@ import { longDay, longInstantTime } from "@/lib/day";
 import { addDecimals } from "@/lib/money";
 import { FREQUENCY_WORDS } from "@/components/proposal-document/words";
 import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -266,7 +267,7 @@ export default function SharedProposalPage() {
             <ErrorNotice error={answerError} />
 
             {choice === "accept" && (
-              <form action={(form) => void answer(form, "accepted")}>
+              <form onSubmit={(event) => keepTyped(event, (form) => answer(form, "accepted"))}>
                 <FieldStack>
                   <Field label="Your full name">
                     <Input name="signerName" required maxLength={200} autoComplete="name" />
@@ -284,7 +285,7 @@ export default function SharedProposalPage() {
             )}
 
             {choice === "decline" && (
-              <form action={(form) => void answer(form, "rejected")}>
+              <form onSubmit={(event) => keepTyped(event, (form) => answer(form, "rejected"))}>
                 <FieldStack>
                   <Field label="Your full name">
                     <Input name="signerName" required maxLength={200} autoComplete="name" />

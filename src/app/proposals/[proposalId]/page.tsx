@@ -56,6 +56,7 @@ import {
 } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
 import { Money } from "@/components/fees";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** Somebody at the client a letter may be addressed to. */
 interface Contact {
@@ -162,21 +163,25 @@ export default function ProposalPage() {
 
   /** Every mutation on this page funnels through here, so one place owns the
    *  busy flag, the error and the re-read. */
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(key);
     setError(null);
     const result = await call();
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(null);
-      return;
+      return false;
     }
     await reload();
     setBusy(null);
+    return true;
   }
 
-  function addLine(form: FormData): void {
-    void act("add", () =>
+  /** True once the line is on the quote: the form then clears, the service
+   *  pick with it, so the select and the boxes keyed on it agree (F05). A
+   *  refusal keeps every box as typed. */
+  async function addLine(form: FormData): Promise<boolean> {
+    const added = await act("add", () =>
       api.POST("/api/v1/proposals/{proposalId}/lines", {
         params: { path: { proposalId } },
         body: {
@@ -189,6 +194,8 @@ export default function ProposalPage() {
         },
       }),
     );
+    if (added) setPicked("");
+    return added;
   }
 
   if (!loaded && record === null) return <Loading />;
@@ -478,7 +485,7 @@ function ServicesAndPrices({
   /** How often the picked service is billed (the quantity box's label). */
   pickedRecurrence: string | null;
   onPick: (versionId: string) => void;
-  onAdd: (form: FormData) => void;
+  onAdd: (form: FormData) => Promise<boolean>;
   onRemove: (lineId: string) => void;
   totals: ProposalRecord["totals"];
   lines: ProposalRecord["lines"];
@@ -594,9 +601,7 @@ function ServicesAndPrices({
 
           {isDraft && (
             <form
-              action={(form) => {
-                onAdd(form);
-              }}
+              onSubmit={(event) => keepTyped(event, (form) => onAdd(form))}
             >
               <CardTitle className="card-part">Quote a service</CardTitle>
               <FieldStack>
@@ -783,7 +788,7 @@ function WriteItUp({
           )}
 
           <form
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const text = (name: string): string => String(form.get(name) ?? "").trim();
               const j = text("jurisdiction");
               const amount = cleanAmount(text("advanceAmount"));
@@ -804,7 +809,7 @@ function WriteItUp({
                 ...(background === "" ? {} : { background }),
                 ...(begins === "" ? {} : { effectiveFrom: begins }),
               });
-            }}
+            })}
           >
             <FieldStack>
               {mustState && (
