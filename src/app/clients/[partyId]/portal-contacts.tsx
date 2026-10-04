@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardTitle,
+  Checkbox,
   ErrorNotice,
   Field,
   FieldRow,
@@ -185,6 +186,14 @@ export function PortalContactsPanel({
    */
   const [granting, setGranting] = useState<PortalGrant | null>(null);
   const [elsewhere, setElsewhere] = useState<Elsewhere | null>(null);
+  /**
+   * THE SERVER'S GROUP (Q064): every company joined to this one by ownership,
+   * both ways and to any depth, so a SISTER is on it (the `group` prop is one
+   * hop and never reaches one). With it, the contacts of the group who cannot
+   * see this company yet: offered, never granted on their own. Null while
+   * loading or when this login may not grant.
+   */
+  const [serverGroup, setServerGroup] = useState<PortalGroup | null>(null);
 
   /**
    * WHERE FOCUS GOES, and why this one is NOT `useSwapFocus`.
@@ -237,6 +246,10 @@ export function PortalContactsPanel({
     }
     setGrants(result.data.grants);
     setError(null);
+    const grouped = await api.GET("/api/v1/portal-access/clients/{partyId}/group", {
+      params: { path: { partyId } },
+    });
+    setServerGroup(grouped.data ?? null);
   }, [partyId]);
 
   useEffect(() => {
@@ -260,10 +273,13 @@ export function PortalContactsPanel({
     setOutcome(null);
     const email = String(form.get("email") ?? "").trim();
     const displayName = String(form.get("displayName") ?? "").trim();
+    // Q064: the group's other companies in the same act, one grant each.
+    const alsoGroup = form.get("alsoGroup") === "on";
     const result = await api.POST("/api/v1/portal-invites", {
       body: {
         email,
         clientPartyId: partyId,
+        ...(alsoGroup ? { alsoGroup: true } : {}),
         // The BROWSER's calendar day. A UTC server is a day behind a firm in
         // India every morning, and this value decides when the grant starts.
         validFrom: browserDay(),
@@ -289,10 +305,76 @@ export function PortalContactsPanel({
       tone: "ok",
       eyebrow: "Sent",
       text:
-        `${email} has been emailed an invitation to ${clientName}'s records. ` +
+        `${email} has been emailed an invitation to ${clientName}'s records` +
+        (result.data.alsoGranted.length === 0
+          ? ". "
+          : `, and can also see ${result.data.alsoGranted.map((g) => g.clientName).join(", ")}. `) +
         `The link works once, and stops working on ${expiryDay(result.data.expiresAt)}.`,
     });
     return true;
+  }
+
+  /**
+   * Give one contact the rest of the group (Q064). The server picks the
+   * companies, one grant each; those already open to them are left alone.
+   */
+  async function grantWholeGroup(grant: PortalGrant): Promise<void> {
+    setBusy(true);
+    setError(null);
+    setOutcome(null);
+    const result = await api.POST("/api/v1/portal-access/memberships/{membershipId}/group", {
+      params: { path: { membershipId: grant.membershipId } },
+      body: { clientPartyId: partyId, validFrom: browserDay() },
+    });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    setGranting(null);
+    setElsewhere(null);
+    await load();
+    const names = result.data.granted.map((g) => g.clientName);
+    setOutcome({
+      tone: "ok",
+      eyebrow: "Granted",
+      text:
+        names.length === 0
+          ? `${grant.contactEmail} could already see every company in ${clientName}'s group.`
+          : `${grant.contactEmail} can now see ${names.join(", ")} as well, with the same login.`,
+    });
+  }
+
+  /**
+   * NEVER SILENT (Q064): the group's contacts who cannot see this company yet,
+   * typically because it joined the group after they were set up. One grant
+   * per contact, through the ordinary grant route, each its own decision row.
+   */
+  async function grantMissing(): Promise<void> {
+    const missing = serverGroup?.contactsMissing ?? [];
+    if (missing.length === 0) return;
+    setBusy(true);
+    setError(null);
+    setOutcome(null);
+    for (const m of missing) {
+      const result = await api.POST("/api/v1/portal-access/memberships/{membershipId}", {
+        params: { path: { membershipId: m.membershipId } },
+        body: { clientPartyId: partyId, validFrom: browserDay() },
+      });
+      if (result.error) {
+        setBusy(false);
+        await load();
+        setError(`${m.contactEmail}: ${apiError(result.error).message}`);
+        return;
+      }
+    }
+    setBusy(false);
+    await load();
+    setOutcome({
+      tone: "ok",
+      eyebrow: "Granted",
+      text: `${missing.map((m) => m.contactEmail).join(", ")} can now see ${clientName} as well.`,
+    });
   }
 
   /**
@@ -487,9 +569,18 @@ export function PortalContactsPanel({
     const prev = removedOn.get(g.clientPartyId);
     if (prev === undefined || g.validTo > prev) removedOn.set(g.clientPartyId, g.validTo);
   }
-  const offerable = group.filter(
+  const wholeGroup: readonly GroupCompany[] =
+    serverGroup === null
+      ? group
+      : serverGroup.companies.map((c) => ({
+          id: c.partyId,
+          name: c.name,
+          relation: group.find((g) => g.id === c.partyId)?.relation ?? "in the same group",
+        }));
+  const offerable = wholeGroup.filter(
     (c) => !inForce.has(c.id) && !queued.some((g) => g.clientPartyId === c.id),
   );
+  const missing = serverGroup?.contactsMissing ?? [];
 
   return (
     <Card>
@@ -508,6 +599,29 @@ export function PortalContactsPanel({
             <p>{outcome.text}</p>
           </Notice>
         </div>
+      )}
+
+      {canGrant && missing.length > 0 && (
+        <Notice tone="warn" eyebrow="Same group">
+          <p>
+            {missing.length === 1
+              ? "1 portal contact of this group can see the other companies, but not "
+              : `${String(missing.length)} portal contacts of this group can see the other companies, but not `}
+            {clientName}: {missing.map((m) => `${m.contactDisplayName ?? m.contactEmail} (sees ${m.sees.join(", ")})`).join("; ")}.
+            Give them this one too?
+          </p>
+          <div className="cluster">
+            <Button
+              size="sm"
+              loading={busy}
+              onClick={() => {
+                void grantMissing();
+              }}
+            >
+              Give them access to {clientName}
+            </Button>
+          </div>
+        </Notice>
       )}
 
       {live.length === 0 ? (
@@ -589,7 +703,7 @@ export function PortalContactsPanel({
                             panel with an empty picker is worse than no button
                             — it reads as a feature that is broken rather than
                             one that has nothing to act on. */}
-                        {group.length > 0 && (
+                        {wholeGroup.length > 0 && (
                           <Button
                             variant="secondary"
                             size="sm"
@@ -728,6 +842,19 @@ export function PortalContactsPanel({
                         {busy ? "Giving access…" : "Give access"}
                       </Button>
                     )}
+                    {offerable.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        loading={busy}
+                        aria-label={`Give ${granting.contactEmail} every company in ${clientName}'s group`}
+                        onClick={() => {
+                          void grantWholeGroup(granting);
+                        }}
+                      >
+                        Give the whole group ({String(offerable.length)})
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="secondary"
@@ -801,6 +928,15 @@ export function PortalContactsPanel({
                 <Input name="displayName" placeholder="e.g. Asha Verma" />
               </Field>
             </FieldRow>
+            {/* Q064: ticked by default when the company is in a group. One
+                grant per company, each recorded; untick for this one only. */}
+            {serverGroup !== null && serverGroup.companies.length > 0 && (
+              <Checkbox
+                name="alsoGroup"
+                defaultChecked
+                label={`Also give access to the group's other companies: ${serverGroup.companies.map((c) => c.name).join(", ")}`}
+              />
+            )}
             <div className="cluster">
               <Button type="submit" variant="secondary" loading={busy}>
                 {busy ? "Inviting…" : "Invite to the portal"}
@@ -821,6 +957,17 @@ export function PortalContactsPanel({
  * are two different facts and merging them would hide which one a screen is
  * relying on — the names are a convenience, the ids are the access.
  */
+/** The server's group read (Q064). */
+type PortalGroup = {
+  readonly companies: readonly { readonly partyId: string; readonly name: string }[];
+  readonly contactsMissing: readonly {
+    readonly membershipId: string;
+    readonly contactEmail: string;
+    readonly contactDisplayName: string | null;
+    readonly sees: readonly string[];
+  }[];
+};
+
 interface Elsewhere {
   readonly grants: readonly PortalGrant[];
   readonly inForce: readonly string[];

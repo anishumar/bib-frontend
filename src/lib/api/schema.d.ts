@@ -5353,6 +5353,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal-access/clients/{partyId}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A client's group, and its portal contacts who cannot see this client yet */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalGroup"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-access/memberships/{membershipId}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a client-portal login read the rest of a client's group too
+         * @description Q064: a group's contact sees its sister companies. Still ONE GRANT PER COMPANY: each company of the server's group list is granted on its own, with its own ledger event and the same refusals as a single grant. A company the login already sees is left alone.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GrantPortalGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Granted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GrantPortalGroupResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The login cannot hold a grant */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal-access/grants/{grantId}/end": {
         parameters: {
             query?: never;
@@ -23342,6 +23479,39 @@ export interface components {
             /** @description Optional end, half-open — the FIRST DAY NOT IN FORCE. Lets a fixed-term grant (a consultant engaged for a quarter) be written at the moment it is decided rather than relying on somebody remembering to close it. */
             validTo?: string | null;
         };
+        PortalGroupCompany: {
+            /** Format: uuid */
+            partyId: string;
+            name: string;
+        };
+        PortalGroup: {
+            /** @description The OTHER companies in this client's group today: every company joined to it by ownership (parent_of, shareholder_of), both ways and to any depth. Never a person, the firm's own company, an archived company or another firm's. Empty when it is in no group. */
+            companies: components["schemas"]["PortalGroupCompany"][];
+            /** @description Portal contacts who see another company of this group today and NOT this one: offered, never granted silently, when a company joins a group after its contacts were set up. */
+            contactsMissing: {
+                /** Format: uuid */
+                membershipId: string;
+                contactEmail: string;
+                contactDisplayName: string | null;
+                /** @description The group's companies they see today. */
+                sees: string[];
+            }[];
+        };
+        GrantPortalGroupResponse: {
+            /** @description One grant per company, each its own row and its own ledger event. */
+            granted: components["schemas"]["PortalAccess"][];
+            /** @description Companies the login could already see: left as they were. */
+            alreadyHeld: components["schemas"]["PortalGroupCompany"][];
+        };
+        GrantPortalGroupRequest: {
+            /**
+             * Format: uuid
+             * @description The client whose group's OTHER companies are granted. The list is the server's.
+             */
+            clientPartyId: string;
+            /** @description The day access starts; the browser's day. */
+            validFrom?: string;
+        };
         EndPortalAccessRequest: {
             /** @description The FIRST DAY NOT IN FORCE. Absent means TODAY: remove means remove, and the access is gone on the next request rather than at midnight. Ending on the day the grant began is allowed and records an empty range — granted and withdrawn before it was ever in force. The row is then a day coarser than the truth; the `portal_access.ended` event carries the instant. */
             validTo?: string;
@@ -23353,6 +23523,12 @@ export interface components {
             userId: string;
             /** Format: uuid */
             grantId: string;
+            /** @description The group's other companies granted in the same act (Q064). */
+            alsoGranted: {
+                /** Format: uuid */
+                clientPartyId: string;
+                clientName: string;
+            }[];
             /**
              * Format: date-time
              * @description When the emailed link stops working. THE TOKEN IS NOT HERE and never will be: a firm that could read its client's invite link could sign in as that client. It exists in the mail and nowhere else.
@@ -23366,9 +23542,11 @@ export interface components {
             displayName?: string;
             /**
              * Format: uuid
-             * @description The ONE company this contact may read. Required, because an invite with no grant is a login that opens onto nothing — and the contact cannot tell that from a broken product. Somebody who should see four of a group's companies is granted the other three afterwards, one visible decision each.
+             * @description The ONE company this contact may read. Required, because an invite with no grant is a login that opens onto nothing — and the contact cannot tell that from a broken product.
              */
             clientPartyId: string;
+            /** @description Q064: also grant the rest of this company's group (ownership, both ways, any depth), ONE GRANT PER COMPANY, each with its own ledger event, before the letter goes. The list is the server's. Absent or false: this one company. */
+            alsoGroup?: boolean;
             /** @description The day the grant starts — send the BROWSER's calendar day. */
             validFrom?: string;
         };
