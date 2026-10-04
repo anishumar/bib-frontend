@@ -195,7 +195,7 @@ export default function InvoicePage() {
   const invoice = record.invoice;
   const draft = invoice.status === "draft";
   const issued = invoice.status === "issued";
-  // CA#6 (0323): issuing, cancelling and crediting are `invoice:issue`, which
+  // CA#6 (0335): issuing, cancelling and crediting are `invoice:issue`, which
   // the roles that administer the firm hold by default.
   const mayIssue = permissions.includes("invoice:issue");
   // B51 (never renumber): a draft numbered before 0322 whose number would now

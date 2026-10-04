@@ -103,7 +103,7 @@ export function ToRaiseTab({
   /** Linking an advance to an invoice already raised is an administrator's
    *  (it starts the work). */
   isAdmin: boolean;
-  /** `invoice:issue` (0323, CA#6): giving an advance back or keeping it, as
+  /** `invoice:issue` (0335, CA#6): giving an advance back or keeping it, as
    *  issuing a credit note is. */
   mayIssue: boolean;
   /** B27: giving it back writes a credit note, money, so it is offered only

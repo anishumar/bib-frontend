@@ -184,7 +184,7 @@ export default function MyDayPage() {
   const userId = session?.userId ?? null;
   // Only an administrator sees the firm's setup (the API refuses anybody else).
   const admin = session?.permissions.includes("tenant:admin") === true;
-  // CA#6 (0323): issuing a draft invoice is `invoice:issue`, not the whole of
+  // CA#6 (0335): issuing a draft invoice is `invoice:issue`, not the whole of
   // administering the firm.
   const issuer = session?.permissions.includes("invoice:issue") === true;
 
@@ -411,7 +411,7 @@ function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
  */
 function buildRows(input: {
   me: string;
-  /** Holds `invoice:issue` (0323): issues a draft invoice. */
+  /** Holds `invoice:issue` (0335): issues a draft invoice. */
   issuer: boolean;
   tasks: readonly WorkItem[];
   steps: readonly MyStep[];

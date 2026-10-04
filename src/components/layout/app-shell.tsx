@@ -153,7 +153,7 @@ const GROUPS: NavGroup[] = [
       /* Billing sits with the commercial work rather than under
          administration: raising an invoice and recording a payment are
          `party:write` (and, since the 2026-10-03 audit, a login that sees
-         fees). Issuing and crediting are `invoice:issue` (0323), and those
+         fees). Issuing and crediting are `invoice:issue` (0335), and those
          gates live on the invoice. */
       { href: "/invoices", label: "Invoices", icon: "invoices", needs: "party:read" },
       /* What each client owes: nothing on it is not money, so a login that
