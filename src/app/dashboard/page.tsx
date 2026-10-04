@@ -71,6 +71,7 @@ import {
 } from "@/components/tw";
 import { BillingByCompany } from "./billing-by-company";
 import { RevenueByManagerSection } from "./revenue-by-manager";
+import { RevenueReportSection } from "./revenue-report";
 import { FeesByCurrency } from "./fees-by-currency";
 import type { components } from "@/lib/api/schema";
 import { plural } from "@/lib/plural";
@@ -87,16 +88,19 @@ export default function DashboardPage() {
   const [billing, setBilling] = useState<RevenueByCompany | null>(null);
   const [byManager, setByManager] = useState<RevenueByManager | null>(null);
   const [byCurrency, setByCurrency] = useState<components["schemas"]["MrrByCurrency"] | null>(null);
+  /** The firm's own companies, for the revenue report's "Company". */
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [head, byClient, byCompany, managers, currencies] = await Promise.all([
+    const [head, byClient, byCompany, managers, currencies, firm] = await Promise.all([
       api.GET("/api/v1/dashboard/overview", {}),
       api.GET("/api/v1/dashboard/receivables/by-client", {}),
       api.GET("/api/v1/dashboard/revenue/by-company", { params: { query: { months: 12 } } }),
       api.GET("/api/v1/dashboard/revenue/by-manager", { params: { query: { months: 12 } } }),
       api.GET("/api/v1/dashboard/mrr-by-currency", {}),
+      api.GET("/api/v1/firm-entities", {}),
     ]);
     if (head.response.status === 401) {
       router.push("/login");
@@ -116,6 +120,7 @@ export default function DashboardPage() {
     setBilling(byCompany.data ?? null);
     setByManager(managers.data ?? null);
     setByCurrency(currencies.data ?? null);
+    setCompanies(firm.data?.entities.map((e) => ({ id: e.partyId, name: e.name })) ?? []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -398,6 +403,9 @@ export default function DashboardPage() {
 
       {/* ── Whose invoices those were (auto-invoice T4) ──────────────────── */}
       {byManager !== null && <RevenueByManagerSection data={byManager} />}
+
+      {/* ── By manager or by who won the work, per currency (Q049) ──────── */}
+      <RevenueReportSection companies={companies} />
     </Page>
   );
 }

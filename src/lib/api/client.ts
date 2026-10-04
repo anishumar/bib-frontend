@@ -1552,6 +1552,13 @@ export type RevenueByCompany =
  *  T4). One row (`userId: null`) is the invoices naming nobody. */
 export type RevenueByManager =
   paths["/api/v1/dashboard/revenue/by-manager"]["get"]["responses"][200]["content"]["application/json"];
+/** The revenue report (Q049): invoiced, collected and outstanding per manager
+ *  or per originator, one row per person and CURRENCY, never converted. */
+export type RevenueReport =
+  paths["/api/v1/dashboard/revenue/report"]["get"]["responses"][200]["content"]["application/json"];
+/** Who won a letter's work (0355): its originator, and how that was arrived at. */
+export type LetterOriginator =
+  paths["/api/v1/engagement-letters/{letterId}/originator"]["get"]["responses"][200]["content"]["application/json"];
 
 /** One row of a grouped figure — a client, a service. Carries the NAME. */
 export type DashboardSlice =

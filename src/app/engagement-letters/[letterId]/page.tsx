@@ -3,6 +3,7 @@
 import { QuantityField } from "@/components/quantity-field";
 import { BillingTimingControl } from "@/components/billing-timing";
 import { AdvanceStatus } from "@/components/advance-status";
+import { LetterOriginatorField } from "@/components/letter-originator";
 import { LineAdvanceControl } from "@/components/line-advance";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -556,6 +557,11 @@ export default function LetterPage() {
             {letterBeginsNote !== "" && (
               <span className="mt-0.5 block text-md text-muted">{letterBeginsNote}</span>
             )}
+          </MetaItem>
+          {/* WHO WON THE WORK (0355, Q049): the salesperson the revenue report
+              credits. Not a term, so it stays correctable once signed. */}
+          <MetaItem label="Won by">
+            <LetterOriginatorField letterId={letterId} canSet={permissions.includes("tenant:admin")} />
           </MetaItem>
           </Meta>
         </div>
