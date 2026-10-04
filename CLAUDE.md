@@ -2994,7 +2994,13 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   how late and what is owed), **Needs attention** (the flags in the danger tone, the notes muted, a link
   to the fix: Set billing, Automatic billing, To raise). The API sends codes; `flagWords` / `noteWords`
   are the words. A retainer billed while its month is open reads "Billed before the work is finished."
-  and is never red. Without fees: "Fees hidden" and no amount anywhere. Walk: `wvb-walk.mjs` (40).
+  and is never red. Without fees: "Fees hidden" and no amount anywhere. **Download CSV** (2026-10-04)
+  saves what the table shows, filters and all, built in the browser from the rows already there (no
+  route, so the fee wall holds: no amounts for a login without fees). `src/lib/csv.ts` is the one CSV
+  writer: a UTF-8 BOM (or Excel garbles ₹ and names), RFC 4180 quoting, CRLF, and OWASP's formula
+  guard (a TEXT cell starting `= + - @` gets a `'`; number cells stay numbers so they still sum).
+  Amounts as plain decimals with a Currency column, days as YYYY-MM-DD, statuses and flags in words.
+  Walk: `wvb-walk.mjs` (50, incl. both logins' files).
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

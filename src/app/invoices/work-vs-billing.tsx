@@ -3,12 +3,14 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useId, useRef, useState } from "react";
-import { api, apiError, colleagueLabel, formatMoney, invoiceNumberWords } from "@/lib/api/client";
+import { api, apiError, codeLabel, colleagueLabel, formatMoney, invoiceNumberWords } from "@/lib/api/client";
 import type { Colleague, PartySummary, WorkBilling, WorkBillingFlag, WorkBillingRow } from "@/lib/api/client";
 import { longDay, monthYear } from "@/lib/day";
-import { Stack } from "@/components/layout";
+import { Row, Stack } from "@/components/layout";
+import { downloadCsv, type CsvCell } from "@/lib/csv";
 import { Empty } from "@/components/states";
 import {
+  Button,
   Card,
   Checkbox,
   ErrorNotice,
@@ -166,13 +168,28 @@ export function WorkVsBillingTab({
             </Select>
           </Field>
         </FieldRow>
-        <Checkbox
-          label="Only problems"
-          checked={problemsOnly}
-          onChange={(e) => {
-            setProblemsOnly(e.target.checked);
-          }}
-        />
+        <Row>
+          <Checkbox
+            label="Only problems"
+            checked={problemsOnly}
+            onChange={(e) => {
+              setProblemsOnly(e.target.checked);
+            }}
+          />
+          {/* What the table shows, filters and all, as a spreadsheet. Built
+              from the rows already here, so a login without fees gets no
+              amounts in the file either. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={answer === null || answer.rows.length === 0 || loading}
+            onClick={() => {
+              if (answer !== null) downloadCsv(csvName(answer, clients.find((p) => p.id === client)?.displayName), csvRows(answer));
+            }}
+          >
+            Download CSV
+          </Button>
+        </Row>
       </form>
 
       <ErrorNotice error={error} />
@@ -455,6 +472,106 @@ function FixLink({ row: r }: { row: WorkBillingRow }) {
     return <Sub><Link href={"/invoices?tab=raise" as Route}>To raise</Link></Sub>;
   }
   return null;
+}
+
+// ── The CSV ─────────────────────────────────────────────────────────────────
+
+const CSV_HEADERS = [
+  "Client",
+  "Company",
+  "Service",
+  "Kind",
+  "Period",
+  "Period start",
+  "Period end",
+  "Engagement letter",
+  "Manager",
+  "Work",
+  "Work done on",
+  "Filings",
+  "Bill",
+  "Bill date",
+  "Expected bill date",
+  "Currency",
+  "Bill amount",
+  "Invoice",
+  "Invoice status",
+  "Invoice date",
+  "Due date",
+  "Invoiced",
+  "Paid",
+  "Outstanding",
+  "Payment",
+  "Days overdue",
+  "Needs attention",
+  "Notes",
+] as const;
+
+const KIND_WORDS: Readonly<Record<WorkBillingRow["kind"], string>> = {
+  period: "Recurring",
+  one_time: "One-time",
+  advance: "Advance",
+};
+
+/** One line per row of the table, in words, amounts as plain numbers (null
+ *  for a login without fees: an empty cell, never a zero), days as YYYY-MM-DD
+ *  so Excel sorts them. */
+export function csvRows(answer: WorkBilling): CsvCell[][] {
+  const num = (v: string | null | undefined): CsvCell => (v === null || v === undefined ? null : { number: v });
+  const rows: CsvCell[][] = [[...CSV_HEADERS]];
+  for (const r of answer.rows) {
+    const p = r.payment;
+    const notes = r.notes.filter((n) => n.code !== "work_in_progress").map(noteWords);
+    if (r.handInvoices !== null && r.handInvoices.last !== null) {
+      notes.push(`Raised by hand: ${invoiceNumberWords(r.handInvoices.last.number)}${r.handInvoices.count > 1 ? ` and ${String(r.handInvoices.count - 1)} more` : ""}.`);
+    }
+    rows.push([
+      r.party.displayName,
+      r.entityName,
+      r.serviceName,
+      KIND_WORDS[r.kind],
+      periodWords(r),
+      r.period?.start ?? null,
+      r.period?.end ?? null,
+      r.letter.ref,
+      r.manager?.displayName ?? null,
+      WORK_WORDS[r.work],
+      r.workDoneOn,
+      r.filings
+        .map((f) => `${f.name} ${f.periodLabel}: ${f.filed ? `filed${f.filedOn === null ? "" : ` ${f.filedOn}`}` : `${f.stateName.toLowerCase()}, due ${f.dueOn}`}`)
+        .join("; ") || null,
+      r.bill === null ? "No bill" : BILL_WORDS[r.bill.status],
+      r.bill?.billOn ?? null,
+      r.expectedBillOn,
+      r.bill?.currency ?? null,
+      r.bill === null ? null : r.bill.amount === null ? (r.bill.priced ? null : "No price") : { number: r.bill.amount },
+      r.invoice === null ? null : invoiceNumberWords(r.invoice.number, r.invoice.status),
+      r.invoice === null ? null : codeLabel(r.invoice.status),
+      r.invoice?.issuedOn ?? null,
+      p?.dueOn ?? r.invoice?.dueOn ?? null,
+      num(r.invoice?.invoiced),
+      num(r.invoice?.paid),
+      num(r.invoice?.outstanding),
+      p === null ? null : PAYMENT_WORDS[p.state],
+      p !== null && p.state !== "paid" && p.daysOverdue !== null && p.daysOverdue > 0 ? { number: String(p.daysOverdue) } : null,
+      r.flags.map((f) => flagWords(f, r)).join(" ") || null,
+      notes.join(" ") || null,
+    ]);
+  }
+  return rows;
+}
+
+/** `work-vs-billing-2025-11-01-to-2026-10-04.csv`, with the client when one is chosen. */
+function csvName(answer: WorkBilling, clientName: string | undefined): string {
+  const who =
+    clientName === undefined
+      ? ""
+      : `-${clientName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40)}`;
+  return `work-vs-billing${who}-${answer.from}-to-${answer.to}.csv`;
 }
 
 /** "3 over 30 days", or nothing to add. */
