@@ -24688,7 +24688,7 @@ export interface components {
             /** @enum {string|null} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             /**
-             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @description When the fee is invoiced (0319): `arrears` (on each period's last day, Q042), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
              * @enum {string|null}
              */
             billingTiming: "arrears" | "advance" | "on_date" | null;
@@ -24934,7 +24934,7 @@ export interface components {
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /**
-             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @description When the fee is invoiced (0319): `arrears` (on each period's last day, Q042), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
              * @enum {string}
              */
             billingTiming?: "arrears" | "advance" | "on_date";
@@ -25601,7 +25601,7 @@ export interface components {
             firstInvoiceOn: string | null;
         };
         BillingUnscheduled: components["schemas"]["BillingSchedule"] & {
-            /** @description The current period, billed the day after it ends (the firm's default). */
+            /** @description The current period, billed on its last day (the firm's default, Q042). */
             suggestion: {
                 billingFrom: string;
                 firstInvoiceOn: string;

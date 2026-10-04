@@ -16,7 +16,7 @@ import { Button, Card, Notice, NotSet, Sub, Table, TableWrap, Td, Th } from "@/c
  * There is no firm-wide go-live date (Ashish, 2026-10-01): each engagement goes
  * live when its two dates are set, so a client already billed by hand is never
  * billed twice for an old month. The suggestion is the API's (the current
- * period, billed the day after it ends) and is what "Set billing" opens on.
+ * period, billed on its last day: Q042) and is what "Set billing" opens on.
  *
  * A fee group is billed once, so its engagements are ONE row here, and setting
  * it sets every engagement in the group (the API does that).

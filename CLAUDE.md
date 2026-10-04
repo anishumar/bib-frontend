@@ -2907,8 +2907,8 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   from "Hidden": a login without fees is still asked the amount of a bill that has none.
 - **The letter says when a fee is billed (phase 1b, 0319).** The letter page's Services table has a
   **Billed** column and each fee section a "Billed" line: `BillingTimingControl`
-  (`src/components/billing-timing.tsx`), "After each month" (the default and what a letter that
-  says nothing means) | "At the start of each month" | "On a date I choose" (then a date box). On a
+  (`src/components/billing-timing.tsx`), "At the end of each month" (the default and what a letter
+  that says nothing means; the bill is made on the period's LAST day since Q042, 0339) | "At the start of each month" | "On a date I choose" (then a date box). On a
   draft it saves as it changes (PATCH line / fee group `billingTiming` + `billingOn`); on a sent or
   signed letter it is the words the PDF prints. A one-off reads "Billed by hand", a grouped line
   "With its section". Signing with the firm's switch on sets each engagement's schedule from it

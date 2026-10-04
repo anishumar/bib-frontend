@@ -19,14 +19,15 @@ export type BillingTiming = "arrears" | "advance" | "on_date";
 
 const SPAN: Readonly<Record<string, string>> = { monthly: "month", quarterly: "quarter", annually: "year" };
 
-/** "After each month", "At the start of each quarter", "First invoice 15 Nov
+/** "At the end of each month", "At the start of each quarter", "First invoice 15 Nov
  *  2026", or null for a fee not billed per period. */
 export function billingTimingWords(frequency: string | null, timing: BillingTiming | null, on: string | null): string | null {
   const span = SPAN[frequency ?? ""];
   if (span === undefined) return null;
   if (timing === "advance") return `At the start of each ${span}`;
   if (timing === "on_date" && on !== null) return `First invoice ${longDay(on)}`;
-  return `After each ${span}`;
+  // On the period's last day (Q042).
+  return `At the end of each ${span}`;
 }
 
 export function BillingTimingControl({
@@ -65,7 +66,7 @@ export function BillingTimingControl({
           if (next !== "on_date") onSave(next, null);
         }}
       >
-        <option value="arrears">{`After each ${span}`}</option>
+        <option value="arrears">{`At the end of each ${span}`}</option>
         <option value="advance">{`At the start of each ${span}`}</option>
         <option value="on_date">On a date I choose</option>
       </Select>
