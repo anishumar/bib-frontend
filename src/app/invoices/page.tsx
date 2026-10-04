@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError, codeLabel, colleagueLabel, formatMoney, invoiceNumberWords } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import type {
+  WorkBilling,
   BillingAdvance,
   BillingBillNow,
   BillingDue,
@@ -50,11 +51,12 @@ import { MissingMoney } from "@/components/fees";
 import { ToRaiseTab } from "./to-raise";
 import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
+import { WorkVsBillingTab } from "./work-vs-billing";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
  *  Your firm lands on it. Advances (0320): every advance and where it stands. */
-const TABS = ["invoices", "raise", "advances", "setup"] as const;
+const TABS = ["invoices", "raise", "work", "advances", "setup"] as const;
 type TabKey = (typeof TABS)[number];
 
 /**
@@ -103,6 +105,9 @@ function Invoices() {
   const [refunds, setRefunds] = useState<BillingRefund[]>([]);
   const [billNow, setBillNow] = useState<BillingBillNow[]>([]);
   const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
+  /** Work vs Billing's default view (Q041), read with the rest so its tab can
+   *  count what needs attention before anybody opens it. */
+  const [workBilling, setWorkBilling] = useState<WorkBilling | null>(null);
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +138,7 @@ function Invoices() {
   const asked = useRef("");
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff] = await Promise.all([
+    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -148,6 +153,7 @@ function Invoices() {
       api.GET("/api/v1/billing/refunds", {}),
       api.GET("/api/v1/billing/bill-now", {}),
       api.GET("/api/v1/tenancy/colleagues", {}),
+      api.GET("/api/v1/billing/work-vs-billing", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -171,6 +177,7 @@ function Invoices() {
     setBillNow(oneTime.data?.engagements ?? []);
     setAutoBilling(settings.data?.autoBilling ?? null);
     setColleagues(staff.data ? [...staff.data.colleagues] : []);
+    setWorkBilling(work.data ?? null);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -320,6 +327,8 @@ function Invoices() {
   // An advance overdue (a draft not issued, or unpaid past the firm's days):
   // that is what the tab counts (0322).
   const waitingStart = advances.filter((a) => a.pending && a.overdue).length;
+  // Work vs Billing (Q041): rows with a problem in the default twelve months.
+  const needsAttention = workBilling?.summary.withProblems ?? 0;
 
   const body =
     tab === "raise" && dues !== null ? (
@@ -336,6 +345,13 @@ function Invoices() {
         refunds={refunds}
         billNow={billNow}
         onChanged={load}
+      />
+    ) : tab === "work" ? (
+      <WorkVsBillingTab
+        initial={workBilling}
+        initialClient={search.get("client")}
+        parties={parties}
+        colleagues={colleagues}
       />
     ) : tab === "advances" ? (
       <AdvancesTab advances={advances} />
@@ -481,6 +497,12 @@ function Invoices() {
           tabs={[
             { value: "invoices", label: "Invoices" },
             { value: "raise", label: "To raise", count: toRaise, ...(toRaise > 0 ? { tone: "warn" as const } : {}) },
+            {
+              value: "work",
+              label: "Work vs Billing",
+              count: needsAttention,
+              ...(needsAttention > 0 ? { tone: "danger" as const } : {}),
+            },
             {
               value: "advances",
               label: "Advances",

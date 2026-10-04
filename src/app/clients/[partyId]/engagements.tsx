@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, apiError, SCHEDULED_FREQUENCIES } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { longDay, monthYear } from "@/lib/day";
-import { Button, Card, CardTitle, ErrorNotice, Notice, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
+import { Button, Card, CardHead, ErrorNotice, LinkButton, Notice, Sub, Table, TableWrap, Td, Th } from "@/components/ui";
 import { EngagementActions, EngagementStatePill } from "@/components/engagement-life";
 import { BillingScheduleDialog, frequencyWord, type ScheduleSubject } from "@/components/billing-schedule";
 
@@ -63,7 +63,17 @@ export function EngagementsPanel({
 
   return (
     <Card>
-      <CardTitle level={2}>Engagements</CardTitle>
+      {/* Work vs Billing (Q041), filtered to this client: each service and
+          period with its work, bill, invoice and money. */}
+      <CardHead
+        title="Engagements"
+        level={2}
+        aside={
+          <LinkButton variant="ghost" size="sm" href={`/invoices?tab=work&client=${partyId}`}>
+            Work vs Billing
+          </LinkButton>
+        }
+      />
       <ErrorNotice error={error} />
       {said !== null && <Notice tone="ok">{said}</Notice>}
       {rows === null ? (

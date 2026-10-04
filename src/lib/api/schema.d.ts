@@ -18061,6 +18061,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/work-vs-billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Work against billing: each client, service and period with its jobs, bill, invoice and money */
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    partyId?: string;
+                    managerUserId?: string;
+                    problemsOnly?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rows */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            today: string;
+                            from: string;
+                            to: string;
+                            autoBilling: boolean;
+                            feesVisible: boolean;
+                            truncated: boolean;
+                            summary: {
+                                rows: number;
+                                withProblems: number;
+                                byFlag: {
+                                    no_bill: number;
+                                    no_final_bill: number;
+                                    skipped: number;
+                                    not_raised: number;
+                                    not_issued: number;
+                                    unpaid_overdue: number;
+                                };
+                                /** @description Done work not yet billed (no bill, no final bill, not raised, not issued), by age. */
+                                unbilledAge: {
+                                    d0_30: number;
+                                    d31_60: number;
+                                    d61_90: number;
+                                    d90_plus: number;
+                                };
+                                overdueAge: {
+                                    d0_30: number;
+                                    d31_60: number;
+                                    d61_90: number;
+                                    d90_plus: number;
+                                };
+                            };
+                            rows: components["schemas"]["WorkBillingRow"][];
+                        };
+                    };
+                };
+                /** @description A malformed query */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/dues": {
         parameters: {
             query?: never;
@@ -25472,6 +25574,136 @@ export interface components {
              * @enum {string}
              */
             invoiceStatus: "draft" | "issued" | "cancelled";
+        };
+        WorkBillingFiling: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            periodLabel: string;
+            dueOn: string;
+            filedOn: string | null;
+            stateName: string;
+            filed: boolean;
+            closed: boolean;
+            jobStatus: string | null;
+        };
+        WorkBillingPerson: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+        } | null;
+        WorkBillingFlag: {
+            /**
+             * @description `no_bill` (a recurring period is over and its work done, and no bill was written), `no_final_bill` (one-time work done, no final bill), `skipped` (the bill was skipped), `not_raised` (the bill's date has passed and no invoice was raised), `not_issued` (its invoice has been a draft more than 7 days past the bill date), `unpaid_overdue` (issued, money still owed after the due date).
+             * @enum {string}
+             */
+            code: "no_bill" | "no_final_bill" | "skipped" | "not_raised" | "not_issued" | "unpaid_overdue";
+            /**
+             * @description Why there is no bill: `no_schedule` (billing not set up for the service), `auto_billing_off` (the firm's switch), `no_fiscal_year` (a quarter or year cannot be cut), `not_written` (set up and due, yet nothing was written), `before_auto_billing` (one-time work finished before automatic billing was switched on). On `not_raised`: `no_price` when the letter fixed none.
+             * @enum {string|null}
+             */
+            cause: "no_schedule" | "auto_billing_off" | "no_fiscal_year" | "not_written" | "before_auto_billing" | "no_price" | null;
+            /** @description How old the problem is, in days, counted from `since`. */
+            days: number;
+            since: string;
+            /** @description A skip's reason. */
+            reason: string | null;
+            by: components["schemas"]["WorkBillingPerson"] & unknown;
+            /** @description When it was skipped (an instant). */
+            at: string | null;
+        };
+        WorkBillingRow: {
+            key: string;
+            /** @enum {string} */
+            kind: "period" | "one_time" | "advance";
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            /** @description The letter line's wording, or the fee group's title. */
+            serviceName: string;
+            entityName: string | null;
+            letter: {
+                id: string;
+                ref: string;
+            };
+            engagementIds: string[];
+            /** Format: uuid */
+            feeGroupId: string | null;
+            frequency: string | null;
+            period: {
+                start: string;
+                end: string;
+                label: string;
+            } | null;
+            /**
+             * @description The row's jobs taken together; cancelled jobs count only when every job was cancelled.
+             * @enum {string}
+             */
+            work: "none" | "not_started" | "in_progress" | "done" | "cancelled";
+            workDoneOn: string | null;
+            jobs: {
+                /** Format: uuid */
+                id: string;
+                status: string;
+                periodLabel: string | null;
+                doneOn: string | null;
+            }[];
+            /** @description Statutory filings of this service and period. Their service's bill covers them. */
+            filings: components["schemas"]["WorkBillingFiling"][];
+            bill: {
+                /** Format: uuid */
+                id: string;
+                kind: string;
+                /** @enum {string} */
+                status: "open" | "drafted" | "billed" | "skipped" | "covered";
+                billOn: string;
+                currency: string;
+                amount: string | null;
+                priced: boolean;
+            } | null;
+            /** @description No bill yet: the day the billing run will write it, by the sweep's own schedule. */
+            expectedBillOn: string | null;
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string | null;
+                status: string;
+                issuedOn: string | null;
+                dueOn: string | null;
+                invoiced: string | null;
+                paid: string | null;
+                outstanding: string | null;
+            } | null;
+            payment: {
+                /** @enum {string} */
+                state: "paid" | "part_paid" | "unpaid";
+                /** @description The invoice's due date, else its date (due on receipt). */
+                dueOn: string | null;
+                /** @description Positive: overdue by that many days; zero or less: due in. Null when paid. */
+                daysOverdue: number | null;
+            } | null;
+            manager: components["schemas"]["WorkBillingPerson"];
+            /** @enum {string} */
+            managerFrom: "bill" | "invoice" | "key_manager" | "none";
+            /** @description On a `no_schedule` row: invoices raised by hand for this service. */
+            handInvoices: {
+                count: number;
+                last: {
+                    /** Format: uuid */
+                    invoiceId: string;
+                    number: string | null;
+                    issuedOn: string | null;
+                } | null;
+            } | null;
+            flags: components["schemas"]["WorkBillingFlag"][];
+            notes: {
+                /** @enum {string} */
+                code: "raised_before_work_done" | "bill_due_on" | "billing_run_next" | "before_billing_start" | "billed_by_hand" | "not_served" | "covered_by_advance" | "work_in_progress";
+                date: string | null;
+                invoiceNumber: string | null;
+            }[];
         };
         BillingPerson: {
             /** Format: uuid */
