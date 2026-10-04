@@ -653,6 +653,10 @@ function PriceAndBilling({ body, seesFees }: { body: ServiceRecord; seesFees: bo
         {body.recurrence === null ? <NotSet /> : RECURRENCE_WORDS[body.recurrence]}
       </MetaItem>
       {body.pricingNote !== null && <MetaItem label="Pricing note">{body.pricingNote}</MetaItem>}
+      <MetaItem label="SAC (India)">{body.tax["IN"]?.sac ?? <NotSet />}</MetaItem>
+      <MetaItem label="GST rate (India)">
+        {body.tax["IN"]?.ratePercent == null ? <NotSet /> : `${body.tax["IN"].ratePercent}%`}
+      </MetaItem>
     </Meta>
   );
 }

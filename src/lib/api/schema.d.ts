@@ -17612,7 +17612,7 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue. A draft whose due date is before the issue date is refused (DUE_BEFORE_ISSUE, 409: change it with PUT /due-date); one with no due date takes the firm's payment terms when it has set them (0327), else stays without one. A draft numbered before 0322 keeps its number and is refused when that number would go out of order (INVOICE_NUMBER_OUT_OF_ORDER, 409, B51): cancel it and raise it again.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue. A draft whose due date is before the issue date is refused (DUE_BEFORE_ISSUE, 409: change it with PUT /due-date); one with no due date takes the firm's payment terms when it has set them (0327), else stays without one. A draft numbered before 0322 keeps its number and is refused when that number would go out of order (INVOICE_NUMBER_OUT_OF_ORDER, 409, B51): cancel it and raise it again. Q056: its tax is decided for the issue date and frozen (CGST + SGST, UTGST, IGST, or zero-rated under the company's LUT); an Indian GST invoice is refused while its place of supply cannot be read (PLACE_OF_SUPPLY_UNKNOWN, 409: PUT /place-of-supply) or a line has no SAC (INVOICE_LINE_NEEDS_SAC, 409: PUT /lines/{id}/sac, or the catalogue service's SAC).
          */
         post: {
             parameters: {
@@ -17672,7 +17672,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not a draft, it has no lines, its due date is before today's issue date, or its number (drawn before 0322) would go out of order */
+                /** @description Not a draft, it has no lines, its due date is before today's issue date, its number (drawn before 0322) would go out of order, or (a GST invoice) no place of supply or a line without a SAC */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -18660,6 +18660,698 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/place-of-supply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose a draft's GST place of supply, or go back to the client's
+         * @description Drafts only. A GST state code over the one the client's GSTIN or address gives (a client registered in several states, or an address whose state cannot be read); null follows the client again. The tax is decided again at once (CGST + SGST within the issuing company's state, IGST otherwise). Writes `invoice.place_of_supply_set`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetPlaceOfSupplyRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not a GST state code (INVALID_PLACE_OF_SUPPLY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/lines/{lineId}/sac": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or clear a draft line's SAC
+         * @description Drafts only. Six digits starting 99 (INVALID_SAC, 400). A GST invoice is refused at issue while a line has none (INVOICE_LINE_NEEDS_SAC); a line billing a catalogued service takes the service's SAC without this. Writes `invoice.line_sac_set`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLineSacRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not a SAC */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice or line at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clients/{partyId}/tds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The TDS a client deducts on the firm's fees */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Its setting; `tds` null when it deducts none */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            tds: components["schemas"]["ClientTds"];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Set, change or stop the TDS a client deducts
+         * @description Q057. A section as the Act writes it (194J, 194JB, 194C, 195) and a rate above 0, up to 100 (INVALID_TDS, 400); null stops it. Its invoices then print "Less: TDS u/s 194J @10% (on the amount before tax)" and the net payable. Drafts take it when next read; issued invoices keep theirs. Writes `client.tds_set`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetClientTdsRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            tds: components["schemas"]["ClientTds"];
+                        };
+                    };
+                };
+                /** @description Not a TDS section or rate, or one of the firm's own companies */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such client at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoicing/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * India's GST states and union territories, by state code
+         * @description For a place-of-supply or address picker. The code is a GSTIN's first two digits.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description States */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            states: {
+                                code: string;
+                                name: string;
+                                utgst: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoicing/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The firm's companies, with the bank accounts and LUTs their invoices print */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Companies */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            companies: components["schemas"]["CompanyInvoicing"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add where a company is paid, or correct it
+         * @description Q056, 0369. Written once: the company's live account for the same `currency` (or its general one, for null) is retired in the same write, and invoices issued with it still print it. An invoice prints the account for its currency, else the general one. Writes `firm_entity.bank_account_added`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddBankAccountRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                        };
+                    };
+                };
+                /** @description A field is not in the shape a bank writes it (INVALID_COMPANY_INVOICING), or not one of the firm's companies */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}/bank-accounts/{accountId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take a bank account off a company's invoices */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                    accountId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Retired */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No live account with that id on this company */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}/luts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a company's Letter of Undertaking for a financial year
+         * @description Q056, 0369. With one in force for the issue date's year, an Indian company's invoice to a client outside India is zero-rated and prints "Supply meant for export under LUT without payment of IGST" with this reference; without one, IGST is charged. Replaces the LUT for the same year. `financialYear` is the year it starts in (2026 = 2026-27). Writes `firm_entity.lut_recorded`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddLutRequest"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                        };
+                    };
+                };
+                /** @description Not a year or an ARN (INVALID_COMPANY_INVOICING), or not one of the firm's companies */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/firm-entities/{entityPartyId}/luts/{lutId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take an LUT off a company */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                    lutId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Retired */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No live LUT with that id on this company */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -26221,6 +26913,32 @@ export interface components {
             isHeading?: boolean;
             sortOrder?: number;
         };
+        InvoiceTax: {
+            /**
+             * @description Which taxes it charges (Q056, 0370): `plain` (one tax figure: a company outside India, or an Indian company with no GSTIN), `gst_intra` (CGST + SGST), `gst_intra_ut` (CGST + UTGST), `gst_inter` (IGST), `gst_export_lut` (zero-rated under an LUT), `gst_export_igst` (IGST on an export). Null: an invoice from before 0370, or a draft whose place of supply cannot be read yet (see issueBlocked). On a draft it follows the client and the company; frozen at issue.
+             * @enum {string|null}
+             */
+            treatment: "plain" | "gst_intra" | "gst_intra_ut" | "gst_inter" | "gst_export_lut" | "gst_export_igst" | null;
+            supplierGstin: string | null;
+            supplierStateCode: string | null;
+            recipientGstin: string | null;
+            /** @description Where the service is supplied (IGST Act s.12/13). Null on a plain invoice. */
+            placeOfSupply: {
+                stateCode: string | null;
+                stateName: string | null;
+                /** @description Outside India: the client's country. */
+                country: string | null;
+            } | null;
+            /** @description A state a person chose on the draft (PUT /place-of-supply); null follows the client. */
+            chosenPlaceOfSupply: string | null;
+            /** @description Whether tax is payable on reverse charge (Rule 46(o)). Always false for a firm's fees today. */
+            reverseCharge: boolean;
+            /** @description Q057: the TDS the client deducts, as it stood when the draft was read or the invoice issued. A RATE, not redacted. */
+            tds: {
+                section: string;
+                percent: string;
+            } | null;
+        };
         Invoice: {
             /** Format: uuid */
             id: string;
@@ -26253,6 +26971,7 @@ export interface components {
              * @description Whose revenue this invoice is (0318); frozen once issued. Null when nobody was named.
              */
             managerUserId: string | null;
+            tax: components["schemas"]["InvoiceTax"];
         };
         RaiseInvoiceRequest: {
             /** Format: uuid */
@@ -26282,12 +27001,22 @@ export interface components {
             tax: string | null;
             total: string | null;
             currency: string;
+            cgst: string | null;
+            sgst: string | null;
+            utgst: string | null;
+            igst: string | null;
+            /** @description Q057: what the client is expected to deduct, the TDS rate on `net` (the amount before tax, CBDT Circular 23/2017). "0" when the client deducts none. The receivable stays `total`. */
+            tds: string | null;
+            /** @description `total` less `tds`: what the client remits. */
+            netPayable: string | null;
         };
         /** @description What is still owed, from the same view /receivables reads. On the LIST because `status` is about the document and says nothing about money: walked, a fully-settled invoice sat beside one 75 days overdue, both reading `issued` and both showing their full value. NULL on a draft — nobody has been asked yet, and a zero outstanding there would read as settled. Redacted with every other figure for a caller without the fee axis. */
         InvoiceListBalance: {
             paid: string;
             credited: string;
             outstanding: string;
+            /** @description TDS the client deducted (Q057): settles like money, is not money. */
+            tds: string;
         } | null;
         InvoiceSummary: {
             invoice: components["schemas"]["Invoice"];
@@ -26313,6 +27042,12 @@ export interface components {
             taxPercent: string;
             net: string | null;
             tax: string | null;
+            /** @description The service's SAC (Q056); not a price, never redacted. */
+            sac: string | null;
+            cgst: string | null;
+            sgst: string | null;
+            utgst: string | null;
+            igst: string | null;
         };
         InvoiceRecord: {
             invoice: components["schemas"]["Invoice"];
@@ -26349,10 +27084,30 @@ export interface components {
                     taxPercent: string;
                 }[];
             };
-            /** @description Why Issue would be refused today, when the record alone shows it (B51): a draft numbered before 0322 whose number is now out of order in its series (a later number of the series has been issued, or today is in another financial year). `message` is the refusal's own sentence, for the screen to show where Issue is offered. Null when nothing on the record stops it; the issue call still decides. */
+            /** @description The LUT an export under one names (Q056). */
+            lut: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                financialYear: number;
+            } | null;
+            bankAccount: {
+                /** Format: uuid */
+                id: string;
+                accountName: string;
+                accountNumber: string;
+                bankName: string;
+                branch: string | null;
+                ifsc: string | null;
+                swift: string | null;
+                iban: string | null;
+                /** @description The invoice currency it is for; null: the general account. */
+                currency: string | null;
+            } | null;
+            /** @description Why Issue would be refused today, when the record alone shows it (B51): a draft numbered before 0322 whose number is now out of order in its series (a later number of the series has been issued, or today is in another financial year); or, on a GST invoice (Q056), a place of supply that cannot be read or a line with no SAC. `message` is the refusal's own sentence, for the screen to show where Issue is offered. Null when nothing on the record stops it; the issue call still decides. */
             issueBlocked: {
                 /** @enum {string} */
-                reason: "INVOICE_NUMBER_OUT_OF_ORDER";
+                reason: "INVOICE_NUMBER_OUT_OF_ORDER" | "PLACE_OF_SUPPLY_UNKNOWN" | "INVOICE_LINE_NEEDS_SAC";
                 message: string;
             } | null;
             /** @description The day Issue would date this draft today: today on its issuing company's calendar, else the firm's (0337). What a confirmation says before Issue. Null once it is out of draft. */
@@ -26365,7 +27120,10 @@ export interface components {
             quantity: string;
             unitAmount: string;
             discountPercent?: string;
+            /** @description Absent: the catalogue service's rate for the issuing company's country, else 0. */
             taxPercent?: string;
+            /** @description The service's SAC (six digits, 99...). Absent: the catalogue service's, else none. */
+            sac?: string;
         };
         SetInvoiceManagerRequest: {
             /** Format: uuid */
@@ -26397,6 +27155,8 @@ export interface components {
             method: "bank_transfer" | "cheque" | "cash" | "card" | "upi" | "other";
             reference: string | null;
             note: string | null;
+            /** @description Q057: the TDS the client deducted from this remittance; "0" for none. Signed like amount. */
+            tdsAmount: string | null;
         };
         RecordPaymentRequest: {
             amount: string;
@@ -26405,6 +27165,8 @@ export interface components {
             method: "bank_transfer" | "cheque" | "cash" | "card" | "upi" | "other";
             reference?: string;
             note?: string;
+            /** @description Q057: the TDS the client deducted from this remittance, recorded beside the money. The amount may be "0" when only TDS is recorded. Signed: a negative undoes TDS recorded by mistake. */
+            tdsAmount?: string;
         };
         CreditNote: {
             /** Format: uuid */
@@ -26447,6 +27209,8 @@ export interface components {
             paid: string | null;
             credited: string | null;
             outstanding: string | null;
+            /** @description Q057: TDS the client deducted. Outstanding is invoiced − paid − tds − credited: an invoice is settled when the money and the TDS together cover it. */
+            tds: string | null;
         };
         Receivable: {
             balance: components["schemas"]["InvoiceBalance"];
@@ -26489,6 +27253,67 @@ export interface components {
              * @enum {string}
              */
             invoiceStatus: "draft" | "issued" | "cancelled";
+        };
+        SetPlaceOfSupplyRequest: {
+            stateCode: string | null;
+        };
+        SetLineSacRequest: {
+            sac: string | null;
+        };
+        ClientTds: {
+            section: string;
+            percent: string;
+        } | null;
+        SetClientTdsRequest: {
+            tds: {
+                section: string;
+                percent: string;
+            } | null;
+        };
+        CompanyBankAccount: {
+            /** Format: uuid */
+            id: string;
+            accountName: string;
+            accountNumber: string;
+            bankName: string;
+            branch: string | null;
+            ifsc: string | null;
+            swift: string | null;
+            iban: string | null;
+            /** @description The invoice currency it is for; null: the general account. */
+            currency: string | null;
+        };
+        CompanyInvoicing: {
+            /** Format: uuid */
+            entityPartyId: string;
+            name: string;
+            country: string | null;
+            /** @description Its GSTIN in force today. An Indian company without one issues plain invoices, not GST ones. */
+            gstin: string | null;
+            bankAccounts: components["schemas"]["CompanyBankAccount"][];
+            luts: {
+                /** Format: uuid */
+                id: string;
+                financialYear: number;
+                financialYearLabel: string;
+                reference: string;
+                filedOn: string | null;
+            }[];
+        };
+        AddBankAccountRequest: {
+            accountName: string;
+            accountNumber: string;
+            bankName: string;
+            branch?: string | null;
+            ifsc?: string | null;
+            swift?: string | null;
+            iban?: string | null;
+            currency?: string | null;
+        };
+        AddLutRequest: {
+            financialYear: number;
+            reference: string;
+            filedOn?: string | null;
         };
         WorkBillingFiling: {
             /** Format: uuid */
@@ -27390,7 +28215,7 @@ export interface components {
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "tax_invoice" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
             /**
              * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
              * @enum {string}

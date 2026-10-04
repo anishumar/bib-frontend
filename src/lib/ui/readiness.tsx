@@ -42,6 +42,7 @@ const LABELS: Readonly<Record<Key, string>> = {
   time_zone: "Your firm's time zone",
   staff: "Colleagues added",
   services: "A service in the Catalogue",
+  tax_invoice: "Tax invoice details for India: GSTIN, bank, SAC and rate",
   standard_terms: "Standard terms for letters",
   deadlines: "Go-live day and financial year",
   reporting_lines: "Who reports to whom",
@@ -58,6 +59,7 @@ const FIX: Readonly<Record<Key, Route>> = {
   time_zone: "/admin/firm#time-zone" as Route,
   staff: "/admin/people",
   services: "/catalogue",
+  tax_invoice: "/admin/firm#invoicing" as Route,
   standard_terms: "/admin/standard-terms",
   deadlines: "/admin/firm#deadlines" as Route,
   reporting_lines: "/admin/people",
@@ -97,6 +99,10 @@ function missingWords(missing: readonly string[]): string {
     if (m === "portal_login") return "no portal login";
     if (m === "country") return "no country";
     if (m === "address") return "no registered address";
+    if (m === "gstin") return "no GSTIN";
+    if (m === "bank_account") return "no bank account for invoices";
+    if (m === "sac") return "no SAC";
+    if (m === "tax_rate") return "no tax rate";
     return m;
   });
   const text = words.join(", ");
@@ -108,7 +114,8 @@ function gapHref(key: Key, gap: ReadinessLine["gaps"][number]): Route | null {
   if ((key === "account_team" || key === "portal_contacts") && gap.id !== null) {
     return `/clients/${gap.id}` as Route;
   }
-  if (key === "processes" && gap.ref !== null) return `/catalogue/${gap.ref}` as Route;
+  if ((key === "processes" || key === "tax_invoice") && gap.ref !== null) return `/catalogue/${gap.ref}` as Route;
+  if (key === "tax_invoice") return "/admin/firm#invoicing" as Route;
   if (key === "ladders" && (gap.missing[0] === "chaser" || gap.missing[0] === "nudge")) {
     return "/admin/client-reminders";
   }

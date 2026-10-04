@@ -172,6 +172,19 @@ export type Readiness =
   paths["/api/v1/tenancy/readiness"]["get"]["responses"][200]["content"]["application/json"];
 export type ReadinessLine = Readiness["lines"][number];
 
+/** One of the firm's companies with the bank accounts and LUTs its invoices
+ *  print (Q056, 0369). */
+export type CompanyInvoicing =
+  paths["/api/v1/invoicing/companies"]["get"]["responses"][200]["content"]["application/json"]["companies"][number];
+export type CompanyBankAccount = CompanyInvoicing["bankAccounts"][number];
+/** India's GST states, by code (a GSTIN's first two digits). */
+export type GstState =
+  paths["/api/v1/invoicing/states"]["get"]["responses"][200]["content"]["application/json"]["states"][number];
+/** Q057: the TDS a client deducts. */
+export type ClientTds = NonNullable<
+  paths["/api/v1/clients/{partyId}/tds"]["get"]["responses"][200]["content"]["application/json"]["tds"]
+>;
+
 /** Why one person may not check one thing. A closed set, because each one is a
  *  sentence a screen has to say out loud. */
 export type CheckIneligibility = NonNullable<StepCheck["viewer"]["reason"]>;

@@ -54,6 +54,7 @@ import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { NotificationSettings } from "@/components/notify/settings";
 import { CompanyCalendarCell, CompanyCalendarFields, calendarChanges } from "./company-calendar";
 import type { FirmCalendar } from "./company-calendar";
+import { InvoicingCard } from "./invoicing-card";
 import { SignatoriesCard } from "@/components/signatories/signatories-card";
 import { cleanAmount } from "@/lib/money";
 
@@ -327,6 +328,8 @@ export default function FirmPage() {
           }
         />
       </Card>
+
+      <InvoicingCard onChanged={load} />
 
       {timeZone !== null && (
         <TimeZoneCard

@@ -26,7 +26,7 @@ import {
   type ServiceDraft,
 } from "./service";
 
-export type Refusals = Partial<Record<"name" | "amount" | "slaDays", string>>;
+export type Refusals = Partial<Record<"name" | "amount" | "slaDays" | "sacIn" | "taxRateIn", string>>;
 
 /**
  * The service form: "Add a service" and "Edit" both, so the two cannot ask for
@@ -241,6 +241,36 @@ export function ServiceForm({
               onChange={(e) => set({ pricingNote: e.target.value })}
             />
           </Field>
+        </FieldStack>
+      </Card>
+
+      <Card>
+        <CardHead level={2} title="Tax on the invoice">
+          <p className="muted">
+            For invoices from your Indian company. A line for this service takes its SAC, and this rate unless you
+            type another.
+          </p>
+        </CardHead>
+        <FieldStack>
+          <FieldRow>
+            <Field id={`${formId}-sacIn`} label="SAC (India)" optional error={refused.sacIn ?? null} hint="Six digits, e.g. 998222 for accounting.">
+              <Input
+                inputMode="numeric"
+                maxLength={6}
+                value={draft.sacIn}
+                placeholder="e.g. 998222"
+                onChange={(e) => set({ sacIn: e.target.value.replace(/\D/g, "") })}
+              />
+            </Field>
+            <Field id={`${formId}-taxRateIn`} label="GST rate %" optional error={refused.taxRateIn ?? null} hint="The rate this service is taxed at.">
+              <AmountInput
+                decimals={2}
+                value={draft.taxRateIn}
+                placeholder="e.g. 18"
+                onChange={(e) => set({ taxRateIn: e.target.value })}
+              />
+            </Field>
+          </FieldRow>
         </FieldStack>
       </Card>
 
