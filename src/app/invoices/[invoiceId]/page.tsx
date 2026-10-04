@@ -57,7 +57,7 @@ import {
   Th,
 } from "@/components/tw";
 import { browserDay, longDay } from "@/lib/day";
-import { cleanAmount } from "@/lib/money";
+import { cleanAmount, compareSigned } from "@/lib/money";
 import { MissingMoney, Money, useSeesFees } from "@/components/fees";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
@@ -111,6 +111,8 @@ export default function InvoicePage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What is typed in the payment form, for the "more than is owed" warning.
+  const [payTyped, setPayTyped] = useState("");
 
   const load = useCallback(async (): Promise<void> => {
     const path = { params: { path: { invoiceId } } };
@@ -433,16 +435,21 @@ export default function InvoicePage() {
             <MetaItem label="Credited">
               <span className="num">{money(balance.credited, balance.currency)}</span>
             </MetaItem>
-            <MetaItem label="Outstanding">
-              {/* A NEGATIVE outstanding is not an error: the client overpaid, or
-                  settled two invoices with one transfer. The API records what
-                  actually arrived rather than what was tidy, and so does this. */}
-              <strong className="num">{money(balance.outstanding, balance.currency)}</strong>
+            {/* A NEGATIVE outstanding is not an error: the client overpaid, or
+                settled two invoices with one transfer. The API records what
+                actually arrived (the user's decision, audit 2026-10-03), and the
+                screen calls it what it is, a credit, never a minus amount owed. */}
+            <MetaItem label={balance.outstanding?.startsWith("-") === true ? "Credit" : "Outstanding"}>
+              <strong className="num">
+                {money(balance.outstanding?.replace(/^-/, "") ?? null, balance.currency)}
+              </strong>
             </MetaItem>
           </Meta>
           {balance.outstanding?.startsWith("-") === true && (
             <p className="max-w-[var(--measure)] text-sm text-muted">
-              More received than billed: an overpayment, or one transfer for several invoices.
+              The client paid {money(balance.outstanding.replace(/^-/, ""), balance.currency)} more than
+              this invoice: an overpayment, or one transfer for several invoices. It is not counted as owed
+              anywhere. If you give it back, record the refund here as a negative payment.
             </p>
           )}
         </Card>
@@ -898,7 +905,11 @@ export default function InvoicePage() {
                     ...(note === "" ? {} : { note }),
                   },
                 }),
-              );
+              ).then((saved) => {
+                // The form clears on a save (F05); so does the warning it fed.
+                if (saved) setPayTyped("");
+                return saved;
+              });
             })}
           >
             {/* A NAMED GROUP, no legend, so nothing moves on screen. This page
@@ -908,7 +919,15 @@ export default function InvoicePage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Amount" hint="A negative amount reverses a payment.">
-                    <AmountInput signed name="amount" required placeholder="e.g. 25000" />
+                    <AmountInput
+                      signed
+                      name="amount"
+                      required
+                      placeholder="e.g. 25000"
+                      onChange={(e) => {
+                        setPayTyped(e.target.value);
+                      }}
+                    />
                   </Field>
                   <Field label="Received">
                     <Input name="receivedOn" type="date" defaultValue={today} required />
@@ -934,6 +953,20 @@ export default function InvoicePage() {
                     <Input name="note" placeholder="e.g. Part payment" />
                   </Field>
                 </FieldRow>
+                {/* MORE THAN IS OWED is allowed (a credit), so it is a warning
+                    before the press, never a refusal after it. */}
+                {(() => {
+                  const typed = cleanAmount(payTyped);
+                  const owed = balance?.outstanding ?? null;
+                  if (owed === null || typed === "" || typed.startsWith("-")) return null;
+                  if (compareSigned(typed, owed) !== 1) return null;
+                  return (
+                    <p className="max-w-[var(--measure)] text-sm" role="status">
+                      This is more than the {money(owed.startsWith("-") ? "0" : owed, balance?.currency ?? "")} still
+                      owed. Record it only if that much arrived; the difference will show as a credit.
+                    </p>
+                  );
+                })()}
                 <div className="cluster">
                   <Button type="submit" disabled={busy}>
                     Record payment

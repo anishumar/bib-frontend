@@ -85,7 +85,7 @@ export default function PortalInvoicesPage() {
   // OUTSTANDING ONLY, and only where the invoice is live. A cancelled invoice
   // carries no balance whatever its lines say, and adding one to a total a
   // client acts on would be the arithmetic this page refuses to do.
-  const owing = invoices.filter((i) => i.status === "issued" && !isZero(i.outstanding));
+  const owing = invoices.filter((i) => i.status === "issued" && owes(i.outstanding));
 
   return (
     <Page>
@@ -146,7 +146,7 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
   // String comparison on YYYY-MM-DD, which is what these are: no Date is
   // constructed, so no timezone can move a date by a day.
   const overdue =
-    !cancelled && inv.dueOn !== null && inv.dueOn < today && !isZero(inv.outstanding);
+    !cancelled && inv.dueOn !== null && inv.dueOn < today && owes(inv.outstanding);
   return (
     <tr>
       <Td>
@@ -189,6 +189,11 @@ function InvoiceLine({ inv, today }: { inv: PortalInvoice; today: string }) {
       <Td align="right" className="tabular-nums">
         {cancelled ? (
           <NotSet>Nothing</NotSet>
+        ) : inv.outstanding.trim().startsWith("-") && !isZero(inv.outstanding) ? (
+          /* PAID OVER (audit 2026-10-03): a credit, never a minus amount owing. */
+          <span className="text-muted">
+            <Money amount={inv.outstanding.trim().replace(/^-/, "")} currency={inv.currency} /> paid over
+          </span>
         ) : (
           <Money amount={inv.outstanding} currency={inv.currency} />
         )}
@@ -207,6 +212,11 @@ function Money({ amount, currency }: { amount: string; currency: string }) {
 }
 
 /** Whether a decimal string is zero, without parsing it as a number. */
+/** Something is still owed: more than zero. Paid over is not owing. */
+function owes(amount: string): boolean {
+  return !isZero(amount) && !amount.trim().startsWith("-");
+}
+
 function isZero(amount: string): boolean {
   return /^-?0*(\.0*)?$/.test(amount.trim());
 }
