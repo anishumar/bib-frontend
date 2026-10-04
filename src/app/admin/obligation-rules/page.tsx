@@ -984,7 +984,7 @@ function otherRowToday(
   todayFrom: string | null,
   todayDue: ObligationRule["dueRule"],
 ): string {
-  const due = describeDue({ recurrence: rule.recurrence, dueRule: todayDue });
+  const due = describeDue({ recurrence: rule.recurrence, dueRule: todayDue, periodBasis: rule.periodBasis });
   // A row with no start governs from the beginning, so it is never the later.
   const later = rule.effectiveFrom !== null && (todayFrom === null || rule.effectiveFrom > todayFrom);
   const lead = later

@@ -11024,6 +11024,87 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/parties/{partyId}/legal-entity/time-zone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a registered company's own time zone, or null for its country's
+         * @description For a client company, the clock its filings are judged MISSED on (Q070 Part B): its own zone first, else its country's (New York for the US), else the firm's company there, else the firm's. Only needed where the country keeps several zones.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLegalEntityTimeZone"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LegalEntity"];
+                    };
+                };
+                /** @description Not a time zone this system knows, an offset, or nothing changed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is not registered as a company */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/identifiers/{identifierId}/end": {
         parameters: {
             query?: never;
@@ -22490,6 +22571,11 @@ export interface components {
             /** @description When the filing was added to this service, as an ISO instant. Links moved in by migration 0309 carry the moment it ran. */
             linkedAt: string;
         };
+        /**
+         * @description Whose year a quarter, half-year or year is cut on (0358): the rule's own (fiscalYearStartMonth, every rule before this) or the CLIENT's financial year end, which is how UAE corporate tax and Singapore's annual filings run. A client with no year end recorded falls back to the rule's month, and the calendar says so. Part of the period shape: editable only while the rule has produced nothing. Monthly is a month either way.
+         * @enum {string}
+         */
+        ObligationPeriodBasis: "rule_calendar" | "client_year_end";
         ObligationDueRule: {
             /**
              * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
@@ -22584,6 +22670,7 @@ export interface components {
             recurrence: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
             /** @description 4 for India. An Indian quarter runs Apr-Jun, so leaving this at 1 would put every quarterly filing in the wrong period. */
             fiscalYearStartMonth: number;
+            periodBasis: components["schemas"]["ObligationPeriodBasis"];
             dueRule: components["schemas"]["ObligationDueRule"];
             /** @description Present exactly when there is no due formula: what this system still needs before it can produce a date. This is what the screen shows in place of a deadline. */
             unresolvedReason: string | null;
@@ -22636,6 +22723,7 @@ export interface components {
             recurrence: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
             /** @default 4 */
             fiscalYearStartMonth: number;
+            periodBasis?: components["schemas"]["ObligationPeriodBasis"];
             dueRule: components["schemas"]["ObligationDueRule"];
             unresolvedReason?: string | null;
             /** @default 0 */
@@ -22687,6 +22775,7 @@ export interface components {
              */
             recurrence?: "monthly" | "quarterly" | "half_yearly" | "annual" | "event";
             fiscalYearStartMonth?: number;
+            periodBasis?: components["schemas"]["ObligationPeriodBasis"];
             dueRule?: components["schemas"]["ObligationDueRule"];
             unresolvedReason?: string | null;
             leadTimeDays?: number;
@@ -22747,6 +22836,23 @@ export interface components {
              */
             workItemId: string | null;
             filedOn: string | null;
+            /**
+             * Format: uuid
+             * @description The task that filed it (Q063): its own task, or the period job's task that covered it. Null while unfiled.
+             */
+            filedByWorkItemId: string | null;
+            /** @description That task's title, e.g. 'GST · Sep 2026'. */
+            filedByTitle: string | null;
+            /** @description The zone this filing's day is read in (Q070 Part B): the client entity's own, else its country's (New York for the US), else the firm's company there, else the firm's. */
+            filingZone: string;
+            /** @description Today in that zone. The statutory date has passed when it is before this; the internal target stays on the firm's day. */
+            filingToday: string;
+            /**
+             * @description What this row's period followed (0358). rule_fallback: the rule follows the client's year end and none was recorded, so the rule's own month (ruleYearStartMonth) was used.
+             * @enum {string}
+             */
+            periodBasis: "rule_calendar" | "client_year_end" | "rule_fallback";
+            ruleYearStartMonth: number;
             /** Format: uuid */
             resolutionOptionId: string | null;
             /** @description What the partner chose, in the firm's own words. Joined rather than left as an id: a list that returns uuids is one somebody has to fetch per row. */
@@ -23932,6 +24038,12 @@ export interface components {
             /** @description The firm's own word for where the filing stands. */
             stateName: string;
             filedOn: string | null;
+            /**
+             * Format: uuid
+             * @description The task that filed it (Q063): this one, or a period job's task. Null while unfiled.
+             */
+            filedByWorkItemId: string | null;
+            filedByTitle: string | null;
         };
         TaskFilingResponse: {
             /** @description The filing this task files (CA#36): completing the task marks it filed, as completing the calendar's own task does. Null when it files none. */
@@ -23946,9 +24058,17 @@ export interface components {
                 /** @description The firm's own word for where the filing stands. */
                 stateName: string;
                 filedOn: string | null;
+                /**
+                 * Format: uuid
+                 * @description The task that filed it (Q063): this one, or a period job's task. Null while unfiled.
+                 */
+                filedByWorkItemId: string | null;
+                filedByTitle: string | null;
             } | null;
             /** @description The company's open filings with no task yet, by due date: what this task could file. The company is the task's entity, or else its client. */
             open: components["schemas"]["LinkableFiling"][];
+            /** @description The filings this task filed besides its own (Q063): finishing a period job's task files every open filing of its company inside the job's period on a rule its service carries, and reopening it un-files exactly these. */
+            filedHere: components["schemas"]["LinkableFiling"][];
         };
         LinkTaskFilingRequest: {
             /** Format: uuid */
@@ -24398,6 +24518,8 @@ export interface components {
             entityType: string;
             incorporatedOn: string | null;
             financialYearEnd: string | null;
+            /** @description The company's own IANA zone, or null for its country's. For a client company it is the clock its filings are judged missed on (Q070 Part B). */
+            timeZone: string | null;
             registeredAddress: {
                 [key: string]: unknown;
             } | null;
@@ -24452,6 +24574,10 @@ export interface components {
             jurisdiction?: string;
             /** @example private_limited */
             entityType?: string;
+        };
+        SetLegalEntityTimeZone: {
+            /** @example America/Los_Angeles */
+            timeZone: string | null;
         };
         PartyIdentifier: {
             /** Format: uuid */

@@ -21,6 +21,7 @@ import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
 import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
+import { clockLabel, EntityClock } from "./entity-clock";
 import {
   Button,
   Card,
@@ -577,6 +578,7 @@ export default function PartyPage() {
                   <Th>Kind of company</Th>
                   <Th>Incorporated</Th>
                   <Th>Year ends</Th>
+                  <Th>Filing clock</Th>
                   <Th>Status</Th>
                 </tr>
               </thead>
@@ -592,6 +594,10 @@ export default function PartyPage() {
                         not in a particular year. */}
                     <Td className="nowrap">
                       {e.financialYearEnd === null ? <NotSet /> : yearEnds(e.financialYearEnd)}
+                    </Td>
+                    {/* Whose midnight its filings are missed at (Q070 Part B). */}
+                    <Td className="nowrap">
+                      <span className={clockLabel(e).own ? undefined : "text-muted"}>{clockLabel(e).text}</span>
                     </Td>
                     <Td>
                       <Pill dot tone={e.status === "active" ? "ok" : "danger"}>
@@ -611,6 +617,16 @@ export default function PartyPage() {
               current={{
                 jurisdiction: profile.legalEntities[0].jurisdiction,
                 entityType: profile.legalEntities[0].entityType,
+              }}
+              onSaved={load}
+            />
+          )}
+          {canWrite && profile.legalEntities[0] !== undefined && (
+            <EntityClock
+              partyId={partyId}
+              current={{
+                jurisdiction: profile.legalEntities[0].jurisdiction,
+                timeZone: profile.legalEntities[0].timeZone,
               }}
               onSaved={load}
             />

@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { CalendarRow } from "@/lib/api/client";
+import { FilingClock, FilingNotes, hasFilingNotes, otherClock, pastLegalDeadline } from "./filing-clock";
 import { Icon } from "@/components/ui/icon";
 import { Calendar, CalendarDayButton } from "@/components/shadcn/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/shadcn/popover";
@@ -124,9 +125,9 @@ function basisDay(row: CalendarRow, basis: Basis): string {
  *  cell always means the same thing as the axis the cell is on. */
 function isLate(row: CalendarRow, basis: Basis, today: string): boolean {
   if (row.isTerminal) return false;
-  return basis === "internal"
-    ? row.internalTargetOn < today
-    : row.statutoryDueOn < today && row.filedOn === null;
+  // The legal deadline on the FILING's day (Q070 Part B); the firm's own
+  // start-by date on the reader's.
+  return basis === "internal" ? row.internalTargetOn < today : pastLegalDeadline(row);
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -588,8 +589,7 @@ function FilingCard({
   today: string;
 }) {
   const lateInternally = row.internalTargetOn < today && !row.isTerminal;
-  const lateLegally =
-    row.statutoryDueOn < today && row.filedOn === null && !row.isTerminal;
+  const lateLegally = pastLegalDeadline(row);
 
   return (
     /* `min-w-0`. Its two `truncate` paragraphs are `white-space: nowrap`, and
@@ -644,8 +644,18 @@ function FilingCard({
         <dd className={lateLegally ? "text-danger" : "text-ink"}>
           {longDay(row.statutoryDueOn)}
           {lateLegally && " · missed"}
+          {otherClock(row) !== null && (
+            <span className="block text-faint">
+              <FilingClock row={row} />
+            </span>
+          )}
         </dd>
       </dl>
+      {hasFilingNotes(row) && (
+        <p className="mt-1 flex flex-col text-xs text-ink-2">
+          <FilingNotes row={row} />
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-xs text-ink-2">{row.periodLabel}</span>
