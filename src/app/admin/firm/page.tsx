@@ -48,7 +48,7 @@ import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
-import { longDay } from "@/lib/day";
+import { browserDay, longDay, monthYear } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
 import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { NotificationSettings } from "@/components/notify/settings";
@@ -362,13 +362,23 @@ export default function FirmPage() {
           entities={entities}
           grades={grades}
           busy={busy}
-          onSet={(on) =>
+          onSet={(on, fromMonth) =>
             act(
               "billing",
-              () => api.PUT("/api/v1/billing/settings", { body: { autoBilling: on } }),
+              () =>
+                api.PUT("/api/v1/billing/settings", {
+                  body: on ? { autoBilling: true, autoBillingFrom: fromMonth } : { autoBilling: false },
+                }),
               on
-                ? "Automatic billing is on. Bills appear under Invoices, To raise."
+                ? `Automatic billing is on from ${monthYear(`${fromMonth}-01`)}. Bills appear under Invoices, To raise.`
                 : "Automatic billing is off. No new bills are made.",
+            )
+          }
+          onFrom={(fromMonth) =>
+            act(
+              "billing",
+              () => api.PUT("/api/v1/billing/settings", { body: { autoBillingFrom: fromMonth } }),
+              `Automatic billing now starts from ${monthYear(`${fromMonth}-01`)}.`,
             )
           }
           onPolicy={(advancePolicy) =>
@@ -1222,6 +1232,7 @@ function BillingCard({
   grades,
   busy,
   onSet,
+  onFrom,
   onPolicy,
   onTaxRates,
   onDueDays,
@@ -1230,11 +1241,16 @@ function BillingCard({
   entities: readonly FirmEntity[];
   grades: readonly StaffGrade[];
   busy: string | null;
-  onSet: (on: boolean) => Promise<boolean>;
+  onSet: (on: boolean, fromMonth: string) => Promise<boolean>;
+  onFrom: (fromMonth: string) => Promise<boolean>;
   onPolicy: (policy: AdvancePolicy) => Promise<boolean>;
   onTaxRates: (rates: TaxDefault[]) => Promise<boolean>;
   onDueDays: (days: number | null) => Promise<boolean>;
 }) {
+  const thisMonth = browserDay().slice(0, 7);
+  const saved = settings.autoBillingFrom?.slice(0, 7) ?? null;
+  const [fromMonth, setFromMonth] = useState(settings.autoBilling && saved !== null ? saved : thisMonth);
+  const months = goLiveMonths(thisMonth, saved);
   return (
     <Card id="billing">
       <CardHead level={2} title="Automatic billing" />
@@ -1243,9 +1259,46 @@ function BillingCard({
         checked={settings.autoBilling}
         disabled={busy === "billing"}
         onChange={(event) => {
-          void onSet(event.target.checked);
+          void onSet(event.target.checked, fromMonth);
         }}
       />
+      {/* Q027: the month automatic billing starts from. Asked BEFORE the
+          switch goes on, so turning it on never bills months the firm has
+          already billed by hand. */}
+      <FieldRow>
+        <Field label="Starts from">
+          <Select
+            value={fromMonth}
+            disabled={busy === "billing"}
+            onChange={(e) => {
+              setFromMonth(e.target.value);
+            }}
+          >
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {monthYear(`${m}-01`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {settings.autoBilling && fromMonth !== saved && (
+          <Button
+            variant="secondary"
+            disabled={busy === "billing"}
+            onClick={() => {
+              void onFrom(fromMonth);
+            }}
+          >
+            Change month
+          </Button>
+        )}
+      </FieldRow>
+      {/* Outside the row: a hint inside a FieldRow column rides its input up. */}
+      <p className="field-hint">
+        {settings.autoBilling && settings.autoBillingFrom !== null
+          ? `On from ${settings.autoBillingFrom.endsWith("-01") ? monthYear(settings.autoBillingFrom) : longDay(settings.autoBillingFrom)}. Nothing that ended before it is billed or shown as missed.`
+          : "Periods that end before this month are never billed or shown as missed: you billed those by hand."}
+      </p>
       <p className="text-sm text-ink-2">
         Only for services with billing set up.{" "}
         <Link href={"/invoices?tab=setup" as Route}>See which are not</Link>
@@ -1265,6 +1318,21 @@ function BillingCard({
       <PaymentTerms days={settings.invoiceDueDays} busy={busy === "due-days"} onSave={onDueDays} />
     </Card>
   );
+}
+
+/**
+ * The months a firm may go live from (Q027): two years back to one year ahead
+ * of this month, newest last, plus the saved one should it be older. The API
+ * takes any month from 2000 to a year ahead; the list is what a person picks.
+ */
+function goLiveMonths(thisMonth: string, saved: string | null): string[] {
+  const index = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
+  const label = (i: number): string => `${String(Math.floor(i / 12))}-${String((i % 12) + 1).padStart(2, "0")}`;
+  const now = index(thisMonth);
+  const out: string[] = [];
+  for (let i = now - 24; i <= now + 12; i++) out.push(label(i));
+  if (saved !== null && !out.includes(saved)) out.unshift(saved);
+  return out;
 }
 
 /** "15 days after its date", "on the day it is issued". */

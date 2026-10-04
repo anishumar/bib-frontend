@@ -420,8 +420,6 @@ export function flagWords(f: WorkBillingFlag, r: WorkBillingRow): string {
       switch (f.cause) {
         case "auto_billing_off":
           return `Done ${longDay(f.since)}, no final bill: automatic billing is off.`;
-        case "before_auto_billing":
-          return `Done ${longDay(f.since)}, before automatic billing started. Bill it by hand.`;
         default:
           return `Done ${longDay(f.since)}, no final bill yet.`;
       }
@@ -450,6 +448,11 @@ function noteWords(n: WorkBillingRow["notes"][number]): string {
       return "The billing run writes this bill next.";
     case "before_billing_start":
       return n.date === null ? "Before billing started." : `Before billing started on ${longDay(n.date)}.`;
+    case "before_auto_billing":
+      // Q027: history from before the firm went live, billed by hand if at all.
+      return n.date === null
+        ? "Before automatic billing started."
+        : `Before automatic billing started (${n.date.endsWith("-01") ? monthYear(n.date) : longDay(n.date)}).`;
     case "billed_by_hand":
       return `Billed by hand${n.invoiceNumber === null ? "" : `: ${n.invoiceNumber}`}.`;
     case "not_served":

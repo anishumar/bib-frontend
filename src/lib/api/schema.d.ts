@@ -26514,10 +26514,10 @@ export interface components {
              */
             code: "no_bill" | "no_final_bill" | "skipped" | "not_raised" | "not_issued" | "unpaid_overdue";
             /**
-             * @description Why there is no bill: `no_schedule` (billing not set up for the service), `auto_billing_off` (the firm's switch), `no_fiscal_year` (a quarter or year cannot be cut), `not_written` (set up and due, yet nothing was written), `before_auto_billing` (one-time work finished before automatic billing was switched on). On `not_raised`: `no_price` when the letter fixed none.
+             * @description Why there is no bill: `no_schedule` (billing not set up for the service), `auto_billing_off` (the firm's switch), `no_fiscal_year` (a quarter or year cannot be cut), `not_written` (set up and due, yet nothing was written). On `not_raised`: `no_price` when the letter fixed none. Work that ended before the month automatic billing starts from is a NOTE (`before_auto_billing`, Q027), never a flag.
              * @enum {string|null}
              */
-            cause: "no_schedule" | "auto_billing_off" | "no_fiscal_year" | "not_written" | "before_auto_billing" | "no_price" | null;
+            cause: "no_schedule" | "auto_billing_off" | "no_fiscal_year" | "not_written" | "no_price" | null;
             /** @description How old the problem is, in days, counted from `since`. */
             days: number;
             since: string;
@@ -26615,7 +26615,7 @@ export interface components {
             flags: components["schemas"]["WorkBillingFlag"][];
             notes: {
                 /** @enum {string} */
-                code: "raised_before_work_done" | "bill_due_on" | "billing_run_next" | "before_billing_start" | "billed_by_hand" | "not_served" | "covered_by_advance" | "work_in_progress";
+                code: "raised_before_work_done" | "bill_due_on" | "billing_run_next" | "before_billing_start" | "before_auto_billing" | "billed_by_hand" | "not_served" | "covered_by_advance" | "work_in_progress";
                 date: string | null;
                 invoiceNumber: string | null;
             }[];
@@ -26964,6 +26964,8 @@ export interface components {
         BillingSettings: {
             /** @description Whether the daily sweep writes bill dues for this firm. Off until the firm turns it on. */
             autoBilling: boolean;
+            /** @description The day automatic billing starts from (Q027), YYYY-MM-DD, the first of the go-live month the firm chose when it switched on. Nothing that ended or finished before it is billed automatically or shown as missed. Null: never switched on through the app. */
+            autoBillingFrom: string | null;
             advancePolicy: components["schemas"]["AdvancePolicy"];
             /** @description Each company's default tax rate. A company with none gets no automatic advance draft. */
             taxDefaults: components["schemas"]["TaxDefault"][];
@@ -26972,13 +26974,15 @@ export interface components {
         };
         SetBillingSettings: {
             autoBilling?: boolean;
+            /** @description The go-live month, YYYY-MM (Q027). Sent with `autoBilling: true` it is the month the switch starts from (absent = this month); sent alone it moves the month while the switch is on. */
+            autoBillingFrom?: string;
             advancePolicy?: components["schemas"]["AdvancePolicy"];
             taxDefaults?: components["schemas"]["TaxDefault"][];
             /** @description Payment terms in days (0 = due on receipt); null clears them. */
             invoiceDueDays?: number | null;
         };
         /** @enum {string} */
-        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "payment_received" | "dunning_decision" | "filing_missed";
+        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "lead_new" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "payment_received" | "dunning_decision" | "filing_missed";
         Notification: {
             /** Format: uuid */
             id: string;
