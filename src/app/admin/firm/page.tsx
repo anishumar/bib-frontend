@@ -394,6 +394,13 @@ export default function FirmPage() {
                 : `Payment terms saved. An invoice issued with no due date is due ${dueDaysWords(invoiceDueDays)}.`,
             )
           }
+          onUnmappedDay={(unmappedReminderDay) =>
+            act(
+              "unmapped-day",
+              () => api.PUT("/api/v1/billing/settings", { body: { unmappedReminderDay } }),
+              `Advances still to be adjusted are reminded on the ${ordinal(unmappedReminderDay)} of each month.`,
+            )
+          }
         />
       )}
 
@@ -1225,6 +1232,7 @@ function BillingCard({
   onPolicy,
   onTaxRates,
   onDueDays,
+  onUnmappedDay,
 }: {
   settings: BillingSettings;
   entities: readonly FirmEntity[];
@@ -1234,6 +1242,7 @@ function BillingCard({
   onPolicy: (policy: AdvancePolicy) => Promise<boolean>;
   onTaxRates: (rates: TaxDefault[]) => Promise<boolean>;
   onDueDays: (days: number | null) => Promise<boolean>;
+  onUnmappedDay: (day: number) => Promise<boolean>;
 }) {
   return (
     <Card id="billing">
@@ -1263,7 +1272,71 @@ function BillingCard({
         onSave={onTaxRates}
       />
       <PaymentTerms days={settings.invoiceDueDays} busy={busy === "due-days"} onSave={onDueDays} />
+      <UnmappedReminderDay day={settings.unmappedReminderDay} busy={busy === "unmapped-day"} onSave={onUnmappedDay} />
     </Card>
+  );
+}
+
+/** "1st", "2nd", "23rd". */
+function ordinal(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${String(n)}th`;
+  return `${String(n)}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+}
+
+/**
+ * ADVANCES TO BE ADJUSTED (0363, Q047): the day of the month the person who
+ * raised each advance still mapped to no service, and every admin, get one
+ * reminder (bell and the daily email). Up to the 28th, so every month has it.
+ */
+function UnmappedReminderDay({
+  day,
+  busy,
+  onSave,
+}: {
+  day: number;
+  busy: boolean;
+  onSave: (day: number) => Promise<boolean>;
+}) {
+  return (
+    <SetOnce
+      nested
+      id="unmapped-advances"
+      title="Advances to be adjusted"
+      isSet
+      view={
+        <Meta layout="list">
+          <MetaItem label="Reminder to the raiser and admins">{`On the ${ordinal(day)} of each month`}</MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const next = Number(new FormData(event.currentTarget).get("unmappedDay"));
+            void (async () => {
+              const ok = await onSave(next);
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldStack>
+            <FieldRow>
+              <Field label="Remind on" hint="At the daily email's hour.">
+                <Select name="unmappedDay" defaultValue={String(day)}>
+                  {Array.from({ length: 28 }, (_, i) => (
+                    <option key={i + 1} value={String(i + 1)}>
+                      {`The ${ordinal(i + 1)} of each month`}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <SaveCancel busy={busy} close={close} />
+            </FieldRow>
+          </FieldStack>
+        </form>
+      )}
+    />
   );
 }
 

@@ -2996,6 +2996,26 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
     with no duty, a non-admin manager's bill draft), issue, a week on (signing moved back by psql on
     THAT tenant only), the weekly email in Mailpit through `ai-digest-tenant.mts` (the worker's
     sweep, its firm list cut to the fixture), FIFO and the refund.
+- **To adjust: advances taken before the letter (0363, Q044-Q048).** `src/app/invoices/adjust.tsx`
+  (`AdjustTab`, `?tab=adjust`, its count the open ones in the warn tone) reads `/advances` (`open` by
+  default; "Show mapped and cancelled" reads `all`). A row: client and company, the invoice (Draft /
+  number), who raised it and when, the paid pill, the advance before tax, each mapping (service and
+  job, or "All services of EL-…" from a signed letter; amount, what bills took, whose revenue; ended
+  ones keep who and why; "Left on a finished service" in the warn tone), what is left, and the per-
+  currency total above ("Left to adjust: ₹… · AED …", never added). **Raise an advance** (secondary:
+  the page's brand button is Raise an invoice) needs `advance:manage` and fees: client, Charged by,
+  currency (and the feed's rate for another), amount before tax, tax rate prefilled from the
+  company's default via `formatCount`, manager (blank = the client's Key Manager), a note; it lands
+  on the draft invoice. **Map** (an issued one with something left) lists `/advances/{id}/targets`:
+  one amount box per service, a job select, a service in another currency or company disabled with
+  the API's own refusal; the dialog says when the total is more than is left. **End** asks why.
+  **Give back** (`invoice:issue`) confirms the credit note. Without fees: Hidden, no actions.
+  The same list is on the client page (`clients/[partyId]/advances.tsx`, Raise preset to the client).
+  The letter page has **Advance received** (`components/advances-received.tsx`): on a draft, tick the
+  client's issued advances and the amount, then Save; a warn notice when the letter also asks for an
+  advance (that is further money). Your firm → Automatic billing → **Advances to be adjusted**
+  (`#unmapped-advances`): the reminder's day of the month. Walk: `bib/demo-assets/tools/adv-walk.mjs`
+  (50 checks, fresh `adv-fixture.mjs` firm each run).
 - **Revenue by manager (T4, no migration).** `/dashboard` has a **Revenue by manager** section
   (`src/app/dashboard/revenue-by-manager.tsx`) reading `/dashboard/revenue/by-manager?months=12`: a
   **Period** select (each month, newest first; **This financial year**, from the firm's own

@@ -3,6 +3,8 @@
 import { QuantityField } from "@/components/quantity-field";
 import { BillingTimingControl } from "@/components/billing-timing";
 import { AdvanceStatus } from "@/components/advance-status";
+import { AdvancesReceived } from "@/components/advances-received";
+import { useSession } from "@/components/layout";
 import { LineAdvanceControl } from "@/components/line-advance";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -159,6 +161,7 @@ export default function LetterPage() {
   // What to OFFER, never what is allowed — the API is the only place the answer
   // lives, and its refusal is shown verbatim when one arrives.
   const [permissions, setPermissions] = useState<string[]>([]);
+  const session = useSession();
 
   const load = useCallback(async (): Promise<void> => {
     const [one, catalogue, library, me] = await Promise.all([
@@ -895,6 +898,17 @@ export default function LetterPage() {
       {/* THE ADVANCE (0320; 0322): its invoice and where it stands. It holds no
           work since 0322 (signing starts it). Nothing when there is no advance. */}
       {isSigned && <AdvanceStatus letterId={letterId} />}
+
+      {/* ADVANCE RECEIVED (0363, Q048): money the client paid before this
+          letter, named on it, and mapped to it when it is signed. */}
+      {!deleted && (
+        <AdvancesReceived
+          letterId={letterId}
+          editable={isDraft && permissions.includes("party:write")}
+          advanceRequired={letter.advanceRequired}
+          seesFees={session?.commercialVisibility === true}
+        />
+      )}
 
       {/* ── The letter's own prose ─────────────────────────────────────
           Not clauses. A clause is a term of the contract, drawn from a versioned

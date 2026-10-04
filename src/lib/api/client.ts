@@ -1084,6 +1084,23 @@ export type BillingBillNow =
   paths["/api/v1/billing/bill-now"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
 
 /**
+ * AN ADVANCE TAKEN BEFORE THE LETTER (0363, Q044-Q048): its invoice, how much
+ * of it is mapped to services and to which, what is left, and whether it is
+ * paid. Amounts are null for a login without the fee axis; `paidState` and
+ * `status` are not amounts and always come.
+ */
+export type AdhocAdvance =
+  paths["/api/v1/advances"]["get"]["responses"][200]["content"]["application/json"]["advances"][number];
+export type AdhocAllocation = AdhocAdvance["allocations"][number];
+/** A service of the advance's client, and why it cannot take the advance
+ *  (`refusal`, the API's own words) when it cannot. */
+export type AdvanceTarget =
+  paths["/api/v1/advances/{advanceId}/targets"]["get"]["responses"][200]["content"]["application/json"]["services"][number];
+/** What a letter names as received, and what it could name (Q048). */
+export type LetterAdvancesReceived =
+  paths["/api/v1/engagement-letters/{letterId}/advances-received"]["get"]["responses"][200]["content"]["application/json"];
+
+/**
  * WORK VS BILLING (Q041): one row per client, service and period with its jobs,
  * bill, invoice and money, and the API's flags (codes; the screen writes the
  * words). Amounts are null for a login without the fee axis (`feesVisible`).

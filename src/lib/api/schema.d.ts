@@ -18852,6 +18852,677 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/advances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Advances to be adjusted
+         * @description Every advance raised before an engagement letter (0363, Q044): who raised it, when, its invoice, how much is mapped and to which services, what is left, and whether it is paid. `open` (the default) is a draft or an issued one with something unmapped; `all` adds the fully mapped and the cancelled. Amounts are per advance, in its own currency; nothing here adds two currencies.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "open" | "all";
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Advances */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            advances: components["schemas"]["AdhocAdvance"][];
+                            feesVisible: boolean;
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Raise an advance before the engagement letter
+         * @description A DRAFT tax invoice of one line, "Advance, to be adjusted against services", for the amount BEFORE tax, at the tax rate sent or the issuing company's default. Every invoice rule applies (the company is one of the firm's, the client is not, the rate rule, the manager). It is numbered when somebody with invoice:issue issues it, and can then be mapped. Needs advance:manage and the fee axis (FEES_NOT_VISIBLE, 403).
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaiseAdhocAdvance"];
+                };
+            };
+            responses: {
+                /** @description Drafted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdhocAdvanceRaised"];
+                    };
+                };
+                /** @description An amount, a tax rate or a rate missing or wrong */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or this login does not see fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is archived or is one of the firm's own companies, or the manager is not on the roster */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/advances/{advanceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One advance raised before an engagement letter */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    advanceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The advance */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdhocAdvance"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/advances/{advanceId}/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The client's services this advance could be mapped to
+         * @description Every service of the advance's client with its jobs. `refusal` says why one cannot take this advance (another currency, another company, finished), in the words the map would refuse with.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    advanceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Services */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            services: {
+                                /** Format: uuid */
+                                engagementId: string;
+                                serviceName: string;
+                                letterRef: string;
+                                currency: string;
+                                issuerName: string;
+                                status: string;
+                                refusal: string | null;
+                                jobs: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    label: string | null;
+                                    status: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/advances/{advanceId}/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Map an advance to services
+         * @description Split what is left of an issued advance across services, and optionally one job of each. Amounts are before tax and together at most what is unmapped (ADVANCE_OVER_MAPPED). Each service is this client's (ADVANCE_OF_ANOTHER_CLIENT), under a letter of the company that invoiced the advance (ADVANCE_OF_ANOTHER_ISSUER) and billed in its currency (ADVANCE_IN_ANOTHER_CURRENCY: never converted). Each part then comes off that work's earliest bills, before tax, and counts in that service's manager's revenue. Needs advance:manage and the fee axis.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    advanceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MapAdhocAdvance"];
+                };
+            };
+            responses: {
+                /** @description Mapped */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdhocAdvance"];
+                    };
+                };
+                /** @description An amount or the reason missing or wrong */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or this login does not see fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance or service at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not issued, more than is left, or a service it cannot be mapped to */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/advances/{advanceId}/allocations/{allocationId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a mapping, to map it elsewhere or give it back
+         * @description What that work's bills have already taken stays mapped; the rest is unmapped again. A mapping its bills took in full cannot move (ALLOCATION_USED_UP). Needs advance:manage.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    advanceId: string;
+                    allocationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EndAllocation"];
+                };
+            };
+            responses: {
+                /** @description Ended */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdhocAdvance"];
+                    };
+                };
+                /** @description No reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance or mapping */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already ended, or used up by bills */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/advances/{advanceId}/give-back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give back what of an advance is mapped nowhere
+         * @description The letter never came: a credit note on the advance invoice for its unmapped part with its share of the tax (reason `advance_refund`). The money goes back as a negative payment, as every refund. Mapped parts are ended first. Needs invoice:issue and the fee axis.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    advanceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Credited */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdhocAdvanceGivenBack"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not issued, or nothing unmapped */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/advances-received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Advances a letter names as received, and those it could name
+         * @description Q048, scenario 1: the letter prints "Advance received" for each it names, and when it is signed each is mapped to the letter (the smaller of the named amount and what is unmapped then), coming off its earliest bills before tax. Candidates: this client's issued advances from the letter's company in its currency with something unmapped.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Named and candidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterAdvancesReceived"];
+                    };
+                };
+                /** @description No such letter */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Name the advances a draft letter says were received
+         * @description Replaces what the DRAFT letter names. Each advance is this client's, from the letter's company, in its currency, issued, and the amount at most what is unmapped today. Needs the fee axis.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NameLetterAdvances"];
+                };
+            };
+            responses: {
+                /** @description Named */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterAdvancesReceived"];
+                    };
+                };
+                /** @description Not a draft, or an advance that does not fit the letter */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or this login does not see fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not issued, or more than is unmapped */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/dues": {
         parameters: {
             query?: never;
@@ -26620,6 +27291,166 @@ export interface components {
                 invoiceNumber: string | null;
             }[];
         };
+        AdvancePerson: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+            email: string;
+        } | null;
+        AdvanceAllocation: {
+            /** Format: uuid */
+            id: string;
+            target: {
+                /** @enum {string} */
+                kind: "service";
+                /** Format: uuid */
+                engagementId: string;
+                serviceName: string;
+                letterRef: string;
+                engagementStatus: string;
+                job: {
+                    /** Format: uuid */
+                    id: string;
+                    label: string | null;
+                } | null;
+            } | {
+                /** @enum {string} */
+                kind: "letter";
+                /** Format: uuid */
+                letterId: string;
+                letterRef: string;
+            };
+            /** @description As mapped, before tax. Null without the fee axis. */
+            amount: string | null;
+            /** @description What it still holds: all of it while live, what bills took once ended. */
+            effective: string | null;
+            /** @description What bills of that work have taken from it. */
+            taken: string | null;
+            /** @description Effective less taken: what later bills will still take. */
+            left: string | null;
+            manager: components["schemas"]["AdvancePerson"] & unknown;
+            /** @enum {string} */
+            how: "by_hand" | "letter_signed";
+            reason: string;
+            createdBy: components["schemas"]["AdvancePerson"];
+            createdAt: string;
+            ended: {
+                at: string;
+                by: components["schemas"]["AdvancePerson"];
+                reason: string;
+                kept: string | null;
+            } | null;
+        };
+        AdhocAdvance: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description `draft`: raised, not issued (nothing to map yet). `open`: issued, part of it mapped nowhere. `mapped`: all of it is pointed at work. `cancelled`: its invoice was withdrawn.
+             * @enum {string}
+             */
+            status: "draft" | "open" | "mapped" | "cancelled";
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            note: string | null;
+            raisedBy: components["schemas"]["AdvancePerson"];
+            raisedAt: string;
+            manager: components["schemas"]["AdvancePerson"] & unknown;
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string | null;
+                /** @enum {string} */
+                status: "draft" | "issued" | "cancelled";
+                issuedOn: string | null;
+            };
+            /** @description The advance, before tax (the invoice's net). */
+            amount: string | null;
+            /** @description With tax: what the client is asked for. */
+            total: string | null;
+            credited: string | null;
+            mapped: string | null;
+            /** @description Before tax, mapped nowhere. Null until issued, or without the fee axis. */
+            unmapped: string | null;
+            /** @description What Give back would credit: the unmapped part with its share of the tax. */
+            refundAmount: string | null;
+            paid: string | null;
+            outstanding: string | null;
+            /**
+             * @description Not an amount, so shown to every caller.
+             * @enum {string}
+             */
+            paidState: "unpaid" | "part_paid" | "paid" | "not_issued";
+            allocations: components["schemas"]["AdvanceAllocation"][];
+            namedOn: {
+                /** Format: uuid */
+                letterId: string;
+                ref: string;
+                status: string;
+                amount: string | null;
+            }[];
+        };
+        AdhocAdvanceRaised: {
+            /** Format: uuid */
+            advanceId: string;
+            /** Format: uuid */
+            invoiceId: string;
+        };
+        RaiseAdhocAdvance: {
+            /** Format: uuid */
+            partyId: string;
+            /** Format: uuid */
+            entityPartyId: string;
+            currency: string;
+            amount: string;
+            taxPercent?: string;
+            fxRate?: string;
+            fxRateDate?: string;
+            dueOn?: string;
+            /** Format: uuid */
+            managerUserId?: string;
+            note?: string;
+        };
+        MapAdhocAdvance: {
+            targets: {
+                /** Format: uuid */
+                engagementId: string;
+                /** Format: uuid */
+                jobId?: string;
+                amount: string;
+            }[];
+            reason: string;
+        };
+        EndAllocation: {
+            reason: string;
+        };
+        AdhocAdvanceGivenBack: {
+            creditNoteId: string;
+            number: string;
+        };
+        LetterAdvancesReceived: {
+            letterStatus: string;
+            named: {
+                advance: components["schemas"]["AdhocAdvance"];
+                amount: string | null;
+            }[];
+            candidates: components["schemas"]["AdhocAdvance"][];
+        };
+        NameLetterAdvances: {
+            advances: {
+                /** Format: uuid */
+                adhocAdvanceId: string;
+                amount: string;
+            }[];
+        };
         BillingPerson: {
             /** Format: uuid */
             userId: string;
@@ -26969,6 +27800,8 @@ export interface components {
             taxDefaults: components["schemas"]["TaxDefault"][];
             /** @description The firm's own payment terms (0327): an invoice issued with no due date is due this many days after its date. Null (the default) means none: no due date unless a person types one. */
             invoiceDueDays: number | null;
+            /** @description The day of the month (1 to 28) each advance still to be adjusted is reminded to whoever raised it and to the firm's administrators (0363, Q047), from the daily email's hour. */
+            unmappedReminderDay: number;
         };
         SetBillingSettings: {
             autoBilling?: boolean;
@@ -26976,9 +27809,11 @@ export interface components {
             taxDefaults?: components["schemas"]["TaxDefault"][];
             /** @description Payment terms in days (0 = due on receipt); null clears them. */
             invoiceDueDays?: number | null;
+            /** @description The day of the month advances still to be adjusted are reminded. */
+            unmappedReminderDay?: number;
         };
         /** @enum {string} */
-        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "payment_received" | "dunning_decision" | "filing_missed";
+        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "advance_unmapped" | "payment_received" | "dunning_decision" | "filing_missed";
         Notification: {
             /** Format: uuid */
             id: string;
