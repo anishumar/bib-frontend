@@ -8,6 +8,7 @@ import {
   apiError,
   codeLabel,
   formatMoney,
+  formatTotals,
   LEAD_STAGES,
   PROPOSAL_STATUS_WORDS,
   colleagueLabel,
@@ -632,11 +633,7 @@ export default function LeadPage() {
                         the API answers null rather than refusing the row, and
                         the row is still worth seeing. */}
                     <Td align="right" className="nowrap">
-                      {p.totals.net === null ? (
-                        <NotSet>Hidden</NotSet>
-                      ) : (
-                        formatMoney(p.totals.net, p.totals.currency)
-                      )}
+                      {formatTotals(p.totals) ?? <NotSet>Hidden</NotSet>}
                     </Td>
                     <RowChevron />
                   </Tr>

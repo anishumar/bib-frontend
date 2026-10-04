@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, apiError, formatMoney, PROPOSAL_STATUS_WORDS } from "@/lib/api/client";
+import { api, apiError, formatTotals, PROPOSAL_STATUS_WORDS } from "@/lib/api/client";
 import type { ProposalSummary } from "@/lib/api/client";
 import { Page, PageHeader } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -132,14 +132,12 @@ export default function ProposalsPage() {
                     </Pill>
                   </Td>
                   <Td align="right" className="nowrap">
-                    {p.totals.net === null ? (
-                      <NotSet>Hidden</NotSet>
-                    ) : (
-                      formatMoney(p.totals.net, p.totals.currency)
-                    )}
-                    {p.totals.unpricedLineCount > 0 && (
-                      <Sub>{`+ ${String(p.totals.unpricedLineCount)} to be agreed`}</Sub>
-                    )}
+                    {formatTotals(p.totals) ?? <NotSet>Hidden</NotSet>}
+                    {(() => {
+                      // A count of services, not money: summed across currencies.
+                      const unpriced = p.totals.reduce((n, t) => n + t.unpricedLineCount, 0);
+                      return unpriced > 0 && <Sub>{`+ ${String(unpriced)} to be agreed`}</Sub>;
+                    })()}
                   </Td>
                   <Td className="nowrap">
                     {p.proposal.sentAt === null ? (

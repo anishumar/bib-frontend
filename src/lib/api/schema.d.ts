@@ -13268,6 +13268,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the exchange rate of one of a draft's other currencies
+         * @description Every currency a line is priced in, other than the main one, needs a rate back to the firm's reporting currency (0344). Inserts it, or replaces the one there. The main currency's rate is changed with the currency (PATCH the proposal). Answers with the whole proposal.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetCurrencyRateRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Not a rate, or the main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take a currency's rate off a draft
+         * @description Only while no live line is priced in it (RATE_IN_USE). Answers with the whole proposal.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description The main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or lines are priced in it (RATE_IN_USE) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{proposalId}/lines": {
         parameters: {
             query?: never;
@@ -14762,6 +14924,168 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the exchange rate of one of a draft letter's other currencies
+         * @description Every currency a service or section is priced in, other than the main one, needs a rate back to the firm's reporting currency (0344). Inserts it, or replaces the one there. The main currency's rate is changed with the currency (PATCH the letter). Answers with the whole letter.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLetterCurrencyRateRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description Not a rate or a day, or the main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take a currency's rate off a draft letter
+         * @description Only while no live service or section is priced in it (RATE_IN_USE). Answers with the whole letter.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description The main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or services or sections are priced in it (RATE_IN_USE) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
@@ -24258,6 +24582,13 @@ export interface components {
             ownerUserId: string;
             note?: string;
         };
+        CurrencyRate: {
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            /** @description Either "typed" or the name of the rate service that supplied it. */
+            source: string;
+        };
         Proposal: {
             /** Format: uuid */
             id: string;
@@ -24271,9 +24602,12 @@ export interface components {
             title: string;
             /** @enum {string} */
             status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            /** @description The MAIN currency: the default for a new line, with its rate below (0344). */
             currency: string;
             fxRate: string | null;
             fxRateDate: string;
+            /** @description The rate of every other currency a line is priced in (0344), by code. */
+            rates: components["schemas"]["CurrencyRate"][];
             validUntil: string | null;
             sentAt: string | null;
             decidedAt: string | null;
@@ -24336,13 +24670,14 @@ export interface components {
                 id: string;
                 displayName: string;
             };
-            totals: components["schemas"]["ProposalTotals"];
+            totals: components["schemas"]["ProposalTotals"][];
             lineCount: number;
         };
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
         ProposalFrequencyTotal: {
+            currency: string;
             /** @enum {string|null} */
             frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             net: string | null;
@@ -24522,12 +24857,15 @@ export interface components {
             };
             issuedOn: string;
             totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
-            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database. No one-off or custom fee is in it. Null when nothing priced recurs, or for a caller without the fee axis. */
-            annualValue: string | null;
+            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database, one per currency, the main currency first (0344). No one-off or custom fee is in it. Empty when nothing priced recurs, or for a caller without the fee axis. */
+            annualValue: {
+                amount: string;
+                currency: string;
+            }[];
             document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
-            totals: components["schemas"]["ProposalTotals"];
+            totals: components["schemas"]["ProposalTotals"][];
             approvedBy: {
                 /** Format: uuid */
                 userId: string;
@@ -24620,6 +24958,11 @@ export interface components {
             fxRate?: string;
             fxRateDate?: string;
         };
+        SetCurrencyRateRequest: {
+            fxRate: string;
+            fxRateDate: string;
+            source?: string;
+        };
         AddProposalLineRequest: {
             /** Format: uuid */
             entityPartyId?: string;
@@ -24641,6 +24984,8 @@ export interface components {
             exclusionsOverride?: string;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string;
+            /** @description What this line is priced in (0344). Absent: the list price's currency when the fee is taken from it and the proposal holds a rate for it, else the main currency. Any other than the main currency needs its rate first (CURRENCY_NEEDS_A_RATE). */
+            currency?: string;
         };
         UpdateProposalLineRequest: {
             description?: string;
@@ -24656,6 +25001,7 @@ export interface components {
             exclusionsOverride?: string | null;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string | null;
+            currency?: string;
         };
         ProposalEmailOutcome: {
             /** @enum {string} */
@@ -24702,6 +25048,7 @@ export interface components {
                 description: string;
                 quantity: string;
                 unitAmount: string | null;
+                currency: string;
                 discountPercent: string;
                 net: string | null;
                 pricingNote: string | null;
@@ -24715,7 +25062,7 @@ export interface components {
                 net: string;
                 currency: string;
                 unpricedLineCount: number;
-            };
+            }[];
             blocks: components["schemas"]["SharedProposalBlock"][];
             answer: {
                 /** @enum {string} */
@@ -24768,6 +25115,13 @@ export interface components {
              */
             evidenceDocumentId?: string;
         };
+        LetterCurrencyRate: {
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            /** @description Either "typed" or the name of the rate service that supplied it. */
+            source: string;
+        };
         EngagementLetter: {
             /** Format: uuid */
             id: string;
@@ -24784,9 +25138,12 @@ export interface components {
             status: "draft" | "sent" | "signed" | "withdrawn";
             /** @enum {string} */
             layout: "classic" | "annexure";
+            /** @description The MAIN currency: the default for a new service, with its rate below (0344). */
             currency: string;
             fxRate: string | null;
             fxRateDate: string;
+            /** @description The rate of every other currency a service or section is priced in (0344), by code. */
+            rates: components["schemas"]["LetterCurrencyRate"][];
             advanceRequired: boolean;
             advanceAmount: string | null;
             advanceRecordedAt: string | null;
@@ -24992,13 +25349,15 @@ export interface components {
                 id: string;
                 displayName: string;
             };
-            totals: components["schemas"]["EngagementLetterTotals"];
+            /** @description One per currency, the main currency first (0344). */
+            totals: components["schemas"]["EngagementLetterTotals"][];
             lineCount: number;
         };
         EngagementLettersResponse: {
             letters: components["schemas"]["EngagementLetterSummary"][];
         };
         LetterFrequencyTotal: {
+            currency: string;
             /** @enum {string|null} */
             frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             net: string | null;
@@ -25031,6 +25390,7 @@ export interface components {
                 billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
                 startsOn: string | null;
                 amount: string | null;
+                currency: string;
                 pricingNote: string | null;
                 paymentTerms: string | null;
             }[];
@@ -25218,6 +25578,7 @@ export interface components {
                 name: string;
                 jurisdiction: string | null;
             };
+            /** @description Per currency and frequency, the main currency's rows first (0344). */
             totalsByFrequency: components["schemas"]["LetterFrequencyTotal"][];
             document: components["schemas"]["LetterDocumentPlan"];
             addressedTo: {
@@ -25246,7 +25607,8 @@ export interface components {
             feeGroups: components["schemas"]["EngagementLetterFeeGroup"][];
             clauses: components["schemas"]["EngagementLetterClause"][];
             blocks: components["schemas"]["EngagementLetterBlock"][];
-            totals: components["schemas"]["EngagementLetterTotals"];
+            /** @description One per currency the live services and sections are in, the main currency first; one zero row in the main currency on an empty letter (0344). Never added together. */
+            totals: components["schemas"]["EngagementLetterTotals"][];
             engagements: components["schemas"]["Engagement"][];
             signing: components["schemas"]["EngagementLetterSigning"];
             deletedBy: {
@@ -25308,12 +25670,19 @@ export interface components {
              */
             chosenSignatoryId?: string | null;
         };
+        SetLetterCurrencyRateRequest: {
+            fxRate: string;
+            fxRateDate: string;
+            source?: string;
+        };
         UpdateEngagementLetterLineRequest: {
             description?: string;
             /** Format: uuid */
             entityPartyId?: string;
             quantity?: string;
             unitAmount?: string | null;
+            /** @description Another currency the letter holds a rate for (0344): CURRENCY_NEEDS_A_RATE (409) when it holds none. Not on a service in a section (LINE_CURRENCY_IS_SECTIONS, 409). */
+            currency?: string;
             discountPercent?: string;
             /** @enum {string|null} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
@@ -25340,6 +25709,8 @@ export interface components {
             quantity: string;
             /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the letter's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
+            /** @description What this service is priced in (0344): the letter's main currency or another it holds a rate for. Omit for the section's (in a section), else the list price's currency when the fee comes from the list price and the letter holds its rate, else the main currency. */
+            currency?: string;
             /** @default 0 */
             discountPercent: string;
             /** @description When THIS line starts, if that is not the letter's date. Omit for the letter's. */
@@ -25377,6 +25748,7 @@ export interface components {
         };
         FeeGroupRequest: {
             title: string;
+            currency?: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /** @enum {string} */
@@ -25391,6 +25763,7 @@ export interface components {
         };
         EditFeeGroupRequest: {
             title?: string;
+            currency?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /** @enum {string|null} */

@@ -315,7 +315,9 @@ export function ClientStep({
   // currency can change only while no service is on it: every line is priced
   // in it. A rate or its date can always be corrected.
   const lineCount = draft?.lines.length ?? 0;
-  const currencyLocked = draft !== null && lineCount > 0;
+  // Held only by services priced IN it (0344): ones in another rated
+  // currency do not stop the main currency moving.
+  const currencyLocked = draft !== null && draft.lines.some((l) => l.currency === draft.proposal.currency);
   const issuerChanged = draft !== null && issuerId !== draft.proposal.issuingEntityPartyId;
   const moneyChanged =
     draft !== null &&

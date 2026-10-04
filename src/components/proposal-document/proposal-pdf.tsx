@@ -272,7 +272,7 @@ export function ProposalPdf({
         ...planSections(record).map(
           (s): PieceGroup => ({
             title: `${s.code}. ${s.title}`,
-            pieces: s.items.flatMap((item) => servicePieces(item.code, item.line, proposal.currency, reviseLine)),
+            pieces: s.items.flatMap((item) => servicePieces(item.code, item.line, item.line.currency, reviseLine)),
           }),
         ),
         {

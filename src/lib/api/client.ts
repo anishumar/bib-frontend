@@ -10,6 +10,7 @@
 // the seam is worth having.
 import createClient from "openapi-fetch";
 import type { paths } from "./schema";
+import { minorUnits } from "@/lib/currency";
 
 /**
  * The API's origin — a DIFFERENT one from this app's, always.
@@ -763,21 +764,35 @@ export function formatMoney(amount: string | null, currency: string): string {
   // person can see is wrong is worth more than one they cannot.
   if (exact === null) return `${currency} ${amount}`;
   // Paise are shown only when there are some: "12.50" keeps them, "12.00"
-  // and "12" do not. Read off the string, never off a number.
-  const places = /\.\d*[1-9]/.test(amount) ? 2 : 0;
+  // and "12" do not. Read off the string, never off a number. As many places
+  // as the currency has (0344): two for most, none for the yen, three for
+  // the Kuwaiti dinar.
+  const minor = minorUnits(currency);
+  const places = minor > 0 && /\.\d*[1-9]/.test(amount) ? minor : 0;
   if (currency === "INR") {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: places,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: minor,
     }).format(exact);
   }
   const figure = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: places,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: minor,
   }).format(exact);
   return `${currency} ${figure}`;
+}
+
+/**
+ * A document's totals, one per currency (0344): "₹5,000 + AED 4,000". Two
+ * currencies are never added, so this is a list said in one line, the main
+ * currency first as the API orders it. Null when a figure is withheld from
+ * the login (fees not visible), which a cell says as "Hidden".
+ */
+export function formatTotals(totals: readonly { readonly net: string | null; readonly currency: string }[]): string | null {
+  if (totals.some((t) => t.net === null)) return null;
+  return totals.map((t) => formatMoney(t.net, t.currency)).join(" + ");
 }
 
 /**

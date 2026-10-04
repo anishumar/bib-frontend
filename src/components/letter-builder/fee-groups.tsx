@@ -30,6 +30,7 @@
  * here is offered on one.
  */
 
+import { CurrencySelect } from "@/components/currency-select";
 import { BillingTimingControl } from "@/components/billing-timing";
 import { useState } from "react";
 import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
@@ -65,6 +66,8 @@ export function FeeGroups({
   letterId,
   groups,
   lines,
+  main,
+  currencies,
   editable,
   busy,
   act,
@@ -72,6 +75,10 @@ export function FeeGroups({
   letterId: string;
   groups: readonly FeeGroup[];
   lines: readonly LetterLine[];
+  /** The letter's main currency: a new section's, unless another is chosen. */
+  main: string;
+  /** The main currency and every one the letter holds a rate for (0344). */
+  currencies: readonly string[];
   /** A draft, and a caller who may write. */
   editable: boolean;
   busy: string | null;
@@ -99,6 +106,8 @@ export function FeeGroups({
             <GroupForm
               key={g.id}
               group={g}
+              main={main}
+              currencies={currencies}
               busy={busy}
               onCancel={() => {
                 setEditing(null);
@@ -229,6 +238,8 @@ export function FeeGroups({
           <summary>Add a section</summary>
         <GroupForm
           group={null}
+          main={main}
+          currencies={currencies}
           busy={busy}
           onSubmit={(body) =>
             act("group:new", () =>
@@ -236,6 +247,7 @@ export function FeeGroups({
                 params: { path: { letterId } },
                 body: {
                   title: body.title ?? "",
+                  ...(body.currency === undefined || body.currency === main ? {} : { currency: body.currency }),
                   billingFrequency: body.billingFrequency ?? "monthly",
                   amount: body.amount ?? "",
                   ...(body.paymentTerms === undefined || body.paymentTerms === ""
@@ -264,6 +276,8 @@ export function FeeGroups({
 
 interface GroupBody {
   title?: string;
+  /** Sent on an edit only when it changes: its services move with it (0344). */
+  currency?: string;
   billingFrequency?: FeeGroup["billingFrequency"];
   amount?: string;
   paymentTerms?: string;
@@ -281,16 +295,24 @@ interface GroupBody {
  */
 function GroupForm({
   group,
+  main,
+  currencies,
   busy,
   onSubmit,
   onCancel,
 }: {
   group: FeeGroup | null;
+  main: string;
+  currencies: readonly string[];
   busy: string | null;
   onSubmit: (body: GroupBody) => Promise<unknown>;
   onCancel?: () => void;
 }) {
   const adding = group === null;
+  const current = group?.currency ?? main;
+  // A currency taken off the letter since stays listed, so the form says what
+  // the section holds.
+  const choices = currencies.includes(current) ? currencies : [...currencies, current];
   return (
     <form
       className="mt-4"
@@ -298,10 +320,12 @@ function GroupForm({
         const text = (name: string): string => String(form.get(name) ?? "").trim();
         const amount = cleanAmount(text("groupAmount"));
         const frequency = FREQUENCIES.find((f) => f === text("groupFrequency")) ?? "monthly";
+        const currency = text("groupCurrency") === "" ? current : text("groupCurrency");
         // A new section's form stays open: it clears once the section is
         // added (the caller resolves true), and a refusal keeps it (F05).
         return onSubmit({
           title: text("groupTitle"),
+          ...(currency === current && !adding ? {} : { currency }),
           billingFrequency: frequency,
           ...(amount === "" ? {} : { amount }),
           paymentTerms: text("groupPaymentTerms"),
@@ -334,6 +358,11 @@ function GroupForm({
               ))}
             </Select>
           </Field>
+          {choices.length > 1 && (
+            <Field label="Currency" hint={adding ? undefined : "Its services move with it."}>
+              <CurrencySelect name="groupCurrency" only={choices} defaultValue={current} />
+            </Field>
+          )}
           <Field
             label="Fee"
             hint={

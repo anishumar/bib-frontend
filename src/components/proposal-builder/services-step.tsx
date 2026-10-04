@@ -13,6 +13,7 @@ import { catalogueCountries, groupByDept, offeredIn } from "./data";
 import type { CatalogueService } from "./data";
 import { ServiceRow } from "./service-row";
 import { FrequencyTotals } from "./totals";
+import { CurrencyRates } from "@/components/currency-rates";
 import type { LineTerms } from "./service-row";
 
 /**
@@ -51,6 +52,9 @@ export function ServicesStep({
   const { proposal, lines } = record;
   const proposalId = proposal.id;
   const editable = proposal.status === "draft" && proposal.deletedAt === null && canWrite;
+  // What a service may be priced in (0344): the main currency and each one
+  // this proposal holds a rate for.
+  const currencies = [proposal.currency, ...proposal.rates.map((r) => r.currency)];
 
   // The issuer's country first, then every other country the catalogue offers.
   const issuerCountry = record.issuer.jurisdiction;
@@ -93,6 +97,9 @@ export function ServicesStep({
       serviceVersionId: s.versionId,
       description: s.name,
       quantity: t.quantity,
+      // B09: a login that cannot see fees lets the API pick the list price's
+      // currency along with the price.
+      ...(t.feesUnchanged === true ? {} : { currency: t.currency }),
       discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
       // B09: a login that cannot see fees sends neither, and the API quotes
       // the catalogue's list price.
@@ -151,6 +158,7 @@ export function ServicesStep({
             ? {}
             : {
                 unitAmount: t.unitAmount,
+                currency: t.currency,
                 discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
                 pricingNote: t.pricingNote,
               }),
@@ -171,6 +179,15 @@ export function ServicesStep({
 
   return (
     <div className="flex flex-col gap-6">
+      <CurrencyRates
+        kind="proposal"
+        documentId={proposalId}
+        main={proposal.currency}
+        rates={proposal.rates}
+        inUse={(c) => lines.filter((l) => l.currency === c).length}
+        editable={editable}
+        onChanged={onChanged}
+      />
       <Card>
         <CardTitle level={2}>Services</CardTitle>
         {/* One line (Wave 4). A service priced in another currency, or with
@@ -227,6 +244,7 @@ export function ServicesStep({
                                 service={s}
                                 lines={linesOf(s)}
                                 currency={proposal.currency}
+                                currencies={currencies}
                                 editable={editable}
                                 busy={busy === s.key}
                                 error={errors[s.key] === "" ? null : (errors[s.key] ?? null)}

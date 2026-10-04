@@ -238,7 +238,12 @@ export function LetterClientStep({
     datePick ?? (foreign && ratePick === null && known !== undefined ? known.on : browserDay());
 
   // ── On a draft ────────────────────────────────────────────────────────────
-  const priced = draft !== null && (draft.lines.length > 0 || draft.feeGroups.length > 0);
+  // The main currency is held only by fees IN it (0344): services and
+  // sections in another rated currency do not stop it moving.
+  const priced =
+    draft !== null &&
+    (draft.lines.some((l) => l.feeGroupId === null && l.currency === draft.letter.currency) ||
+      draft.feeGroups.some((g) => g.currency === draft.letter.currency));
   const termsOn = draft?.clauses.length ?? 0;
   const issuerChanged = draft !== null && issuerId !== draft.letter.issuingEntityPartyId;
   const countryChanged = draft !== null && country !== draft.letter.jurisdiction;

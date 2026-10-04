@@ -240,7 +240,7 @@ export default function LetterPage() {
     );
   }
 
-  const { letter, totals, lines, engagements, feeGroups } = record;
+  const { letter, lines, engagements, feeGroups } = record;
   const groupOf = (id: string | null) => feeGroups.find((g) => g.id === id) ?? null;
   // The catalogue version the picker is on, so the two boxes beside it can be
   // filled from it. Falls back to the FIRST option, because that is what a
@@ -655,6 +655,8 @@ export default function LetterPage() {
           letterId={letterId}
           groups={feeGroups}
           lines={lines}
+          main={letter.currency}
+          currencies={[letter.currency, ...letter.rates.map((r) => r.currency)]}
           editable={isDraft && permissions.includes("party:write")}
           busy={busy}
           act={act}
@@ -830,7 +832,7 @@ export default function LetterPage() {
                           letterId={letterId}
                           line={l}
                           groups={feeGroups}
-                          currency={letter.currency}
+                          currency={l.currency}
                           busy={busy}
                           act={act}
                         />
@@ -874,14 +876,14 @@ export default function LetterPage() {
               by the database, a section's fee once at its own frequency. */}
           <div className="num text-lg strong">
             {(() => {
-              const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
+              const { withheld, sentence } = totalWords(record.totalsByFrequency);
               if (withheld) return <span className="text-muted">Fees not shown to you</span>;
               return sentence ?? <span className="text-muted">No fixed fee yet</span>;
             })()}
           </div>
           {letter.advanceRequired && (
             <div className="text-md text-muted">
-              advance <Money amount={letter.advanceAmount} currency={totals.currency} />
+              advance <Money amount={letter.advanceAmount} currency={letter.currency} />
               {/* Where it stands is the Advance card's (0322: nothing writes
                   advanceRecordedAt any more; letters from before T3 keep it). */}
               {letter.advanceRecordedAt !== null && ` · recorded ${longInstant(letter.advanceRecordedAt)}`}

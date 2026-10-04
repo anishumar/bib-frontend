@@ -339,38 +339,46 @@ export default function SharedProposalPage() {
  * frequency the API's own total stands, with its discount note.
  */
 function FrequencyTotals({ shared }: { shared: SharedProposal }) {
-  const groups = totalsByFrequency(shared.lines);
+  const groups = totalsByFrequency(shared.lines, shared.currency);
+  const [one] = shared.totals;
+  // ONE PER CURRENCY (0344): two currencies are never added, so a proposal in
+  // dollars and dirhams shows each, and the label names which.
+  const several = shared.totals.length > 1;
   const only = groups?.[0]?.frequency ?? null;
+  const unpriced = shared.totals.reduce((n, t) => n + t.unpricedLineCount, 0);
   return (
     <div className="mb-4 flex flex-col gap-2">
       <Strip>
-        {groups === null || groups.length <= 1 ? (
+        {!several && one !== undefined && (groups === null || groups.length <= 1) ? (
           <Stat
             label={only === null ? "Total" : `${FREQUENCY_WORDS[only]} total`}
-            value={formatMoney(shared.totals.net, shared.currency)}
-            figure={{ amount: shared.totals.net, currency: shared.currency }}
+            value={formatMoney(one.net, one.currency)}
+            figure={{ amount: one.net, currency: one.currency }}
             /* "0.00" is no discount too: the wire sends a decimal string, and
                comparing it to "0" drew "after ₹0 off ₹65,000" (Wave 4). */
-            {...(!/^-?0*(\.0*)?$/.test(shared.totals.discount)
+            {...(!/^-?0*(\.0*)?$/.test(one.discount)
               ? {
-                  note: `after ${formatMoney(shared.totals.discount, shared.currency)} off ${formatMoney(shared.totals.gross, shared.currency)}`,
+                  note: `after ${formatMoney(one.discount, one.currency)} off ${formatMoney(one.gross, one.currency)}`,
                 }
               : {})}
           />
         ) : (
-          groups.map((g) => (
+          (groups ?? []).map((g) => (
             <Stat
-              key={g.frequency ?? "none"}
-              label={g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`}
-              value={formatMoney(g.net, shared.currency)}
-              figure={{ amount: g.net, currency: shared.currency }}
+              key={`${g.currency}:${g.frequency ?? "none"}`}
+              label={
+                (g.frequency === null ? "Total, frequency not set" : `${FREQUENCY_WORDS[g.frequency]} total`) +
+                (several ? ` in ${g.currency}` : "")
+              }
+              value={formatMoney(g.net, g.currency)}
+              figure={{ amount: g.net, currency: g.currency }}
             />
           ))
         )}
       </Strip>
-      {shared.totals.unpricedLineCount > 0 && (
+      {unpriced > 0 && (
         <p className="text-md">
-          Plus {plural(shared.totals.unpricedLineCount, "service")} as mutually agreed.
+          Plus {plural(unpriced, "service")} as mutually agreed.
         </p>
       )}
     </div>
@@ -408,19 +416,27 @@ const FREQUENCY_ORDER = ["monthly", "quarterly", "annually", "one_time", "custom
  */
 function totalsByFrequency(
   lines: SharedProposal["lines"],
-): { frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] | null {
-  const groups = new Map<SharedProposal["lines"][number]["billingFrequency"], string[]>();
-  for (const l of lines) {
-    if (l.net === null) continue;
-    groups.set(l.billingFrequency, [...(groups.get(l.billingFrequency) ?? []), l.net]);
-  }
-  const out: { frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] = [];
-  for (const f of FREQUENCY_ORDER) {
-    const nets = groups.get(f);
-    if (nets === undefined) continue;
-    const net = addDecimals(nets);
-    if (net === null) return null;
-    out.push({ frequency: f, net });
+  main: string,
+): { currency: string; frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] | null {
+  // Per currency, then per frequency: one currency's nets added as exact
+  // strings, never across currencies (0344). The main currency first.
+  const currencies = [...new Set(lines.map((l) => l.currency))].sort((a, b) =>
+    a === main ? -1 : b === main ? 1 : a.localeCompare(b),
+  );
+  const out: { currency: string; frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] = [];
+  for (const currency of currencies) {
+    const groups = new Map<SharedProposal["lines"][number]["billingFrequency"], string[]>();
+    for (const l of lines) {
+      if (l.net === null || l.currency !== currency) continue;
+      groups.set(l.billingFrequency, [...(groups.get(l.billingFrequency) ?? []), l.net]);
+    }
+    for (const f of FREQUENCY_ORDER) {
+      const nets = groups.get(f);
+      if (nets === undefined) continue;
+      const net = addDecimals(nets);
+      if (net === null) return null;
+      out.push({ currency, frequency: f, net });
+    }
   }
   return out;
 }
