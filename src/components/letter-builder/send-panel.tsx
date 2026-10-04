@@ -9,7 +9,8 @@ import { Button, Field, FieldRow, Input, LinkButton, Notice } from "@/components
 import { Card, CardTitle } from "@/components/tw";
 import { useSession } from "@/components/layout";
 import { RoutingWarning } from "./routing-warning";
-import { reloadLetter, useLetter } from "./store";
+import { putLetter, reloadLetter, useLetter } from "./store";
+import { SignedBySelect } from "@/components/signatories/signed-by-select";
 import { StandardsHelp } from "@/lib/ui/who-may";
 
 /** "a, b and c". */
@@ -96,6 +97,14 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
               void send();
             }}
           >
+            {/* Who signs for the FIRM (0343, Q005). The preview above redraws
+                with the choice, through the store. */}
+            <SignedBySelect
+              letterId={letterId}
+              chosenSignatoryId={letter.chosenSignatoryId}
+              canWrite={canWrite}
+              onSaved={(next) => putLetter(letterId, next)}
+            />
             {signing.sends && (
               <FieldRow>
                 <Field label="Who signs for the client">

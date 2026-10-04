@@ -1646,6 +1646,371 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/signatories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everyone who may sign this firm's engagement letters
+         * @description Retired signatories included, so the list still names who signed older letters.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignatoriesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Put somebody on the list of signatories
+         * @description An active staff member, once. A firm's first signatory becomes its default.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddSignatoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Listed */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That person has no active staff membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already on the list */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change what a signatory signs as, or their signature image
+         * @description Letters already sent keep the block and the image they went out with.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeSignatoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description Blank title, or the image is not a PNG or JPEG */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or no such image, at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make this signatory the firm's default */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The default now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or they no longer work here */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Retired: reinstate them first */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Retire a signatory, or reinstate one
+         * @description A retired signatory cannot be chosen for a new letter; letters they signed keep reading. The default cannot be retired until somebody else is the default.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignatoryActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Done */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or (reinstating) they no longer work here */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The default cannot be retired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/me": {
         parameters: {
             query?: never;
@@ -21417,6 +21782,47 @@ export interface components {
             userId: string;
             title: string;
         };
+        Signatory: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            userId: string;
+            /** @description Null when nobody has named the account; show the roster entry instead. */
+            displayName: string | null;
+            /** @description What they sign as, printed under their name. */
+            title: string;
+            /**
+             * Format: uuid
+             * @description Their own signature image (a document version), or null. Pinned onto a letter at send. With none, the firm's DEFAULT signatory falls back to the issuing company's signature image; anyone else prints a bare rule, never somebody else's mark.
+             */
+            signatureVersionId: string | null;
+            /** @description False: retired, cannot be chosen for a new letter. */
+            isActive: boolean;
+            /** @description Signs every letter nobody chose a signatory for. */
+            isDefault: boolean;
+            createdAt: string;
+        };
+        SignatoriesResponse: {
+            signatories: components["schemas"]["Signatory"][];
+        };
+        AddSignatoryRequest: {
+            /** Format: uuid */
+            userId: string;
+            title: string;
+            /** @description Also make them the default. A firm's first signatory is its default anyway. */
+            makeDefault?: boolean;
+        };
+        ChangeSignatoryRequest: {
+            title?: string;
+            /**
+             * Format: uuid
+             * @description A PNG or JPEG already stored (POST /api/v1/documents); null takes it off.
+             */
+            signatureVersionId?: string | null;
+        };
+        SignatoryActiveRequest: {
+            isActive: boolean;
+        };
         SelfName: {
             /** Format: uuid */
             userId: string;
@@ -24412,6 +24818,11 @@ export interface components {
              * @description The withdrawn letter this draft was copied from (0316), or null. Not `supersedesId`, which names a SIGNED letter this one replaces.
              */
             copiedFromId: string | null;
+            /**
+             * Format: uuid
+             * @description Who the drafter chose to sign for the firm (0343): an entry on GET /api/v1/tenancy/signatories, or null for the firm's default at send. Once sent, `firmSignatoryUserId`/`firmSignatoryTitle` are the record.
+             */
+            chosenSignatoryId: string | null;
         };
         DraftEngagementLetterRequest: {
             /** Format: uuid */
@@ -24891,6 +25302,11 @@ export interface components {
             currency?: string;
             fxRate?: string;
             fxRateDate?: string;
+            /**
+             * Format: uuid
+             * @description Who signs for the firm (0343): an entry on the firm's list, or null for its default. A retired signatory is refused (SIGNATORY_RETIRED), here and again at send.
+             */
+            chosenSignatoryId?: string | null;
         };
         UpdateEngagementLetterLineRequest: {
             description?: string;

@@ -1184,6 +1184,12 @@ export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
 export type FirmEntity =
   paths["/api/v1/firm-entities"]["get"]["responses"][200]["content"]["application/json"]["entities"][number];
 
+/** One person on the firm's list of signatories (0343, Q005): who may sign an
+ *  engagement letter for the firm, what they sign as, their own signature
+ *  image, and whether they are the default or retired. */
+export type Signatory =
+  paths["/api/v1/tenancy/signatories"]["get"]["responses"][200]["content"]["application/json"]["signatories"][number];
+
 /** One row of the firm's rule: clients in this country (or `*`, everywhere
  *  else) are quoted by that company. */
 export type FirmEntityPreference =

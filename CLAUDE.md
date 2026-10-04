@@ -1054,6 +1054,31 @@ that no letter can pin. A half-written term — a country with no words — is S
 registry's own refusal reaches the screen (*"never half a statement"*, verbatim) instead of being
 tidied here into a clause that silently names no law. Proven by trying it.
 
+## Signing: the list on Your firm, and "Signed by" on a letter (0343, Q005, 2026-10-04)
+
+The client asked for a list of signatories and a dropdown "at the time of finalizing EL to select
+who will sign that particular EL". Two components in `src/components/signatories/`, both their own
+files so `admin/firm/page.tsx` (which the company calendar work also edits) changed in a few lines:
+
+- **`SignatoriesCard`**, the Signing section of Your firm: a table of Name (Default / Retired pills),
+  Signs as, Signature, and Change + More (Make default, Retire / Reinstate). The page owns loading,
+  the error and the notice, and hands its `act` in. An empty list shows the add form straight away;
+  the firm's first signatory becomes the default (the API decides). **Change** edits the title and
+  uploads the person's own signature: the brand screen's two calls, a document first
+  (`POST /documents`, kind `brand_asset`), then `PATCH /tenancy/signatories/{id}` with its version.
+  The Signature column says "Uses each company's signature" for a default with no image of their
+  own, because that is what the letter prints; anyone else without one is Not set (a bare line on
+  the letter, never somebody else's signature).
+- **`SignedBySelect`**, beside the send button on the letter page AND in the builder's
+  `LetterSendPanel`: "Firm default: <name>, <title>" (saves null) plus every active signatory, and
+  the current choice even if retired since, marked "(retired)", so the drafter sees why Send will
+  be refused. A change PATCHes the letter at once and hands the answered record back: the builder
+  puts it in the store (`putLetter`), so the PDF preview redraws with the new name and signature;
+  the letter page sets its record. A sent letter shows its frozen block as before, not the select.
+
+Walk: `bib/demo-assets/tools/sig-walk.mjs` (24 checks), screenshots and the rasterized PDF page in
+`bib/demo-assets/notes/signatories/`.
+
 ## Wave 4 on the admin, portal and sign-in screens (W4C admin-portal, 2026-09-28)
 
 Every `/admin/*` screen except Your firm and Standard terms, `/account`, `/`, the client portal,
