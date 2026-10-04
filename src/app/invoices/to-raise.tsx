@@ -14,7 +14,7 @@ import {
   invoiceNumberWords,
   noPriceWords,
 } from "@/lib/api/client";
-import type { BillingBillNow, BillingDue, BillingRefund, InvoiceSummary } from "@/lib/api/client";
+import type { BillingBillNow, BillingDue, BillingEarlyBill, BillingRefund, InvoiceSummary } from "@/lib/api/client";
 import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant } from "@/lib/day";
 import { cleanAmount, commonUnits } from "@/lib/money";
@@ -88,6 +88,7 @@ export function ToRaiseTab({
   seesFees,
   refunds,
   billNow,
+  early,
   onChanged,
   reportingCurrency,
 }: {
@@ -111,6 +112,8 @@ export function ToRaiseTab({
   seesFees: boolean;
   refunds: readonly BillingRefund[];
   billNow: readonly BillingBillNow[];
+  /** Periods whose work is done before their bill date (Q071 b). */
+  early: readonly BillingEarlyBill[];
   onChanged: () => Promise<void>;
 }) {
   /** Bills the reader UNticked. Absent is ticked, so a bill that arrives on a
@@ -181,6 +184,24 @@ export function ToRaiseTab({
           ? `Credit note ${result.data.number} cancels the advance ${r.party.displayName} was asked for. Nothing was paid, so nothing goes back.`
           : `Credit note ${result.data.number} gives ${r.party.displayName} the advance back. Pay back ${formatMoney(back, r.currency)} and record it as a negative payment.`,
       invoice: { id: r.invoice.id, number: r.invoice.number },
+    });
+  }
+
+  /** Bill a finished period before its date (Q071 b): its bill joins the list. */
+  async function billEarly(b: BillingEarlyBill): Promise<void> {
+    setSaid(null);
+    setActing(true);
+    const result = await api.POST("/api/v1/billing/bill-early", {
+      body: { subjectKey: b.subjectKey, periodStart: b.period.start },
+    });
+    setActing(false);
+    if (result.error) {
+      setSaid({ tone: "warn", text: apiError(result.error).message });
+      return;
+    }
+    await finished({
+      tone: "ok",
+      text: `${b.serviceName} for ${b.period.label} (${b.party.displayName}) is on the list to raise.`,
     });
   }
 
@@ -514,6 +535,73 @@ export function ToRaiseTab({
                         <Pill dot tone="warn">
                           For whoever issues invoices
                         </Pill>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </Card>
+      )}
+
+      {early.length > 0 && (
+        <Card>
+          <CardHead level={2} title="Work done before its bill date" />
+          <p className="text-ink-2">
+            The work is finished and the bill is not due yet. Bill it today, or leave it for its date.
+          </p>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Client</Th>
+                  <Th>Service</Th>
+                  <Th>Bill due</Th>
+                  <Th align="right">Fee</Th>
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {early.map((b) => (
+                  <tr key={`${b.subjectKey}:${b.period.start}`}>
+                    <Td>
+                      <span className="cell-text" data-size="narrow">
+                        <Link href={`/clients/${b.party.id}` as Route}>{b.party.displayName}</Link>
+                      </span>
+                    </Td>
+                    <Td>
+                      <span className="cell-text">
+                        {b.serviceName}, {b.period.label}
+                      </span>
+                      <Sub>Work done {longDay(b.work.doneOn)}</Sub>
+                    </Td>
+                    <Td className="nowrap">
+                      {longDay(b.plannedBillOn)}
+                      {b.datedByFiling !== null && <Sub>{b.datedByFiling.name} due date</Sub>}
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      {!seesFees ? (
+                        <NotSet>Hidden</NotSet>
+                      ) : b.fullAmount === null ? (
+                        <NotSet>No price</NotSet>
+                      ) : (
+                        formatMoney(b.fullAmount, b.currency)
+                      )}
+                    </Td>
+                    <Td className="nowrap">
+                      {canWrite && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={acting}
+                          aria-label={`Bill ${b.serviceName} for ${b.period.label}, ${b.party.displayName}, now`}
+                          onClick={() => void billEarly(b)}
+                        >
+                          Bill it now
+                        </Button>
                       )}
                     </Td>
                   </tr>

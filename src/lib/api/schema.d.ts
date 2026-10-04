@@ -19566,6 +19566,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/bill-early": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Periods whose work is done before their bill date (Raise invoice now)
+         * @description Recurring work finished before its bill comes due (Q071 b): a period job done, or the filing that dates a yearly bill done. Each may be billed today instead of waiting. Empty while automatic billing is off. Narrow to one job (`jobId`), one task (`workItemId`), one client (`partyId`), or the bills whose manager is the caller (`mine=true`).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    jobId?: string;
+                    workItemId?: string;
+                    partyId?: string;
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billable early */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            periods: components["schemas"]["BillingEarlyBill"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Bill a period now, its work being done (Raise invoice now)
+         * @description Writes the period's bill, dated today, onto To raise, to be raised there the ordinary way. It is the bill the daily run would have made on its date, made sooner: never a second bill for the same period.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BillEarly"];
+                };
+            };
+            responses: {
+                /** @description On To raise */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BilledEarly"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such service billed on a schedule at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Billed already, work not done, or automatic billing is off */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/dues/{dueId}/skip": {
         parameters: {
             query?: never;
@@ -26932,6 +27068,62 @@ export interface components {
         BilledNow: {
             /** Format: uuid */
             dueId: string;
+        };
+        BillingEarlyBill: {
+            /** @description `e:<engagement id>` (a service priced on its own) or `g:<fee group id>` (one fee for several). */
+            subjectKey: string;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            serviceName: string;
+            letterRef: string;
+            currency: string;
+            /** @description One whole period's fee before tax; null without fee visibility or when the letter names none. */
+            fullAmount: string | null;
+            /** @description The period the bill is for. A yearly bill dated by a filing is labelled with the FILING's year (Q071). */
+            period: {
+                start: string;
+                end: string;
+                label: string;
+            };
+            /** @description The day the bill would be made without billing early. */
+            plannedBillOn: string;
+            /** @description The yearly statutory filing whose due date is `plannedBillOn` (Q071). */
+            datedByFiling: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                dueOn: string;
+            } | null;
+            /** @description The finished work that makes the period billable now: the latest, when several. */
+            work: {
+                /** @enum {string} */
+                kind: "job" | "filing";
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                jobId: string | null;
+                /** @description A filing's name; null for a period job. */
+                name: string | null;
+                doneOn: string;
+            };
+            /** Format: uuid */
+            managerUserId: string | null;
+        };
+        BilledEarly: {
+            /** Format: uuid */
+            dueId: string;
+        };
+        BillEarly: {
+            /** @description `e:<engagement id>` (a service priced on its own) or `g:<fee group id>` (one fee for several). */
+            subjectKey: string;
+            periodStart: string;
         };
         SkipDue: {
             reason: string;

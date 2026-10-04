@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { BillEarly } from "@/components/bill-early";
 import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import {
   Button,
@@ -247,6 +248,8 @@ export default function WorkItemPage() {
       />
       {/* A REFUSAL TAKES FOCUS, and `ErrorNotice` is where that lives. */}
       <ErrorNotice error={error} />
+      {/* A task finished before its bill date: offer the bill now (Q071 b). */}
+      {finished && <BillEarly workItemId={item.id} canWrite={me?.permissions.includes("party:write") ?? false} />}
 
       {/* SENT BACK (CA#29): said first, with the checker's note, until the work
           goes to be checked again. */}

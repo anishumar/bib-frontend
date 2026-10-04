@@ -1082,6 +1082,10 @@ export type BillingRefund =
 /** A one-time service with no process: billed by hand with Bill it now. */
 export type BillingBillNow =
   paths["/api/v1/billing/bill-now"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+/** A period whose work is done before its bill date (Q071 b): "Raise invoice
+ *  now" writes its bill today. */
+export type BillingEarlyBill =
+  paths["/api/v1/billing/bill-early"]["get"]["responses"][200]["content"]["application/json"]["periods"][number];
 
 /**
  * WORK VS BILLING (Q041): one row per client, service and period with its jobs,

@@ -25,10 +25,15 @@ export function billingTimingWords(frequency: string | null, timing: BillingTimi
   const span = SPAN[frequency ?? ""];
   if (span === undefined) return null;
   if (timing === "advance") return `At the start of each ${span}`;
-  if (timing === "on_date" && on !== null) return `First invoice ${longDay(on)}`;
+  if (timing === "on_date" && on !== null) return span === "year" ? `Every year from ${longDay(on)}` : `First invoice ${longDay(on)}`;
+  // A yearly fee: on its annual filing's due date when the service carries one
+  // (Q071), else the year's last day.
+  if (span === "year") return YEARLY_ARREARS;
   // On the period's last day (Q042).
   return `At the end of each ${span}`;
 }
+
+const YEARLY_ARREARS = "On its annual filing's due date, else at the end of each year";
 
 export function BillingTimingControl({
   label,
@@ -66,9 +71,9 @@ export function BillingTimingControl({
           if (next !== "on_date") onSave(next, null);
         }}
       >
-        <option value="arrears">{`At the end of each ${span}`}</option>
+        <option value="arrears">{span === "year" ? YEARLY_ARREARS : `At the end of each ${span}`}</option>
         <option value="advance">{`At the start of each ${span}`}</option>
-        <option value="on_date">On a date I choose</option>
+        <option value="on_date">{span === "year" ? "Every year on a date I choose" : "On a date I choose"}</option>
       </Select>
       {choice === "on_date" && (
         <Input
