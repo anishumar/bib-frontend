@@ -214,6 +214,8 @@ export default function InvoicePage() {
   // is yesterday in India until 05:30 every morning — so something due
   // yesterday would not read as overdue for those five and a half hours.
   const today = browserDay();
+  // The day Issue would date it: its company's today (0337), from the API.
+  const issuesOn = record.issuesOn ?? today;
 
   return (
     <Page>
@@ -251,9 +253,9 @@ export default function InvoicePage() {
               consequence={
                 <p>
                   {invoice.number === null
-                    ? `It gets the next number in ${record.entity.displayName}'s series and becomes a tax invoice dated ${longDay(browserDay())}.`
-                    : `${invoice.number} becomes a tax invoice dated ${longDay(browserDay())}.`}{" "}
-                  {invoice.dueOn !== null && invoice.dueOn < browserDay() && (
+                    ? `It gets the next number in ${record.entity.displayName}'s series and becomes a tax invoice dated ${longDay(issuesOn)}.`
+                    : `${invoice.number} becomes a tax invoice dated ${longDay(issuesOn)}.`}{" "}
+                  {invoice.dueOn !== null && invoice.dueOn < issuesOn && (
                     <>
                       Its due date, {longDay(invoice.dueOn)}, has already passed: change it below
                       first, or it will not be issued.{" "}
@@ -265,10 +267,10 @@ export default function InvoicePage() {
               }
               onConfirm={() =>
                 void act(() =>
-                  // The date printed on the tax invoice: today where the
-                  // person issuing it is, not Greenwich's day.
+                  // The date printed on the tax invoice: today on its
+                  // company's calendar (0337), which the API decides.
                   api.POST("/api/v1/invoices/{invoiceId}/issue", {
-                    params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                    params: { path: { invoiceId } },
                   }),
                 )
               }
@@ -319,7 +321,7 @@ export default function InvoicePage() {
                     if (next === (invoice.dueOn ?? "")) return;
                     void act(() =>
                       api.PUT("/api/v1/invoices/{invoiceId}/due-date", {
-                        params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                        params: { path: { invoiceId } },
                         body: { dueOn: next === "" ? null : next },
                       }),
                     );
@@ -340,8 +342,12 @@ export default function InvoicePage() {
               <NotSet>Numbered when issued</NotSet>
             ) : (
               <>
-                FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")}, number{" "}
-                {invoice.sequenceNumber}
+                {/* The year as its number spells it (0337): `2026-27`, or
+                    `2027` for a company on a calendar year. */}
+                FY{" "}
+                {invoice.financialYearLabel ??
+                  `${String(invoice.financialYear)}-${String((invoice.financialYear + 1) % 100).padStart(2, "0")}`}
+                , number {invoice.sequenceNumber}
               </>
             )}
           </MetaItem>
@@ -1033,7 +1039,7 @@ export default function InvoicePage() {
               const note = String(form.get("creditNote") ?? "");
               return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/credit-notes", {
-                  params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                  params: { path: { invoiceId } },
                   body: {
                     amount: cleanAmount(String(form.get("creditAmount"))),
                     reason: String(form.get("reason")) as CreditNote["reason"],

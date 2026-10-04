@@ -522,7 +522,7 @@ function InvoiceNumbers({
               <tbody>
                 {series.map((r) => (
                   <tr key={`${r.financialYear}:${r.documentType}`}>
-                    <Td>{financialYearLabel(r.financialYear)}</Td>
+                    <Td>{r.label}</Td>
                     <Td>
                       {r.documentType === "invoice" ? "Invoices" : "Credit notes"}
                       <Sub>Prefix {r.prefix}</Sub>
@@ -535,7 +535,7 @@ function InvoiceNumbers({
                       {r.lastNumber}
                     </Td>
                     <Td>
-                      {r.prefix}/{financialYearLabel(r.financialYear)}/
+                      {r.prefix}/{r.label}/
                       {String(r.lastNumber + 1).padStart(4, "0")}
                     </Td>
                   </tr>
@@ -618,15 +618,3 @@ function InvoiceNumbers({
   );
 }
 
-/**
- * `2026` -> `2026-27`, the label the API's own `formatInvoiceNumber` builds a
- * number from.
- *
- * Written here rather than imported because it is not on the wire: the series
- * row carries the YEAR as an integer, and every invoice number the product has
- * ever issued spells it this way. The two must not disagree, which is why this
- * is one line with the rule stated rather than a format somebody chose.
- */
-function financialYearLabel(year: number): string {
-  return `${String(year)}-${String((year + 1) % 100).padStart(2, "0")}`;
-}

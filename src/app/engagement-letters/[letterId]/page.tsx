@@ -54,7 +54,7 @@ import {
   Td,
   Th,
 } from "@/components/tw";
-import { browserDay, instantDay, longDay, longInstant } from "@/lib/day";
+import { instantDay, longDay, longInstant } from "@/lib/day";
 import { DeleteMistake, DeletedNotice } from "@/components/delete-mistake";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CopyLineage } from "@/components/copy-as-draft";
@@ -1438,9 +1438,9 @@ export default function LetterPage() {
               onSubmit={(event) => keepTyped(event, (form) => {
                 void act("send", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                    // An undated letter is dated today where you are, not on
-                    // Greenwich's day (a Delhi send at 01:00 read the day before).
-                    params: { path: { letterId }, query: { asOf: browserDay() } },
+                    // An undated letter is dated today on its company's calendar
+                    // (0337), which the API decides: never Greenwich's day.
+                    params: { path: { letterId } },
                     body: {
                       signer: {
                         name: String(form.get("signerName") ?? "").trim(),
@@ -1573,7 +1573,7 @@ export default function LetterPage() {
                 onConfirm={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
-                      params: { path: { letterId }, query: { asOf: browserDay() } },
+                      params: { path: { letterId } },
                     }),
                   );
                 }}
@@ -1620,8 +1620,8 @@ export default function LetterPage() {
                 const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
                 void act("sign", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/signature", {
-                    // Work nobody dated starts today where you are.
-                    params: { path: { letterId }, query: { asOf: browserDay() } },
+                    // Work nobody dated starts today on its company's calendar (0337).
+                    params: { path: { letterId } },
                     body: {
                       signedByName: String(form.get("signedByName")),
                       reference: String(form.get("reference") ?? ""),

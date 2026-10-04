@@ -8,7 +8,7 @@
  * ON the page or from the "Edit" list beside it.
  *
  * - A DRAFT is drawn by `POST /documents/preview` as Send will leave it: dated
- *   today (the caller's day, as Send takes it) unless the drafter set a date,
+ *   today on its company's calendar, as Send dates it (0337), unless the drafter set a date,
  *   with the firm's signature block when the firm names a signatory.
  * - A letter that went out shows its SIGNED COPY once one is filed (the
  *   provider's, or one a colleague uploaded). Until then it is drawn from its
@@ -27,7 +27,7 @@ import type { ConfigEntry, LetterRecord } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { Button, Notice, Select, cx } from "@/components/ui";
 import { useSession } from "@/components/layout";
-import { browserDay, longDay } from "@/lib/day";
+import { longDay } from "@/lib/day";
 import { PdfWorkspace, usePreview, useStoredPdf } from "@/components/pdf-pages";
 import type { Piece, PieceGroup } from "@/components/pdf-pages";
 import {
@@ -83,7 +83,6 @@ export function LetterPdf({
   const seesFees = session?.commercialVisibility === true;
   const [people, setPeople] = useState<readonly Choice[]>([]);
   const [signedCopy, setSignedCopy] = useState<StoredDoc | null>(null);
-  const [today] = useState(browserDay);
 
   const deleted = record?.letter.deletedAt != null;
   const isDraft = record?.letter.status === "draft" && !deleted;
@@ -122,7 +121,6 @@ export function LetterPdf({
     subjectRef: letterId,
     revision: record === null ? "" : JSON.stringify(record),
     enabled: record !== null && !ofRecord && seesFees,
-    asOf: isDraft ? today : undefined,
   });
   const stored = useStoredPdf({
     documentId: ofRecord && signedCopy !== null ? signedCopy.id : null,

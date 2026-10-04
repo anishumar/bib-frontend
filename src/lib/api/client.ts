@@ -1029,7 +1029,7 @@ export type BillingDueStatus = BillingDue["status"];
 export type BillingPerson = NonNullable<BillingDue["manager"]>;
 
 /** A recurring engagement with no billing schedule yet, and the default the API
- *  offers for one (the current period, billed the day after it ends). */
+ *  offers for one (the current period, billed on its last day: Q042). */
 export type BillingUnscheduled =
   paths["/api/v1/billing/unscheduled"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
 

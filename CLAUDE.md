@@ -259,6 +259,19 @@ Standard terms for a login with `tenant:admin`, the names of who has it for anyb
 Before this there were six `browserDay`s and nine `longDay`s in four versions. If you need a
 date formatter, import it; do not copy the nearest one you find.
 
+- **A company's document is NOT dated on `browserDay` (0337).** Each of the firm's companies has
+  its own year and time zone, and the API dates its invoices, letters, acceptances, credit notes
+  and raised bills on THAT company's day. So Issue, the due date, credit notes, Raise, refunds,
+  every letter Send (builder and letter page), a signature recorded by hand and the letter
+  preview send no `asOf`; a sentence that names the day Issue will use reads the invoice's
+  `issuesOn`. **A recorded acceptance is the exception:** its date is the RECORDER's statement,
+  so it sends `asOf=browserDay()` (letters and proposals), which the API holds to the company's
+  day or one either side. A year label is the API's (`financialYearLabel` on an
+  invoice, `label` on a series: `2026-27`, or `2027` for a calendar-year company), never built
+  from `financialYear`. Reminders and buckets ("Overdue", "Today") stay on `browserDay`.
+  Your firm → Companies shows "Year and clock" and sets both in Add / Change
+  (`src/app/admin/firm/company-calendar.tsx`).
+
 ### The heading ladder is part of the component API
 
 `PageHeader` gives `h1`, `Section` gives `h2` at `level={2}` and `h3` otherwise, `CardTitle`
@@ -2858,7 +2871,8 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   any act, because a kept untick left the card's button disabled with nothing saying why (the walk
   found it). The dialog asks per bill for the tax rate (prefilled with `lastTaxPercent`, the last
   invoice line for that work) and, only where the letter fixed no price, the amount; the rate starts
-  at the letters' own when they agree; `asOf=browserDay()`. Rows say pro-rata ("17 of 31 days", "of
+  at the letters' own when they agree; no `asOf` since 0337 (the API dates it on its company's
+  day). Rows say pro-rata ("17 of 31 days", "of
   ₹50,000"), **Overdue, also with <manager's manager>** once escalated (`escalated`, 7 days, computed by
   the API), and the API's `managerNote` in the warn tone when the bill fell back to the Key Manager. A
   bill on a draft stays listed ("On a draft", the number) until the invoice is issued; a cancelled
@@ -2893,8 +2907,8 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   from "Hidden": a login without fees is still asked the amount of a bill that has none.
 - **The letter says when a fee is billed (phase 1b, 0319).** The letter page's Services table has a
   **Billed** column and each fee section a "Billed" line: `BillingTimingControl`
-  (`src/components/billing-timing.tsx`), "After each month" (the default and what a letter that
-  says nothing means) | "At the start of each month" | "On a date I choose" (then a date box). On a
+  (`src/components/billing-timing.tsx`), "At the end of each month" (the default and what a letter
+  that says nothing means; the bill is made on the period's LAST day since Q042, 0339) | "At the start of each month" | "On a date I choose" (then a date box). On a
   draft it saves as it changes (PATCH line / fee group `billingTiming` + `billingOn`); on a sent or
   signed letter it is the words the PDF prints. A one-off reads "Billed by hand", a grouped line
   "With its section". Signing with the firm's switch on sets each engagement's schedule from it

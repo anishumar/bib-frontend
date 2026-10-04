@@ -13725,7 +13725,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    asOf?: string;
+                };
                 header?: never;
                 path: {
                     proposalId: string;
@@ -16011,7 +16013,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description A company already registered in a country does not move */
+                /** @description A company already registered in a country does not move, or its year and clock were sent before its country */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -24686,7 +24688,7 @@ export interface components {
             /** @enum {string|null} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             /**
-             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @description When the fee is invoiced (0319): `arrears` (on each period's last day, Q042), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
              * @enum {string|null}
              */
             billingTiming: "arrears" | "advance" | "on_date" | null;
@@ -24932,7 +24934,7 @@ export interface components {
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /**
-             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @description When the fee is invoiced (0319): `arrears` (on each period's last day, Q042), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
              * @enum {string}
              */
             billingTiming?: "arrears" | "advance" | "on_date";
@@ -25074,6 +25076,8 @@ export interface components {
             phone: string | null;
             email: string | null;
             defaultCurrency: string;
+            timeZone: string | null;
+            fiscalYearStartMonth: number | null;
         };
         FirmEntitiesResponse: {
             reportingCurrency: string;
@@ -25091,6 +25095,10 @@ export interface components {
             /** @description Stored in E.164; a number without a country code takes the company's. */
             phone?: string | null;
             email?: string | null;
+            /** @description An IANA zone (Asia/Dubai, America/New_York), never an offset. Dates this company's documents. Null = the firm's. Needs the company registered in a country first (COMPANY_NOT_REGISTERED). */
+            timeZone?: string | null;
+            /** @description 1-12, the month its financial year starts. Null = the firm's. A change applies to invoice numbers drawn after it: a series already started keeps its year (0337). */
+            fiscalYearStartMonth?: number | null;
         };
         EditFirmEntityRequest: {
             name?: string;
@@ -25104,6 +25112,10 @@ export interface components {
             /** @description Stored in E.164; a number without a country code takes the company's. */
             phone?: string | null;
             email?: string | null;
+            /** @description An IANA zone (Asia/Dubai, America/New_York), never an offset. Dates this company's documents. Null = the firm's. Needs the company registered in a country first (COMPANY_NOT_REGISTERED). */
+            timeZone?: string | null;
+            /** @description 1-12, the month its financial year starts. Null = the firm's. A change applies to invoice numbers drawn after it: a series already started keeps its year (0337). */
+            fiscalYearStartMonth?: number | null;
         };
         FirmEntityPreference: {
             /** Format: uuid */
@@ -25205,6 +25217,8 @@ export interface components {
             number: string | null;
             /** @description The financial year whose series the number was drawn from. On a draft it is provisional: issuing takes the year of the issue date, in the firm's own financial year (B03). */
             financialYear: number;
+            /** @description The year as the number spells it, read off the number: `2026-27`, or `2027` for a company whose year starts in January (0337). Null on a draft. Show this, never a label worked out from financialYear. */
+            financialYearLabel: string | null;
             sequenceNumber: number | null;
             /** @enum {string} */
             status: "draft" | "issued" | "cancelled";
@@ -25324,6 +25338,8 @@ export interface components {
                 reason: "INVOICE_NUMBER_OUT_OF_ORDER";
                 message: string;
             } | null;
+            /** @description The day Issue would date this draft today: today on its issuing company's calendar, else the firm's (0337). What a confirmation says before Issue. Null once it is out of draft. */
+            issuesOn: string | null;
         };
         AddInvoiceLineRequest: {
             /** Format: uuid */
@@ -25346,6 +25362,8 @@ export interface components {
             entityPartyId: string;
             entityName: string;
             financialYear: number;
+            startMonth: number;
+            label: string;
             documentType: string;
             prefix: string;
             lastNumber: number;
@@ -25583,7 +25601,7 @@ export interface components {
             firstInvoiceOn: string | null;
         };
         BillingUnscheduled: components["schemas"]["BillingSchedule"] & {
-            /** @description The current period, billed the day after it ends (the firm's default). */
+            /** @description The current period, billed on its last day (the firm's default, Q042). */
             suggestion: {
                 billingFrom: string;
                 firstInvoiceOn: string;

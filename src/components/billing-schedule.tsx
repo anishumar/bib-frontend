@@ -20,7 +20,7 @@ import { longDay } from "@/lib/day";
  * billed by hand goes live without a second bill for old months.
  *
  * The boxes are prefilled with the API's suggestion (the current period, billed
- * the day after it ends: Ashish, arrears), never computed here, because a
+ * on its last day: Ashish, arrears, Q042), never computed here, because a
  * quarter or a year is cut by the firm's financial year and that rule lives in
  * the API. A schedule already set is prefilled with itself.
  */

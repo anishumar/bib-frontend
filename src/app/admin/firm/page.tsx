@@ -51,6 +51,8 @@ import { longDay } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
 import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { NotificationSettings } from "@/components/notify/settings";
+import { CompanyCalendarCell, CompanyCalendarFields, calendarChanges } from "./company-calendar";
+import type { FirmCalendar } from "./company-calendar";
 import { cleanAmount } from "@/lib/money";
 
 /**
@@ -196,6 +198,9 @@ export default function FirmPage() {
   /** The firm's time zone (0071), here since 2026-10-03; null when refused. */
   const [timeZone, setTimeZone] = useState<string | null>(null);
 
+  /** What "Same as the firm" means for a company's year and clock (0337). */
+  const firmCalendar: FirmCalendar = { timeZone, fiscalYearStartMonth: policy?.fiscalYearStartMonth ?? null };
+
   const load = useCallback(async (): Promise<void> => {
     const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
@@ -301,6 +306,7 @@ export default function FirmPage() {
         />
         <CompanyTable
           entities={entities}
+          firm={firmCalendar}
           onEdit={(e) => {
             setError(null);
             setNotice(null);
@@ -428,6 +434,7 @@ export default function FirmPage() {
       {adding && (
         <AddCompany
           entities={entities}
+          firm={firmCalendar}
           busy={busy === "add"}
           onClose={() => setAdding(false)}
           onAdd={async (body) => {
@@ -445,6 +452,7 @@ export default function FirmPage() {
         <EditCompany
           key={editing.partyId}
           entity={editing}
+          firm={firmCalendar}
           busy={busy === "edit"}
           onClose={() => setEditing(null)}
           onSave={async (body) => {
@@ -469,9 +477,11 @@ export default function FirmPage() {
 
 function CompanyTable({
   entities,
+  firm,
   onEdit,
 }: {
   entities: readonly FirmEntity[];
+  firm: FirmCalendar;
   onEdit: (entity: FirmEntity) => void;
 }) {
   const router = useRouter();
@@ -483,6 +493,7 @@ function CompanyTable({
             <Th>Company</Th>
             <Th>Registered in</Th>
             <Th>Documents in</Th>
+            <Th>Year and clock</Th>
             <Th>
               <span className="sr-only">Actions</span>
             </Th>
@@ -500,6 +511,9 @@ function CompanyTable({
               {/* The currency a document this company issues STARTS in (D1),
                   from the API's one copy of that table. */}
               <Td>{e.defaultCurrency}</Td>
+              <Td>
+                <CompanyCalendarCell entity={e} firm={firm} />
+              </Td>
               <Td align="right">
                 <div className="cluster" style={{ justifyContent: "flex-end" }}>
                   <Button variant="secondary" size="sm" aria-label={`Change ${e.name}`} onClick={() => onEdit(e)}>
@@ -564,6 +578,8 @@ interface NewCompany extends CompanyNumbers {
   jurisdiction: string;
   entityType: string;
   registeredAddress?: CompanyAddress;
+  timeZone?: string | null;
+  fiscalYearStartMonth?: number | null;
 }
 
 /**
@@ -688,11 +704,13 @@ function identityChanges(
 
 function AddCompany({
   entities,
+  firm,
   busy,
   onClose,
   onAdd,
 }: {
   entities: readonly FirmEntity[];
+  firm: FirmCalendar;
   busy: boolean;
   onClose: () => void;
   onAdd: (body: NewCompany) => Promise<void>;
@@ -715,6 +733,7 @@ function AddCompany({
       entityType: String(form.get("entityType") ?? "").trim(),
       ...(registeredAddress === undefined || registeredAddress === null ? {} : { registeredAddress }),
       ...numbers,
+      ...calendarChanges(form, null),
     });
   }
 
@@ -755,6 +774,7 @@ function AddCompany({
             </Field>
           </FieldRow>
           <CompanyIdentityFields country={country} entity={null} disabled={false} />
+          <CompanyCalendarFields country={country} entity={null} firm={firm} disabled={false} />
           {served !== null && (
             <Notice tone="warn">
               <p>
@@ -774,15 +794,19 @@ interface CompanyChange extends CompanyNumbers {
   entityType?: string;
   jurisdiction?: string;
   registeredAddress?: CompanyAddress | null;
+  timeZone?: string | null;
+  fiscalYearStartMonth?: number | null;
 }
 
 function EditCompany({
   entity,
+  firm,
   busy,
   onClose,
   onSave,
 }: {
   entity: FirmEntity;
+  firm: FirmCalendar;
   busy: boolean;
   onClose: () => void;
   onSave: (body: CompanyChange) => Promise<void>;
@@ -818,6 +842,8 @@ function EditCompany({
       if (entityType !== (entity.entityType ?? "")) body.entityType = entityType;
       Object.assign(body, identity);
     }
+    // Disabled until the country is recorded, so absent from the form then.
+    Object.assign(body, calendarChanges(form, entity));
     if (Object.keys(body).length === 0) {
       setUnchanged(true);
       return;
@@ -874,6 +900,12 @@ function EditCompany({
             country={needsCountry ? country : (entity.jurisdiction ?? "")}
             entity={entity}
             disabled={waiting}
+          />
+          <CompanyCalendarFields
+            country={needsCountry ? country : (entity.jurisdiction ?? "")}
+            entity={entity}
+            firm={firm}
+            disabled={false}
           />
           {unchanged && (
             <p className="field-hint" role="status">
