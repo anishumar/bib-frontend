@@ -39,6 +39,7 @@ import { ChangePassword } from "@/components/account/change-password";
 import { Button, ErrorNotice, Field, Input, Meta, MetaItem, NotSet } from "@/components/ui";
 import { longInstantTime } from "@/lib/day";
 import { keepTyped } from "@/lib/ui/keep-typed";
+import { NotificationSettings } from "@/components/notify/settings";
 
 type Build = { readonly commit: string | null; readonly builtAt: string | null };
 
@@ -145,6 +146,11 @@ export default function AccountPage() {
               void load();
             }}
           />
+
+          <details className="disclosure">
+            <summary>Notifications</summary>
+            <NotificationSettings owner="mine" />
+          </details>
 
           {/* For an ADMINISTRATOR, and only when the build says something
               (CA#57): "Build Not set / Built Not set" meant nothing to anybody
