@@ -16,7 +16,7 @@ import { totalWords } from "@/components/proposal-document";
  */
 export function FrequencyTotals({ record }: { record: ProposalRecord }) {
   const count = record.lines.length;
-  const { sentence } = totalWords(record.totalsByFrequency, record.proposal.currency);
+  const { sentence } = totalWords(record.totalsByFrequency);
   return (
     <span>
       <strong>

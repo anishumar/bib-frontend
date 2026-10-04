@@ -587,14 +587,18 @@ function ServicesAndPrices({
           <div style={{ textAlign: "right" }}>
             <div className="num text-lg strong">
               {(() => {
-                const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
+                const { withheld, sentence } = totalWords(record.totalsByFrequency);
                 if (withheld) return <span className="text-muted">Fees not shown to you</span>;
                 return sentence ?? <span className="text-muted">No fixed fee yet</span>;
               })()}
             </div>
-            {record.annualValue !== null && (
+            {/* One figure per currency (0344), never added together. */}
+            {record.annualValue.length > 0 && (
               <div className="muted text-md">
-                <Money amount={record.annualValue} currency={totals.currency} /> a year from the fees that repeat
+                <span className="num">
+                  {record.annualValue.map((v) => formatMoney(v.amount, v.currency)).join(" + ")}
+                </span>{" "}
+                a year from the fees that repeat
               </div>
             )}
           </div>

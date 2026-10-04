@@ -1646,6 +1646,371 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/signatories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everyone who may sign this firm's engagement letters
+         * @description Retired signatories included, so the list still names who signed older letters.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignatoriesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Put somebody on the list of signatories
+         * @description An active staff member, once. A firm's first signatory becomes its default.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddSignatoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Listed */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That person has no active staff membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already on the list */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change what a signatory signs as, or their signature image
+         * @description Letters already sent keep the block and the image they went out with.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangeSignatoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description Blank title, or the image is not a PNG or JPEG */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or no such image, at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make this signatory the firm's default */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The default now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or they no longer work here */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Retired: reinstate them first */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/signatories/{signatoryId}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Retire a signatory, or reinstate one
+         * @description A retired signatory cannot be chosen for a new letter; letters they signed keep reading. The default cannot be retired until somebody else is the default.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    signatoryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignatoryActiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Done */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Signatory"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such signatory, or (reinstating) they no longer work here */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The default cannot be retired */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/me": {
         parameters: {
             query?: never;
@@ -12903,6 +13268,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the exchange rate of one of a draft's other currencies
+         * @description Every currency a line is priced in, other than the main one, needs a rate back to the firm's reporting currency (0344). Inserts it, or replaces the one there. The main currency's rate is changed with the currency (PATCH the proposal). Answers with the whole proposal.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetCurrencyRateRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description Not a rate, or the main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take a currency's rate off a draft
+         * @description Only while no live line is priced in it (RATE_IN_USE). Answers with the whole proposal.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalRecord"];
+                    };
+                };
+                /** @description The main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or lines are priced in it (RATE_IN_USE) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{proposalId}/lines": {
         parameters: {
             query?: never;
@@ -14399,6 +14926,168 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the exchange rate of one of a draft letter's other currencies
+         * @description Every currency a service or section is priced in, other than the main one, needs a rate back to the firm's reporting currency (0344). Inserts it, or replaces the one there. The main currency's rate is changed with the currency (PATCH the letter). Answers with the whole letter.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLetterCurrencyRateRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description Not a rate or a day, or the main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The letter is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take a currency's rate off a draft letter
+         * @description Only while no live service or section is priced in it (RATE_IN_USE). Answers with the whole letter.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                    currency: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EngagementLetterRecord"];
+                    };
+                };
+                /** @description The main currency (RATE_FOR_MAIN_CURRENCY) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, or services or sections are priced in it (RATE_IN_USE) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/engagement-letters/{letterId}/lines/{lineId}": {
@@ -20962,6 +21651,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/mrr-by-currency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recurring fees by currency, at the signed rates and at today's rate
+         * @description 0345, Q009. Each currency's recurring fees a month in that currency, in the reporting currency at the rates the letters were signed at (MRR, unchanged), and at today's rate from the exchange-rate feed with its date and source; per client too. Never one figure that adds two currencies.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MrrByCurrency"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/mrr/{axis}": {
         parameters: {
             query?: never;
@@ -21265,6 +22011,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fx/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The feed's exchange rate for a currency, in the firm's own currency
+         * @description A SUGGESTION for a document's rate box, never a term: the rate a document carries is the one saved on it (0344). From the product's daily table, fetched once a day; a day not held yet is asked of the feed once. 404 FX_RATE_UNAVAILABLE when no rate is held for the pair and the feed could not supply one: the person types it.
+         */
+        get: {
+            parameters: {
+                query: {
+                    currency: string;
+                    on: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FxQuote"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No rate for this currency (FX_RATE_UNAVAILABLE) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -21520,6 +22335,47 @@ export interface components {
             /** Format: uuid */
             userId: string;
             title: string;
+        };
+        Signatory: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            userId: string;
+            /** @description Null when nobody has named the account; show the roster entry instead. */
+            displayName: string | null;
+            /** @description What they sign as, printed under their name. */
+            title: string;
+            /**
+             * Format: uuid
+             * @description Their own signature image (a document version), or null. Pinned onto a letter at send. With none, the firm's DEFAULT signatory falls back to the issuing company's signature image; anyone else prints a bare rule, never somebody else's mark.
+             */
+            signatureVersionId: string | null;
+            /** @description False: retired, cannot be chosen for a new letter. */
+            isActive: boolean;
+            /** @description Signs every letter nobody chose a signatory for. */
+            isDefault: boolean;
+            createdAt: string;
+        };
+        SignatoriesResponse: {
+            signatories: components["schemas"]["Signatory"][];
+        };
+        AddSignatoryRequest: {
+            /** Format: uuid */
+            userId: string;
+            title: string;
+            /** @description Also make them the default. A firm's first signatory is its default anyway. */
+            makeDefault?: boolean;
+        };
+        ChangeSignatoryRequest: {
+            title?: string;
+            /**
+             * Format: uuid
+             * @description A PNG or JPEG already stored (POST /api/v1/documents); null takes it off.
+             */
+            signatureVersionId?: string | null;
+        };
+        SignatoryActiveRequest: {
+            isActive: boolean;
         };
         SelfName: {
             /** Format: uuid */
@@ -23956,6 +24812,13 @@ export interface components {
             ownerUserId: string;
             note?: string;
         };
+        CurrencyRate: {
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            /** @description Either "typed" or the name of the rate service that supplied it. */
+            source: string;
+        };
         Proposal: {
             /** Format: uuid */
             id: string;
@@ -23969,9 +24832,12 @@ export interface components {
             title: string;
             /** @enum {string} */
             status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+            /** @description The MAIN currency: the default for a new line, with its rate below (0344). */
             currency: string;
             fxRate: string | null;
             fxRateDate: string;
+            /** @description The rate of every other currency a line is priced in (0344), by code. */
+            rates: components["schemas"]["CurrencyRate"][];
             validUntil: string | null;
             sentAt: string | null;
             decidedAt: string | null;
@@ -24034,13 +24900,14 @@ export interface components {
                 id: string;
                 displayName: string;
             };
-            totals: components["schemas"]["ProposalTotals"];
+            totals: components["schemas"]["ProposalTotals"][];
             lineCount: number;
         };
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
         ProposalFrequencyTotal: {
+            currency: string;
             /** @enum {string|null} */
             frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             net: string | null;
@@ -24220,12 +25087,15 @@ export interface components {
             };
             issuedOn: string;
             totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
-            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database. No one-off or custom fee is in it. Null when nothing priced recurs, or for a caller without the fee axis. */
-            annualValue: string | null;
+            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database, one per currency, the main currency first (0344). No one-off or custom fee is in it. Empty when nothing priced recurs, or for a caller without the fee axis. */
+            annualValue: {
+                amount: string;
+                currency: string;
+            }[];
             document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
-            totals: components["schemas"]["ProposalTotals"];
+            totals: components["schemas"]["ProposalTotals"][];
             approvedBy: {
                 /** Format: uuid */
                 userId: string;
@@ -24318,6 +25188,11 @@ export interface components {
             fxRate?: string;
             fxRateDate?: string;
         };
+        SetCurrencyRateRequest: {
+            fxRate: string;
+            fxRateDate: string;
+            source?: string;
+        };
         AddProposalLineRequest: {
             /** Format: uuid */
             entityPartyId?: string;
@@ -24339,6 +25214,8 @@ export interface components {
             exclusionsOverride?: string;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string;
+            /** @description What this line is priced in (0344). Absent: the list price's currency when the fee is taken from it and the proposal holds a rate for it, else the main currency. Any other than the main currency needs its rate first (CURRENCY_NEEDS_A_RATE). */
+            currency?: string;
         };
         UpdateProposalLineRequest: {
             description?: string;
@@ -24354,6 +25231,7 @@ export interface components {
             exclusionsOverride?: string | null;
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string | null;
+            currency?: string;
         };
         ProposalEmailOutcome: {
             /** @enum {string} */
@@ -24400,6 +25278,7 @@ export interface components {
                 description: string;
                 quantity: string;
                 unitAmount: string | null;
+                currency: string;
                 discountPercent: string;
                 net: string | null;
                 pricingNote: string | null;
@@ -24413,7 +25292,7 @@ export interface components {
                 net: string;
                 currency: string;
                 unpricedLineCount: number;
-            };
+            }[];
             blocks: components["schemas"]["SharedProposalBlock"][];
             answer: {
                 /** @enum {string} */
@@ -24466,6 +25345,13 @@ export interface components {
              */
             evidenceDocumentId?: string;
         };
+        LetterCurrencyRate: {
+            currency: string;
+            fxRate: string | null;
+            fxRateDate: string;
+            /** @description Either "typed" or the name of the rate service that supplied it. */
+            source: string;
+        };
         EngagementLetter: {
             /** Format: uuid */
             id: string;
@@ -24482,9 +25368,12 @@ export interface components {
             status: "draft" | "sent" | "signed" | "withdrawn";
             /** @enum {string} */
             layout: "classic" | "annexure";
+            /** @description The MAIN currency: the default for a new service, with its rate below (0344). */
             currency: string;
             fxRate: string | null;
             fxRateDate: string;
+            /** @description The rate of every other currency a service or section is priced in (0344), by code. */
+            rates: components["schemas"]["LetterCurrencyRate"][];
             advanceRequired: boolean;
             advanceAmount: string | null;
             advanceRecordedAt: string | null;
@@ -24516,6 +25405,11 @@ export interface components {
              * @description The withdrawn letter this draft was copied from (0316), or null. Not `supersedesId`, which names a SIGNED letter this one replaces.
              */
             copiedFromId: string | null;
+            /**
+             * Format: uuid
+             * @description Who the drafter chose to sign for the firm (0343): an entry on GET /api/v1/tenancy/signatories, or null for the firm's default at send. Once sent, `firmSignatoryUserId`/`firmSignatoryTitle` are the record.
+             */
+            chosenSignatoryId: string | null;
         };
         DraftEngagementLetterRequest: {
             /** Format: uuid */
@@ -24685,13 +25579,15 @@ export interface components {
                 id: string;
                 displayName: string;
             };
-            totals: components["schemas"]["EngagementLetterTotals"];
+            /** @description One per currency, the main currency first (0344). */
+            totals: components["schemas"]["EngagementLetterTotals"][];
             lineCount: number;
         };
         EngagementLettersResponse: {
             letters: components["schemas"]["EngagementLetterSummary"][];
         };
         LetterFrequencyTotal: {
+            currency: string;
             /** @enum {string|null} */
             frequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
             net: string | null;
@@ -24724,6 +25620,7 @@ export interface components {
                 billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
                 startsOn: string | null;
                 amount: string | null;
+                currency: string;
                 pricingNote: string | null;
                 paymentTerms: string | null;
             }[];
@@ -24911,6 +25808,7 @@ export interface components {
                 name: string;
                 jurisdiction: string | null;
             };
+            /** @description Per currency and frequency, the main currency's rows first (0344). */
             totalsByFrequency: components["schemas"]["LetterFrequencyTotal"][];
             document: components["schemas"]["LetterDocumentPlan"];
             addressedTo: {
@@ -24939,7 +25837,8 @@ export interface components {
             feeGroups: components["schemas"]["EngagementLetterFeeGroup"][];
             clauses: components["schemas"]["EngagementLetterClause"][];
             blocks: components["schemas"]["EngagementLetterBlock"][];
-            totals: components["schemas"]["EngagementLetterTotals"];
+            /** @description One per currency the live services and sections are in, the main currency first; one zero row in the main currency on an empty letter (0344). Never added together. */
+            totals: components["schemas"]["EngagementLetterTotals"][];
             engagements: components["schemas"]["Engagement"][];
             signing: components["schemas"]["EngagementLetterSigning"];
             deletedBy: {
@@ -24995,6 +25894,16 @@ export interface components {
             currency?: string;
             fxRate?: string;
             fxRateDate?: string;
+            /**
+             * Format: uuid
+             * @description Who signs for the firm (0343): an entry on the firm's list, or null for its default. A retired signatory is refused (SIGNATORY_RETIRED), here and again at send.
+             */
+            chosenSignatoryId?: string | null;
+        };
+        SetLetterCurrencyRateRequest: {
+            fxRate: string;
+            fxRateDate: string;
+            source?: string;
         };
         UpdateEngagementLetterLineRequest: {
             description?: string;
@@ -25002,6 +25911,8 @@ export interface components {
             entityPartyId?: string;
             quantity?: string;
             unitAmount?: string | null;
+            /** @description Another currency the letter holds a rate for (0344): CURRENCY_NEEDS_A_RATE (409) when it holds none. Not on a service in a section (LINE_CURRENCY_IS_SECTIONS, 409). */
+            currency?: string;
             discountPercent?: string;
             /** @enum {string|null} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
@@ -25028,6 +25939,8 @@ export interface components {
             quantity: string;
             /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the letter's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
+            /** @description What this service is priced in (0344): the letter's main currency or another it holds a rate for. Omit for the section's (in a section), else the list price's currency when the fee comes from the list price and the letter holds its rate, else the main currency. */
+            currency?: string;
             /** @default 0 */
             discountPercent: string;
             /** @description When THIS line starts, if that is not the letter's date. Omit for the letter's. */
@@ -25065,6 +25978,7 @@ export interface components {
         };
         FeeGroupRequest: {
             title: string;
+            currency?: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /** @enum {string} */
@@ -25079,6 +25993,7 @@ export interface components {
         };
         EditFeeGroupRequest: {
             title?: string;
+            currency?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
             /** @enum {string|null} */
@@ -26336,6 +27251,42 @@ export interface components {
             dsoDays: number | null;
             dsoWindowDays: number;
         };
+        TodaysRate: {
+            /** @description One unit of the currency, in the reporting currency. */
+            fxRate: string;
+            /** @description The day of the rate: the firm's day or the latest before it. */
+            fxRateDate: string;
+            /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
+            source: string;
+        } | null;
+        MrrByCurrency: {
+            reportingCurrency: string;
+            /** @description The firm's day the rates are today's for. */
+            asOf: string;
+            currencies: {
+                currency: string;
+                /** @description A month of the recurring fees, in this currency. */
+                monthly: string;
+                /** @description In the reporting currency at each letter's own rate: what MRR counts. */
+                atSignedRates: string;
+                /** @description In the reporting currency at today's rate; null with no rate held. */
+                atTodaysRate: string | null;
+                todaysRate: components["schemas"]["TodaysRate"];
+                engagements: number;
+            }[];
+            clients: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                currency: string;
+                monthly: string;
+                atSignedRates: string;
+                atTodaysRate: string | null;
+            }[];
+            /** @description Equals MRR on the overview. */
+            totalAtSignedRates: string;
+            totalAtTodaysRate: string | null;
+        };
         DashboardSlice: {
             key: string;
             /** @description The name, never the uuid. */
@@ -26456,6 +27407,17 @@ export interface components {
             asOf: string;
             /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
+        };
+        FxQuote: {
+            currency: string;
+            /** @description The firm's own currency: what the rate is in. */
+            reportingCurrency: string;
+            /** @description One unit of `currency`, in `reportingCurrency`. A decimal string. */
+            fxRate: string;
+            /** @description The day of the rate actually used: the day asked for or the latest before it (a weekend, a feed that was down), or the earliest after it when the feed's history starts later. */
+            fxRateDate: string;
+            /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
+            source: string;
         };
     };
     responses: never;

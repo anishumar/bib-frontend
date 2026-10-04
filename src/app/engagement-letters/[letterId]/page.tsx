@@ -64,6 +64,7 @@ import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
 import { Money } from "@/components/fees";
+import { SignedBySelect } from "@/components/signatories/signed-by-select";
 import { StandardsHelp } from "@/lib/ui/who-may";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
@@ -114,13 +115,6 @@ export default function LetterPage() {
   // this list is its own answer — the client, and what its page records under
   // it — so the picker offers exactly what the API accepts.
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
-  // WHO WILL BIND THE FIRM. The letter's own block is a snapshot taken when it
-  // is SENT, so a draft has none yet and the standing signatory is the only
-  // honest answer to "whose name goes under Yours sincerely". Null is a real
-  // state: a firm that has named nobody sends letters with no signature block.
-  const [standing, setStanding] = useState<
-    { userId: string; displayName: string | null; title: string } | null
-  >(null);
   /**
    * WHOSE DESK THE WORK WILL LAND ON once this letter is signed (T6.17), read
    * only while it is unsigned: a draft, or sent and waiting. Null otherwise.
@@ -167,11 +161,10 @@ export default function LetterPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [one, catalogue, library, signatory, me] = await Promise.all([
+    const [one, catalogue, library, me] = await Promise.all([
       api.GET("/api/v1/engagement-letters/{letterId}", { params: { path: { letterId } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "service" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "clause" } } }),
-      api.GET("/api/v1/tenancy/firm-signatory"),
       api.GET("/api/v1/auth/me", {}),
     ]);
     setPermissions(me.data?.permissions ?? []);
@@ -210,10 +203,6 @@ export default function LetterPage() {
     ]);
     if (structure.data) setEntities(structure.data.entities);
     setRouting(routed?.data ?? null);
-    // Read on `config:read`, so a caller who may not administer the firm still
-    // sees whose signature will be on what they are drafting. A 403 leaves it
-    // null, which reads the same as "nobody named" — the page says which.
-    setStanding(signatory.data?.signatory ?? null);
     setError(null);
     setLoaded(true);
   }, [letterId, router]);
@@ -251,7 +240,7 @@ export default function LetterPage() {
     );
   }
 
-  const { letter, totals, lines, engagements, feeGroups } = record;
+  const { letter, lines, engagements, feeGroups } = record;
   const groupOf = (id: string | null) => feeGroups.find((g) => g.id === id) ?? null;
   // The catalogue version the picker is on, so the two boxes beside it can be
   // filled from it. Falls back to the FIRST option, because that is what a
@@ -666,6 +655,8 @@ export default function LetterPage() {
           letterId={letterId}
           groups={feeGroups}
           lines={lines}
+          main={letter.currency}
+          currencies={[letter.currency, ...letter.rates.map((r) => r.currency)]}
           editable={isDraft && permissions.includes("party:write")}
           busy={busy}
           act={act}
@@ -841,7 +832,7 @@ export default function LetterPage() {
                           letterId={letterId}
                           line={l}
                           groups={feeGroups}
-                          currency={letter.currency}
+                          currency={l.currency}
                           busy={busy}
                           act={act}
                         />
@@ -885,14 +876,14 @@ export default function LetterPage() {
               by the database, a section's fee once at its own frequency. */}
           <div className="num text-lg strong">
             {(() => {
-              const { withheld, sentence } = totalWords(record.totalsByFrequency, totals.currency);
+              const { withheld, sentence } = totalWords(record.totalsByFrequency);
               if (withheld) return <span className="text-muted">Fees not shown to you</span>;
               return sentence ?? <span className="text-muted">No fixed fee yet</span>;
             })()}
           </div>
           {letter.advanceRequired && (
             <div className="text-md text-muted">
-              advance <Money amount={letter.advanceAmount} currency={totals.currency} />
+              advance <Money amount={letter.advanceAmount} currency={letter.currency} />
               {/* Where it stands is the Advance card's (0322: nothing writes
                   advanceRecordedAt any more; letters from before T3 keep it). */}
               {letter.advanceRecordedAt !== null && ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
@@ -1398,13 +1389,14 @@ export default function LetterPage() {
           </CardTitle>
 
           {isDraft && (
-            // Whose name will be under "Yours sincerely" — read from the firm's
-            // standing signatory, because the letter has none until it is sent.
-            <p className="text-md text-muted">
-              {standing === null
-                ? "No signatory named, so the firm's signature block goes out blank. Name one on Your firm."
-                : `Signed for the firm by ${standing.displayName ?? "the named account"}, ${standing.title}.`}
-            </p>
+            // WHO SIGNS FOR THE FIRM (0343, Q005): the firm's default, or the
+            // partner chosen here. Saved on the draft; frozen at send.
+            <SignedBySelect
+              letterId={letter.id}
+              chosenSignatoryId={letter.chosenSignatoryId}
+              canWrite={permissions.includes("party:write")}
+              onSaved={(next) => setRecord(next)}
+            />
           )}
 
           {(isDraft || letter.status === "sent") && routing !== null && (

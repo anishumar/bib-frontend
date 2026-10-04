@@ -13,6 +13,7 @@ import type {
   FirmEntity,
   FirmEntityPreference,
   Readiness,
+  Signatory,
   StaffGrade,
   TaxDefault,
 } from "@/lib/api/client";
@@ -53,6 +54,7 @@ import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { NotificationSettings } from "@/components/notify/settings";
 import { CompanyCalendarCell, CompanyCalendarFields, calendarChanges } from "./company-calendar";
 import type { FirmCalendar } from "./company-calendar";
+import { SignatoriesCard } from "@/components/signatories/signatories-card";
 import { cleanAmount } from "@/lib/money";
 
 /**
@@ -73,8 +75,8 @@ import { cleanAmount } from "@/lib/money";
  *      recorded (JURISDICTION_FIXED), so Change offers it only to a company
  *      with none. A company stays the firm's with no country routed to it
  *      (0313), so any row can be given to any company.
- *   2. SIGNING: one signatory for the whole firm, printed on every letter.
- *      Nobody named means no letter can be sent.
+ *   2. SIGNING: the firm's list of signatories (0343, Q005), its own
+ *      component (`SignatoriesCard`); each letter chooses one, or the default.
  *   3. DEADLINES: from which day deadlines count (`missedFromOn`) and when the
  *      financial year starts. A firm onboarding four hundred clients would
  *      otherwise open to hundreds of MISSED rows on its first morning, and
@@ -89,12 +91,6 @@ import { cleanAmount } from "@/lib/money";
  * The reasoning lives here and in CLAUDE.md, not on the screen: each section
  * says what is set and offers the change, in as few words as it can.
  */
-
-interface Signatory {
-  readonly userId: string;
-  readonly displayName: string | null;
-  readonly title: string;
-}
 
 interface Colleague {
   readonly userId: string;
@@ -178,7 +174,7 @@ export default function FirmPage() {
   const router = useRouter();
   const [entities, setEntities] = useState<FirmEntity[]>([]);
   const [preferences, setPreferences] = useState<FirmEntityPreference[]>([]);
-  const [signatory, setSignatory] = useState<Signatory | null>(null);
+  const [signatories, setSignatories] = useState<Signatory[]>([]);
   const [colleagues, setColleagues] = useState<Colleague[]>([]);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [policyExists, setPolicyExists] = useState(false);
@@ -205,7 +201,7 @@ export default function FirmPage() {
     const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
-      api.GET("/api/v1/tenancy/firm-signatory", {}),
+      api.GET("/api/v1/tenancy/signatories", {}),
       api.GET("/api/v1/tenancy/members", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "compliance_policy" } } }),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "policy" } } }),
@@ -228,7 +224,7 @@ export default function FirmPage() {
     }
     setEntities(list.data.entities);
     setPreferences(prefs.data?.preferences ?? []);
-    setSignatory(sig.data?.signatory ?? null);
+    setSignatories(sig.data?.signatories ?? []);
     setColleagues(
       (roster.data?.members ?? [])
         .filter((m) => m.membership.audience === "STAFF" && m.membership.isActive)
@@ -346,18 +342,7 @@ export default function FirmPage() {
         />
       )}
 
-      <SigningCard
-        signatory={signatory}
-        colleagues={colleagues}
-        busy={busy === "signatory"}
-        onName={(userId, title) =>
-          act(
-            "signatory",
-            () => api.PUT("/api/v1/tenancy/firm-signatory", { body: { userId, title } }),
-            "Signatory saved. New letters carry this name.",
-          )
-        }
-      />
+      <SignatoriesCard signatories={signatories} colleagues={colleagues} busy={busy} act={act} />
 
       <DeadlinesCard
         policy={policy}
@@ -1140,68 +1125,6 @@ function SaveCancel({ busy, close }: { busy: boolean; close: (() => void) | null
         </Button>
       )}
     </div>
-  );
-}
-
-function SigningCard({
-  signatory,
-  colleagues,
-  busy,
-  onName,
-}: {
-  signatory: Signatory | null;
-  colleagues: readonly Colleague[];
-  busy: boolean;
-  onName: (userId: string, title: string) => Promise<boolean>;
-}) {
-  const current = signatory === null ? null : (colleagues.find((c) => c.userId === signatory.userId) ?? null);
-  return (
-    <SetOnce
-      title="Signing"
-      isSet={signatory !== null}
-      view={
-        <Meta layout="list">
-          <MetaItem label="Signs your letters">
-            {signatory === null ? (
-              <NotSet />
-            ) : (
-              `${signatory.displayName ?? current?.email ?? signatory.userId}, ${signatory.title}`
-            )}
-          </MetaItem>
-        </Meta>
-      }
-      form={(close) => (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            void (async () => {
-              const ok = await onName(String(form.get("userId") ?? ""), String(form.get("title") ?? "").trim());
-              if (ok) close?.();
-            })();
-          }}
-        >
-          <FieldRow>
-            <Field label="Who" hint={signatory === null ? "No letter can be sent until someone is named." : undefined}>
-              <Select name="userId" required defaultValue={signatory?.userId ?? ""}>
-                <option value="" disabled>
-                  Choose a colleague
-                </option>
-                {colleagues.map((c) => (
-                  <option key={c.userId} value={c.userId}>
-                    {c.displayName ?? c.email}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Signs as" hint="Printed under the signature.">
-              <Input name="title" required defaultValue={signatory?.title ?? ""} placeholder="e.g. Managing Partner" />
-            </Field>
-            <SaveCancel busy={busy} close={close} />
-          </FieldRow>
-        </form>
-      )}
-    />
   );
 }
 

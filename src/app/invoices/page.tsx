@@ -53,6 +53,8 @@ import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
 import { WorkVsBillingTab } from "./work-vs-billing";
 import { keepTyped } from "@/lib/ui/keep-typed";
+import { CurrencySelect } from "@/components/currency-select";
+import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
  *  Your firm lands on it. Advances (0320): every advance and where it stands. */
@@ -121,8 +123,8 @@ function Invoices() {
   const [chargedBy, setChargedBy] = useState("");
   /** What the chosen client's letters say about who charges them. */
   const [signedBy, setSignedBy] = useState<SignedBy | null>(null);
-  /** The invoice's currency: INR unless the letters chose "Charged by" and
-   *  priced everything in one currency. */
+  /** The invoice's currency: the firm's own unless the letters chose "Charged
+   *  by" and priced everything in one currency. */
   const [currency, setCurrency] = useState("INR");
   /** The firm's reporting currency: an invoice in another needs a typed rate
    *  (B07); in this one there is no rate to give. */
@@ -136,6 +138,18 @@ function Invoices() {
   /** The client whose letters were last asked for, so a slow answer about an
    *  earlier choice cannot overwrite a later one. */
   const asked = useRef("");
+  /** The feed's rate for a foreign-currency invoice (0345), pre-filled. */
+  const [fxFetched, setFxFetched] = useState<{ code: string; s: FxSuggestion | null } | null>(null);
+  const fxCode = currency.trim().toUpperCase();
+  const fxWanted = raising && fxCode.length === 3 && fxCode !== reportingCurrency;
+  // Only the answer for the currency now chosen counts.
+  const fxSuggested = fxWanted && fxFetched?.code === fxCode ? fxFetched.s : null;
+  useEffect(() => {
+    if (!fxWanted) return;
+    void fxSuggestion(fxCode, browserDay()).then((s) => {
+      setFxFetched({ code: fxCode, s });
+    });
+  }, [fxWanted, fxCode]);
 
   const load = useCallback(async (): Promise<void> => {
     const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work] = await Promise.all([
@@ -187,7 +201,7 @@ function Invoices() {
     setBillTo("");
     setChargedBy("");
     setSignedBy(null);
-    setCurrency("INR");
+    setCurrency(reportingCurrency);
     setManager("");
     setKeyManager(null);
     asked.current = "";
@@ -212,7 +226,7 @@ function Invoices() {
     setBillTo(partyId);
     setChargedBy("");
     setSignedBy(null);
-    setCurrency("INR");
+    setCurrency(reportingCurrency);
     setManager("");
     setKeyManager(null);
     asked.current = partyId;
@@ -252,7 +266,13 @@ function Invoices() {
       const oneCurrency = currencies.size === 1 && priced !== undefined ? priced : null;
       setChargedBy(entityId);
       if (oneCurrency !== null) setCurrency(oneCurrency);
-      setSignedBy({ kind: "one", entityId, letters: [...refs].sort(), currency: oneCurrency });
+      setSignedBy({
+        kind: "one",
+        entityId,
+        letters: [...refs].sort(),
+        currency: oneCurrency,
+        currencies: [...currencies].sort(),
+      });
       return;
     }
     setSignedBy(letters.size > 1 ? { kind: "several", count: letters.size } : { kind: "none" });
@@ -625,13 +645,12 @@ function Invoices() {
 
             <FieldRow>
               <Field label="Currency" hint={currencyHint(signedBy, chargedBy, currency)}>
-                <Input
+                <CurrencySelect
                   name="currency"
                   value={currency}
                   onChange={(e) => {
                     setCurrency(e.target.value);
                   }}
-                  maxLength={3}
                   required
                 />
               </Field>
@@ -641,12 +660,23 @@ function Invoices() {
                 <>
                   <Field
                     label={`${reportingCurrency} for one ${currency.trim().toUpperCase()}`}
-                    hint={`How many ${reportingCurrency} one ${currency.trim().toUpperCase()} is worth.`}
+                    hint={
+                      fxSuggested === null
+                        ? `How many ${reportingCurrency} one ${currency.trim().toUpperCase()} is worth.`
+                        : `${fxSuggested.source} rate, ${longDay(fxSuggested.on)}. Change it if you use another.`
+                    }
                   >
-                    <AmountInput decimals={10} name="fxRate" required placeholder="e.g. 83.25" />
+                    <AmountInput
+                      key={fxSuggested?.rate ?? "typed"}
+                      decimals={10}
+                      name="fxRate"
+                      required
+                      placeholder="e.g. 83.25"
+                      defaultValue={fxSuggested?.rate ?? ""}
+                    />
                   </Field>
                   <Field label="Rate on">
-                    <Input name="fxRateDate" type="date" defaultValue={today} required />
+                    <Input key={fxSuggested?.on ?? "today"} name="fxRateDate" type="date" defaultValue={fxSuggested?.on ?? today} required />
                   </Field>
                 </>
               )}
@@ -674,6 +704,8 @@ type SignedBy =
       readonly letters: readonly string[];
       /** The one currency those letters are priced in, or null for several. */
       readonly currency: string | null;
+      /** Every currency they price work in (0344): an invoice is in one. */
+      readonly currencies: readonly string[];
     }
   | { readonly kind: "several"; readonly count: number }
   | { readonly kind: "none" };
@@ -721,7 +753,18 @@ function currencyHint(signedBy: SignedBy | null, chargedBy: string, currency: st
   ) {
     return `As priced in ${namedLetters(signedBy.letters)}.`;
   }
+  // A letter can price work in several currencies (0344), and one invoice is
+  // in one: the work in each is raised on its own invoice.
+  if (signedBy?.kind === "one" && signedBy.currencies.length > 1 && chargedBy === signedBy.entityId) {
+    return `Their letters price work in ${andWords(signedBy.currencies)}. Raise one invoice per currency.`;
+  }
   return undefined;
+}
+
+/** "INR and AED", "INR, AED and USD". */
+function andWords(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1] ?? ""}`;
 }
 
 /** A cancelled invoice wears the same pill a revoked membership does: it is

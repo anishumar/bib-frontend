@@ -15,6 +15,7 @@ import type { CatalogueService } from "@/components/proposal-builder/data";
 import { ServiceRow } from "@/components/proposal-builder/service-row";
 import type { LineTerms } from "@/components/proposal-builder/service-row";
 import { FeeGroups, LineFee } from "./fee-groups";
+import { CurrencyRates } from "@/components/currency-rates";
 import { rowLineOf } from "./data";
 import { putLetter } from "./store";
 import { LetterTotals } from "./totals";
@@ -62,6 +63,9 @@ export function LetterServicesStep({
   const { letter, lines, feeGroups } = record;
   const letterId = letter.id;
   const editable = letter.status === "draft" && letter.deletedAt === null && canWrite;
+  // What a service or section may be priced in (0344): the main currency and
+  // each one this letter holds a rate for.
+  const currencies = [letter.currency, ...letter.rates.map((r) => r.currency)];
 
   useEffect(() => {
     void api
@@ -125,6 +129,9 @@ export function LetterServicesStep({
           serviceVersionId: s.versionId,
           description: s.name,
           quantity: t.quantity,
+          // B09: a login that cannot see fees lets the API pick the list
+          // price's currency along with the price.
+          ...(t.feesUnchanged === true ? {} : { currency: t.currency }),
           discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
           // B09: a login that cannot see fees sends neither, and the API
           // quotes the catalogue's list price.
@@ -172,6 +179,7 @@ export function LetterServicesStep({
         ? {}
         : {
             unitAmount: t.unitAmount,
+            currency: t.currency,
             discountPercent: t.unitAmount === null ? "0" : t.discountPercent,
             pricingNote: t.pricingNote,
           }),
@@ -210,6 +218,18 @@ export function LetterServicesStep({
 
   return (
     <div className="flex flex-col gap-6">
+      <CurrencyRates
+        kind="letter"
+        documentId={letterId}
+        main={letter.currency}
+        rates={letter.rates}
+        inUse={(c) =>
+          lines.filter((l) => l.currency === c && l.feeGroupId === null).length +
+          feeGroups.filter((g) => g.currency === c).length
+        }
+        editable={editable}
+        onChanged={onChanged}
+      />
       <Card>
         <CardTitle level={2}>Services</CardTitle>
         {choosing && (
@@ -280,6 +300,7 @@ export function LetterServicesStep({
                                   service={s}
                                   lines={mine}
                                   currency={letter.currency}
+                                  currencies={currencies}
                                   editable={editable && companies !== null}
                                   busy={busy === s.key}
                                   error={errors[s.key] === "" ? null : (errors[s.key] ?? null)}
@@ -296,7 +317,7 @@ export function LetterServicesStep({
                                         letterId={letterId}
                                         line={first.source}
                                         groups={feeGroups}
-                                        currency={letter.currency}
+                                        currency={first.source.currency}
                                         busy={busy}
                                         act={groupAct}
                                       />
@@ -330,6 +351,8 @@ export function LetterServicesStep({
             letterId={letterId}
             groups={feeGroups}
             lines={lines}
+            main={letter.currency}
+            currencies={currencies}
             editable={editable}
             busy={busy}
             act={groupAct}

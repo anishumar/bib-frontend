@@ -66,8 +66,10 @@ export function feeWords(
  * skips it, and "AED 0 One-time" is not something the paper says.
  */
 export function totalWords(
-  totals: ProposalRecord["totalsByFrequency"],
-  currency: string,
+  totals: readonly Pick<
+    ProposalRecord["totalsByFrequency"][number],
+    "currency" | "frequency" | "net" | "lineCount" | "unpricedLineCount"
+  >[],
 ): { readonly withheld: boolean; readonly sentence: string | null } {
   const withheld = totals.some((t) => t.net === null && t.lineCount > t.unpricedLineCount);
   if (withheld) return { withheld, sentence: null };
@@ -76,7 +78,9 @@ export function totalWords(
   const figures = totals
     .filter((t) => t.net !== null && t.lineCount > t.unpricedLineCount)
     .map((t) => {
-      const amount = pdfMoney(t.net ?? "0", currency);
+      // Each row in its own currency (0344): "USD 5,000 Monthly + AED 4,000
+      // Monthly", and the two are never added.
+      const amount = pdfMoney(t.net ?? "0", t.currency);
       return t.frequency === null
         ? `${amount} (frequency not stated)`
         : `${amount} ${FREQUENCY_WORDS[t.frequency]}`;

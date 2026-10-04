@@ -1,5 +1,6 @@
 "use client";
 
+import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
@@ -232,13 +233,31 @@ export function LetterClientStep({
   const title = titlePick ?? defaultTitle(clientName);
   const reporting = firm?.reportingCurrency ?? currency;
   const foreign = currency !== "" && currency !== reporting;
-  const known = rates.get(currency);
+  // A NEW document's rate (0345): the feed's for today first, then the
+  // firm's last one. A draft keeps the rate saved on it.
+  const [feedRate, setFeedRate] = useState<{ code: string; s: FxSuggestion | null } | null>(null);
+  const wantFeed = draft === null && foreign;
+  useEffect(() => {
+    if (!wantFeed) return;
+    void fxSuggestion(currency, browserDay()).then((s) => {
+      setFeedRate({ code: currency, s });
+    });
+  }, [wantFeed, currency]);
+  const fromFeed = wantFeed && feedRate?.code === currency ? feedRate.s : null;
+  const lastUsed = rates.get(currency);
+  const known =
+    fromFeed === null ? lastUsed : { rate: fromFeed.rate, on: fromFeed.on, ref: fromFeed.source, feed: true as const };
   const fxRate = foreign ? (ratePick ?? known?.rate ?? "") : "1";
   const fxRateDate =
     datePick ?? (foreign && ratePick === null && known !== undefined ? known.on : browserDay());
 
   // ── On a draft ────────────────────────────────────────────────────────────
-  const priced = draft !== null && (draft.lines.length > 0 || draft.feeGroups.length > 0);
+  // The main currency is held only by fees IN it (0344): services and
+  // sections in another rated currency do not stop it moving.
+  const priced =
+    draft !== null &&
+    (draft.lines.some((l) => l.feeGroupId === null && l.currency === draft.letter.currency) ||
+      draft.feeGroups.some((g) => g.currency === draft.letter.currency));
   const termsOn = draft?.clauses.length ?? 0;
   const issuerChanged = draft !== null && issuerId !== draft.letter.issuingEntityPartyId;
   const countryChanged = draft !== null && country !== draft.letter.jurisdiction;
@@ -487,7 +506,7 @@ export function LetterClientStep({
               <FieldRow>
                 <Field
                   label={`1 ${currency} is how many ${reporting}`}
-                  hint={known === undefined ? undefined : `Last used on ${known.ref}, ${longDay(known.on)}.`}
+                  hint={known === undefined ? undefined : "feed" in known ? `${known.ref} rate, ${longDay(known.on)}.` : `Last used on ${known.ref}, ${longDay(known.on)}.`}
                 >
                   <AmountInput decimals={10}
                     value={fxRate}

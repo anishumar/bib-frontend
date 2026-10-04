@@ -143,7 +143,6 @@ export function LetterPdf({
   if (session !== null && !seesFees) return <FeesNotShown what="letter" />;
 
   const { letter, lines, feeGroups } = record;
-  const currency = letter.currency;
   const lineOf = (id: string) => lines.find((l) => l.id === id) ?? null;
   const groupOf = (id: string | null) => (id === null ? null : (feeGroups.find((g) => g.id === id) ?? null));
   const blocksOf = (kind: NoteKind): Block[] =>
@@ -234,7 +233,8 @@ export function LetterPdf({
     const group = groupOf(f.feeGroupId);
     const withheld = f.amount === null && (line?.priced === true || group !== null);
     if (withheld) return null;
-    const words = letterFee(f.amount, f.billingFrequency, f.pricingNote, currency);
+    // Each row in its own currency (0344): the section's, or the line's.
+    const words = letterFee(f.amount, f.billingFrequency, f.pricingNote, f.currency);
     const shown = (
       <p className={cx(f.amount !== null && "tabular-nums")}>
         {words}
@@ -245,7 +245,7 @@ export function LetterPdf({
       const fee = (open: boolean, close?: () => void) => (
         <EditableFee
           line={line}
-          currency={currency}
+          currency={f.currency}
           editable
           onSave={(change) => reviseLines([line.id], { unitAmount: change.unitAmount, billingFrequency: change.billingFrequency })}
           initiallyEditing={open}
@@ -276,7 +276,7 @@ export function LetterPdf({
             discountPercent: null,
             description: group.title,
           }}
-          currency={currency}
+          currency={f.currency}
           editable
           onSave={(change) =>
             reviseGroup(group.id, {

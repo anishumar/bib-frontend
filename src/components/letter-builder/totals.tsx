@@ -11,7 +11,7 @@ import { totalWords } from "@/components/proposal-document";
  */
 export function LetterTotals({ record }: { record: LetterRecord }) {
   const count = record.lines.length;
-  const { withheld, sentence } = totalWords(record.totalsByFrequency, record.letter.currency);
+  const { withheld, sentence } = totalWords(record.totalsByFrequency);
   return (
     <span>
       <strong>

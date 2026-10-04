@@ -10,6 +10,7 @@ import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
 import { FREQUENCIES } from "./data";
 import { useSeesFees } from "@/components/fees";
 import { QuantityField } from "@/components/quantity-field";
+import { CurrencySelect } from "@/components/currency-select";
 import type { CatalogueService, Recurrence } from "./data";
 
 /** The four scope blocks, as the catalogue screen names them. */
@@ -49,6 +50,8 @@ export interface RowLine {
 export interface LineTerms {
   /** Null is "no fixed fee", and then `pricingNote` says why. */
   readonly unitAmount: string | null;
+  /** What the fee is in (0344): the document's main currency or a rated one. */
+  readonly currency: string;
   readonly quantity: string;
   readonly discountPercent: string;
   readonly billingFrequency: Recurrence | null;
@@ -79,11 +82,16 @@ export const NO_OVERRIDES: Overrides = {
  * line is added on Enter: the list price in another currency is never
  * converted here, because the only rate this proposal carries goes to the
  * firm's own currency, not to the catalogue's (D3).
+ *
+ * OTHER CURRENCIES (0344): when the document holds a rate for the list price's
+ * currency, the tick adds the line at that price, in that currency. A fee
+ * typed by hand can be in the main currency or any rated one.
  */
 export function ServiceRow<L extends RowLine>({
   service,
   lines,
   currency,
+  currencies = [currency],
   editable,
   busy,
   error,
@@ -97,7 +105,10 @@ export function ServiceRow<L extends RowLine>({
   service: CatalogueService;
   /** The live lines of this document pinned to this service. Normally one. */
   lines: readonly L[];
+  /** The document's MAIN currency. */
   currency: string;
+  /** The main currency and every one the document holds a rate for. */
+  currencies?: readonly string[];
   editable: boolean;
   busy: boolean;
   error: string | null;
@@ -128,11 +139,13 @@ export function ServiceRow<L extends RowLine>({
   const line = lines[0] ?? null;
   const added = line !== null;
   const priced =
-    service.listPrice !== null && service.listPrice.currency === currency ? service.listPrice : null;
+    service.listPrice !== null && currencies.includes(service.listPrice.currency) ? service.listPrice : null;
+  const [feeCurrency, setFeeCurrency] = useState(priced?.currency ?? currency);
 
   const standard: LineTerms = {
     // The catalogue's "4000.00" shown as a person writes it in the Details form.
     unitAmount: priced === null ? null : formatCount(priced.amount),
+    currency: priced?.currency ?? currency,
     quantity: "1",
     discountPercent: "0",
     billingFrequency: service.recurrence,
@@ -170,7 +183,7 @@ export function ServiceRow<L extends RowLine>({
     const terms: LineTerms =
       asking === "agreed"
         ? { ...standard, unitAmount: null, pricingNote: why.trim() }
-        : { ...standard, unitAmount: cleanAmount(fee) };
+        : { ...standard, unitAmount: cleanAmount(fee), currency: feeCurrency };
     if (await onAdd(terms)) setAsking(null);
   }
 
@@ -194,7 +207,7 @@ export function ServiceRow<L extends RowLine>({
           <span className="min-w-0 flex-1 text-md text-ink">{service.name}</span>
         </label>
         <span className="ml-auto text-right text-md">
-          <PriceLabel service={service} line={line} currency={currency} blind={blind} />
+          <PriceLabel service={service} line={line} currencies={currencies} blind={blind} />
         </span>
         <Button
           type="button"
@@ -221,9 +234,20 @@ export function ServiceRow<L extends RowLine>({
 
       {asking !== null && !added && (
         <div className="ml-8 mt-3 flex flex-wrap items-end gap-3">
+          {asking === "fee" && currencies.length > 1 && !blind && (
+            <Field label="Currency">
+              <CurrencySelect
+                only={currencies}
+                value={feeCurrency}
+                onChange={(e) => {
+                  setFeeCurrency(e.target.value);
+                }}
+              />
+            </Field>
+          )}
           {asking === "fee" ? (
             <Field
-              label={`Fee in ${currency}`}
+              label={`Fee in ${feeCurrency}`}
               hint={
                 blind
                   ? "No list price in this currency. Press Enter to add."
@@ -311,6 +335,7 @@ export function ServiceRow<L extends RowLine>({
             service={service}
             line={line}
             currency={currency}
+            currencies={currencies}
             editable={editable}
             busy={busy}
             noun={noun}
@@ -331,12 +356,14 @@ export function ServiceRow<L extends RowLine>({
 function PriceLabel({
   service,
   line,
-  currency,
+  currencies,
   blind,
 }: {
   service: CatalogueService;
   line: RowLine | null;
-  currency: string;
+  /** The currencies the document can price in: a list price in one of them
+   *  is what a tick adds. */
+  currencies: readonly string[];
   /** The login cannot see fees: every figure here is one it may not read. */
   blind: boolean;
 }) {
@@ -359,7 +386,7 @@ function PriceLabel({
       </span>
     );
   }
-  if (service.listPrice !== null && service.listPrice.currency === currency) {
+  if (service.listPrice !== null && currencies.includes(service.listPrice.currency)) {
     return (
       <span className="tabular-nums">
         {pdfMoney(service.listPrice.amount, service.listPrice.currency)}
@@ -379,6 +406,7 @@ export function termsOf(line: RowLine): LineTerms {
     // "2500.0000" is the column's scale, not what anybody typed. Trimmed on the
     // string, never through a number.
     unitAmount: line.unitAmount === null ? null : formatCount(line.unitAmount),
+    currency: line.currency,
     quantity: formatCount(line.quantity),
     discountPercent: line.discountPercent === null ? "0" : formatCount(line.discountPercent),
     billingFrequency: line.billingFrequency,
@@ -404,6 +432,7 @@ function Details({
   service,
   line,
   currency,
+  currencies,
   editable,
   busy,
   noun,
@@ -414,6 +443,7 @@ function Details({
   service: CatalogueService;
   line: RowLine | null;
   currency: string;
+  currencies: readonly string[];
   editable: boolean;
   busy: boolean;
   noun: "proposal" | "letter";
@@ -426,6 +456,10 @@ function Details({
   // pays for it, and the API refuses a price on it.
   const section = line?.inSection ?? null;
   const [fee, setFee] = useState(initial.unitAmount ?? "");
+  // What the fee is in (0344). A currency taken off the document since stays
+  // listed, so the form says what the line holds and the API answers a save.
+  const [feeCurrency, setFeeCurrency] = useState(initial.currency);
+  const choices = currencies.includes(feeCurrency) ? currencies : [...currencies, feeCurrency];
   const [quantity, setQuantity] = useState(initial.quantity);
   const [discount, setDiscount] = useState(initial.discountPercent);
   const [frequency, setFrequency] = useState<Recurrence | "">(initial.billingFrequency ?? "");
@@ -444,6 +478,7 @@ function Details({
         e.preventDefault();
         void onSubmit({
           unitAmount: section !== null || fee.trim() === "" ? null : cleanAmount(fee),
+          currency: feeCurrency,
           quantity: cleanAmount(quantity) === "" ? "1" : cleanAmount(quantity),
           discountPercent: cleanAmount(discount) === "" ? "0" : cleanAmount(discount),
           billingFrequency: frequency === "" ? null : frequency,
@@ -496,12 +531,23 @@ function Details({
           )}
           {section === null && !blind && (
           <FieldRow>
+            {choices.length > 1 && (
+              <Field label="Currency">
+                <CurrencySelect
+                  only={choices}
+                  value={feeCurrency}
+                  onChange={(e) => {
+                    setFeeCurrency(e.target.value);
+                  }}
+                />
+              </Field>
+            )}
             <Field
-              label={`Fee (${currency})`}
+              label={`Fee (${feeCurrency})`}
               hint={
                 service.listPrice === null
                   ? "No list price. Empty means no fixed fee; say why below."
-                  : service.listPrice.currency === currency
+                  : service.listPrice.currency === feeCurrency
                     ? `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}.`
                     : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
               }
@@ -536,7 +582,7 @@ function Details({
             {/* HOW MANY EACH PERIOD (F03): never a term in months. */}
             <QuantityField
               frequency={frequency === "" ? service.recurrence : frequency}
-              currency={currency}
+              currency={feeCurrency}
               unitAmount={fee}
               discountPercent={discount}
               value={quantity}
