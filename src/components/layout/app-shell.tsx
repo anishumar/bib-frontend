@@ -20,6 +20,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { ThemeSwitch } from "./theme";
+import { NotificationBell } from "@/components/notify/bell";
 
 /**
  * The frame every signed-in page sits in.
@@ -986,7 +987,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
               {principal?.commercialVisibility === true && " · fees visible"}
             </p>
-            <ThemeSwitch />
+            <div className="topbar-tools">
+              {/* Only once a firm is chosen: every notification is a firm's. */}
+              {principal !== null && principal.tenantId !== null && (
+                <NotificationBell enabled />
+              )}
+              <ThemeSwitch />
+            </div>
           </header>
           {children}
         </div>

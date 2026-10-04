@@ -244,6 +244,12 @@ const PATHS = {
       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
     </>
   ),
+  bell: (
+    <>
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z" />
+      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
+    </>
+  ),
   inbox: (
     <>
       <path d="M3 13h5l1.5 3h5L16 13h5" />

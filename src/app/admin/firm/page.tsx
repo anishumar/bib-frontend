@@ -50,6 +50,7 @@ import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
 import { TimeZoneCard } from "@/lib/ui/time-zone";
+import { NotificationSettings } from "@/components/notify/settings";
 import { cleanAmount } from "@/lib/money";
 
 /**
@@ -404,6 +405,13 @@ export default function FirmPage() {
           }
         />
       )}
+
+      {/* Who hears what in the bell (0323): what everybody starts with. Each
+          person can still change their own on Your account. */}
+      <Card id="notifications">
+        <CardHead level={2} title="Notifications" />
+        <NotificationSettings owner="firm" />
+      </Card>
 
       <DiscountCard
         limit={limit}
