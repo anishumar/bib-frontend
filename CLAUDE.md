@@ -232,6 +232,16 @@ lowercase-only pattern reports an empty set, which is how three chevrons got dra
 owns the focus trap, Escape, the inert background and the top layer. Radix reimplements all of
 that on a `<div>`. `ui/tabs.tsx` likewise already has the full ARIA tablist with arrow keys,
 Home/End and a roving tabindex. The hand-rolled one genuinely worth replacing is `menu.tsx`.
+Since the audit of 2026-10-03 (CA#17) it is at least never clipped: a button with a
+`popover="auto"` panel in the TOP LAYER, placed under its button when it opens, so a `.tablewrap`
+(overflow plus paint containment) can no longer cut "More" down to a 10px strip. The browser
+gives it light dismiss and Escape; arrow keys are still not there.
+
+**Who can supply what a letter lacks (CA#2 / CA#3).** `lib/ui/who-may.tsx`: `useWhoMay(permission)`
+names the active colleagues whose role holds a permission (roles and colleagues the login can
+already read), and `StandardsHelp` says, on the send panel, the letter page and an empty "Add all
+standard terms", where a missing opening or missing terms come from: links to Standard wording and
+Standard terms for a login with `tenant:admin`, the names of who has it for anybody else.
 
 ### Dates live in `@/lib/day`, and two of the four are opposites
 
@@ -495,7 +505,7 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 | `/catalogue/new` | **Add a service**: Basics, Price (the currency follows the country), What's included, and the compliance filings (`NewServiceFilings`, sent once the service exists). **Add the service** publishes it; **Save as draft** does not. The key is made from the name |
 | `/catalogue/[serviceKey]` | one service: tabs **Overview · Price & billing · Compliance filings · History** (`?tab=`). **Edit** opens the form and saves a new version (a draft, "Unpublished changes", with what it changes listed) or saves and publishes; **Publish** puts a waiting draft in force. The compliance filings tab is the ONE place a filing is linked to a service (T6.16) |
 | `/admin/standard-terms` | the clauses letters are built from (moved from the Catalogue, W4B): tabs **Default · <each company>**; Default = terms naming no law (on every letter), a company = terms under its country's law (D6). **Write a term** writes and publishes in one act; read on `config:read` |
-| `/invoices` | what the firm has BILLED, and raising one |
+| `/invoices` | what the firm has BILLED, and raising one. Tabs (`?tab=`): **Invoices** · **To raise** (bills that have fallen due, auto-invoice 0318) · **Billing not set up** (recurring engagements with no schedule) |
 | `/invoices/[invoiceId]` | one invoice: its lines, what has been paid and credited, and what is left |
 | `/receivables` | who owes money — and the dunning steps waiting for a partner's decision |
 | `/admin/document-blocks` | the firm's standard prose, copied onto every new document — including the cover letter and the acceptance every engagement letter opens with. Tabs **Default · <each company>** (T6.18): per kind, a company uses the Default until it writes its own (`?company=<partyId>` picks the tab) |
@@ -892,6 +902,12 @@ this existed).
   an open review, and a step that is done with a check open on it, is the checker's; a request
   answered and not yet replied to is the client's; a `pending` step waits on an earlier step.
   Waiting on the client for a TASK needs the open asks on the board's read and is a P1 task.
+  Since 0322 there is also **An admin**: a draft invoice (a bill's, or an advance) only an
+  administrator may issue, on a non-admin's desk.
+- **Billing reads (auto-invoice):** `/billing/dues?mine=true` (bills to raise, drafts to issue,
+  no-price reminders) and `/billing/advances?mine=true` (advances the reader chases as SPOC, Key
+  Manager, partner or admin, 0322). Both for every staff login; the rows are described under
+  "Automatic billing" below.
 - **One row per thing.** An escalation about the reader's OWN task is the flag "Escalated" on
   that task's row; about somebody else's work it is its own row ("Escalated to you · with
   Ananya Nair"), one per piece of work however many rungs fired. A done step waiting for its
@@ -907,7 +923,7 @@ this existed).
 
 ## Setup readiness on Your firm and My day (V2.6, 2026-09-28)
 
-`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns eight lines as CODES; `lib/ui/readiness.tsx`
+`GET /api/v1/tenancy/readiness` (`tenant:admin`) returns the lines as CODES; `lib/ui/readiness.tsx`
 is the one place they become words and links, so the two screens never phrase a gap twice.
 
 - **Your firm opens with a Setup card** (`#setup`): a table of the eight lines, each a whole-row
@@ -922,6 +938,21 @@ is the one place they become words and links, so the two screens never phrase a 
   given its numbers (decision D3).
 - `request_routing` counts `none` as not set, though the API calls `none` a real answer: the
   brief asks that the firm has chosen who picks up client requests.
+- **Thirteen lines and three states since 2026-10-03 (audit CA#15, CA#16, F07).** A line with
+  nothing to look at yet (no clients, no services, no check rule reading reporting lines) shows
+  **Nothing to check yet** in a neutral pill and is left out of "N of M done"; an empty firm read
+  "4 of 8 done". The new lines: the companies' country and address, the firm's time zone ("Not
+  chosen: days follow UTC, not your country", plus the zone its companies settle, in words),
+  colleagues added, a service, standard terms.
+- **The time zone lives on Your firm** (`#time-zone`, `lib/ui/time-zone.tsx`). It was on
+  Structure under "Who picks up client requests" and nobody found it; Structure no longer has
+  it, so there is one place to set it.
+- **Other date screens touched by the same audit:** the Escalated tab shows `daysPastNow` ("26",
+  with "18 when raised" under it); My day says "Nothing due this week" and names the next dated
+  row instead of "You are up to date", and flags a step or task dated by a statute "Legal due
+  date"; the calendar's coverage line no longer claims "Every period so far ended before the
+  engagement began"; the rules library says why Start early is greyed, and the rule editor never
+  pre-fills a due date (empty boxes, "e.g." placeholders).
 
 ## `/copilot` — AI Copilot, and the uuids that used to be the first thing anybody saw
 
@@ -1673,6 +1704,39 @@ at four different heights. `/admin/workflows` learnt this and the paragraph belo
 compliance-rules editor re-made it in T6.4 and it was found by looking at the page again. Put the
 hint in a `<p className="field-hint">` under the row.
 
+### The task, the board and My day after the audit's work cluster (2026-10-03)
+
+- **The task page closes the review loop.** Send for review is a dialog: the rule the firm checks
+  it under (`GET /api/v1/review-rules`: one is applied and named, several are a required pick,
+  none reads "anyone at the firm except you"), the unticked checklist lines that hold it (the API
+  refuses `CHECKLIST_OPEN` regardless), and a note for the checker. Approve says it marks the task
+  done and waits for the checklist; finished work is never offered Send for review. A sent-back
+  task says so at the top with the checker's note (`item.sentBack`). State and Whose desk SAVE
+  WHEN PICKED; a blocked state opens its reason box, whose Save moves it. Notes are an
+  append-only list with who and when. The Filing card links the task to an open filing of its
+  company (`GET/PUT/DELETE /work-items/{id}/filing`) so completing it files the filing. "Who may
+  check this?" loads on the disclosure's `onToggle` and says when it failed, with Try again.
+- **My day** puts work sent back to you (tasks and steps, `sentBack`) under Today as "Sent back to
+  you" with the note, and the Client column names the company the work is for (`entityName`),
+  the group only when the work names none.
+- **The work board** has By person (open, late, waiting for a check per colleague; a name opens
+  All tasks for them, `?person=` in the URL) and a Whose tasks filter on All tasks. Every tab
+  counts pieces of work: Escalated counts the tasks and filings escalated (its panel says how many
+  notices), and Everything is now All tasks. New task and the Relationships picker never offer the
+  firm's own companies (`isOwnCompany`).
+- **The job page** uses dialogs, never `window.prompt` (Send back and Reject take a required note;
+  Correct is a form with one box per thing the automatic answer says), names every step control by
+  the step's TITLE, never its key, and offers "Ask the client" on each open step: the job task's
+  `ClientAsks` panel, opened with the step's title in it (`about`, `prefill`, `hiddenHint`).
+- **The process editor** makes short names from titles (`lib/short-name.ts`, to the API's two key
+  shapes; under More), a step added there waits for the step before it, "Waits for" names steps by
+  title, and a review rule can be written in place (`lib/ui/check-rule-form.tsx`, shared with Who
+  checks work, `putInForce`) and chosen for the step.
+- **Files** never default their kind: "What it is" starts empty and is required.
+- **A list read that can race keeps only the newest answer.** `/portal/requests` lost a client's
+  first request behind a late mount read (F19, reproduced with a held response); a counter in a
+  ref drops any answer that is not the latest read's.
+
 ## `/calendar` and `/admin/obligation-rules` — the calendar, and the rules behind it (T3.2)
 
 **`/calendar` IS READ-ONLY AND MUST STAY THAT WAY.** There is no "add a filing" button because
@@ -2325,6 +2389,20 @@ A `null` amount is not zero and not an error: it is the fee axis. Somebody witho
 visibility gets the proposal with its money removed rather than a refusal, so these screens
 say so ("Hidden" on the proposals list) and show everything else.
 
+**Hidden, never Not set (audit 2026-10-03, F10).** `formatMoney(null)` says "Not set", which
+reads as "the firm forgot". For a money value that may be redacted use `<Money>` or
+`<MissingMoney>` from `@/components/fees`: Hidden for a login that cannot see fees
+(`useSeesFees()`, off the session's `commercialVisibility`), the `unset` words for everybody
+else. A STATUS is not money: "Not issued" is decided by `issuedOn`, never by a null balance.
+
+**What such a login is not offered (F33, B01, B27, B09).** The API refuses it every money write
+(manual invoice, lines, payments, credit notes, a refund, a lead's value, a catalogue service)
+and every PDF that prints fees (`Document.showsFees`), so the screens do not offer them: Raise an
+invoice, Record a payment, Download on a fee document ("Shows fees"), the proposal / letter
+preview (one line instead), Receivables in the nav. The builders still let it pick services:
+a tick sends neither fee nor note and the API quotes the list price, and Details saves with
+`feesUnchanged` so the fee is never overwritten with a null it was shown.
+
 **The shape (Wave 4, 2026-09-28), and none of it follows the reader's browser:** INR in Indian
 grouping with the rupee sign (`₹12,00,000`, never `₹1,200,000`), every other currency with its code
 in its own grouping (`AED 5,000`), and no `.00` when there are no paise (`₹25,00,000.50` keeps
@@ -2731,9 +2809,9 @@ four zeros that read as settled. The card is for `issued` only; a draft says "No
 nothing is owed." and a cancelled one "Cancelled, so nothing is owed.", as the list and
 Receivables already did.
 
-**The company that signed the client's letters charges for the work (2026-09-28).** A number is
-drawn from "Charged by"'s series the moment the draft is made and can only be cancelled, so the
-raise dialog no longer defaults to the first company. Choosing "Bill to" reads that client's
+**The company that signed the client's letters charges for the work (2026-09-28).** The number
+comes from "Charged by"'s series (since 0322 when the invoice is ISSUED, not at the draft) and a
+company cannot be changed on an invoice, so the raise dialog no longer defaults to the first company. Choosing "Bill to" reads that client's
 `billable-engagements`: when every letter was issued by ONE company it is preselected and the
 letters are named under it ("Issued EL-2026-0001."); with none, or letters from several, the
 select stays on "Choose the company…" and `required` stops the form. On the invoice, "What is
@@ -2761,6 +2839,152 @@ worker climbs to those rungs and stops, and the queue shows the client, the invo
 what is outstanding NOW — the API joins all three, because a queue of uuids would be asking
 somebody to approve something they cannot see. Rejecting is offered as prominently as
 approving: the firm looked and chose not to, which is a fact somebody wants later.
+
+### Automatic billing: To raise, Billing not set up, and the switch (auto-invoice, 0318)
+
+Ashish's rule: no service is delivered unbilled. The daily sweep writes a **bill** (`billing_due`)
+for each period that has fallen due on an engagement whose billing is set up, and a person raises
+the invoice from it. **The sweep never makes a period invoice**: a manager decides what goes on one
+(which bills, the tax, a price the letter left open). Since 0322 a draft has NO number (it is drawn
+at issue), so the one automatic draft there is, the advance at signing, burns nothing if cancelled.
+`bib/prompts/auto-invoice/PLAN.md` has the rules and the API; these are the screens.
+
+- **To raise** (`src/app/invoices/to-raise.tsx`) is one card per invoice that COULD be raised:
+  client, company (the series), currency and manager (whose revenue), the four the API refuses to
+  mix. Oldest bill first. A bill is named in the LETTER's words (`serviceName`: the letter line's
+  own wording, or the fee group's title, never the catalogue's name), because that is also the
+  invoice line's text and a client checks an invoice against what they signed. Each card's **Raise invoice** (secondary: one brand button per screen, and
+  that is the header's) drafts one invoice from the ticked bills; ticks are per raise and reset after
+  any act, because a kept untick left the card's button disabled with nothing saying why (the walk
+  found it). The dialog asks per bill for the tax rate (prefilled with `lastTaxPercent`, the last
+  invoice line for that work) and, only where the letter fixed no price, the amount; the rate starts
+  at the letters' own when they agree; `asOf=browserDay()`. Rows say pro-rata ("17 of 31 days", "of
+  ₹50,000"), **Overdue, also with <manager's manager>** once escalated (`escalated`, 7 days, computed by
+  the API), and the API's `managerNote` in the warn tone when the bill fell back to the Key Manager. A
+  bill on a draft stays listed ("On a draft", the number) until the invoice is issued; a cancelled
+  invoice gives its bills back. **Skip** needs a reason and has no undo; **Link** offers only the
+  client's invoices from the same company in the same currency, not cancelled (what the API takes).
+  Raised and skipped bills are under "Show raised and skipped". Without the fee axis amounts read
+  Hidden (`commercialVisibility` on the session), and a priced bill is not asked for an amount.
+- **Billing not set up** (`not-set-up.tsx`): recurring engagements the sweep cannot bill. A fee group
+  is ONE row ("One fee: <title>") and setting it sets the group. **Set billing** opens
+  `BillingScheduleDialog` (`src/components/billing-schedule.tsx`): two dates, **Bill from** (the first
+  period billed; the API snaps it to the period's first day) and **First invoice on** (that period's
+  invoice date; later ones follow one span after). One date cannot say whether 1 Nov bills October or
+  November. The boxes open on the API's `suggestion` (the current period, billed the day after it
+  ends), never on a date worked out here: a quarter or a year is cut by the firm's financial year.
+- **The client's Engagements panel** has a **Billing** column: how often, then "From July 2026 · First
+  invoice 1 Aug 2026", or "Not set up" in the warn tone, and Set billing / Change (the same dialog,
+  which reads `/billing/unscheduled` for the suggestion, since the panel has none; Change has **Stop
+  billing**, both dates null). `billable-engagements` carries `billingFrom` / `firstInvoiceOn` for it.
+- **Your firm → Automatic billing** (`#billing`): one switch, saved as it is switched, off by default.
+  There is no firm go-live date; each engagement starts at its own Bill from.
+- **The invoice page** names the **Manager** and the **Engagement letter(s)** its lines bill (linked),
+  "Not set" on a hand-raised one.
+- **My day** reads `/billing/dues?mine=true`: one row per invoice to raise ("Raise the invoice:
+  Bookkeeping, Jul 2026 and 3 more") or draft to issue, due the last day before the oldest bill
+  escalates, so it turns Overdue the morning the manager's manager gets it; theirs reads "Escalated
+  to you · with <manager>".
+- **A bill with no price** (`priced: false`, never redacted) is also on the client's SPOC's (for
+  that Dept) and every administrator's My day, "Needs a price · with <manager>", until an amount is
+  on a draft. Ashish asked for a reminder to the SPOC, the manager and the admin every week; the
+  reminder is a flag that counts weeks ("No price yet", "No price for 4 weeks", `noPriceWords`),
+  and the To raise row shows the same. Nothing is sent. `priced` is also what tells "No price"
+  from "Hidden": a login without fees is still asked the amount of a bill that has none.
+- **The letter says when a fee is billed (phase 1b, 0319).** The letter page's Services table has a
+  **Billed** column and each fee section a "Billed" line: `BillingTimingControl`
+  (`src/components/billing-timing.tsx`), "After each month" (the default and what a letter that
+  says nothing means) | "At the start of each month" | "On a date I choose" (then a date box). On a
+  draft it saves as it changes (PATCH line / fee group `billingTiming` + `billingOn`); on a sent or
+  signed letter it is the words the PDF prints. A one-off reads "Billed by hand", a grouped line
+  "With its section". Signing with the firm's switch on sets each engagement's schedule from it
+  (the API's GoLiveScheduler), so those never reach "Billing not set up". The builder's services
+  step does not offer it yet: it is chosen on the letter page. Walk: `ai-1b-walk.mjs` (16 checks).
+- **The advance and the final bill (phase 2, 0320).** Every advance is a tax invoice (since 0322 it
+  holds no work: see the next bullet). To raise: an advance bill with no automatic draft (no tax
+  rate, or its draft was cancelled) has its own **Raise invoice** (no tick: the API raises it alone) and no
+  Skip; a final bill (one-time work done) is marked; a bill with an issued advance says "Less up to
+  ₹X advance" (the API takes it off, earliest bill first, before tax, and a raise the advance pays in
+  full answers `invoiceId: null` + `covered`: "No invoice needed"). Below the cards: **To refund** (an
+  admin's "Give it back" = credit note `advance_refund` with its tax, or "Keep it" with a reason) and
+  **One-time work with no process** (Bill it now). The letter page has an **Advance** column for
+  a service's own advance (`LineAdvanceControl`, saved on blur; no column on a letter with one advance
+  for all) and an Advance card (`AdvanceStatus`) where "Record the advance" was. `billLabel(d)` names
+  any bill. Walk: `ai-t3-walk.mjs` (fresh fixture with NO default tax rate, so the advance is raised
+  by hand; FIFO and the refund).
+- **The advance starts the work and is chased (0322).** Ashish: the advance invoice is drafted at
+  signing and the work starts at once; the SPOC, the Key Manager and the partner are reminded until
+  it is paid, and the admins weekly. Approve start is GONE.
+  - **"Draft" where a number will be.** `invoiceNumberWords(number, status)` ("Draft", "Cancelled
+    draft") on the invoice list, To raise ("On a draft"), the Link dialog, the Advances tab and My
+    day; the invoice page is titled "Draft invoice", its Issue confirm says "It gets the next number
+    in <company>'s series", and Cancel on a draft says no number is used up. A raise answers
+    `number: null`: only `invoiceId: null` means "No invoice needed" (the walk caught the screen
+    reading every new draft as covered).
+  - **Advances tab** (`advances.tsx`): every advance, pending first, Overdue first among them; the
+    `AdvanceStage` pill (No invoice yet · Draft, not issued · Not paid yet · Part paid · Paid in full,
+    "…, overdue" in the danger tone) and one line (`advanceLine`: "No tax rate for <company>. Set one
+    on Your firm.", "Waiting for an admin to issue it. Signed 2 days ago.", "₹20,000 of ₹59,000 paid.
+    Issued today."); who is reminded under the letter. No buttons.
+  - **My day** reads `/billing/advances?mine=true` for EVERY staff login (the API answers only what
+    the caller chases, with `duties`). An admin: "Issue the advance invoice", "Raise the advance
+    invoice", "Set a tax rate for <company>" or "Link INV/… as the advance". Anybody else on a draft:
+    "Advance invoice: with an admin to issue", whose turn **An admin** (a new `Turn`); with no invoice
+    yet they may raise it themselves (`party:write`, the tax rate typed in the dialog). Issued: "Advance
+    not paid: INV/…" / "Advance part paid: INV/…", whose turn **The client**. The kind line says the
+    letter, "signed/issued N days ago" and "you are the SPOC, Key Manager"; "Escalated" a week after
+    signing. Dated `overdueOn` minus a day (the API's, from the firm's days), so it turns Overdue the
+    morning the tab does, and **Today until then**: dated by its due day an unpaid advance sat in the
+    closed Later bucket for its first week, which the walk found, and Ashish asked for the reminder to
+    stay on the dashboard. A bill's draft (`/billing/dues?mine`) reads "Issue the draft invoice: …" to
+    an admin and "With an admin to issue: …" to anybody else (review item 14b), because issuing is
+    `tenant:admin`.
+  - **To raise → Show raised and skipped** reads `/billing/dues?status=all` when opened (the page's
+    list is pending only since 0322's 14a), and again after any act while open.
+  - **Your firm → Automatic billing** (`#billing`) gained two parts under the switch, each a nested
+    `SetOnce` (a rule above, an h3, Change): **Advance reminders** (`#advance-reminders`: draft overdue
+    after N days, unpaid overdue after N days from issue, the partner's grade from `/tenancy/grades`
+    by RANK, "Director or above", ranks shared by two rungs read "Director / Partner", a rank no rung
+    holds still shown; the weekly summary's weekday and hour, in the firm's zone) and **Default tax
+    rate** (`#tax-rates`: one box per company, `AmountInput decimals={4}`). Each saves with its own
+    partial `PUT /billing/settings`, so one never overwrites the other. The API keeps a rate it is not
+    sent, so emptying a box that had one is refused on the screen ("It can be changed, not removed").
+  - The letter page's "advance ₹X · outstanding" line lost its suffix: nothing writes
+    `advanceRecordedAt` since T3, and "outstanding" stayed after the advance was paid. The Advance
+    card says where it stands.
+  - Walk: `bib/demo-assets/tools/ai-adv-walk.mjs` on a fresh `ai-fixture.mjs` firm: the settings form,
+    signing (draft, no number, everything active), each role's My day (admin, SPOC, partner, someone
+    with no duty, a non-admin manager's bill draft), issue, a week on (signing moved back by psql on
+    THAT tenant only), the weekly email in Mailpit through `ai-digest-tenant.mts` (the worker's
+    sweep, its firm list cut to the fixture), FIFO and the refund.
+- **Revenue by manager (T4, no migration).** `/dashboard` has a **Revenue by manager** section
+  (`src/app/dashboard/revenue-by-manager.tsx`) reading `/dashboard/revenue/by-manager?months=12`: a
+  **Period** select (each month, newest first; **This financial year**, from the firm's own
+  `financialYearStartMonth`, offered only when the firm has set one, so a US firm gets January and
+  nobody is assumed to start in April; and the whole window). Columns Manager, Billed (before tax,
+  less credit notes), Collected (cash, with tax), Owed now (today, with tax, does not move with the
+  period), Invoices; one line says which include tax, because the three are not meant to add up.
+  Biggest billed first; **No manager** always last while it has a figure; a **Total** row that equals
+  the firm (billed = Billing by company's all-companies figure, owed = Owed to the firm). A leaver
+  keeps their row with a **Left** pill; an id the roster cannot name reads "Not on your staff". A row
+  with nothing in the period and nothing owed is hidden. Period sums are `sumSigned` on the API's
+  strings, the sort is `commonUnits` on bigints: still no JS number. The **Raise an invoice** dialog
+  has a **Manager** select (active staff from `/tenancy/colleagues`), preselected to the client's
+  Key Manager from `/parties/{id}/assignments` (in force, still staff) when "Bill to" is chosen; the
+  hint says where the default came from ("Key Manager of this client.", "Their Key Manager has left
+  the firm.", "This client has no Key Manager."). On a **draft** invoice the Manager is a quiet select
+  saved as it changes (`PUT /invoices/{id}/manager`); issued, it is text. The API refuses anyone not
+  on the staff (`MANAGER_NOT_STAFF`).
+- **Safeguards from the review (0321).** **Skip** shows only to a login holding the firm's
+  `billing:skip` (Partner and Manager by default; `canSkip` from the session), and on an advance
+  bill only once nothing waits on it (`advanceHoldsWork: false`). **Link** on an advance bill is
+  an admin's (a paid invoice starts the work). After an advance's credit note, the screen says
+  what to pay back from `paid` ("Pay back ₹X", never more than was received; "Nothing was paid,
+  so nothing goes back." when nothing was). A second person acting on the same bill gets the
+  API's `BILL_BUSY` sentence. Invoice lines name the advance invoice with no amounts in the words.
+- Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
+  `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
+  429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.
 
 ## Two screens that show the registry rather than hiding it
 
@@ -2822,3 +3046,48 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   `RoutingWarning` lists each Dept whose rung is not the SPOC, with the owner and why, and a link
   to the client's page. A warning (`role="status"`), never a disabled Send; nothing is shown when
   every Dept has a SPOC.
+
+## Audit 2026-10-03, the UX cluster: rules that came out of it
+
+- **Only a 401 signs anybody out.** `@/lib/session` `readSession()` is how both shells read
+  `/auth/me`: 401 is signed out; a 429, a 5xx or no answer is *busy*, and the shell keeps what it
+  knew and asks again (2 s doubling to 30 s, never sooner than `Retry-After`, which the API now
+  exposes). On a first load it shows "The workspace is busy. Trying again in N seconds" with Try
+  now. A page's own 401 still routes to `/login`; nothing else may.
+- **The product's name is one constant**, `PRODUCT_NAME` in `@/lib/brand` ("10X Workspace").
+  Anything scoped to ONE firm shows that firm: the sidebar's and the portal's mark are
+  `firmInitials(principal.tenantName)`, never "10x".
+- **A select never answers for the user.** A choice somebody makes (a reason, a method, a source,
+  who, which Dept, what kind of file) starts at a disabled "Choose…" with `defaultValue=""` and is
+  `required` where the API requires it. A select that SHOWS a saved setting keeps its value.
+  `demo-assets/tools/audit-ux/select-defaults.mjs` lists every select whose first option is not
+  empty, for the next sweep.
+- **Counts are one string**: `plural(n, "client")` from `@/lib/plural`. `{n} client{n === 1 ? "" :
+  "s"}` is three text nodes, and in a flex container with a gap it read "4 client s".
+- **Countries are the 249 ISO 3166-1 codes** (`COUNTRY_CODES` in `@/lib/country`, the same list
+  the API enforces in `domain/country.ts`). The browser also names retired codes; never build the
+  list from AA..ZZ again. A saved code outside the list is shown as itself in `CountrySelect`.
+- **Kinds of company come from a list** (`ENTITY_KINDS`, `EntityKindSelect`), saved as the codes
+  a filing rule matches on; `entityKindLabel()` prints one.
+- **Codes are never printed**: a rule pack key is `rulePackLabel()`, a country is
+  `countryName()`, a permission is its sentence (the Roles page and `Denied` no longer show
+  `tenant:admin`), the audit trail maps `jurisdiction*`/`rung*` keys to words.
+- **The Tailwind `TableWrap` contains its table** (`relative` + layout containment), like
+  `.tablewrap`. Without it an absolutely positioned `.sr-only` in a cell escaped the scroller and
+  widened the whole page at 390.
+- **A row change says it held**: People and Structure print "Saved. …" in a `role="status"`
+  line, cleared before each call.
+- **Welcome and invitation pages**: a new colleague's welcome link opens `/auth/welcome` ("Choose
+  your password", or "Skip for now and sign in"); `/portal/accept-invite` prints the `firm`
+  query parameter the API puts on the link (display only, capped).
+- **No e-signature service**: a letter's send button reads "Lock it as sent" and the page says
+  nothing is emailed and what to do; with DocuSign the flow is unchanged.
+- **A refused form keeps what was typed (F05).** Never `<form action={fn}>`: React 19 resets
+  such a form once `fn` has run, whatever the API answered, so a refusal arrived over empty boxes.
+  Every form submits through `onSubmit={(event) => keepTyped(event, fn)}` (`@/lib/ui/keep-typed`),
+  which hands `fn` the same `FormData` (the pressed button included) and resets nothing. `fn`
+  resolves `true` only when the save went through AND the form stays on screen for the next entry
+  (add a line, record a payment); only then is it cleared. A form that closes, navigates or
+  remounts on success returns nothing. The handler still clears its refusal BEFORE the call. A
+  lint rule refuses `action` on a `<form>`; `demo-assets/tools/audit-verify/f05-walk.mjs` refuses
+  every form twice and checks the boxes, the focus and the second press.

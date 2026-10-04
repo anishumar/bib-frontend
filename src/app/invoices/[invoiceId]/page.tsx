@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { Documents } from "@/lib/ui/documents";
 import {
   CREDIT_REASONS,
@@ -11,13 +12,17 @@ import {
   PAYMENT_METHOD_LABELS,
   api,
   apiError,
+  billingPersonName,
   codeLabel,
+  colleagueLabel,
   formatCount,
   formatMoney,
+  invoiceNumberWords,
   perPeriod,
 } from "@/lib/api/client";
 import type {
   BillableEngagement,
+  Colleague,
   CreditNote,
   DunningAction,
   InvoiceBalance,
@@ -52,7 +57,9 @@ import {
   Th,
 } from "@/components/tw";
 import { browserDay, longDay } from "@/lib/day";
-import { cleanAmount } from "@/lib/money";
+import { cleanAmount, compareSigned } from "@/lib/money";
+import { MissingMoney, Money, useSeesFees } from "@/components/fees";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -83,6 +90,10 @@ export default function InvoicePage() {
   const [credits, setCredits] = useState<CreditNote[]>([]);
   const [chased, setChased] = useState<DunningAction[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  // F10/F33/B27: whether this login sees fees (see `money` and `mayWriteMoney`).
+  const seesFees = useSeesFees();
+  /** Active staff, for a draft's Manager (T4). */
+  const [colleagues, setColleagues] = useState<Colleague[]>([]);
   /**
    * WHAT THIS CLIENT HAS SIGNED FOR, so a line can be billed from it.
    *
@@ -95,19 +106,25 @@ export default function InvoicePage() {
   /** The engagement the new line is being billed from, or null for a one-off —
    *  a certificate, a recharge, something that never had a contract. */
   const [chosen, setChosen] = useState<BillableEngagement | null>(null);
+  /** The firm's reporting currency: a rate is shown only for another (F23). */
+  const [reportingCurrency, setReportingCurrency] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What is typed in the payment form, for the "more than is owed" warning.
+  const [payTyped, setPayTyped] = useState("");
 
   const load = useCallback(async (): Promise<void> => {
     const path = { params: { path: { invoiceId } } };
-    const [one, bal, paid, credited, dunning, me] = await Promise.all([
+    const [one, bal, paid, credited, dunning, me, staff, firm] = await Promise.all([
       api.GET("/api/v1/invoices/{invoiceId}", path),
       api.GET("/api/v1/invoices/{invoiceId}/balance", path),
       api.GET("/api/v1/invoices/{invoiceId}/payments", path),
       api.GET("/api/v1/invoices/{invoiceId}/credit-notes", path),
       api.GET("/api/v1/invoices/{invoiceId}/dunning", path),
       api.GET("/api/v1/auth/me", {}),
+      api.GET("/api/v1/tenancy/colleagues", {}),
+      api.GET("/api/v1/firm-entities", {}),
     ]);
     if (one.response.status === 401) {
       router.push("/login");
@@ -124,6 +141,8 @@ export default function InvoicePage() {
     if (credited.data) setCredits(credited.data.creditNotes);
     if (dunning.data) setChased(dunning.data.actions);
     if (me.data) setPermissions(me.data.permissions);
+    setColleagues(staff.data ? [...staff.data.colleagues] : []);
+    setReportingCurrency(firm.data?.reportingCurrency ?? null);
 
     // A SECOND ROUND TRIP, and it needs the invoice first: the engagements
     // belong to the CLIENT, whose id is on the record that has only just
@@ -147,17 +166,19 @@ export default function InvoicePage() {
   /** Every write goes through here: run it, show the API's own words on
    *  failure, and re-read on success rather than patching local state — the
    *  totals and the balance are the database's answer, not this screen's. */
-  async function act(run: () => Promise<{ error?: unknown }>): Promise<void> {
+  /** True when the write went through: a form that stays on screen clears then (F05). */
+  async function act(run: () => Promise<{ error?: unknown }>): Promise<boolean> {
     setBusy(true);
     setError(null);
     const result = await run();
     if (result.error) {
       setError(apiError(result.error).message);
       setBusy(false);
-      return;
+      return false;
     }
     await load();
     setBusy(false);
+    return true;
   }
 
   if (!loaded) return <Loading />;
@@ -174,7 +195,21 @@ export default function InvoicePage() {
   const invoice = record.invoice;
   const draft = invoice.status === "draft";
   const issued = invoice.status === "issued";
-  const mayAdmin = permissions.includes("tenant:admin");
+  // CA#6 (0335): issuing, cancelling and crediting are `invoice:issue`, which
+  // the roles that administer the firm hold by default.
+  const mayIssue = permissions.includes("invoice:issue");
+  // B51 (never renumber): a draft numbered before 0322 whose number would now
+  // go out of order is refused at issue. The API says so on the read, in the
+  // refusal's own words, and the screen says it where Issue would be.
+  const issueBlocked = draft ? record.issueBlocked : null;
+  // F10/F33/B27: a login that cannot see fees reads every amount as Hidden and
+  // is not offered a write that sets one (lines, payments, credit notes): the
+  // API refuses them to it.
+  const mayWriteMoney = permissions.includes("party:write") && seesFees === true;
+  const money = (amount: string | null, currency: string) =>
+    amount === null ? <MissingMoney seesFees={seesFees} /> : formatMoney(amount, currency);
+  // Money received against it, net of refunds (B05: then it is not cancelled).
+  const hasPayments = balance?.paid !== undefined && balance.paid !== null && !/^-?0*(\.0+)?$/.test(balance.paid);
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
   // is yesterday in India until 05:30 every morning — so something due
   // yesterday would not read as overdue for those five and a half hours.
@@ -187,14 +222,14 @@ export default function InvoicePage() {
           engagement letter. Walked with several tabs open and this one was
           "BiB — 10X Workspace" while its neighbours said which document they
           were: the tab strip is how a person finds their way back. */}
-      <title>{`${invoice.number} · ${record.party.displayName}`}</title>
+      <title>{`${invoiceNumberWords(invoice.number, invoice.status)} · ${record.party.displayName}`}</title>
 
       {/* THE WAVE 4 SHAPE (2026-09-28): the number in the sans face (it was
           the typewriter), the status a pill in words under it, and Issue — a
           draft's one committing act — the brand button where the eye lands.
           It is still offered only to an administrator (it uses a number). */}
       <PageHeader
-        title={invoice.number}
+        title={invoice.number ?? (invoice.status === "cancelled" ? "Cancelled draft" : "Draft invoice")}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             {record.party.displayName}
@@ -206,17 +241,25 @@ export default function InvoicePage() {
           </span>
         }
         actions={
-          draft && mayAdmin ? (
+          draft && mayIssue && issueBlocked === null ? (
             // Confirmed (V1.3): issuing locks the money on a numbered tax
             // document, and the only way back is to cancel it.
             <ConfirmAction
               disabled={busy}
-              title={`Issue ${invoice.number}?`}
+              title={invoice.number === null ? "Issue this invoice?" : `Issue ${invoice.number}?`}
               confirmLabel="Issue it"
               consequence={
                 <p>
-                  {invoice.number} becomes a tax invoice dated {longDay(browserDay())}. Its
-                  lines and amounts are then locked, and its PDF is filed and shown to the
+                  {invoice.number === null
+                    ? `It gets the next number in ${record.entity.displayName}'s series and becomes a tax invoice dated ${longDay(browserDay())}.`
+                    : `${invoice.number} becomes a tax invoice dated ${longDay(browserDay())}.`}{" "}
+                  {invoice.dueOn !== null && invoice.dueOn < browserDay() && (
+                    <>
+                      Its due date, {longDay(invoice.dueOn)}, has already passed: change it below
+                      first, or it will not be issued.{" "}
+                    </>
+                  )}
+                  Its lines and amounts are then locked, and its PDF is filed and shown to the
                   client. To correct it later, you cancel it and raise a new invoice.
                 </p>
               }
@@ -236,6 +279,12 @@ export default function InvoicePage() {
         }
       />
 
+      {issueBlocked !== null && (
+        <Notice tone="warn" eyebrow="This draft cannot be issued">
+          {issueBlocked.message}
+        </Notice>
+      )}
+
       <ErrorNotice error={error} />
 
       <Card>
@@ -250,17 +299,114 @@ export default function InvoicePage() {
             {invoice.issuedOn === null ? <NotSet>Not yet</NotSet> : longDay(invoice.issuedOn)}
           </MetaItem>
           <MetaItem label="Due">
-            {invoice.dueOn === null ? <NotSet>No date</NotSet> : longDay(invoice.dueOn)}
+            {/* A DRAFT'S DUE DATE CHANGES HERE (B20): bills raised from the
+                desk carried none, and nothing could give them one, so client
+                reminders never chased them. Saved when the box is left; today
+                or later. An issued invoice's due date is what was sent. */}
+            {draft && permissions.includes("party:write") ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <Input
+                  key={invoice.dueOn ?? "none"}
+                  type="date"
+                  size="sm"
+                  variant="quiet"
+                  aria-label="Due date"
+                  min={today}
+                  defaultValue={invoice.dueOn ?? ""}
+                  disabled={busy}
+                  onBlur={(e) => {
+                    const next = e.target.value;
+                    if (next === (invoice.dueOn ?? "")) return;
+                    void act(() =>
+                      api.PUT("/api/v1/invoices/{invoiceId}/due-date", {
+                        params: { path: { invoiceId }, query: { asOf: browserDay() } },
+                        body: { dueOn: next === "" ? null : next },
+                      }),
+                    );
+                  }}
+                />
+                {invoice.dueOn === null && <span className="text-sm text-muted">No date: no reminders</span>}
+              </span>
+            ) : invoice.dueOn === null ? (
+              <NotSet>No date</NotSet>
+            ) : (
+              longDay(invoice.dueOn)
+            )}
           </MetaItem>
           <MetaItem label="Series">
-            FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")},
-            number {invoice.sequenceNumber}
+            {invoice.number === null ? (
+              /* A draft is numbered when it is issued, in the year of that
+                 day (B03): the year on a draft is not the one it will carry. */
+              <NotSet>Numbered when issued</NotSet>
+            ) : (
+              <>
+                FY {invoice.financialYear}-{String((invoice.financialYear + 1) % 100).padStart(2, "0")}, number{" "}
+                {invoice.sequenceNumber}
+              </>
+            )}
           </MetaItem>
-          <MetaItem label="Rate">
-            <span className="num">
-              {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
-              {longDay(invoice.fxRateDate)}
-            </span>
+          {/* ONLY FOR ANOTHER CURRENCY (F23): "Rate 1 on 25 Sep 2026" on a
+              rupee invoice of a rupee firm said nothing anybody needed. */}
+          {reportingCurrency !== null && invoice.currency !== reportingCurrency && (
+            <MetaItem label={`${reportingCurrency} for one ${invoice.currency}`}>
+              <span className="num">
+                {invoice.fxRate === null ? <NotSet>Hidden</NotSet> : formatCount(invoice.fxRate)} on{" "}
+                {longDay(invoice.fxRateDate)}
+              </span>
+            </MetaItem>
+          )}
+          {/* WHOSE REVENUE THIS IS (0318): the manager it was raised under,
+              frozen once issued. A hand-raised invoice may name nobody. On a
+              DRAFT it changes here, saved as it changes (T4): the number is
+              already drawn, so a wrong pick should not need a cancellation. */}
+          <MetaItem label="Manager">
+            {draft && permissions.includes("party:write") ? (
+              <Select
+                variant="quiet"
+                size="sm"
+                aria-label="Manager"
+                value={invoice.managerUserId ?? ""}
+                disabled={busy}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  void act(() =>
+                    api.PUT("/api/v1/invoices/{invoiceId}/manager", {
+                      params: { path: { invoiceId } },
+                      body: { managerUserId: next === "" ? null : next },
+                    }),
+                  );
+                }}
+              >
+                <option value="">No manager</option>
+                {/* Somebody who has left stays shown while they are the one
+                    named, or the box would claim a choice nobody made. */}
+                {record.manager !== null && !colleagues.some((c) => c.userId === record.manager?.userId) && (
+                  <option value={record.manager.userId}>{billingPersonName(record.manager)} (left)</option>
+                )}
+                {colleagues.map((c) => (
+                  <option key={c.userId} value={c.userId}>
+                    {colleagueLabel(c)}
+                  </option>
+                ))}
+              </Select>
+            ) : record.manager === null ? (
+              <NotSet />
+            ) : (
+              billingPersonName(record.manager)
+            )}
+          </MetaItem>
+          {/* The letters its lines bill, as the PDF prints them. */}
+          <MetaItem label={record.letters.length > 1 ? "Engagement letters" : "Engagement letter"}>
+            {record.letters.length === 0 ? (
+              <NotSet />
+            ) : (
+              record.letters.map((l, i) => (
+                <span key={l.id}>
+                  {i > 0 && ", "}
+                  <Link href={`/engagement-letters/${l.id}` as Route}>{l.ref}</Link>
+                </span>
+              ))
+            )}
           </MetaItem>
         </Meta>
         {/* NOTHING IS OWED on a draft or a cancelled invoice, and the four
@@ -281,24 +427,29 @@ export default function InvoicePage() {
           <CardTitle level={2}>What is owed</CardTitle>
           <Meta>
             <MetaItem label="Invoiced">
-              <span className="num">{formatMoney(balance.invoiced, balance.currency)}</span>
+              <span className="num">{money(balance.invoiced, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Paid">
-              <span className="num">{formatMoney(balance.paid, balance.currency)}</span>
+              <span className="num">{money(balance.paid, balance.currency)}</span>
             </MetaItem>
             <MetaItem label="Credited">
-              <span className="num">{formatMoney(balance.credited, balance.currency)}</span>
+              <span className="num">{money(balance.credited, balance.currency)}</span>
             </MetaItem>
-            <MetaItem label="Outstanding">
-              {/* A NEGATIVE outstanding is not an error: the client overpaid, or
-                  settled two invoices with one transfer. The API records what
-                  actually arrived rather than what was tidy, and so does this. */}
-              <strong className="num">{formatMoney(balance.outstanding, balance.currency)}</strong>
+            {/* A NEGATIVE outstanding is not an error: the client overpaid, or
+                settled two invoices with one transfer. The API records what
+                actually arrived (the user's decision, audit 2026-10-03), and the
+                screen calls it what it is, a credit, never a minus amount owed. */}
+            <MetaItem label={balance.outstanding?.startsWith("-") === true ? "Credit" : "Outstanding"}>
+              <strong className="num">
+                {money(balance.outstanding?.replace(/^-/, "") ?? null, balance.currency)}
+              </strong>
             </MetaItem>
           </Meta>
           {balance.outstanding?.startsWith("-") === true && (
             <p className="max-w-[var(--measure)] text-sm text-muted">
-              More received than billed: an overpayment, or one transfer for several invoices.
+              The client paid {money(balance.outstanding.replace(/^-/, ""), balance.currency)} more than
+              this invoice: an overpayment, or one transfer for several invoices. It is not counted as owed
+              anywhere. If you give it back, record the refund here as a negative payment.
             </p>
           )}
         </Card>
@@ -320,7 +471,7 @@ export default function InvoicePage() {
                 <Th align="right">Discount</Th>
                 <Th align="right">Tax</Th>
                 <Th align="right">Net</Th>
-                {draft && <Th />}
+                {draft && mayWriteMoney && <Th />}
               </tr>
             </thead>
             <tbody>
@@ -329,23 +480,23 @@ export default function InvoicePage() {
                   <Td>{l.description}</Td>
                   <Td align="right">{formatCount(l.quantity)}</Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(l.unitAmount, l.currency)}
+                    {money(l.unitAmount, l.currency)}
                   </Td>
                   {/* A discount is a price, so the fee axis takes it too — an
                       em dash rather than "0%", which would be a figure this
                       reader was not shown rather than one that is true. */}
                   <Td align="right">
-                    {l.discountPercent === null ? <NotSet>None</NotSet> : `${formatCount(l.discountPercent)}%`}
+                    {l.discountPercent === null ? <Money amount={null} currency={l.currency} unset="None" /> : `${formatCount(l.discountPercent)}%`}
                   </Td>
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
                   <Td align="right" className="nowrap">
-                    {formatCount(l.taxPercent)}% · {formatMoney(l.tax, l.currency)}
+                    {formatCount(l.taxPercent)}% · {money(l.tax, l.currency)}
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(l.net, l.currency)}
+                    {money(l.net, l.currency)}
                   </Td>
-                  {draft && (
+                  {draft && mayWriteMoney && (
                     <Td align="right">
                       {/* NAMED BY THE LINE, for the reason the proposal's is:
                           no demo invoice is a draft, so this column has only
@@ -378,9 +529,9 @@ export default function InvoicePage() {
                   Tax
                 </Td>
                 <Td align="right" className="nowrap">
-                  {formatMoney(record.totals.tax, record.totals.currency)}
+                  {money(record.totals.tax, record.totals.currency)}
                 </Td>
-                {draft && <Td />}
+                {draft && mayWriteMoney && <Td />}
               </tr>
               <tr>
                 <Td colSpan={4} />
@@ -388,23 +539,23 @@ export default function InvoicePage() {
                   Total
                 </Td>
                 <Td align="right" className="nowrap">
-                  <strong>{formatMoney(record.totals.total, record.totals.currency)}</strong>
+                  <strong>{money(record.totals.total, record.totals.currency)}</strong>
                 </Td>
-                {draft && <Td />}
+                {draft && mayWriteMoney && <Td />}
               </tr>
             </tfoot>
           </Table>
         </TableWrap>
         )}
 
-        {draft && (
+        {draft && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const discount = cleanAmount(String(form.get("discountPercent") ?? ""));
               const tax = cleanAmount(String(form.get("taxPercent") ?? ""));
               const engagementId = String(form.get("engagementId") ?? "");
-              void act(async () => {
+              return act(async () => {
                 const result = await api.POST("/api/v1/invoices/{invoiceId}/lines", {
                   params: { path: { invoiceId } },
                   body: {
@@ -423,7 +574,7 @@ export default function InvoicePage() {
                 if (!result.error) setChosen(null);
                 return result;
               });
-            }}
+            })}
           >
             <FieldStack>
               {/* THE OTHER END OF THE CARRY-FORWARD. Walked: the letter's
@@ -523,7 +674,7 @@ export default function InvoicePage() {
                 {/* The letter's figures as a person writes them: the API sends
                     the column's scale ("1.0000", "25000.0000"), and
                     `formatCount` trims it on the string, never via a number. */}
-                <Field label="Qty">
+                <Field label="How many">
                   <AmountInput decimals={4}
                     key={`q-${chosen?.engagementId ?? "none"}`}
                     name="quantity"
@@ -547,8 +698,20 @@ export default function InvoicePage() {
                     defaultValue={chosen === null ? "0" : formatCount(chosen.discountPercent)}
                   />
                 </Field>
-                <Field label="Tax %">
-                  <AmountInput decimals={4} name="taxPercent" defaultValue="0" />
+                {/* THE RATE IT STARTS AT (CA#5): the rate last invoiced on the
+                    chosen work, else the company's default (Your firm). It
+                    started at 0 whatever the firm had saved, and a hurried
+                    person issued a tax invoice with no tax. With neither, the
+                    box is empty and must be filled: never a guessed 0. */}
+                <Field label="Tax %" hint={taxHint(record, chosen)}>
+                  <AmountInput
+                    decimals={4}
+                    key={`t-${chosen?.engagementId ?? "none"}`}
+                    name="taxPercent"
+                    defaultValue={suggestedTax(record, chosen) ?? ""}
+                    required
+                    placeholder="e.g. 18"
+                  />
                 </Field>
               </FieldRow>
               <div className="cluster">
@@ -564,16 +727,25 @@ export default function InvoicePage() {
       {/* ── Issue, cancel, register ────────────────────────────────────── */}
       <Card>
         <CardTitle level={2}>The document</CardTitle>
-        {!mayAdmin && (draft || issued) && (
+        {/* MONEY ON IT, NO CANCELLING (B05): the API refuses it, so it is not
+            offered, and the way to take money off is said instead. */}
+        {issued && mayIssue && hasPayments && (
+          <p className="max-w-[var(--measure)] text-sm text-muted">
+            Payments are recorded against this invoice, so it cannot be cancelled. To take money off
+            what the client owes, issue a credit note. If a payment was recorded by mistake, record a
+            refund of the same amount first.
+          </p>
+        )}
+        {!mayIssue && (draft || issued) && (
           /* Both use up a number in the series. */
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Only a firm administrator can issue or cancel an invoice.
+            Issuing and cancelling are for whoever issues the firm&rsquo;s invoices.
           </p>
         )}
         {/* Issue moved to the page header (Wave 4); Cancel stays here, away
             from it. */}
         <div className="cluster">
-          {(draft || issued) && mayAdmin && (
+          {(draft || (issued && !hasPayments)) && mayIssue && (
             /* SAYS WHICH CANCEL, because the other one on this screen is
                nothing like it. Open the Documents dialog and there are two
                buttons reading "Cancel": that one closes an upload form, this
@@ -584,14 +756,16 @@ export default function InvoicePage() {
               variant="destructive-quiet"
               size="sm"
               disabled={busy}
-              aria-label={`Cancel invoice ${invoice.number}`}
-              title={`Cancel ${invoice.number}?`}
+              aria-label={invoice.number === null ? "Cancel this draft invoice" : `Cancel invoice ${invoice.number}`}
+              title={invoice.number === null ? "Cancel this draft?" : `Cancel ${invoice.number}?`}
               confirmLabel="Cancel the invoice"
               destructive
               consequence={
                 <p>
-                  {invoice.number} is voided. It keeps this number, which cannot be used
-                  again. Raise a new invoice to replace it.
+                  {invoice.number === null
+                    ? "The draft is voided. It has no number yet, so none is used up."
+                    : `${invoice.number} is voided. It keeps this number, which cannot be used again.`}{" "}
+                  Raise a new invoice to replace it.
                 </p>
               }
               onConfirm={() =>
@@ -606,7 +780,9 @@ export default function InvoicePage() {
         </div>
         {invoice.status === "cancelled" && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Cancelled. It keeps its number; raise a new invoice to replace it.
+            {invoice.number === null
+              ? "Cancelled before it was issued. It never took a number, and the client never saw it."
+              : "Cancelled. It keeps its number; raise a new invoice to replace it."}
           </p>
         )}
 
@@ -629,14 +805,14 @@ export default function InvoicePage() {
               <summary>Record the e-invoice reference</summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void act(() =>
+              onSubmit={(event) => keepTyped(event, (form) => {
+                return act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/irn", {
                     params: { path: { invoiceId } },
                     body: { irn: String(form.get("irn")) },
                   }),
                 );
-              }}
+              })}
             >
               {/* The button was a CELL of the grid, held down with
                   `alignSelf: end` so it lined up with an input that has a hint
@@ -703,7 +879,7 @@ export default function InvoicePage() {
                       it is a row of its own beside the original rather than the
                       original edited away. Both are shown, which is the point. */}
                   <Td align="right" className="nowrap">
-                    {formatMoney(p.amount, p.currency)}
+                    {money(p.amount, p.currency)}
                   </Td>
                 </tr>
               ))}
@@ -712,13 +888,13 @@ export default function InvoicePage() {
         </TableWrap>
         )}
 
-        {issued && (
+        {issued && mayWriteMoney && (
           <form
             style={{ marginTop: "var(--s-4)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const reference = String(form.get("reference") ?? "");
               const note = String(form.get("note") ?? "");
-              void act(() =>
+              return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/payments", {
                   params: { path: { invoiceId } },
                   body: {
@@ -729,8 +905,12 @@ export default function InvoicePage() {
                     ...(note === "" ? {} : { note }),
                   },
                 }),
-              );
-            }}
+              ).then((saved) => {
+                // The form clears on a save (F05); so does the warning it fed.
+                if (saved) setPayTyped("");
+                return saved;
+              });
+            })}
           >
             {/* A NAMED GROUP, no legend, so nothing moves on screen. This page
                 has two forms asking for an "Amount" — money coming in and money
@@ -739,13 +919,26 @@ export default function InvoicePage() {
               <FieldStack>
                 <FieldRow>
                   <Field label="Amount" hint="A negative amount reverses a payment.">
-                    <AmountInput signed name="amount" required placeholder="e.g. 25000" />
+                    <AmountInput
+                      signed
+                      name="amount"
+                      required
+                      placeholder="e.g. 25000"
+                      onChange={(e) => {
+                        setPayTyped(e.target.value);
+                      }}
+                    />
                   </Field>
                   <Field label="Received">
                     <Input name="receivedOn" type="date" defaultValue={today} required />
                   </Field>
                   <Field label="Method">
-                    <Select name="method" defaultValue="bank_transfer">
+                    {/* Nothing preselected (F13): an untouched form recorded
+                        every payment as a bank transfer. */}
+                    <Select name="method" required defaultValue="">
+                      <option value="" disabled>
+                        Choose…
+                      </option>
                       {PAYMENT_METHODS.map((m) => (
                         <option key={m} value={m}>
                           {PAYMENT_METHOD_LABELS[m]}
@@ -760,6 +953,20 @@ export default function InvoicePage() {
                     <Input name="note" placeholder="e.g. Part payment" />
                   </Field>
                 </FieldRow>
+                {/* MORE THAN IS OWED is allowed (a credit), so it is a warning
+                    before the press, never a refusal after it. */}
+                {(() => {
+                  const typed = cleanAmount(payTyped);
+                  const owed = balance?.outstanding ?? null;
+                  if (owed === null || typed === "" || typed.startsWith("-")) return null;
+                  if (compareSigned(typed, owed) !== 1) return null;
+                  return (
+                    <p className="max-w-[var(--measure)] text-sm" role="status">
+                      This is more than the {money(owed.startsWith("-") ? "0" : owed, balance?.currency ?? "")} still
+                      owed. Record it only if that much arrived; the difference will show as a credit.
+                    </p>
+                  );
+                })()}
                 <div className="cluster">
                   <Button type="submit" disabled={busy}>
                     Record payment
@@ -806,7 +1013,7 @@ export default function InvoicePage() {
                     )}
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(c.amount, c.currency)}
+                    {money(c.amount, c.currency)}
                   </Td>
                 </tr>
               ))}
@@ -815,16 +1022,16 @@ export default function InvoicePage() {
         </TableWrap>
         )}
 
-        {issued && mayAdmin && (
+        {issued && mayIssue && seesFees === true && (
           /* Behind a disclosure (Wave 4): rare, and a second open "Amount"
              form under the payments one. */
           <details style={{ marginTop: "var(--s-4)" }}>
             <summary>Issue a credit note</summary>
           <form
             style={{ marginTop: "var(--s-3)" }}
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const note = String(form.get("creditNote") ?? "");
-              void act(() =>
+              return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/credit-notes", {
                   params: { path: { invoiceId }, query: { asOf: browserDay() } },
                   body: {
@@ -834,7 +1041,7 @@ export default function InvoicePage() {
                   },
                 }),
               );
-            }}
+            })}
           >
             <fieldset className="fieldset" aria-label="Issue a credit note">
               <FieldStack>
@@ -849,7 +1056,12 @@ export default function InvoicePage() {
                     label="Why"
                     hint="A category, so credits total by reason."
                   >
-                    <Select name="reason" required>
+                    {/* Nothing preselected (F13): it opened on "Service
+                        failure (our fault)", a real answer nobody chose. */}
+                    <Select name="reason" required defaultValue="">
+                      <option value="" disabled>
+                        Choose…
+                      </option>
                       {CREDIT_REASONS.map((r) => (
                         <option key={r} value={r}>
                           {CREDIT_REASON_LABELS[r]}
@@ -871,9 +1083,9 @@ export default function InvoicePage() {
           </form>
           </details>
         )}
-        {issued && !mayAdmin && (
+        {issued && !mayIssue && (
           <p className="max-w-[var(--measure)] text-sm text-muted">
-            Only a firm administrator can issue a credit note.
+            Credit notes are for whoever issues the firm&rsquo;s invoices.
           </p>
         )}
       </Card>
@@ -944,4 +1156,23 @@ export default function InvoicePage() {
       />
     </Page>
   );
+}
+
+/** The tax rate a line typed by hand starts at (CA#5): the one last invoiced
+ *  on the chosen work, else the issuing company's default, else none. */
+function suggestedTax(record: InvoiceRecord, chosen: BillableEngagement | null): string | null {
+  const last =
+    chosen === null
+      ? undefined
+      : record.taxSuggestions.byEngagement.find((t) => t.engagementId === chosen.engagementId)?.taxPercent;
+  const rate = last ?? record.taxSuggestions.companyDefault;
+  return rate === null ? null : formatCount(rate);
+}
+
+function taxHint(record: InvoiceRecord, chosen: BillableEngagement | null): string {
+  if (chosen !== null && record.taxSuggestions.byEngagement.some((t) => t.engagementId === chosen.engagementId)) {
+    return "As last billed for this work.";
+  }
+  if (record.taxSuggestions.companyDefault !== null) return `${record.entity.displayName}'s default rate.`;
+  return "Type 0 if no tax applies.";
 }

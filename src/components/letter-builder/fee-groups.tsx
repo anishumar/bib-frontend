@@ -30,12 +30,15 @@
  * here is offered on one.
  */
 
+import { BillingTimingControl } from "@/components/billing-timing";
 import { useState } from "react";
 import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
 import type { FeeGroup, LetterLine } from "@/lib/api/client";
 import { Button, Field, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { Card, CardTitle, Pill } from "@/components/tw";
 import { cleanAmount } from "@/lib/money";
+import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** The page's own `act`: run the call, show the API's refusal verbatim, and
  *  reload the letter on success — which it reports, so a form closes only
@@ -123,6 +126,27 @@ export function FeeGroups({
               {BILLING_FREQUENCY_LABELS[g.billingFrequency]}
               {g.paymentTerms !== null && <> · {g.paymentTerms}</>}
             </div>
+            {/* When the section's fee is invoiced (0319); signing sets the
+                billing schedule of every service in it from this. */}
+            <div className="text-md">
+              Billed{" "}
+              <BillingTimingControl
+                label={`When section ${g.code} is billed`}
+                frequency={g.billingFrequency}
+                timing={g.billingTiming}
+                on={g.billingOn}
+                editable={editable}
+                busy={busy !== null}
+                onSave={(billingTiming, billingOn) => {
+                  void act(`timing:${g.id}`, () =>
+                    api.PATCH("/api/v1/engagement-letters/{letterId}/fee-groups/{groupId}", {
+                      params: { path: { letterId, groupId: g.id } },
+                      body: { billingTiming, billingOn },
+                    }),
+                  );
+                }}
+              />
+            </div>
             {/* WHAT IT PAYS FOR. A fee whose services a reader cannot see is a
                 number with nothing under it — and one that covers none cannot
                 be sent, which the API says in words if it is tried. */}
@@ -131,7 +155,7 @@ export function FeeGroups({
                 <Pill tone="warn">Covers no services yet</Pill>
               ) : (
                 <>
-                  Covers {covered.length} service{covered.length === 1 ? "" : "s"}:{" "}
+                  Covers {plural(covered.length, "service")}:{" "}
                   {covered
                     .map((l) =>
                       l.entity === null ? l.description : `${l.description} (${l.entity.displayName})`,
@@ -270,11 +294,13 @@ function GroupForm({
   return (
     <form
       className="mt-4"
-      action={(form) => {
+      onSubmit={(event) => keepTyped(event, (form) => {
         const text = (name: string): string => String(form.get(name) ?? "").trim();
         const amount = cleanAmount(text("groupAmount"));
         const frequency = FREQUENCIES.find((f) => f === text("groupFrequency")) ?? "monthly";
-        void onSubmit({
+        // A new section's form stays open: it clears once the section is
+        // added (the caller resolves true), and a refusal keeps it (F05).
+        return onSubmit({
           title: text("groupTitle"),
           billingFrequency: frequency,
           ...(amount === "" ? {} : { amount }),
@@ -283,8 +309,8 @@ function GroupForm({
           intro: text("groupIntro"),
           deliverables: text("groupDeliverables"),
           clientObligations: text("groupClientObligations"),
-        });
-      }}
+        }).then((done) => done === true);
+      })}
     >
       <fieldset
         className="fieldset"
@@ -439,7 +465,7 @@ export function LineFee({
       {pricing && (
         <form
           className="mt-2"
-          action={(form) => {
+          onSubmit={(event) => keepTyped(event, (form) => {
             const unitAmount = cleanAmount(String(form.get("ownPrice") ?? ""));
             const pricingNote = String(form.get("ownNote") ?? "").trim();
             void act(`fee:${line.id}`, () =>
@@ -454,7 +480,7 @@ export function LineFee({
             ).then((ok) => {
               if (ok) setPricing(false);
             });
-          }}
+          })}
         >
           <fieldset className="fieldset" aria-label={`Price ${line.description} on its own`}>
             <div className="field-row">

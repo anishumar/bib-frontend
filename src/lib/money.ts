@@ -123,6 +123,15 @@ export function sumSigned(amounts: readonly string[]): string | null {
   );
 }
 
+/** Compare two SIGNED decimal strings exactly: -1, 0 or 1, or null if either
+ *  is not a plain decimal. Never through a JS number. */
+export function compareSigned(a: string, b: string): -1 | 0 | 1 | null {
+  const common = commonUnits([a, b]);
+  if (common === null) return null;
+  const [x = BigInt(0), y = BigInt(0)] = common.units;
+  return x === y ? 0 : x > y ? 1 : -1;
+}
+
 /**
  * `part` as a share of `whole` in PER MILLE, 0 to 1000, worked out on `bigint`.
  * A chart's geometry is drawn from this, never from money as a JS number: the

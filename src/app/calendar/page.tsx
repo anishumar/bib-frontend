@@ -16,6 +16,8 @@ import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, NotSet, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { plural } from "@/lib/plural";
+import { rulePackLabel } from "@/lib/rule-pack";
 
 /**
  * The compliance calendar — what the firm's clients owe, and by when (T3.2).
@@ -309,7 +311,7 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
             due date is the dangerous kind precisely because nobody re-reads it. */}
         {row.ruleUnconfirmed && (
           <Sub>
-            <Tooltip text={`Rule pack ${row.rulePack}`}>
+            <Tooltip text={rulePackLabel(row.rulePack)}>
               <Pill tone="warn">Unconfirmed rule</Pill>
             </Tooltip>
           </Sub>
@@ -468,8 +470,7 @@ function CoverageTab({ gaps, loaded }: { gaps: CoverageGap[]; loaded: boolean })
                           size="sm"
                           href={`/admin/obligation-rules?rules=${g.blockedRuleIds.join(",")}`}
                         >
-                          {g.blockedRuleIds.length} rule
-                          {g.blockedRuleIds.length === 1 ? "" : "s"}
+                          {plural(g.blockedRuleIds.length, "rule")}
                         </LinkButton>
                       )}
                     </Td>
@@ -536,7 +537,7 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     title: "This company has no registered country",
     what: "A filing matches a company by its registered country.",
     fix: "Register the company with its country and entity type.",
-    where: { href: "/clients", label: "Open the book" },
+    where: { href: "/clients", label: "Open Clients" },
   },
   rules_need_a_formula: {
     title: "A filing on this service cannot work out a date yet",
@@ -569,21 +570,31 @@ const REASONS: Record<CoverageReason, ReasonCopy> = {
     fix: "Write the filing for this country on the service in the Catalogue.",
     where: { href: "/catalogue", label: "Open the Catalogue" },
   },
+  // It said "Every period so far ended before the engagement began", which was
+  // untrue the day a client signed: the calendar simply had not been filled
+  // yet, and September's returns due in October arrived that night (audit
+  // 2026-10-03, CA#24). Signing fills it now; what is left here is a filing
+  // with nothing due in the coming year, or work started some other way that
+  // tonight's pass fills.
   nothing_due_yet: {
-    title: "Covered, with nothing due in the window yet",
-    what: "Every period so far ended before the engagement began. It clears next period.",
+    title: "Covered, with nothing due yet",
+    what: "Filings are added when a letter is signed and again each night. None is due in the next 12 months yet.",
     fix: null,
     where: null,
   },
+  // F34 (audit 2026-10-03): "No filing is on this service" read as a claim
+  // about the client, beside a calendar that held filings for them from rules
+  // written before services carried their filings. What it means is that the
+  // SERVICE adds none, and what to do if it should.
   no_rule_names_this_service: {
-    title: "No filing is on this service",
-    what: "The usual case for advisory or one-off work.",
+    title: "This service adds no filings",
+    what: "Signing it puts nothing on the calendar. That is right for advisory or one-off work.",
     // A fix now, and a conditional one. Before T6.16 a rule on no service
     // reached every service, so this list really was only advisory work. Now
     // it is ALSO every service the firm has not yet given its filings, and the
     // sentence has to say where that is done without calling advisory work a
     // fault.
-    fix: "If it does owe a filing, add it to the service in the Catalogue.",
+    fix: "If this work owes a return, add the filing to the service in the Catalogue.",
     where: { href: "/catalogue", label: "Open the Catalogue" },
   },
 };

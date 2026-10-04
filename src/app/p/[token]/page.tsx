@@ -12,6 +12,8 @@ import type { SharedProposal } from "@/lib/api/client";
 import { longDay, longInstantTime } from "@/lib/day";
 import { addDecimals } from "@/lib/money";
 import { FREQUENCY_WORDS } from "@/components/proposal-document/words";
+import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The proposal, as its RECIPIENT reads it. The only page in this app with no
@@ -265,7 +267,7 @@ export default function SharedProposalPage() {
             <ErrorNotice error={answerError} />
 
             {choice === "accept" && (
-              <form action={(form) => void answer(form, "accepted")}>
+              <form onSubmit={(event) => keepTyped(event, (form) => answer(form, "accepted"))}>
                 <FieldStack>
                   <Field label="Your full name">
                     <Input name="signerName" required maxLength={200} autoComplete="name" />
@@ -283,7 +285,7 @@ export default function SharedProposalPage() {
             )}
 
             {choice === "decline" && (
-              <form action={(form) => void answer(form, "rejected")}>
+              <form onSubmit={(event) => keepTyped(event, (form) => answer(form, "rejected"))}>
                 <FieldStack>
                   <Field label="Your full name">
                     <Input name="signerName" required maxLength={200} autoComplete="name" />
@@ -368,8 +370,7 @@ function FrequencyTotals({ shared }: { shared: SharedProposal }) {
       </Strip>
       {shared.totals.unpricedLineCount > 0 && (
         <p className="text-md">
-          Plus {String(shared.totals.unpricedLineCount)} service
-          {shared.totals.unpricedLineCount === 1 ? "" : "s"} as mutually agreed.
+          Plus {plural(shared.totals.unpricedLineCount, "service")} as mutually agreed.
         </p>
       )}
     </div>

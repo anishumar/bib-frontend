@@ -25,6 +25,7 @@ import {
   DOCUMENT_KIND_LABELS,
 } from "@/lib/api/client";
 import { Cluster } from "@/components/layout";
+import { useSeesFees } from "@/components/fees";
 import { longInstant } from "@/lib/day";
 import { Empty, Loading } from "@/components/states";
 import {
@@ -53,6 +54,7 @@ import type {
   StoredDocumentVersion,
   SubjectFile,
 } from "@/lib/api/client";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Who uploaded a file, in one line.
@@ -79,6 +81,9 @@ function uploader(doc: StoredDocument): string {
 function madeAs(doc: SubjectFile): string | null {
   if (doc.role === "copy_of_record") return doc.kind === "invoice" ? "Issued copy" : "Copy as sent";
   if (doc.role === "draft_copy") return "Draft, firm only";
+  // The signing provider's own files, filed when an envelope completes (F30).
+  if (doc.role === "signed") return "Signed copy";
+  if (doc.role === "certificate_of_completion") return "Signing certificate";
   return doc.origin === "generated" ? "Generated" : null;
 }
 
@@ -150,6 +155,11 @@ export function Documents({
   // focused button and focus falls to <body>. This component is on six
   // screens, so that is six screens. See `useSwapFocus`.
   const { panel: addPanel, trigger: addTrigger } = useSwapFocus(adding);
+  // B01/F01: a proposal, a letter, an invoice and a credit note print the
+  // firm's fees, and their PDFs open, and are made, only for a login that
+  // sees fees. The API refuses the rest (FEES_NOT_VISIBLE); this offers only
+  // what will work. Every kind this panel can make is one of the four.
+  const seesFees = useSeesFees();
 
   // WHAT THE BUTTON MAKES (2026-09-29). An invoice or a letter in draft is
   // printed as the firm's own draft copy. Once it has gone out, its first copy
@@ -340,7 +350,7 @@ export function Documents({
         aside={
           <>
             {documents.length > 0 && <Pill tone="quiet">{documents.length}</Pill>}
-            {canWrite && renderable !== undefined && make !== null && (
+            {canWrite && seesFees === true && renderable !== undefined && make !== null && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -372,14 +382,31 @@ export function Documents({
 
       {canWrite && adding && (
         <div ref={addPanel} tabIndex={-1}>
-        <form ref={formRef} action={(fd) => void upload(fd)}>
+        <form ref={formRef} onSubmit={(event) => keepTyped(event, (fd) => upload(fd))}>
           <div className="stack">
             <FieldRow>
               <Field label="Title">
-                <Input name="title" required placeholder="e.g. PAN card" maxLength={200} />
+                <Input
+                  name="title"
+                  required
+                  placeholder={
+                    subjectKind === "work_item" || subjectKind === "job"
+                      ? "e.g. GSTR-3B challan, September"
+                      : "e.g. PAN card"
+                  }
+                  maxLength={200}
+                />
               </Field>
+              {/* NO KIND IS PICKED FOR THEM (audit 2026-10-03, CA#31). It
+                  opened on Identity proof, so a GST working paper attached in a
+                  hurry was filed as somebody's ID. The person chooses. */}
               <Field label="What it is">
-                <Select name="kind" defaultValue="identity_proof">
+                {/* Nothing preselected (F13, CA#31): a GST working paper was
+                    filed as "Identity proof" because nobody changed it. */}
+                <Select name="kind" required defaultValue="">
+                  <option value="" disabled>
+                    Choose what it is
+                  </option>
                   {DOCUMENT_KINDS.map((k) => (
                     <option key={k} value={k}>
                       {DOCUMENT_KIND_LABELS[k] ?? k}
@@ -445,6 +472,7 @@ export function Documents({
                 versions={versions[d.id]}
                 onToggle={() => void showVersions(d.id)}
                 onDownload={(versionId, filename) => void get(d.id, filename, versionId)}
+                mayOpen={!d.showsFees || seesFees === true}
                 canWrite={canWrite}
                 onShare={(visible) => void share(d.id, visible)}
                 onWithdraw={() => void withdraw(d.id)}
@@ -458,12 +486,19 @@ export function Documents({
   );
 }
 
+/** Where Download would be, for a document that shows fees and a login that
+ *  cannot see them: what it is, and why it does not open. */
+function FeesHidden() {
+  return <span className="not-set">Shows fees</span>;
+}
+
 function FileRows({
   doc,
   expanded,
   versions,
   onToggle,
   onDownload,
+  mayOpen,
   canWrite,
   onShare,
   onWithdraw,
@@ -473,6 +508,8 @@ function FileRows({
   versions: readonly StoredDocumentVersion[] | undefined;
   onToggle: () => void;
   onDownload: (versionId: string | undefined, filename: string) => void;
+  /** False for a document that shows fees, to a login that cannot see them. */
+  mayOpen: boolean;
   canWrite: boolean;
   onShare: (visible: boolean) => void;
   /** Take this file off the page it is on. `party:write`, like attaching. */
@@ -528,6 +565,12 @@ function FileRows({
         <Td>
           {doc.partyId === null ? (
             <span>The firm&rsquo;s own</span>
+          ) : doc.role === "draft_copy" && !doc.isClientVisible ? (
+            /* B10 (audit 2026-10-03): a draft copy is the firm's own and is
+               never shared, so no switch is offered. The API refuses it too
+               (DRAFT_NOT_SHAREABLE), and still lets one that was shared come
+               off, which is why the switch stays while it is on. */
+            <span className="text-muted">Not for the client: a draft</span>
           ) : canWrite ? (
             <Switch
               checked={doc.isClientVisible}
@@ -558,16 +601,20 @@ function FileRows({
                 {expanded ? "Hide" : `${String(doc.versionCount)} versions`}
               </Button>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Icon name="download" size={15} />}
-              onClick={() => {
-                onDownload(undefined, v.filename);
-              }}
-            >
-              Download
-            </Button>
+            {mayOpen ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="download" size={15} />}
+                onClick={() => {
+                  onDownload(undefined, v.filename);
+                }}
+              >
+                Download
+              </Button>
+            ) : (
+              <FeesHidden />
+            )}
             {/* Attached in error: take it off THIS page. The file and its
                 other attachments stay; the link is kept as history. Named by
                 the document, because a table draws one of these per row. An
@@ -619,16 +666,20 @@ function FileRows({
                         </Tooltip>
                       </Td>
                       <Td align="right">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Icon name="download" size={15} />}
-                          onClick={() => {
-                            onDownload(ver.id, ver.filename);
-                          }}
-                        >
-                          Download
-                        </Button>
+                        {mayOpen ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Icon name="download" size={15} />}
+                            onClick={() => {
+                              onDownload(ver.id, ver.filename);
+                            }}
+                          >
+                            Download
+                          </Button>
+                        ) : (
+                          <FeesHidden />
+                        )}
                       </Td>
                     </tr>
                   ))

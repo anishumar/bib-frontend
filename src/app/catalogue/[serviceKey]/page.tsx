@@ -207,7 +207,10 @@ function Service() {
   }
 
   const row = rowFromHistory(entry, versions);
-  const canWrite = session?.permissions.includes("tenant:admin") ?? false;
+  // B09/F09: a login that cannot see fees reads the price as Hidden and may
+  // not write the service (the API refuses: it would wipe the price).
+  const seesFees = session === null ? null : session.commercialVisibility === true;
+  const canWrite = (session?.permissions.includes("tenant:admin") ?? false) && seesFees === true;
   const canReadLibrary = session?.permissions.includes("party:read") ?? false;
   const axes = ctx?.axes ?? [];
   const workflows = ctx?.workflows ?? [];
@@ -475,7 +478,7 @@ function Service() {
                   }}
                 />
               )}
-              {tab === "price" && <PriceAndBilling body={row.body} />}
+              {tab === "price" && <PriceAndBilling body={row.body} seesFees={seesFees} />}
               {tab === "filings" && (
                 <ComplianceFilings
                   service={{ id: row.id, key: row.key, name }}
@@ -630,12 +633,18 @@ function Overview({
   );
 }
 
-function PriceAndBilling({ body }: { body: ServiceRecord }) {
+function PriceAndBilling({ body, seesFees }: { body: ServiceRecord; seesFees: boolean | null }) {
   const price = priceWords(body);
   return (
     <Meta>
       <MetaItem label="Price">
-        {price === null ? <NotSet>No list price. Quoted per client.</NotSet> : <strong className="text-lg">{price}</strong>}
+        {seesFees === false ? (
+          <NotSet>Hidden</NotSet>
+        ) : price === null ? (
+          <NotSet>No list price. Quoted per client.</NotSet>
+        ) : (
+          <strong className="text-lg">{price}</strong>
+        )}
       </MetaItem>
       <MetaItem label="Charged as">
         {body.billingBasis === null ? <NotSet /> : BASIS_WORDS[body.billingBasis]}

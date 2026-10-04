@@ -236,6 +236,17 @@ export type WorkItemDetail =
 
 export type ChecklistItem = WorkItemDetail["checklist"][number];
 export type WorkItemReview = WorkItemDetail["reviews"][number];
+/** One note on a task (0330, CA#30): append-only, with its author's name. */
+export type WorkItemNote = WorkItemDetail["notes"][number];
+/** Sent back and not yet sent again (CA#29): the checker's note, when, by whom. */
+export type SentBack = NonNullable<WorkItem["sentBack"]>;
+/** The filing a task files, and the company's open filings it could (CA#36). */
+export type TaskFiling =
+  paths["/api/v1/work-items/{workItemId}/filing"]["get"]["responses"][200]["content"]["application/json"];
+export type LinkableFiling = TaskFiling["open"][number];
+/** The firm's rules for who checks work, by label (CA#27). */
+export type ReviewRule =
+  paths["/api/v1/review-rules"]["get"]["responses"][200]["content"]["application/json"]["rules"][number];
 
 /**
  * One thing a task waits on, with the task at the other end RESOLVED.
@@ -437,16 +448,22 @@ export type PermissionInfo =
 export interface RoleBody {
   readonly label: string;
   readonly permissions: readonly string[];
+  /** Which surface the role is for (T6.6). Absent in a role body means STAFF,
+   *  as the API reads it. Used to offer a staff member only staff roles and a
+   *  client contact only client roles (F18). */
+  readonly audience: "STAFF" | "CLIENT_PORTAL";
 }
 
 export function readRoleBody(body: Record<string, unknown> | undefined): RoleBody {
   const label = body?.["label"];
   const permissions = body?.["permissions"];
+  const audience = body?.["audience"];
   return {
     label: typeof label === "string" ? label : "",
     permissions: Array.isArray(permissions)
       ? permissions.filter((p): p is string => typeof p === "string")
       : [],
+    audience: audience === "CLIENT_PORTAL" ? "CLIENT_PORTAL" : "STAFF",
   };
 }
 
@@ -615,6 +632,19 @@ export const LEAD_STAGES = [
   // destroys the only signal that tells its two fixable failures apart.
   "abandoned",
 ] as const satisfies readonly LeadStage[];
+
+/** A contact person's role at a company (CA#20), off the generated schema. */
+export type ContactRole = NonNullable<
+  paths["/api/v1/leads"]["post"]["requestBody"]["content"]["application/json"]["contact"]
+>["role"];
+
+/** The roles a lead's contact person can hold, in words, for a picker. */
+export const CONTACT_ROLE_OPTIONS: readonly { readonly code: ContactRole; readonly label: string }[] = [
+  { code: "director_of", label: "Director" },
+  { code: "authorised_signatory_of", label: "Authorised signatory" },
+  { code: "employee_of", label: "Employee" },
+  { code: "shareholder_of", label: "Shareholder" },
+];
 
 export const LEAD_SOURCES = [
   "referral",
@@ -979,6 +1009,113 @@ export type PendingDunning =
   paths["/api/v1/dunning/pending"]["get"]["responses"][200]["content"]["application/json"]["actions"][number];
 
 /**
+ * A BILL THAT HAS FALLEN DUE (auto-invoice, 0318): one period of one engagement,
+ * or of one fee group, that the daily sweep says should be billed. It carries no
+ * invoice number: the number is drawn only when somebody presses Raise, so a
+ * bill the manager skips leaves no cancelled number behind. `status` is derived
+ * by the API (a cancelled invoice makes its bills open again); `escalated` means
+ * a week has passed and it is on the manager's own manager's desk too.
+ */
+export type BillingDue =
+  paths["/api/v1/billing/dues"]["get"]["responses"][200]["content"]["application/json"]["dues"][number];
+export type BillingDueStatus = BillingDue["status"];
+export type BillingPerson = NonNullable<BillingDue["manager"]>;
+
+/** A recurring engagement with no billing schedule yet, and the default the API
+ *  offers for one (the current period, billed the day after it ends). */
+export type BillingUnscheduled =
+  paths["/api/v1/billing/unscheduled"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+
+/** An engagement's schedule, as setting it answers. */
+export type BillingSchedule =
+  paths["/api/v1/engagements/{engagementId}/billing"]["put"]["responses"][200]["content"]["application/json"];
+
+/** Whose name a bill or an invoice carries: the display name, else the email. */
+export function billingPersonName(p: BillingPerson): string {
+  return p.displayName ?? p.email;
+}
+
+/**
+ * THE ADVANCE AND THE FINAL BILL (0320; 0322). Every advance is a tax invoice,
+ * drafted the moment the letter is signed, and it holds NO work (Ashish,
+ * 2026-10-02): the work starts at signing and the advance is chased by
+ * reminders. `stage`, `overdue`, `escalated`, `people` and `duties` are the
+ * API's; nothing here works out a day.
+ */
+export type BillingAdvance =
+  paths["/api/v1/billing/advances"]["get"]["responses"][200]["content"]["application/json"]["advances"][number];
+export type BillingAdvanceStage = BillingAdvance["stage"];
+/** The firm's billing settings (0318; 0322): the switch, how advances are
+ *  chased, and each company's default tax rate for an automatic advance draft. */
+export type BillingSettings =
+  paths["/api/v1/billing/settings"]["get"]["responses"][200]["content"]["application/json"];
+export type AdvancePolicy = BillingSettings["advancePolicy"];
+export type TaxDefault = BillingSettings["taxDefaults"][number];
+/** Why an advance is on somebody's My day (`?mine=true`): the client's SPOC for
+ *  the work, its Key Manager, the partner above them, or an administrator. */
+export type BillingAdvanceDuty = BillingAdvance["duties"][number];
+/** An advance left over once the work it covered is finished: "To refund". */
+export type BillingRefund =
+  paths["/api/v1/billing/refunds"]["get"]["responses"][200]["content"]["application/json"]["refunds"][number];
+/** A one-time service with no process: billed by hand with Bill it now. */
+export type BillingBillNow =
+  paths["/api/v1/billing/bill-now"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
+
+/** A bill in words: "Bookkeeping, Oct 2026", "Statutory audit, final bill",
+ *  "Advance, EL-2026-0007" or "Advance for Statutory audit". */
+export function billLabel(d: Pick<BillingDue, "kind" | "serviceName" | "periodLabel" | "engagementId" | "letter">): string {
+  if (d.kind === "advance") return d.engagementId === null ? `Advance, ${d.letter.ref}` : `Advance for ${d.serviceName}`;
+  if (d.kind === "final") return `${d.serviceName}, final bill`;
+  return `${d.serviceName}, ${d.periodLabel}`;
+}
+
+/** Where an advance stands, in words. */
+export const ADVANCE_STAGE_WORDS: Readonly<Record<BillingAdvanceStage, string>> = {
+  not_raised: "No invoice yet",
+  on_draft: "Draft, not issued",
+  unpaid: "Not paid yet",
+  part_paid: "Part paid",
+  paid: "Paid in full",
+};
+
+/** "3 days", "1 day", "today". */
+export function daysWords(n: number | null): string {
+  if (n === null || n <= 0) return "today";
+  return n === 1 ? "1 day" : `${String(n)} days`;
+}
+
+/** "today", "1 day ago", "3 days ago": how long since a day, for a line of words. */
+export function agoWords(n: number | null): string {
+  return n === null || n <= 0 ? "today" : `${daysWords(n)} ago`;
+}
+
+/**
+ * An invoice's number, or what stands in for one (0322: the number is drawn at
+ * ISSUE, so a draft has none): "Draft", and "Cancelled draft" for a draft
+ * cancelled before it was issued, which never had one. Drafts made before 0322
+ * keep the number they drew, and show it.
+ */
+export function invoiceNumberWords(number: string | null, status?: string): string {
+  if (number !== null) return number;
+  return status === "cancelled" ? "Cancelled draft" : "Draft";
+}
+
+/**
+ * A bill with no price, in weeks: "No price yet", "No price for 1 week", "No
+ * price for 3 weeks". Ashish asked for the SPOC, the manager and the admins to
+ * be reminded every week; the reminder is the count going up (nothing is sent).
+ */
+export function noPriceWords(daysSinceBillOn: number): string {
+  const weeks = Math.floor(Math.max(0, daysSinceBillOn) / 7);
+  if (weeks === 0) return "No price yet";
+  return `No price for ${String(weeks)} ${weeks === 1 ? "week" : "weeks"}`;
+}
+
+/** The frequencies a schedule can be set for; a one-off or a custom period is
+ *  billed by hand. */
+export const SCHEDULED_FREQUENCIES: readonly string[] = ["monthly", "quarterly", "annually"];
+
+/**
  * The closed sets, read off the generated schema rather than retyped — the same
  * treatment LEAD_STAGES gets, for the same reason: these are domain rules the
  * API owns, and a hardcoded copy here drifts the day one is added.
@@ -1019,6 +1156,9 @@ export const CREDIT_REASON_LABELS: Readonly<Record<CreditReason, string>> = {
   scope_change: "Scope changed",
   duplicate_invoice: "Duplicate invoice",
   bad_debt: "Bad debt",
+  // Only from "To refund" (0320), never chosen from the dropdown, so it is not
+  // in CREDIT_REASONS; a credit note that carries it still reads in words.
+  advance_refund: "Advance given back",
 };
 
 export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
@@ -1187,9 +1327,11 @@ export const BRAND_ASSET_HINTS: Readonly<Record<BrandAssetKind, string>> = {
   // and the mark sits on the line rather than in a white box.
   logo: "Heads every letter, invoice and proposal. PNG or JPG.",
   signature: "Signs engagement letters once sent. A PNG with a clear background.",
-  // The letterhead is stored and not drawn on anything yet: said on the row,
-  // because a control that looks live and is inert is the thing to avoid.
-  letterhead: "Stored only. Not printed on anything yet.",
+  // The uploaded FILE is kept and not drawn: said on the row, because a
+  // control that looks live and is inert is the thing to avoid. The letterhead
+  // a document prints is the company's details, from Your firm (CA#18).
+  letterhead:
+    "The file is kept, not drawn. Letters, invoices and proposals print the company's address, tax numbers and contact from Your firm.",
   // WHERE the two names land is the layout's, so the artwork has to leave room
   // for them: "Prepared for" in dark text about 40% down on the right, and
   // "Prepared by" in white about 78% down on the right.
@@ -1362,6 +1504,12 @@ export type DashboardOverview =
  *  and the whole firm in the reporting currency. */
 export type RevenueByCompany =
   paths["/api/v1/dashboard/revenue/by-company"]["get"]["responses"][200]["content"]["application/json"];
+
+/** What each manager's invoices billed (before tax, less credit notes),
+ *  collected (cash, with tax) month by month, and are owed now (auto-invoice
+ *  T4). One row (`userId: null`) is the invoices naming nobody. */
+export type RevenueByManager =
+  paths["/api/v1/dashboard/revenue/by-manager"]["get"]["responses"][200]["content"]["application/json"];
 
 /** One row of a grouped figure — a client, a service. Carries the NAME. */
 export type DashboardSlice =

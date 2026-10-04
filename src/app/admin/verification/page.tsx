@@ -1,23 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, VERIFICATION_RULES } from "@/lib/api/client";
 import type { ConfigEntry, StaffGrade, VerificationRule } from "@/lib/api/client";
-import {
-  Button,
-  Card,
-  CardTitle,
-  ErrorNotice,
-  Field,
-  FieldRow,
-  Fieldset,
-  Input,
-  Notice,
-  Radio,
-  Select,
-  useSwapFocus,
-} from "@/components/ui";
+import { Button, Card, CardTitle, ErrorNotice, Notice, useSwapFocus } from "@/components/ui";
+import { CheckRuleForm, readPolicyBody } from "@/lib/ui/check-rule-form";
 import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 
@@ -56,26 +44,6 @@ import { Page, PageHeader } from "@/components/layout";
  * approve this in March" gets March's answer. A draft is not in force and the
  * card says which is which.
  */
-
-interface PolicyBody {
-  readonly label: string;
-  readonly rule: VerificationRule;
-  readonly minGradeRank: number | null;
-  readonly minGradeCode: string | null;
-}
-
-function readBody(body: Record<string, unknown> | undefined): PolicyBody | null {
-  if (!body) return null;
-  const rule = body["rule"];
-  if (typeof rule !== "string") return null;
-  if (!VERIFICATION_RULES.some((r) => r.value === rule)) return null;
-  return {
-    label: typeof body["label"] === "string" ? body["label"] : "",
-    rule: rule as VerificationRule,
-    minGradeRank: typeof body["minGradeRank"] === "number" ? body["minGradeRank"] : null,
-    minGradeCode: typeof body["minGradeCode"] === "string" ? body["minGradeCode"] : null,
-  };
-}
 
 export default function VerificationPage() {
   const router = useRouter();
@@ -176,9 +144,10 @@ export default function VerificationPage() {
       {adding && (
         <Card ref={addPanel} tabIndex={-1}>
           <CardTitle level={2}>A new rule</CardTitle>
-          <PolicyForm
+          <CheckRuleForm
             policyKey={null}
             grades={grades}
+            takenKeys={policies.map((p) => p.entry.key)}
             onDone={() => {
               setAdding(false);
               void load();
@@ -235,7 +204,7 @@ function PolicyCard({
   // Same swap as the page-level "Write a rule": the form takes the button's
   // place, so focus has to be handed over. See `useSwapFocus`.
   const { panel: editPanel, trigger: editTrigger } = useSwapFocus(editing);
-  const inForce = readBody(entry.published?.body);
+  const inForce = readPolicyBody(entry.published?.body);
   const draft = entry.pendingDraft;
 
   return (
@@ -243,7 +212,7 @@ function PolicyCard({
       <div className="row">
         <div>
           <CardTitle level={2}>
-            {inForce?.label ?? readBody(draft?.body)?.label ?? entry.entry.key}
+            {inForce?.label ?? readPolicyBody(draft?.body)?.label ?? entry.entry.key}
           </CardTitle>
 
         </div>
@@ -291,9 +260,9 @@ function PolicyCard({
 
       {editing ? (
         <div ref={editPanel} tabIndex={-1}>
-          <PolicyForm
+          <CheckRuleForm
             policyKey={entry.entry.key}
-            initial={inForce ?? readBody(draft?.body)}
+            initial={inForce ?? readPolicyBody(draft?.body)}
             grades={grades}
             onDone={() => {
               setEditing(false);
@@ -315,212 +284,5 @@ function PolicyCard({
         </Button>
       )}
     </Card>
-  );
-}
-
-/**
- * Writing a rule.
- *
- * The grade picker appears only for the two rules that READ a grade. That is
- * not tidiness: the API refuses a `reporting_line` body carrying a threshold,
- * on the ground that a number nothing compares is a setting that looks live —
- * so offering the field would be offering a 400.
- */
-function PolicyForm({
-  policyKey,
-  initial,
-  grades,
-  onDone,
-  onCancel,
-  onError,
-}: {
-  policyKey: string | null;
-  initial?: PolicyBody | null;
-  grades: StaffGrade[];
-  onDone: () => void;
-  onCancel: () => void;
-  onError: (message: string) => void;
-}) {
-  const [key, setKey] = useState("");
-  const [label, setLabel] = useState(initial?.label ?? "");
-  const [rule, setRule] = useState<VerificationRule>(initial?.rule ?? "rank_threshold");
-  const [gradeCode, setGradeCode] = useState(initial?.minGradeCode ?? "");
-  const [busy, setBusy] = useState(false);
-  // Two sentences on this form describe a control and were wired to nothing.
-  // A paragraph too wide for a `<Field>`'s column, or that describes a whole
-  // group, has to be given an id and pointed at by hand — the `<Field hint>`
-  // that does it automatically is only for the ones that fit.
-  const editorId = useId();
-  const reportingNoteId = `${editorId}-reporting`;
-  const draftNoteId = `${editorId}-draft`;
-
-  // Retired rungs are not offered. Somebody who holds one keeps it and still
-  // meets a threshold written against it — that is the point of retiring rather
-  // than deleting — but writing a NEW rule against a rung the firm has moved on
-  // from is a stale choice nobody meant.
-  const offered = grades.filter((g) => g.isActive);
-  const needsGrade = rule !== "reporting_line";
-  const chosen = offered.find((g) => g.code === gradeCode) ?? null;
-
-  async function save(): Promise<void> {
-    setBusy(true);
-    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
-    // APPEARS, so a second identical refusal has to be a second absent →
-    // present transition or the press looks like it did nothing. It also
-    // stops a refusal from the LAST action sitting over this one.
-    onError("");
-    const body: Record<string, unknown> = {
-      label: label.trim(),
-      rule,
-      // The RANK, resolved here from the grade the firm picked, because a
-      // published body is frozen and re-resolving a code later would answer an
-      // old question with today's ladder. The code rides along for display.
-      minGradeRank: needsGrade ? (chosen?.rank ?? null) : null,
-      minGradeCode: needsGrade ? (chosen?.code ?? null) : null,
-    };
-    const result =
-      policyKey === null
-        ? await api.POST("/api/v1/config/{kind}", {
-            params: { path: { kind: "verification_policy" } },
-            body: { key: key.trim(), body },
-          })
-        : await api.POST("/api/v1/config/{kind}/{key}/versions", {
-            params: { path: { kind: "verification_policy", key: policyKey } },
-            body: { body },
-          });
-    setBusy(false);
-    if (result.error) {
-      // Verbatim. The validator's message names the field and the valid set,
-      // and a local "invalid rule" would throw away the only sentence that says
-      // how to fix it.
-      onError(apiError(result.error).message);
-      return;
-    }
-    onDone();
-  }
-
-  const incomplete = label.trim() === "" || (policyKey === null && key.trim() === "") ||
-    (needsGrade && chosen === null);
-
-  return (
-    /* NAMED, because both editors can be open at once — the rule being changed
-       and a new one — and then "What to call it" and "Who may check it" each
-       appear twice with nothing saying which rule they belong to. No legend, so
-       nothing moves on screen; the card's heading already says it to anybody
-       who can see it. */
-    <fieldset
-      className="fieldset"
-      style={{ marginTop: "var(--s-4)" }}
-      aria-label={policyKey === null ? "A new rule" : `The rule ${policyKey}`}
-    >
-      <FieldRow>
-        {policyKey === null && (
-          <Field label="Short name">
-            <Input
-              value={key}
-              placeholder="e.g. manager_review"
-              onChange={(e) => { setKey(e.target.value); }}
-            />
-          </Field>
-        )}
-        <Field label="What to call it">
-          <Input
-            value={label}
-            placeholder="e.g. Manager review"
-            onChange={(e) => { setLabel(e.target.value); }}
-          />
-        </Field>
-      </FieldRow>
-      {/* UNDER the row (the FieldRow rule): every step pointing at a rule
-          names it by this short name, so it cannot change. */}
-      {policyKey === null && (
-        <p className="field-hint">The short name cannot change later.</p>
-      )}
-
-      <Fieldset legend="Who may check it">
-        {VERIFICATION_RULES.map((r) => (
-          /* The trade-off in the option itself, not in help text somebody has
-             to go looking for — this is the choice that decides who may sign
-             off a statutory filing. As `note` it is the option's DESCRIPTION
-             and not part of its name. */
-          <Radio
-            key={r.value}
-            label={<strong>{r.label}</strong>}
-            note={r.detail}
-            name={`rule-${policyKey ?? "new"}`}
-            checked={rule === r.value}
-            /* CONDITIONAL, because the paragraph is. It is only rendered once
-               the reporting-line rule is chosen, and a `describedby` naming an
-               element that is not on the page describes nothing. `Radio`
-               APPENDS to its own `note`, so both are read. */
-            {...(r.value === "reporting_line" && rule === "reporting_line"
-              ? { "aria-describedby": reportingNoteId }
-              : {})}
-            onChange={() => { setRule(r.value); }}
-          />
-        ))}
-      </Fieldset>
-
-      {needsGrade && (
-        <div style={{ marginTop: "var(--s-4)", maxWidth: 360 }}>
-          {offered.length === 0 ? (
-            <>
-              <p className="label">From which grade up</p>
-              <p>No grades yet. Add them on Grades, or choose the manager rule.</p>
-            </>
-          ) : (
-            /* `className="input"` on a `<select>`. The two share a base rule so
-               it looked right, but `appearance: none` and the chevron are on
-               `.select` alone — this drew the operating system's own dropdown. */
-            <Field label="From which grade up">
-              <Select
-                value={gradeCode}
-                onChange={(e) => { setGradeCode(e.target.value); }}
-              >
-              <option value="">Choose a grade…</option>
-              {[...offered]
-                .sort((a, b) => b.rank - a.rank)
-                .map((g) => (
-                    <option key={g.id} value={g.code}>
-                      {g.name} and above
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-          )}
-        </div>
-      )}
-
-      {rule === "reporting_line" && (
-        // Said before they choose it, not discovered when the queue turns out to
-        // be unactionable. Every firm is in exactly this state the day the
-        // feature ships, because nothing has filled the column in.
-        <p id={reportingNoteId} className="field-hint" style={{ marginTop: "var(--s-4)" }}>
-          Reads who reports to whom on People. Nobody there: nobody may check their work.
-        </p>
-      )}
-
-      {/* `.cluster` is `display: flex; gap: var(--s-2)` with wrapping, which is
-          those two declarations and one it was missing. */}
-      <div className="cluster mt-4">
-        {/* THE SENTENCE UNDER THIS BUTTON IS ABOUT THIS BUTTON. It says what
-            pressing it does — a draft, not a rule in force — and sitting loose
-            underneath, it reached nobody who could not see it. It describes the
-            save and not the cancel, so only the save points at it. */}
-        <Button
-          disabled={busy || incomplete}
-          aria-describedby={draftNoteId}
-          onClick={() => void save()}
-        >
-          {policyKey === null ? "Save as a draft" : "Save the change"}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-      <p id={draftNoteId} className="field-hint">
-        Saved as a draft. Nothing changes until you put it in force.
-      </p>
-    </fieldset>
   );
 }

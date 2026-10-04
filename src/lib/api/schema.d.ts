@@ -210,7 +210,7 @@ export interface paths {
                         "application/json": components["schemas"]["SignInResponse"];
                     };
                 };
-                /** @description Request failed validation */
+                /** @description Request failed validation, or the password is too short or too long */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -230,6 +230,15 @@ export interface paths {
                 };
                 /** @description No active membership */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A password was sent and the account already has one (the link is not spent) */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -691,7 +700,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Tenant"];
+                        "application/json": components["schemas"]["CreatedTenant"];
                     };
                 };
                 /** @description Request failed validation */
@@ -7644,7 +7653,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description It is already in that state, the state has been retired, or it is still waiting on unfinished work */
+                /** @description It is already in that state, the state has been retired, it is still waiting on unfinished work, or (into a finished-and-done state) a checklist line is unticked */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -8095,20 +8104,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/work-items/{workItemId}/review": {
+    "/api/v1/work-items/{workItemId}/filing": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
+        /** The filing this task files, and the ones it could */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The filing link */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaskFilingResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         /**
-         * Send a work item to be checked
-         * @description The MAKER is not a parameter and cannot be: the database derives it from the item's assignee and freezes it, because a maker the caller could choose is not a maker-checker control. The state is deliberately not moved to 'Under Review' — there is no flag saying which of the firm's states means that, and comparing the name is the one thing this module never does.
+         * Make this task the one that files a filing
+         * @description Audit 2026-10-03, CA#36. Writes the task into the column the calendar's own raised task uses, so completing it marks the filing filed and the calendar raises no second task. A task already finished files it at once. Refused (409) for another company's filing, one already filed, taken off the calendar, decided after a missed deadline, or with a task of its own, and when the task already files a different filing.
          */
-        post: {
+        put: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -8119,17 +8176,80 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["RequestWorkItemReviewRequest"];
+                    "application/json": components["schemas"]["LinkTaskFilingRequest"];
                 };
             };
             responses: {
-                /** @description Waiting to be checked */
-                201: {
+                /** @description Linked */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["WorkItemReview"];
+                        "application/json": components["schemas"]["TaskFilingResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item or filing at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The filing cannot be linked to this task; the message says why */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take this task off the filing it files
+         * @description Only while the filing is not filed. The calendar raises its own task when it is due.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Unlinked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaskFilingResponse"];
                     };
                 };
                 /** @description No authenticated session */
@@ -8159,7 +8279,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description A review is already open on it */
+                /** @description The filing is already filed by this task */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -8170,6 +8290,233 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a note on a task
+         * @description Append-only (0330): a correction is a second note. The ledger records that a note was written and never what it says.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddWorkItemNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Written */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemNote"];
+                    };
+                };
+                /** @description A blank note, or one over 2,000 characters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-items/{workItemId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a work item to be checked
+         * @description The MAKER is not a parameter and cannot be: the database derives it from the item's assignee and freezes it, because a maker the caller could choose is not a maker-checker control. The item moves into the firm's 'with a checker' state when the firm has flagged one (0073); without one, a task still in its starting state moves to the firm's working state (F28). Refused while a checklist line is unticked (CHECKLIST_OPEN): sending work to be checked says it is done, as a process step's Done waits for its sub-steps.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workItemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestWorkItemReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description Waiting to be checked */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkItemReview"];
+                    };
+                };
+                /** @description No rule named, and the firm has more than one in force (REVIEW_RULE_NEEDED) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, the role may not write work, or the rule named is not in force */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such work item at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A review is already open on it, or a checklist line is unticked */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The firm's rules for who checks work, as a task's sender picks from them
+         * @description Labels and keys only, on `party:read`: whoever sends a task to be checked sees which rule it will be checked under. The rules themselves are written on Who checks work.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rules */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReviewRulesResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not read work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8253,7 +8600,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a work item, or send it back */
+        /**
+         * Approve a work item, or send it back
+         * @description Approving FINISHES the task: it moves to the firm's finished-and-done state (terminal and a success), which stamps the completion and tells the compliance calendar, exactly as moving it there by hand does. Sending it back puts a task that is in the firm's 'with a checker' state back into its working state. A task already finished or cancelled is left where it is. Approve is refused while a checklist line is unticked.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -8314,7 +8664,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Somebody else already decided it */
+                /** @description Somebody else already decided it, or (Approve) a checklist line is unticked */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -10164,7 +10514,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Correct a client's name, trade name, industry or website
+         * Correct a client's name, trade name, industry, website or billing address
          * @description Absent means unchanged; null or blank clears an optional field. Every list and every NEW PDF reads the new name; a signed letter and a filed PDF do not change. The audit trail records which fields changed, never their values.
          */
         patch: {
@@ -15464,83 +15814,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/engagement-letters/{letterId}/advance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record the advance as received
-         * @description Releases every engagement waiting on it. HONEST LIMIT: a person asserts the money arrived — payments (T3.5) do not exist yet. The gate is real; its confirmation is an attestation until they do.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    letterId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Recorded, with the engagements released */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SignedEngagementLetter"];
-                    };
-                };
-                /** @description Not signed in */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No org selected, or the role does not permit it */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No such letter at this firm */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-                /** @description No advance is required, or it was already recorded */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorEnvelope"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/firm-entities": {
         parameters: {
             query?: never;
@@ -15676,7 +15949,7 @@ export interface paths {
         head?: never;
         /**
          * Change one of the firm's own companies
-         * @description Its name, entity type and registered address — and, for a company with no country recorded yet, where it is registered.
+         * @description Its name, entity type, registered address (with its state and postal code) and the numbers that print under its name: tax registration, PAN, phone, email (audit 2026-10-03). And, for a company with no country recorded yet, where it is registered.
          */
         patch: {
             parameters: {
@@ -16349,8 +16622,8 @@ export interface paths {
         };
         put?: never;
         /**
-         * Raise an invoice — the number is allocated by the write itself
-         * @description The number comes from a gapless per-entity, per-financial-year series, taken under a row lock inside the same transaction as the insert. A failure releases it, because the counter never moved — which is the difference between this and a document reference.
+         * Raise a draft invoice — it is numbered when it is issued
+         * @description A DRAFT, with no number (0322). The number comes from a gapless per-entity, per-financial-year series when the invoice is ISSUED, taken under a row lock inside the same transaction as the issue, so a draft cancelled before issue spends nothing, and in the series of the year the issue date falls in (the firm's financial year, else 1 April).
          */
         post: {
             parameters: {
@@ -16394,7 +16667,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -16529,7 +16802,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -16603,7 +16876,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -16648,7 +16921,7 @@ export interface paths {
         put?: never;
         /**
          * Issue it
-         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day.
+         * @description Refuses an invoice with no lines: it would ask the client for nothing. The date on it is the caller's `asOf`, or the firm's day. This is when the number is drawn (0322): the next in the draft's series, in the same transaction as the issue. A draft whose due date is before the issue date is refused (DUE_BEFORE_ISSUE, 409: change it with PUT /due-date); one with no due date takes the firm's payment terms when it has set them (0327), else stays without one. A draft numbered before 0322 keeps its number and is refused when that number would go out of order (INVOICE_NUMBER_OUT_OF_ORDER, 409, B51): cancel it and raise it again.
          */
         post: {
             parameters: {
@@ -16708,7 +16981,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not a draft, or it has no lines */
+                /** @description Not a draft, it has no lines, its due date is before today's issue date, or its number (drawn before 0322) would go out of order */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -16736,7 +17009,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw it
-         * @description The number is NOT released and the row is not removed — that is what makes the series consecutive. A cancelled invoice stays in the sequence saying it was cancelled, which is exactly what an auditor needs to see where a number went.
+         * @description An issued invoice's number is NOT released and the row is not removed — that is what makes the series consecutive. A cancelled invoice stays in the sequence saying it was cancelled, which is exactly what an auditor needs to see where a number went. A draft has no number yet (0322), so cancelling one spends nothing.
          */
         post: {
             parameters: {
@@ -16796,6 +17069,188 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/manager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put a draft in another manager's revenue (or nobody's)
+         * @description Drafts only. Once issued, whose revenue it is is fixed (INVOICE_MANAGER_FROZEN, 409, and 0318's trigger). The manager must be active staff at this firm (MANAGER_NOT_STAFF, 409). Writes `invoice.manager_set` when it changes.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetInvoiceManagerRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not a user id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft, or the person is not active staff here */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/due-date": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set, change or clear a draft's due date
+         * @description Drafts only (INVOICE_NOT_EDITABLE, 409, once issued: the due date is what was sent). Today or later (DUE_DATE_IN_THE_PAST, 400); null clears it. A draft whose due date has passed by the time it is issued is refused at issue (DUE_BEFORE_ISSUE), so this is how it is fixed. Writes `invoice.due_date_set` when it changes (audit 2026-10-03, B20/B21).
+         */
+        put: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetInvoiceDueDateRequest"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description Not a day, or a day already past */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The invoice is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -17110,7 +17565,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17198,7 +17653,7 @@ export interface paths {
         put?: never;
         /**
          * Take money off an invoice, with a reason
-         * @description Its own document with its own gapless series. The reason is mandatory and closed — without it revenue leakage is invisible, because the numbers always reconcile and why does not. A firm cannot credit more than it billed.
+         * @description Its own document with its own gapless series. The reason is mandatory and closed — without it revenue leakage is invisible, because the numbers always reconcile and why does not. A firm cannot credit more than it billed. `issuedOn` (default today) must be on or after the invoice's issue date and not after today (CREDIT_NOTE_DATE_OUT_OF_RANGE, 400); it is numbered in the series of its own date's year.
          */
         post: {
             parameters: {
@@ -17244,7 +17699,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description No org selected, or the role does not permit it */
+                /** @description No org selected, or the role does not permit it, or this login does not see fees (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17587,7 +18042,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description Not awaiting approval, or already decided */
+                /** @description Not awaiting approval, already decided, or (approving) the invoice was cancelled or is paid in full since the step fired (DUNNING_NOTHING_OWED): reject it instead */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -17598,6 +18053,995 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bills that have fallen due, and what became of them */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "open" | "drafted" | "billed" | "skipped" | "covered" | "pending" | "all";
+                    partyId?: string;
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The dues */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            today: string;
+                            dues: components["schemas"]["BillingDue"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/unscheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recurring engagements whose billing is not set up */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Engagements with no schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            engagements: components["schemas"]["BillingUnscheduled"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagements/{engagementId}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set an engagement's billing schedule
+         * @description The first period billed (snapped to its first day) and the date its invoice falls due; each later period one billing span after. Both null clears it. A fee group's engagements are set together, because a group is billed once.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetBillingSchedule"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingScheduleSet"];
+                    };
+                };
+                /** @description Not a real date, or only one of the two given */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Billed once or on a custom schedule, or the firm's financial year is not set */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/raise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Raise a draft invoice from bill dues
+         * @description One client, one of the firm's companies, one currency and one manager. Every invoice rule applies as for a hand-raised one, and the number is drawn from the gapless series. The rate defaults to the one the letters were struck at, when they agree. The bills, and the advance they are taken off, are claimed first: a second raise of them meanwhile is refused (BILL_BUSY, 409) before any number is drawn. An amount must be above zero; a bill the letter priced is billed at another figure only by a login that sees fees (PRICE_NOT_VISIBLE, 403), and the ledger records both figures.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RaiseFromDues"];
+                };
+            };
+            responses: {
+                /** @description Drafted */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RaisedFromDues"];
+                    };
+                };
+                /** @description Mixed clients, companies, currencies or managers; an amount or a tax rate missing, or zero */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or a priced bill's amount changed without fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A due is already on an invoice or skipped, or being raised by somebody else */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/advances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every advance, where it stands, and who is reminded
+         * @description Since 0322 an advance holds no work: signing starts it and drafts the advance invoice. This is what chases the money. With `mine=true`, only what the caller must chase (each with `duties`): pending advances where they are the client's SPOC for the work, its Key Manager or the partner above the Key Manager, and for an administrator, one waiting for an admin to raise or issue it or a week old and still not paid.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The advances */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            today: string;
+                            advances: components["schemas"]["BillingAdvanceForMe"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Advances with some left once the work they covered is finished */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description To refund */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            refunds: components["schemas"]["BillingRefund"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds/{dueId}/credit-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give an unused advance back as a credit note
+         * @description A credit note on the advance invoice for what is left, with its share of the tax, reason `advance_refund`. The money itself goes back as a negative payment, as any refund does.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Credited */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdvanceRefunded"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a firm administrator, or this login does not see fees (FEES_NOT_VISIBLE) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing left, the work goes on, or the firm kept it */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/refunds/{dueId}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep an unused advance, and say why */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeepAdvance"];
+                };
+            };
+            responses: {
+                /** @description Kept */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a firm administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such advance at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Nothing left, the work goes on, or already kept */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/bill-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One-time services with no process, to bill by hand */
+        get: {
+            parameters: {
+                query?: {
+                    partyId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billable now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            engagements: components["schemas"]["BillingBillNow"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/engagements/{engagementId}/bill-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bill a one-time service with no process now
+         * @description Writes its final bill, dated today, onto To raise. Only where the firm wrote no process for the service, or every job that had one was cancelled: with a live one, the bill comes when the job's last step is done.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    engagementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description On To raise */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BilledNow"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such one-time engagement at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It has a live process, is billed already, or billing is off */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/dues/{dueId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide a bill will not be raised, and say why
+         * @description Needs `billing:skip`, the firm's own permission (Partner and Manager by default, 0321): it gives up revenue. An advance bill is skipped only once no engagement waits on it (ADVANCE_NOT_SKIPPABLE).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SkipDue"];
+                };
+            };
+            responses: {
+                /** @description Skipped */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not hold billing:skip */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already on an invoice or skipped, an advance work still waits on, or busy */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/dues/{dueId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which invoice, raised by hand, already bills this
+         * @description Same client, company and currency, not cancelled, and not another bill's advance invoice. An ADVANCE bill is linked only by an admin (ADVANCE_LINK_NEEDS_ADMIN, 403), to an invoice no other bill is on: that invoice becomes the advance later bills are taken off.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dueId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LinkDue"];
+                };
+            };
+            responses: {
+                /** @description Linked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or an advance linked by a non-admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such due or invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Already settled, or the invoice cannot be this bill */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The firm's billing switch, how advances are chased, and default tax rates */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingSettings"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Change the firm's billing settings
+         * @description Any of the three, each saved as given: automatic billing on or off; how advances are chased (the whole policy); companies' default tax rates (one row per company sent, a company left out keeps its rate). Answers the settings as they now stand.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetBillingSettings"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BillingSettings"];
+                    };
+                };
+                /** @description A number out of range, or a tax rate for a company that is not the firm's */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -17830,7 +19274,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not read */
+                /** @description No org selected, the role may not read, or the document shows fees and this login does not see them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17905,7 +19349,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not read */
+                /** @description No org selected, the role may not read, or the document shows fees and this login does not see them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -17957,7 +19401,7 @@ export interface paths {
         head?: never;
         /**
          * Share this document with its client, or stop sharing it
-         * @description A DISCLOSURE decision, and it is recorded as one — its own audit verb rather than a document edit, because 'when did this become visible to the client' is asked after something has reached somebody it should not have. Every document gets a sensible first value from its KIND when it is stored: a challan, an invoice, a credit note and a signed engagement letter are things the client is a party to; a working paper is your own thinking. This is how you disagree with that in either direction. A document with no `partyId` is the firm's own and belongs to no client, so there is nobody to share it with — it answers 404.
+         * @description A DISCLOSURE decision, and it is recorded as one — its own audit verb rather than a document edit, because 'when did this become visible to the client' is asked after something has reached somebody it should not have. Every document gets a sensible first value from its KIND when it is stored: a challan, an invoice, a credit note and a signed engagement letter are things the client is a party to; a working paper is your own thinking. This is how you disagree with that in either direction. A document with no `partyId` is the firm's own and belongs to no client, so there is nobody to share it with — it answers 404. A DRAFT is never shared (B10): a draft copy, or a copy drawn while its proposal, letter or invoice was still a draft, answers 409 `DRAFT_NOT_SHAREABLE`. Taking any document off the portal always works.
          */
         patch: {
             parameters: {
@@ -18003,6 +19447,15 @@ export interface paths {
                 };
                 /** @description No such document at this firm, or it belongs to no client */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description It is a draft, and a draft is never shared with the client (DRAFT_NOT_SHAREABLE) */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -18206,7 +19659,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not write */
+                /** @description No org selected, the role may not write, or this login does not see fees: all three kinds print them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -18303,7 +19756,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The session has not selected an org, or the role may not write */
+                /** @description No org selected, the role may not write, or this login does not see fees: all three kinds print them (FEES_NOT_VISIBLE) */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -19000,6 +20453,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/revenue/by-manager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each manager's invoices billed and collected, month by month, and are owed now
+         * @description Grouped on the invoice's manager (`managerUserId`, fixed when it is issued): Ashish's 'revenue is tracked by manager'. Everything in the firm's reporting currency at each document's stored rate. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. Summed in SQL on numeric; every amount is a decimal string. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    months?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revenue by manager */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DashboardRevenueByManager"];
+                    };
+                };
+                /** @description `months` is not a whole number from 1 to 24 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/readiness": {
         parameters: {
             query?: never;
@@ -19009,7 +20530,7 @@ export interface paths {
         };
         /**
          * Is this firm set up well enough to run its work?
-         * @description Eight lines: go-live floor and financial year, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
+         * @description Thirteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
          */
         get: {
             parameters: {
@@ -19118,6 +20639,8 @@ export interface components {
         };
         RedeemMagicLinkRequest: {
             token: string;
+            /** @description A colleague's FIRST password, chosen on their welcome link (CA#38). Only a welcome link takes one, and only for an account with no password: the same call sets it and signs them in. Left out, the link only signs them in. An account that already has a password is refused (409 PASSWORD_ALREADY_SET) and the link is NOT spent, so it can still be used without one. */
+            password?: string;
         };
         SwitchTenantRequest: {
             /** Format: uuid */
@@ -19139,7 +20662,7 @@ export interface components {
         SetPasswordRequest: {
             password: string;
         };
-        Tenant: {
+        CreatedTenant: {
             /** Format: uuid */
             id: string;
             slug: string;
@@ -19147,11 +20670,17 @@ export interface components {
             /** @enum {string} */
             status: "active" | "suspended";
             reportingCurrency: string;
+            /** @description The zone the firm starts on. UTC when nothing settled it; Setup then asks the firm. */
+            timeZone: string;
         };
         CreateTenantRequest: {
             name: string;
             slug: string;
             reportingCurrency: string;
+            /** @description Where the firm is, ISO 3166-1 alpha-2 (IN, AE). When the country keeps one time zone the firm starts on it (IN: Asia/Kolkata); otherwise it starts on UTC and Setup asks it to choose. */
+            country?: string;
+            /** @description An IANA zone (Asia/Kolkata), over the country's. Never an offset. */
+            timeZone?: string;
         };
         UserAccount: {
             /** Format: uuid */
@@ -19166,6 +20695,15 @@ export interface components {
             /** Format: email */
             email: string;
             displayName?: string;
+        };
+        Tenant: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            reportingCurrency: string;
         };
         SetTenantStatusRequest: {
             /** @enum {string} */
@@ -19783,6 +21321,8 @@ export interface components {
             afterDays: number;
             /** @description How far past the watched date it was on the day this fired. */
             daysPast: number;
+            /** @description How far past the watched date it is TODAY, on the firm's calendar: `daysPast` plus the days since `raisedOn`. What a screen shows as days late. */
+            daysPastNow: number;
             /**
              * @description Who the firm's ladder said to tell. 'grade_at_least' is not resolved to a person: the notice is addressed to a RANK, so everybody senior enough sees it and it does not die while one partner is on leave.
              * @enum {string}
@@ -19928,6 +21468,7 @@ export interface components {
             serviceVersionId: string;
             startedOn: string;
             billingFrequency: string;
+            /** @description The line's fee from the sheet. Null when the sheet gave none, and null for a login that does not see fees. */
             unitAmount: string | null;
             jurisdiction: string | null;
             basis: string | null;
@@ -20706,6 +22247,12 @@ export interface components {
             hasOpenReview: boolean;
             /** @description Unfinished items this one is waiting on. Starting is refused while this is non-empty — that is what a dependency SAYS. Moving straight to a terminal state is still allowed, because cancelling something that never started is a real act. */
             blockedByOpen: components["schemas"]["WorkItemBlocker"][];
+            /** @description Sent back and not yet sent again (CA#29): the latest decided review was a send-back, none is open, and the task is not finished. The checker's note, when, and by whom. Null otherwise. My day shows it on the maker's desk. */
+            sentBack: {
+                notes: string | null;
+                decidedAt: string;
+                decidedByName: string | null;
+            } | null;
         };
         WorkBoardResponse: {
             items: components["schemas"]["WorkItem"][];
@@ -20745,6 +22292,8 @@ export interface components {
             submittedByName: string | null;
             submittedAt: string;
             policyKey: string | null;
+            /** @description What the MAKER said when sending it to be checked (0330). Null when nothing was said. Prose: on the row, never in the ledger. */
+            requestNote: string | null;
             /** @description The rule's own label as it was PINNED when the check opened — so a firm raising its review bar in April never restates what was allowed in March. */
             policyLabel: string | null;
             /** @enum {string} */
@@ -20754,12 +22303,25 @@ export interface components {
             decidedBy: string | null;
             decidedAt: string | null;
         };
+        WorkItemNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workItemId: string;
+            /** Format: uuid */
+            authorUserId: string;
+            authorName: string | null;
+            body: string;
+            createdAt: string;
+        };
         WorkItemDetailResponse: {
             item: components["schemas"]["WorkItem"];
             checklist: components["schemas"]["ChecklistItem"][];
             dependencies: components["schemas"]["WorkItemDependency"][];
             /** @description Every review this item has ever had, newest first. The REJECTIONS are the point: a list of only open ones makes work that came back twice read as work that sailed through. */
             reviews: components["schemas"]["WorkItemReview"][];
+            /** @description The task's own notes, oldest first (0330). Append-only: a correction is a second note. Staff only; the client portal never reads them. */
+            notes: components["schemas"]["WorkItemNote"][];
             /** @description May the CALLER decide the open review — the same verdict `/work-item-checks` puts on every one of its rows, and null when there is no open review. One field rather than one per row, because the question only exists for the open one: 'may you check this' is not asked of a review already approved or sent back. Before this the item's page could derive only maker != checker from `submittedBy` — one third of the rule — so the ladder and the grade threshold were found by pressing Approve and reading a 403, while the queue screen had been showing the same person the full answer since T2.9. */
             openReviewViewer: {
                 eligible: boolean;
@@ -20816,9 +22378,55 @@ export interface components {
             /** Format: uuid */
             dependsOnWorkItemId: string;
         };
+        LinkableFiling: {
+            /** Format: uuid */
+            obligationId: string;
+            /** @description The filing, e.g. GSTR-3B. */
+            name: string;
+            periodLabel: string;
+            statutoryDueOn: string;
+            entityName: string | null;
+            /** @description The firm's own word for where the filing stands. */
+            stateName: string;
+            filedOn: string | null;
+        };
+        TaskFilingResponse: {
+            /** @description The filing this task files (CA#36): completing the task marks it filed, as completing the calendar's own task does. Null when it files none. */
+            linked: {
+                /** Format: uuid */
+                obligationId: string;
+                /** @description The filing, e.g. GSTR-3B. */
+                name: string;
+                periodLabel: string;
+                statutoryDueOn: string;
+                entityName: string | null;
+                /** @description The firm's own word for where the filing stands. */
+                stateName: string;
+                filedOn: string | null;
+            } | null;
+            /** @description The company's open filings with no task yet, by due date: what this task could file. The company is the task's entity, or else its client. */
+            open: components["schemas"]["LinkableFiling"][];
+        };
+        LinkTaskFilingRequest: {
+            /** Format: uuid */
+            obligationId: string;
+        };
+        AddWorkItemNoteRequest: {
+            /** @description The note, at most 2,000 characters once trimmed. Who wrote it is the session's user. */
+            body: string;
+        };
         RequestWorkItemReviewRequest: {
-            /** @description Which of the firm's published verification policies decides who may check this. OPTIONAL, and no default is invented: there is no template step here to name one, and picking a rule on the firm's behalf would be this product deciding who signs off its work. Absent means maker != checker alone. */
+            /** @description Which of the firm's published verification policies decides who may check this. Absent means the FIRM'S OWN: its one published rule, applied; with several, a 400 (REVIEW_RULE_NEEDED) naming them so the sender picks; with none, maker != checker alone. `GET /api/v1/review-rules` lists them. */
             policyKey?: string | null;
+            /** @description What the maker says to the checker (0330), at most 2,000 characters. Blank means none. */
+            note?: string | null;
+        };
+        ReviewRulesResponse: {
+            /** @description The firm's review rules in force, by key. One is applied to a task sent with no rule named; with several the sender picks. */
+            rules: {
+                key: string;
+                label: string;
+            }[];
         };
         WorkItemCheckerOption: {
             /** Format: uuid */
@@ -20847,6 +22455,12 @@ export interface components {
             viewer: components["schemas"]["WorkItemCheckViewer"];
             /** Format: uuid */
             clientPartyId: string;
+            /**
+             * Format: uuid
+             * @description The company the work is for, when the task names one (F32).
+             */
+            entityPartyId: string | null;
+            entityName: string | null;
             /** @description The task's own due day, or null when it has none. */
             dueOn: string | null;
         };
@@ -21023,8 +22637,10 @@ export interface components {
             periodLabel: string | null;
             /** @description The services the job delivers, by the names the client's letter pinned. */
             services: string[];
-            /** @description `YYYY-MM-DD`: the earliest due day of the job's unfinished tasks, which is what a step on it is due by. Null when none carries a date. */
+            /** @description `YYYY-MM-DD`: what a step on this job is due by: the earliest due day of the job's unfinished tasks, and never after `filingDueOn`. Null when neither carries a date. */
             dueOn: string | null;
+            /** @description `YYYY-MM-DD`: the earliest legal due day of an unfiled filing this job's work is for (same company, a rule on its service, a period inside the job's). Null when none. */
+            filingDueOn: string | null;
         } | null;
         MyStep: {
             /** Format: uuid */
@@ -21036,6 +22652,12 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "running" | "blocked" | "done" | "skipped" | "failed";
             job: components["schemas"]["StepJobContext"];
+            /** @description Sent back and not done again (CA#29): the latest decided check on the step was a send-back and none is open. The checker's note, when, and by whom. Null otherwise. */
+            sentBack: {
+                notes: string | null;
+                decidedAt: string;
+                decidedByName: string | null;
+            } | null;
         };
         MyStepsResponse: {
             steps: components["schemas"]["MyStep"][];
@@ -21249,6 +22871,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        BillingAddress: {
+            lines: string[];
+            region: string | null;
+            postalCode: string | null;
+            /** @description ISO 3166-1 alpha-2: IN */
+            country: string | null;
+        } | null;
         Party: {
             /** Format: uuid */
             id: string;
@@ -21260,12 +22889,20 @@ export interface components {
             archivedAt: string | null;
             /** @description One of the firm's OWN companies: the firm itself, or a company on Our companies (`crm.is_firm_entity`, 0313). Such a party is never a client: a proposal, an engagement letter, a lead and an invoice all refuse it. Listed all the same, so a screen that may name the firm (a task about it) still can; the client screens hide it. */
             isOwnCompany: boolean;
+            billingAddress: components["schemas"]["BillingAddress"];
         };
         UpdateParty: {
             displayName?: string;
             tradeName?: string | null;
             industry?: string | null;
             website?: string | null;
+            /** @description Where the client is billed (CA#22): printed in an invoice's Billed to block from the next invoice issued. Null clears it. An issued invoice keeps the address it went out with. */
+            billingAddress?: {
+                lines: string[];
+                region?: string | null;
+                postalCode?: string | null;
+                country?: string | null;
+            } | null;
         };
         CorrectLegalEntity: {
             /** @example IN */
@@ -21385,6 +23022,7 @@ export interface components {
             objectType: string;
             /** Format: uuid */
             objectId: string;
+            /** @description The facts the event recorded. For a login that does not see fees, each money field (an amount paid, credited, billed or owed, an exchange rate, a discount) is null. */
             payload: {
                 [key: string]: unknown;
             };
@@ -21485,7 +23123,7 @@ export interface components {
             lostReason: string | null;
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2. Null is ordinary — often nobody knows at capture — and an unknown country matches no territory rule, so the assignment rotation covers it. It is also the answer a proposal drafted from this lead needs for `clientJurisdiction`, which decides which of the firm's entities contracts. */
             jurisdiction: string | null;
-            /** @description What the opportunity could be worth: an ESTIMATE written at capture or later, not a quote (the quote is the proposal). In the firm's reporting currency, so every lead in a firm compares with every other. Null when nobody has said. */
+            /** @description What the opportunity could be worth: an ESTIMATE written at capture or later, not a quote (the quote is the proposal). In the firm's reporting currency, so every lead in a firm compares with every other. Null when nobody has said, and null for a login that does not see fees (B33), which the session's `commercialVisibility` tells apart. */
             estimatedValue: {
                 /** @description A decimal string, two places. */
                 amount: string;
@@ -21531,10 +23169,16 @@ export interface components {
              */
             ownerUserId?: string | null;
             notes?: string;
+            /** @description The person the firm deals with at a COMPANY prospect, and their role there (CA#20). With one named, the email and phone in `identifiers` are the contact's: they go on a person linked to the company in that role, and the company keeps the PAN and GSTIN. Refused for a person prospect (INVALID_LEAD_CONTACT). */
+            contact?: {
+                name: string;
+                /** @enum {string} */
+                role: "director_of" | "authorised_signatory_of" | "employee_of" | "shareholder_of";
+            };
             /** @description Where the PROSPECT is, ISO 3166-1 alpha-2 in UPPER CASE. Optional — often nobody knows at capture, and a capture is never refused for it. Demanded in canonical case rather than normalised, because it is compared against the firm's territory rules. */
             jurisdiction?: string;
             /**
-             * @description What the opportunity could be worth, as a decimal string with no commas or currency sign, in the firm's reporting currency. Optional. Like `notes`, a capture that MERGES onto a live opportunity does not apply it.
+             * @description What the opportunity could be worth, as a decimal string with no commas or currency sign, in the firm's reporting currency. Optional. Like `notes`, a capture that MERGES onto a live opportunity does not apply it. Refused to a login that does not see fees (FEES_NOT_VISIBLE, 403): leave it out.
              * @example 500000
              */
             estimatedValue?: string;
@@ -21603,10 +23247,10 @@ export interface components {
             /** @description Where the prospect is, ISO 3166-1 alpha-2 in UPPER CASE, or null for not known. Changing it does NOT reassign the lead: territory decides a desk at capture only. */
             jurisdiction: string | null;
             /**
-             * @description What the opportunity could be worth, as a decimal string in the firm's reporting currency, or null for not known.
+             * @description What the opportunity could be worth, as a decimal string in the firm's reporting currency, or null for not known. Leave it out to keep what is there. Sending it, null included, is refused to a login that does not see fees (FEES_NOT_VISIBLE, 403).
              * @example 500000
              */
-            estimatedValue: string | null;
+            estimatedValue?: string | null;
         };
         TerritoryRule: {
             /** Format: uuid */
@@ -21889,6 +23533,8 @@ export interface components {
             };
             issuedOn: string;
             totalsByFrequency: components["schemas"]["ProposalFrequencyTotal"][];
+            /** @description What the recurring fees come to over a year (CA#42): monthly x 12, quarterly x 4, annually x 1, added by the database. No one-off or custom fee is in it. Null when nothing priced recurs, or for a caller without the fee axis. */
+            annualValue: string | null;
             document: components["schemas"]["ProposalPlan"];
             lines: components["schemas"]["ProposalLine"][];
             blocks: components["schemas"]["ProposalBlock"][];
@@ -21993,6 +23639,7 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
+            /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the proposal's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
@@ -22314,6 +23961,10 @@ export interface components {
             effectiveFrom: string;
             endsOn: string | null;
             endReason: string | null;
+            /** @description The first period billed (0318), its first day. Null with `firstInvoiceOn`: billing not set up. */
+            billingFrom: string | null;
+            /** @description The date the first period's invoice falls due; each later period one billing span after. */
+            firstInvoiceOn: string | null;
             /** @description The fee group that prices this engagement (0083), or null. When set, `unitAmount` is null because the price is the GROUP's — one fee for every engagement in it — and a screen must not prefill that fee per engagement: four engagements of a USD 5,000 retainer are billed 5,000, not 20,000. */
             feeGroup: {
                 /** Format: uuid */
@@ -22451,6 +24102,17 @@ export interface components {
             jurisdiction: string | null;
             /** @enum {string|null} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /**
+             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @enum {string|null}
+             */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            /** @description The first invoice date, with `on_date` only. */
+            billingOn: string | null;
+            /** @description This service's own advance, before tax (0320): its work waits until the advance invoice is paid. Null: none, or hidden without the fee axis (see `hasAdvance`). */
+            advanceAmount: string | null;
+            /** @description Whether this service has its own advance. Never redacted, so a screen can say so. */
+            hasAdvance: boolean;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["LetterOutOfPocketEstimate"];
             /** Format: uuid */
@@ -22464,6 +24126,9 @@ export interface components {
             title: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            billingOn: string | null;
             amount: string | null;
             currency: string;
             paymentTerms: string | null;
@@ -22653,6 +24318,10 @@ export interface components {
             discountPercent?: string;
             /** @enum {string|null} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
+            advanceAmount?: string | null;
             pricingNote?: string | null;
             effectiveFrom?: string | null;
             jurisdiction?: string | null;
@@ -22670,6 +24339,7 @@ export interface components {
             description: string;
             /** @default 1 */
             quantity: string;
+            /** @description The fee. Omit it and `pricingNote` both to quote the catalogue's list price for this service in the letter's currency (B09): how a login that cannot see fees adds a priced service. SERVICE_HAS_NO_LIST_PRICE (400) when there is none. */
             unitAmount?: string;
             /** @default 0 */
             discountPercent: string;
@@ -22678,6 +24348,12 @@ export interface components {
             jurisdiction?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /**
+             * @description When the fee is invoiced (0319): `arrears` (after each period), `advance` (at its start) or `on_date` (from `billingOn`, then one span after). Null: not chosen, billed after each period. Only for a monthly, quarterly or yearly fee.
+             * @enum {string}
+             */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
             scopeOverride?: string;
             clientObligationsOverride?: string;
             volumeLimitsOverride?: string;
@@ -22704,6 +24380,9 @@ export interface components {
             title: string;
             /** @enum {string} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string} */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
             amount: string;
             paymentTerms?: string;
             feeDescription?: string;
@@ -22715,6 +24394,9 @@ export interface components {
             title?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
             amount?: string;
             paymentTerms?: string;
             feeDescription?: string;
@@ -22784,6 +24466,15 @@ export interface components {
         };
         RegisteredAddress: {
             lines: string[];
+            /** @description The state, province, emirate or region: Maharashtra. Printed on invoices and letters. */
+            region?: string | null;
+            /** @description 411001 */
+            postalCode?: string | null;
+        } | null;
+        FirmEntityNumber: {
+            /** @description gstin (India), trn (UAE), ein (US), vat (anywhere else) */
+            type: string;
+            value: string;
         } | null;
         FirmEntity: {
             /** Format: uuid */
@@ -22795,6 +24486,10 @@ export interface components {
             isFirmSelf: boolean;
             routedCountries: string[];
             isFallback: boolean;
+            taxRegistration: components["schemas"]["FirmEntityNumber"];
+            pan: string | null;
+            phone: string | null;
+            email: string | null;
             defaultCurrency: string;
         };
         FirmEntitiesResponse: {
@@ -22806,12 +24501,26 @@ export interface components {
             jurisdiction: string;
             entityType: string;
             registeredAddress?: components["schemas"]["RegisteredAddress"];
+            /** @description Its tax registration: a GSTIN for a company registered in India (held to the GSTIN's shape), a TRN in the UAE, an EIN in the US, a VAT number anywhere else. */
+            taxRegistration?: string | null;
+            /** @description Its PAN; India only. */
+            pan?: string | null;
+            /** @description Stored in E.164; a number without a country code takes the company's. */
+            phone?: string | null;
+            email?: string | null;
         };
         EditFirmEntityRequest: {
             name?: string;
             entityType?: string;
             registeredAddress?: components["schemas"]["RegisteredAddress"];
             jurisdiction?: string;
+            /** @description Its tax registration: a GSTIN for a company registered in India (held to the GSTIN's shape), a TRN in the UAE, an EIN in the US, a VAT number anywhere else. */
+            taxRegistration?: string | null;
+            /** @description Its PAN; India only. */
+            pan?: string | null;
+            /** @description Stored in E.164; a number without a country code takes the company's. */
+            phone?: string | null;
+            email?: string | null;
         };
         FirmEntityPreference: {
             /** Format: uuid */
@@ -22909,10 +24618,11 @@ export interface components {
             partyId: string;
             /** Format: uuid */
             entityPartyId: string;
-            /** @description `INV/2026-27/0001`. Allocated by the write itself from a gapless per-entity series and frozen by a trigger — an invoice number is never edited. A wrong invoice is cancelled and a new one issued, and both stay readable. */
-            number: string;
+            /** @description `INV/2026-27/0001`. Drawn from a gapless per-entity series when the invoice is ISSUED (0322) and frozen by a trigger from then: an invoice number is never edited. NULL on a draft (show it as a draft), and on a draft cancelled before it was issued. Drafts made before 0322 keep the number they drew. A wrong issued invoice is cancelled and a new one issued, and both stay readable. */
+            number: string | null;
+            /** @description The financial year whose series the number was drawn from. On a draft it is provisional: issuing takes the year of the issue date, in the firm's own financial year (B03). */
             financialYear: number;
-            sequenceNumber: number;
+            sequenceNumber: number | null;
             /** @enum {string} */
             status: "draft" | "issued" | "cancelled";
             currency: string;
@@ -22924,6 +24634,11 @@ export interface components {
             irn: string | null;
             irnRegisteredAt: string | null;
             notes: string | null;
+            /**
+             * Format: uuid
+             * @description Whose revenue this invoice is (0318); frozen once issued. Null when nobody was named.
+             */
+            managerUserId: string | null;
         };
         RaiseInvoiceRequest: {
             /** Format: uuid */
@@ -22931,12 +24646,19 @@ export interface components {
             /** Format: uuid */
             entityPartyId: string;
             currency: string;
-            fxRate: string;
-            fxRateDate: string;
+            /** @description How many of the firm's reporting currency one unit of `currency` was worth. REQUIRED when `currency` is not the firm's reporting currency (FX_RATE_REQUIRED, 400; it used to default to 1, B07); in the reporting currency leave it out (it is 1; anything else is FX_RATE_NOT_ONE). */
+            fxRate?: string;
+            /** @description The day the rate is from. Defaults to today. */
+            fxRateDate?: string;
             dueOn?: string;
             notes?: string;
-            /** @description Which financial year's series this belongs to. Defaults to today; a firm raising an invoice on 2 April for March's work sets it deliberately. */
+            /** @description The draft's provisional financial year (defaults to today). It does not decide the number: an invoice is numbered in the series of the year it is ISSUED in (B03). */
             seriesDate?: string;
+            /**
+             * Format: uuid
+             * @description Whose revenue this invoice is (auto-invoice T4); null or absent names nobody. Must be active staff at this firm (MANAGER_NOT_STAFF, 409). The screen preselects the client's Key Manager. Changeable while a draft (PUT /invoices/{id}/manager), fixed once issued.
+             */
+            managerUserId?: string | null;
         };
         InvoiceTotals: {
             lineCount: number;
@@ -22992,6 +24714,33 @@ export interface components {
             };
             lines: components["schemas"]["InvoiceLine"][];
             totals: components["schemas"]["InvoiceTotals"];
+            manager: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+                email: string;
+            } | null;
+            /** @description The engagement letters this invoice's lines bill, by reference (0318). */
+            letters: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            }[];
+            /** @description The tax rate a line added by hand starts at (CA#5), by the automatic advance's rule: the rate last invoiced on that engagement, else the issuing company's default tax rate (Your firm), else none. A tax rate is a statutory fact, not a price: never redacted. */
+            taxSuggestions: {
+                companyDefault: string | null;
+                byEngagement: {
+                    /** Format: uuid */
+                    engagementId: string;
+                    taxPercent: string;
+                }[];
+            };
+            /** @description Why Issue would be refused today, when the record alone shows it (B51): a draft numbered before 0322 whose number is now out of order in its series (a later number of the series has been issued, or today is in another financial year). `message` is the refusal's own sentence, for the screen to show where Issue is offered. Null when nothing on the record stops it; the issue call still decides. */
+            issueBlocked: {
+                /** @enum {string} */
+                reason: "INVOICE_NUMBER_OUT_OF_ORDER";
+                message: string;
+            } | null;
         };
         AddInvoiceLineRequest: {
             /** Format: uuid */
@@ -23001,6 +24750,13 @@ export interface components {
             unitAmount: string;
             discountPercent?: string;
             taxPercent?: string;
+        };
+        SetInvoiceManagerRequest: {
+            /** Format: uuid */
+            managerUserId: string | null;
+        };
+        SetInvoiceDueDateRequest: {
+            dueOn: string | null;
         };
         InvoiceSeries: {
             /** Format: uuid */
@@ -23050,13 +24806,13 @@ export interface components {
              * @description WHY money came off. Mandatory and closed, because without it the numbers always reconcile and why forty thousand came off does not — and 'how much did we write off to service failures' is a GROUP BY, which free text cannot answer.
              * @enum {string}
              */
-            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt" | "advance_refund";
             note: string | null;
         };
         IssueCreditNoteRequest: {
             amount: string;
             /** @enum {string} */
-            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt";
+            reason: "service_failure" | "billing_error" | "goodwill" | "scope_change" | "duplicate_invoice" | "bad_debt" | "advance_refund";
             note?: string;
             issuedOn?: string;
         };
@@ -23110,6 +24866,368 @@ export interface components {
             outstanding: string | null;
             currency: string;
             dueOn: string | null;
+            /**
+             * @description The invoice as it stands now. A step on an invoice cancelled since (outstanding 0) can only be rejected (DUNNING_NOTHING_OWED, 409, on approve).
+             * @enum {string}
+             */
+            invoiceStatus: "draft" | "issued" | "cancelled";
+        };
+        BillingPerson: {
+            /** Format: uuid */
+            userId: string;
+            displayName: string | null;
+            email: string;
+        } | null;
+        BillingDue: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description `period` (one period of recurring work), `advance` (the letter's advance, or one service's: raised on an invoice of its own, drafted automatically at signing since 0322, and holding no work) or `final` (a one-time service whose work is done, billed for the balance after the advance) (0320).
+             * @enum {string}
+             */
+            kind: "period" | "advance" | "final";
+            /**
+             * Format: uuid
+             * @description The letter a LETTER-WIDE advance is for; null otherwise.
+             */
+            engagementLetterId: string | null;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            engagementIds: string[];
+            /** @description What the client signed for: the letter line's own wording, or the fee group's title. Never the catalogue's name. The invoice line reads it, with the period. */
+            serviceName: string;
+            entityName: string | null;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+                fxRate: string;
+                fxRateDate: string;
+            };
+            periodStart: string;
+            periodEnd: string;
+            periodLabel: string;
+            /** @description The day this period's bill fell due. */
+            billOn: string;
+            /** @description The letter's fee for one whole period. NULL when the letter fixed no price (it must be typed when raising), or when the caller does not see fees. */
+            fullAmount: string | null;
+            /** @description What is billed: the full amount pro-rated by days served. NULL as above. */
+            amount: string | null;
+            servedDays: number;
+            periodDays: number;
+            /** @description Whether the letter fixed a price. False: the amount is typed when raising, and the bill is on the client's SPOC's and every administrator's desk as well as the manager's until then. Not an amount, so never redacted. */
+            priced: boolean;
+            manager: components["schemas"]["BillingPerson"];
+            /** @description `spoc_manager` (whom the SPOC reports to), `key_manager` (fallback) or `none`. */
+            managerHow: string;
+            /** @description Why it is not with the SPOC's manager. */
+            managerNote: string | null;
+            managerReportsTo: components["schemas"]["BillingPerson"];
+            /**
+             * @description Derived on read: `open` (to raise), `drafted` (on a draft invoice), `billed` (issued), `skipped`, or `covered` (the advance paid it in full, so no invoice was raised). A cancelled invoice makes its dues open again.
+             * @enum {string}
+             */
+            status: "open" | "drafted" | "billed" | "skipped" | "covered";
+            /** @description The invoice it is on. `number` is null while that invoice is a draft (0322). */
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string | null;
+                status: string;
+            } | null;
+            skipped: {
+                at: string;
+                by: components["schemas"]["BillingPerson"];
+                reason: string;
+            } | null;
+            /** @description The tax rate the last invoice line for this work carried: a default to offer. */
+            lastTaxPercent: string | null;
+            daysSinceBillOn: number;
+            /** @description Still to be issued a week after its bill date: it shows to the manager's own manager too. */
+            escalated: boolean;
+            /** @description The advance this bill will be taken off when raised (the service's own, else the letter's) and what is left of it, before tax. `remaining` is null without the fee axis. */
+            advancePool: {
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                remaining: string | null;
+            } | null;
+            /** @description What this bill was reduced by, once raised or covered. */
+            advanceApplied: {
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                amount: string | null;
+            } | null;
+            /** @description An advance bill some engagement still waits on (pending_advance: only work signed before 0322, until the daily catch-up starts it). Such an advance cannot be skipped (ADVANCE_NOT_SKIPPABLE). Always false for other kinds of bill. */
+            advanceHoldsWork: boolean;
+        };
+        BillingSchedule: {
+            /** Format: uuid */
+            engagementId: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            entityName: string;
+            /** @description The letter line's own wording, as the client signed it. */
+            serviceName: string;
+            letterRef: string;
+            status: string;
+            effectiveFrom: string;
+            endsOn: string | null;
+            billingFrequency: string | null;
+            feeGroup: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+            } | null;
+            billingFrom: string | null;
+            firstInvoiceOn: string | null;
+        };
+        BillingUnscheduled: components["schemas"]["BillingSchedule"] & {
+            /** @description The current period, billed the day after it ends (the firm's default). */
+            suggestion: {
+                billingFrom: string;
+                firstInvoiceOn: string;
+                periodLabel: string;
+            } | null;
+        };
+        BillingScheduleSet: components["schemas"]["BillingSchedule"] & {
+            /** @description Plain words to show the person who set it, or null: e.g. that "Bill from" is before the work started, so nothing before the start is billed (a period is billed only for the days the work ran). */
+            notice: string | null;
+        };
+        SetBillingSchedule: {
+            billingFrom: string | null;
+            firstInvoiceOn: string | null;
+        };
+        RaisedFromDues: {
+            /**
+             * Format: uuid
+             * @description Null when the advance paid every bill in full: no invoice, so no number drawn.
+             */
+            invoiceId: string | null;
+            number: string | null;
+            /** @description Bills the advance paid in full: no line, and status `covered`. */
+            covered: string[];
+            /** @description Dues somebody else settled while this ran: on the invoice, but not linked to it. */
+            conflicts: string[];
+        };
+        RaiseFromDues: {
+            dueIds: string[];
+            lines: {
+                /** Format: uuid */
+                dueId: string;
+                amount?: string;
+                taxPercent: string;
+            }[];
+            fxRate?: string;
+            fxRateDate?: string;
+            dueOn?: string;
+        };
+        BillingAdvance: {
+            /** Format: uuid */
+            id: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            /** Format: uuid */
+            engagementLetterId: string | null;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** @description `All services` for the letter's own advance. */
+            serviceName: string;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            /** @description The day the letter was signed: the advance's bill date. */
+            billOn: string;
+            amount: string | null;
+            manager: components["schemas"]["BillingPerson"];
+            /**
+             * @description The bill's own status; `skipped` is not chased.
+             * @enum {string}
+             */
+            status: "open" | "drafted" | "billed" | "skipped" | "covered";
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string | null;
+                status: string;
+            } | null;
+            invoiceIssuedOn: string | null;
+            /** @description The advance invoice's money, as the invoice reads it. Amounts null without fees. */
+            balance: {
+                invoiced: string | null;
+                paid: string | null;
+                outstanding: string | null;
+            } | null;
+            /**
+             * @description Where the advance stands (0322; it holds no work): `not_raised` (no invoice: see `draftBlocked`, or its draft was cancelled), `on_draft` (waiting for an admin to issue it), `unpaid`, `part_paid`, `paid`.
+             * @enum {string}
+             */
+            stage: "not_raised" | "on_draft" | "unpaid" | "part_paid" | "paid";
+            /** @description Still a draft, not raised or owed, and not skipped: it is chased. */
+            pending: boolean;
+            /** @description Since when it has waited for its current step: signing (no invoice, or a draft) or issue (unpaid). */
+            pendingSince: string | null;
+            daysPending: number | null;
+            /** @description Past the firm's days for its step: a draft `advanceDraftOverdueDays` after signing, unpaid `advanceUnpaidOverdueDays` after issue (Your firm, Automatic billing). */
+            overdue: boolean;
+            /** @description The day it turns (or turned) Overdue at its current step. Null once paid or skipped. */
+            overdueOn: string | null;
+            /** @description Still pending a week or more after signing: the administrators hear about it weekly. */
+            escalated: boolean;
+            /** @description Who is reminded on My day: the client's SPOCs for the work, its Key Manager, and the first person above the Key Manager at the firm's partner grade. Active staff only. */
+            people: {
+                spocs: components["schemas"]["BillingPerson"][];
+                keyManager: components["schemas"]["BillingPerson"];
+                partner: components["schemas"]["BillingPerson"];
+            };
+            /**
+             * @description Why it has no invoice yet: `no_tax_rate` (the work was never invoiced and the issuing company has no default tax rate: set one, or raise it by hand), `billed_by_hand` (see `handRaised`).
+             * @enum {string|null}
+             */
+            draftBlocked: "no_tax_rate" | "billed_by_hand" | "not_open" | null;
+            /** @description An issued invoice already billing this work, on no bill: very likely this advance invoiced by hand before 0322. No draft is made; an admin Links it instead. */
+            handRaised: {
+                /** Format: uuid */
+                invoiceId: string;
+                number: string;
+            } | null;
+            advanceHoldsWork: boolean;
+        };
+        BillingAdvanceForMe: components["schemas"]["BillingAdvance"] & {
+            /** @description Why it is the caller's: SPOC, Key Manager, partner, or an administrator's to issue or to know about. */
+            duties: ("spoc" | "key_manager" | "partner" | "admin")[];
+        };
+        BillingRefund: {
+            /** Format: uuid */
+            dueId: string;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            issuer: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            currency: string;
+            letter: {
+                /** Format: uuid */
+                id: string;
+                ref: string;
+            };
+            serviceName: string;
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                number: string;
+            };
+            advanceNet: string | null;
+            applied: string | null;
+            /** @description Left of the advance, before tax. */
+            remaining: string | null;
+            /** @description The credit note that gives it back, with its share of the tax. Null without fees. */
+            refundAmount: string | null;
+            /** @description What the client actually paid on the advance invoice, with tax: the most that can be paid BACK after the credit note. Zero when nothing was paid (the credit note then only cancels what was asked for). Null without fees. */
+            paid: string | null;
+        };
+        AdvanceRefunded: {
+            creditNoteId: string;
+            number: string;
+        };
+        KeepAdvance: {
+            reason: string;
+        };
+        BillingBillNow: {
+            /** Format: uuid */
+            engagementId: string;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            serviceName: string;
+            letterRef: string;
+            currency: string;
+            fullAmount: string | null;
+        };
+        BilledNow: {
+            /** Format: uuid */
+            dueId: string;
+        };
+        SkipDue: {
+            reason: string;
+        };
+        LinkDue: {
+            /** Format: uuid */
+            invoiceId: string;
+        };
+        AdvancePolicy: {
+            /** @description A draft advance invoice turns Overdue this many days after signing (default 3). */
+            draftOverdueDays: number;
+            /** @description An issued, unpaid advance turns Overdue this many days after issue (default 15). */
+            unpaidOverdueDays: number;
+            /** @description The partner reminded: the first person above the client's Key Manager whose grade rank is at least this (default 9, the default ladder's Director). */
+            partnerMinRank: number;
+            /** @description The weekly summary to the administrators: ISO weekday, 1 = Monday (default). */
+            digestWeekday: number;
+            /** @description Its hour, 0-23, in the firm's own time zone (default 10). */
+            digestHour: number;
+        };
+        TaxDefault: {
+            /**
+             * Format: uuid
+             * @description One of the firm's own companies.
+             */
+            entityPartyId: string;
+            /** @description 0 to 100: the rate an automatic advance draft carries when the work was never invoiced. */
+            taxPercent: string;
+        };
+        BillingSettings: {
+            /** @description Whether the daily sweep writes bill dues for this firm. Off until the firm turns it on. */
+            autoBilling: boolean;
+            advancePolicy: components["schemas"]["AdvancePolicy"];
+            /** @description Each company's default tax rate. A company with none gets no automatic advance draft. */
+            taxDefaults: components["schemas"]["TaxDefault"][];
+            /** @description The firm's own payment terms (0327): an invoice issued with no due date is due this many days after its date. Null (the default) means none: no due date unless a person types one. */
+            invoiceDueDays: number | null;
+        };
+        SetBillingSettings: {
+            autoBilling?: boolean;
+            advancePolicy?: components["schemas"]["AdvancePolicy"];
+            taxDefaults?: components["schemas"]["TaxDefault"][];
+            /** @description Payment terms in days (0 = due on receipt); null clears them. */
+            invoiceDueDays?: number | null;
         };
         /** @description Who uploaded it. NULL means the system generated it, or the person's account has been erased. The email is what distinguishes those from a person whose display name is simply unset — the same arrangement the audit trail's actor uses. */
         DocumentUploader: {
@@ -23152,6 +25270,8 @@ export interface components {
             /** @description The client's name, joined so a list never has to fetch one row per document. */
             partyName: string | null;
             createdBy: components["schemas"]["DocumentUploader"];
+            /** @description Whether this document prints the firm's fees: a proposal, an engagement letter, an invoice or a credit note (audit 2026-10-03). Its bytes open only for a login that sees fees (FEES_NOT_VISIBLE, 403), so a screen offers Download only where it will work. */
+            showsFees: boolean;
             versionCount: number;
             latestVersion: components["schemas"]["DocumentVersion"];
             createdAt: string;
@@ -23372,19 +25492,73 @@ export interface components {
                 otherCurrencyInvoices: number;
             }[];
         };
+        DashboardRevenueByManager: {
+            /** @description Every amount below, each document at the rate stored on it, never today's. */
+            reportingCurrency: string;
+            /** @description The last N calendar months, oldest first, as YYYY-MM, the last one the month the FIRM is in now on its own timezone. */
+            months: string[];
+            /** @description The month (1-12) the firm's financial year starts, from its compliance policy, so a screen can offer 'this financial year'. Null when the firm has not said. */
+            financialYearStartMonth: number | null;
+            /** @description The whole firm: what the rows below add up to. */
+            total: {
+                months: {
+                    /** @description YYYY-MM. */
+                    month: string;
+                    /** @description Before tax. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. */
+                    billed: string;
+                    /** @description With tax. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. */
+                    collected: string;
+                    /** @description Invoices issued that month. */
+                    invoiceCount: number;
+                }[];
+                /** @description What these issued invoices are owed NOW, with tax, overpayments left out: the rows /dashboard/overview's `receivables.outstanding` sums, so the managers add up to it. Not cut by month. */
+                outstanding: string;
+                outstandingInvoices: number;
+            };
+            managers: {
+                /**
+                 * Format: uuid
+                 * @description The invoice's `managerUserId`. Null is ONE row: the invoices that name nobody, listed so the table adds up to the firm.
+                 */
+                userId: string | null;
+                /** @description Their name on this firm's roster. Null on the no-manager row. */
+                name: string | null;
+                /** @description On the staff today. False for somebody who has left: the revenue stays theirs. */
+                activeStaff: boolean;
+                months: {
+                    /** @description YYYY-MM. */
+                    month: string;
+                    /** @description Before tax. BILLED is ISSUED invoices only (a draft was never sent, a cancelled one was withdrawn), by the month of their issue date, BEFORE TAX (net of discount), less the credit notes issued that month, each at its pre-tax share of the invoice it credits. A credit note on an invoice cancelled since is left out with it. */
+                    billed: string;
+                    /** @description With tax. COLLECTED is the cash received that month on the manager's ISSUED invoices, by the payment's received date, WITH tax (what reached the bank); a bounced cheque or a refund is a negative payment and comes off the month it is dated. Payments on an invoice cancelled since are left out. */
+                    collected: string;
+                    /** @description Invoices issued that month. */
+                    invoiceCount: number;
+                }[];
+                /** @description What these issued invoices are owed NOW, with tax, overpayments left out: the rows /dashboard/overview's `receivables.outstanding` sums, so the managers add up to it. Not cut by month. */
+                outstanding: string;
+                outstandingInvoices: number;
+            }[];
+        };
         ReadinessGap: {
-            /** @description The subject: a client's party id (account_team, portal_contacts), a person's user id (reporting_lines) or a rule's id (compliance_rules). Null for a gap that is the firm's own. */
+            /** @description The subject: a client's party id (account_team, portal_contacts), a person's user id (reporting_lines), a rule's id (compliance_rules) or one of the firm's companies (company_details). Null for a gap that is the firm's own. */
             id: string | null;
-            /** @description A key to link with: the service's catalogue key on `processes`. Null elsewhere. */
+            /** @description A key to link with: the service's catalogue key on `processes`; on `time_zone`, the one zone the firm's companies' countries settle between them (offered, never applied), or null when they settle none. Null elsewhere. */
             ref: string | null;
             /** @description The subject's name as the firm wrote it; empty for the firm's own gap. */
             name: string;
-            /** @description What is missing, as a closed vocabulary per line: deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
+            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
             missing: string[];
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "deadlines" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            /**
+             * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
+             * @enum {string}
+             */
+            state: "done" | "to_do" | "nothing_to_check";
+            /** @description state is done. */
             done: boolean;
             gaps: components["schemas"]["ReadinessGap"][];
             /** @description Why the line applies: on reporting_lines, the labels of the published check rules that read reporting lines alone. Empty elsewhere, and empty there when no rule reads them. */
@@ -23393,7 +25567,7 @@ export interface components {
         ReadinessResponse: {
             /** @description The firm's calendar day the lines were computed on. */
             asOf: string;
-            /** @description The eight lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
+            /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
         };
     };

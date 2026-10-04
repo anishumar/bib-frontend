@@ -99,7 +99,7 @@ export function ServiceForm({
             <Field id={`${formId}-name`} label="Name" error={refused.name ?? null}>
               <Input
                 value={draft.name}
-                placeholder="e.g. UAE bookkeeping"
+                placeholder="e.g. Monthly bookkeeping"
                 onChange={(e) => set({ name: e.target.value })}
               />
             </Field>

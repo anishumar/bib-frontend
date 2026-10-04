@@ -14,7 +14,7 @@ import {
   Notice,
   Select,
 } from "@/components/ui";
-import { describeDraft, draftOf, firmRulePack, type DueRuleKind, type RuleDraft } from "./rule-editor";
+import { describeDraft, draftOf, firmRulePack, intOrNull, type DueRuleKind, type RuleDraft } from "./rule-editor";
 
 /**
  * The law changed, from a day (migration 0057).
@@ -112,7 +112,7 @@ export function Supersede({
             input sits higher than the ones beside it. */}
         <p className="field-hint">
           The start of the period, not the due date: August follows August&rsquo;s law.
-          Replacing <span className="mono">{rule.rulePack}</span>.
+          Replacing the rule as it stands.
         </p>
 
         <FieldRow>
@@ -130,15 +130,17 @@ export function Supersede({
               <Field label="Day of the month">
                 <Input
                   inputMode="numeric"
-                  value={String(draft.dueDayOfMonth)}
-                  onChange={(e) => { set("dueDayOfMonth", Number(e.target.value) || 1); }}
+                  placeholder="e.g. 15"
+                  value={draft.dueDayOfMonth === null ? "" : String(draft.dueDayOfMonth)}
+                  onChange={(e) => { set("dueDayOfMonth", intOrNull(e.target.value, 1)); }}
                 />
               </Field>
               <Field label="Months after the period ends">
                 <Input
                   inputMode="numeric"
-                  value={String(draft.dueMonthOffset)}
-                  onChange={(e) => { set("dueMonthOffset", Number(e.target.value) || 0); }}
+                  placeholder="e.g. 2"
+                  value={draft.dueMonthOffset === null ? "" : String(draft.dueMonthOffset)}
+                  onChange={(e) => { set("dueMonthOffset", intOrNull(e.target.value, 0)); }}
                 />
               </Field>
             </>
@@ -146,8 +148,9 @@ export function Supersede({
             <Field label="Days after the period ends">
               <Input
                 inputMode="numeric"
-                value={String(draft.dueDaysAfter)}
-                onChange={(e) => { set("dueDaysAfter", Number(e.target.value) || 0); }}
+                placeholder="e.g. 30"
+                value={draft.dueDaysAfter === null ? "" : String(draft.dueDaysAfter)}
+                onChange={(e) => { set("dueDaysAfter", intOrNull(e.target.value, 0)); }}
               />
             </Field>
           )}
@@ -163,7 +166,16 @@ export function Supersede({
 
         <Cluster>
           <Button
-            disabled={busy || effectiveFrom === "" || samePack || rulePack.trim() === ""}
+            disabled={
+              busy ||
+              effectiveFrom === "" ||
+              samePack ||
+              rulePack.trim() === "" ||
+              // A box left empty is not a date (CA#9): nothing is filled in for you.
+              (draft.kind === "day_of_month"
+                ? draft.dueDayOfMonth === null || draft.dueMonthOffset === null
+                : draft.dueDaysAfter === null)
+            }
             onClick={() => {
               onSupersede({
                 effectiveFrom,

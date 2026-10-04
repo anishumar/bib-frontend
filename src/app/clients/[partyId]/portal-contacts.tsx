@@ -26,6 +26,7 @@ import {
 import { browserDay, longDay, instantDay } from "@/lib/day";
 import type { GroupCompany } from "@/lib/group";
 import { ConfirmAction } from "@/components/confirm-action";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * The client's OWN people, and what each of them can see (G3.4, T6.5, T7.0b).
@@ -252,7 +253,8 @@ export function PortalContactsPanel({
    * contact cannot tell that from broken software. This screen must not take it
    * back apart.
    */
-  async function invite(form: FormData): Promise<void> {
+  /** True once sent: the form stays for the next person and clears (F05). */
+  async function invite(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
     setOutcome(null);
@@ -273,7 +275,7 @@ export function PortalContactsPanel({
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     // THE RELOAD COMES FIRST, AND THE ORDER IS THE FIX. `useSwapFocus` watches
     // the notice APPEARING, and the row it replaces is removed by `load()`. Set
@@ -290,6 +292,7 @@ export function PortalContactsPanel({
         `${email} has been emailed an invitation to ${clientName}'s records. ` +
         `The link works once, and stops working on ${expiryDay(result.data.expiresAt)}.`,
     });
+    return true;
   }
 
   /**
@@ -649,9 +652,9 @@ export function PortalContactsPanel({
           style={{ marginTop: "var(--s-4)" }}
         >
           <form
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               void grantAnother(form);
-            }}
+            })}
           >
             <FieldStack>
               <CardTitle level={3}>
@@ -787,9 +790,7 @@ export function PortalContactsPanel({
         <form
           className="card-foot"
           aria-label={`Invite somebody at ${clientName}`}
-          action={(form) => {
-            void invite(form);
-          }}
+          onSubmit={(event) => keepTyped(event, (form) => invite(form))}
         >
           <FieldStack>
             <FieldRow>

@@ -22,6 +22,7 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * REMINDERS TO THIS CLIENT, and the firm's decision to stop them (T4.4).
@@ -262,9 +263,9 @@ export function ChasingPanel({
             (opening ? (
               <div ref={formRef} tabIndex={-1}>
                 <form
-                  action={(form) => {
+                  onSubmit={(event) => keepTyped(event, (form) => {
                     void freeze(form);
-                  }}
+                  })}
                 >
                   {/* A NAMED GROUP WITH NO LEGEND. This page carries several
                       forms and two of them already ask for a date called

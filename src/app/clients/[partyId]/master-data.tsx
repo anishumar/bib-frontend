@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
-import { Button, ErrorNotice, Field, FieldRow, Input } from "@/components/ui";
+import { Button, Card, CardTitle, ErrorNotice, Field, FieldRow, Input, Textarea } from "@/components/ui";
+import { countryName } from "@/lib/country";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * CORRECTING A CLIENT'S MASTER DATA (V2.5): the name, the company's facts and
@@ -74,9 +77,9 @@ export function EditDetails({
       <summary>Edit details</summary>
       <form
         className="stack"
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void save(form);
-        }}
+        })}
       >
         <FieldRow>
           <Field label="Name on screens and new documents">
@@ -234,16 +237,16 @@ export function CorrectEntity({
       <summary>Correct the country or kind</summary>
       <form
         className="stack"
-        action={(form) => {
+        onSubmit={(event) => keepTyped(event, (form) => {
           void save(form);
-        }}
+        })}
       >
         <FieldRow>
           <Field label="Country">
             <CountrySelect name="jurisdiction" defaultValue={current.jurisdiction} />
           </Field>
           <Field label="Kind of company">
-            <Input name="entityType" required defaultValue={current.entityType} placeholder="e.g. private_limited" />
+            <EntityKindSelect name="entityType" required defaultValue={current.entityType} />
           </Field>
         </FieldRow>
         <ErrorNotice error={error} />
@@ -254,5 +257,149 @@ export function CorrectEntity({
         </div>
       </form>
     </details>
+  );
+}
+
+/** A client's billing address as the API holds it (0334). */
+export interface BillingAddressValue {
+  readonly lines: readonly string[];
+  readonly region: string | null;
+  readonly postalCode: string | null;
+  readonly country: string | null;
+}
+
+/**
+ * WHERE THE CLIENT IS BILLED (audit 2026-10-03, CA#22). Clients had no address
+ * anywhere, so an invoice's "Billed to" printed a name and nothing else. Shown
+ * as it prints, with a quiet form to change it; the next invoice issued prints
+ * it, and an invoice already issued keeps the address it went out with.
+ *
+ * Submitted with `onSubmit`, not a form action, so a refusal leaves what was
+ * typed in place.
+ */
+export function BillingAddressCard({
+  partyId,
+  current,
+  canWrite,
+  onSaved,
+}: {
+  partyId: string;
+  current: BillingAddressValue | null;
+  canWrite: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [country, setCountry] = useState(current?.country ?? "IN");
+  const india = country === "IN";
+
+  async function save(form: FormData): Promise<void> {
+    const text = (k: string): string => String(form.get(k) ?? "").trim();
+    const lines = text("lines")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l !== "");
+    const empty = lines.length === 0 && text("region") === "" && text("postalCode") === "";
+    const body = {
+      billingAddress: empty
+        ? null
+        : {
+            lines,
+            region: text("region") === "" ? null : text("region"),
+            postalCode: text("postalCode") === "" ? null : text("postalCode"),
+            country: country === "" ? null : country,
+          },
+    };
+    setBusy(true);
+    setError(null);
+    const result = await api.PATCH("/api/v1/parties/{partyId}", { params: { path: { partyId } }, body });
+    setBusy(false);
+    if (result.error) {
+      setError(apiError(result.error).message);
+      return;
+    }
+    setOpen(false);
+    await onSaved();
+  }
+
+  const place = current === null
+    ? null
+    : [[current.region, current.postalCode].filter((p): p is string => p !== null).join(" "), current.country === null ? null : countryName(current.country)]
+        .filter((p): p is string => p !== null && p !== "")
+        .join(", ");
+
+  return (
+    <Card>
+      <CardTitle level={2}>Address for bills</CardTitle>
+      {current === null ? (
+        <p className="text-md text-muted">
+          Not set. Invoices print the client&rsquo;s name only until it is added.
+        </p>
+      ) : (
+        <address className="text-md not-italic">
+          {current.lines.map((l) => (
+            <span key={l} className="block">
+              {l}
+            </span>
+          ))}
+          {place !== null && place !== "" && <span className="block">{place}</span>}
+        </address>
+      )}
+      <p className="text-sm text-muted">
+        Printed under the client&rsquo;s name on invoices, with its tax number from Identifiers. An invoice
+        already issued keeps the address it went out with.
+      </p>
+      {canWrite && (
+        <details
+          className="card-foot"
+          open={open}
+          onToggle={(e) => {
+            setOpen(e.currentTarget.open);
+          }}
+        >
+          <summary>{current === null ? "Add the address" : "Change the address"}</summary>
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save(new FormData(e.currentTarget));
+            }}
+          >
+            <Field label="Address" hint="One line per row, as it should print. Clear everything to remove it.">
+              <Textarea
+                name="lines"
+                rows={3}
+                defaultValue={(current?.lines ?? []).join("\n")}
+                placeholder={"e.g. Plot 4, MIDC Bhosari\nPune"}
+              />
+            </Field>
+            <FieldRow>
+              <Field label={india ? "State" : "State or region"} optional>
+                <Input name="region" maxLength={100} defaultValue={current?.region ?? ""} placeholder={india ? "e.g. Maharashtra" : "e.g. Dubai"} />
+              </Field>
+              <Field label={india ? "PIN code" : "Postal code"} optional>
+                <Input name="postalCode" maxLength={20} defaultValue={current?.postalCode ?? ""} placeholder={india ? "e.g. 411026" : "e.g. 10001"} />
+              </Field>
+              <Field label="Country">
+                <CountrySelect
+                  name="country"
+                  value={country}
+                  onChange={(e) => {
+                    setCountry(e.target.value);
+                  }}
+                />
+              </Field>
+            </FieldRow>
+            <ErrorNotice error={error} />
+            <div className="cluster">
+              <Button type="submit" variant="secondary" loading={busy}>
+                Save the address
+              </Button>
+            </div>
+          </form>
+        </details>
+      )}
+    </Card>
   );
 }

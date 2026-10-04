@@ -35,6 +35,12 @@ import { Empty } from "@/components/states";
  * still fires and it is marked, loudly, because that row is the one somebody
  * has to act on — everything else already has a name against it.
  */
+/** How many pieces of WORK the notices are about: a task or a filing counted
+ *  once however many rungs fired on it (F28). The tab beside it counts tasks. */
+export function escalatedSubjects(rows: readonly Escalation[]): number {
+  return new Set(rows.map((r) => r.workItemId ?? r.obligationInstanceId ?? r.id)).size;
+}
+
 export function EscalationQueue({
   rows,
   ladderPublished,
@@ -69,9 +75,17 @@ export function EscalationQueue({
   // account no longer resolves — a different fact, and not one to report as an
   // unreachable escalation.
   const unreached = rows.filter((r) => r.raisedToUserId === null && r.minGradeRank === null).length;
+  const subjects = escalatedSubjects(rows);
 
   return (
     <>
+      {/* What the tab's number counts, and what the rows below are (F28). */}
+      <p className="text-md">
+        {subjects === 1 ? "1 task or filing is" : `${String(subjects)} tasks and filings are`} past a limit
+        {rows.length === subjects
+          ? "."
+          : `, with ${String(rows.length)} notices between them (one per rung that fired).`}
+      </p>
       {unreached > 0 && (
         <p className="text-md">
           <strong className="tone-danger">{unreached}</strong>{" "}
@@ -178,7 +192,12 @@ function EscalationRow({
         ) : null}
       </Td>
       <Td align="right">
-        {row.daysPast}
+        {/* How late it is TODAY, on the firm's calendar (audit 2026-10-03,
+            F11). It printed `daysPast`, frozen on the day the rung fired: 18
+            on a filing the calendar called 26 days late. The day it fired is
+            still said underneath when it differs. */}
+        {row.daysPastNow}
+        {row.daysPastNow !== row.daysPast && <Sub>{`${String(row.daysPast)} when raised`}</Sub>}
       </Td>
     </tr>
   );

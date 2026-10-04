@@ -15,6 +15,7 @@ import {
   Input,
   LinkButton,
   NotSet,
+  Notice,
   Pill,
   RowChevron,
   RowLink,
@@ -29,6 +30,7 @@ import {
 import { browserDay, longDay } from "@/lib/day";
 import { ConfirmAction } from "@/components/confirm-action";
 import { OwedPicture } from "./owed-picture";
+import { useSeesFees } from "@/components/fees";
 
 /**
  * Who owes the firm money, and what is being done about it.
@@ -54,6 +56,10 @@ export default function ReceivablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // F10/F33 (audit 2026-10-03): every figure here is what a client owes, and
+  // a login that cannot see fees reads them all as null. It is told so in one
+  // line rather than shown a table of Hidden (the nav does not offer it).
+  const seesFees = useSeesFees();
 
   const load = useCallback(async (): Promise<void> => {
     const [list, queue, me] = await Promise.all([
@@ -100,6 +106,14 @@ export default function ReceivablesPage() {
   }
 
   if (!loaded) return <Loading label="Loading receivables" />;
+  if (seesFees === false) {
+    return (
+      <Page>
+        <PageHeader title="Receivables" />
+        <Notice>These are what clients owe the firm, and your login is not set to see fees.</Notice>
+      </Page>
+    );
+  }
 
   const mayDecide = permissions.includes("tenant:admin");
   // THE READER'S OWN CALENDAR DAY. `toISOString()` here is the UTC day, which
@@ -160,15 +174,18 @@ export default function ReceivablesPage() {
                     </Td>
                     <Td>
                       <Pill tone="danger">{codeLabel(p.action.action)}</Pill>
-                      <Sub>
-                        Step {p.action.step}, {p.action.afterDays} days after due
-                      </Sub>
+                      {/* The step's own key ("credit-hold") is the firm's
+                          internal name for it and repeats the pill (F24). */}
+                      <Sub>{p.action.afterDays} days after the due date</Sub>
                     </Td>
                     {/* Read NOW, not when the rung fired. A debt settled since
                         is exactly the case a partner rejects, and a stale
                         figure would hide it. */}
                     <Td align="right" className="nowrap">
                       {formatMoney(p.outstanding, p.currency)}
+                      {/* WITHDRAWN SINCE THE STEP FIRED (B22): nothing is owed,
+                          and only Reject is offered. */}
+                      {p.invoiceStatus === "cancelled" && <Sub>Invoice cancelled since</Sub>}
                     </Td>
                     {mayDecide && (
                       <Td>
@@ -276,8 +293,14 @@ function DecideRow({
 }) {
   const [why, setWhy] = useState("");
   const step = codeLabel(item.action.action).toLowerCase();
+  // NOTHING OWED, NOTHING TO APPROVE (B22): a cancelled invoice, or one paid
+  // since the step fired. The API refuses the approval too.
+  const nothingOwed = item.invoiceStatus !== "issued" || /^-?0*(\.0+)?$/.test(item.outstanding ?? "x") || (item.outstanding ?? "").startsWith("-");
+  // THE REASON ABOVE THE TWO BUTTONS, in a column of a fixed width (F20). In
+  // one row the box and both buttons made the column wider than the card at
+  // 1280, and Approve / Reject sat partly out of view.
   return (
-    <div className="cluster">
+    <div className="stack tight" style={{ width: "16rem" }}>
       <Input
         size="sm"
         name="why"
@@ -288,6 +311,8 @@ function DecideRow({
           setWhy(e.target.value);
         }}
       />
+      <div className="cluster">
+      {!nothingOwed && (
       <ConfirmAction
         size="sm"
         variant="destructive-quiet"
@@ -309,6 +334,7 @@ function DecideRow({
       >
         Approve
       </ConfirmAction>
+      )}
       <Button
         size="sm"
         variant="secondary"
@@ -319,6 +345,7 @@ function DecideRow({
       >
         Reject
       </Button>
+      </div>
     </div>
   );
 }

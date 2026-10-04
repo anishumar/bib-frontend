@@ -92,6 +92,8 @@ import { Button } from "@/components/ui";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ThemeSwitch } from "@/components/layout/theme";
 import { browserDay } from "@/lib/day";
+import { firmInitials } from "@/lib/brand";
+import { readSession, retryDelayMs } from "@/lib/session";
 
 const PortalSessionContext = createContext<Principal | null>(null);
 
@@ -209,6 +211,9 @@ export function PortalFrame({ children }: { children: ReactNode }) {
   const open = isOpenRoute(pathname);
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [checked, setChecked] = useState(false);
+  /** The last read found the API busy or out of reach (F15). Never a sign-out. */
+  const [busy, setBusy] = useState<{ attempt: number; retryMs: number } | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   const [counts, setCounts] = useState<{ awaitingYou: number; withTheFirm: number } | null>(
     null,
   );
@@ -243,15 +248,30 @@ export function PortalFrame({ children }: { children: ReactNode }) {
     if (open) return;
     let live = true;
     void (async () => {
-      const me = await api.GET("/api/v1/auth/me", {});
+      const me = await readSession();
       if (!live) return;
-      setPrincipal(me.data ?? null);
+      // Only a 401 signs a client out (F15): busy keeps what was known.
+      if (me.kind === "busy") {
+        setBusy((was) => {
+          const attempt = was === null ? 0 : was.attempt + 1;
+          return { attempt, retryMs: retryDelayMs(attempt, me.waitMs) };
+        });
+        return;
+      }
+      setBusy(null);
+      setPrincipal(me.kind === "in" ? me.principal : null);
       setChecked(true);
     })();
     return () => {
       live = false;
     };
-  }, [open, pathname]);
+  }, [open, pathname, retryTick]);
+
+  useEffect(() => {
+    if (busy === null) return;
+    const timer = window.setTimeout(() => { setRetryTick((n) => n + 1); }, busy.retryMs);
+    return () => { window.clearTimeout(timer); };
+  }, [busy]);
 
   useEffect(() => {
     if (open || !checked) return;
@@ -270,6 +290,26 @@ export function PortalFrame({ children }: { children: ReactNode }) {
   // no session yet, so there is nothing to put in a sidebar and nobody to name
   // in it. The sign-in page makes the same choice from the other end.
   if (open) return <div className="portal">{children}</div>;
+
+  if (!checked && busy !== null) {
+    const seconds = Math.ceil(busy.retryMs / 1000);
+    return (
+      <div className="portal">
+        <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center" }}>
+          <div role="status" style={{ textAlign: "center", display: "grid", gap: "var(--s-3)" }}>
+            <p>
+              The portal is busy. Trying again in {seconds} {seconds === 1 ? "second" : "seconds"}.
+            </p>
+            <div>
+              <Button variant="secondary" onClick={() => { setRetryTick((n) => n + 1); }}>
+                Try now
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Before the answer, and while a redirect is in flight, render nothing rather
   // than a flash of somebody else's page.
@@ -306,8 +346,9 @@ export function PortalFrame({ children }: { children: ReactNode }) {
               pointed at a tenant row that is gone — and the fallback is a
               sentence rather than an empty space. */}
           <Link href="/portal" className="brand">
+            {/* The FIRM's initials, never the product's "10x" (CA#40). */}
             <span className="mark" aria-hidden="true">
-              10x
+              {firmInitials(principal.tenantName)}
             </span>
             <span className="brand-id">
               <b>{principal.tenantName ?? "Your accountants"}</b>

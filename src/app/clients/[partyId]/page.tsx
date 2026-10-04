@@ -20,7 +20,7 @@ import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
-import { CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
+import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import {
   Button,
   Card,
@@ -46,6 +46,11 @@ import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { browserDay, longDay } from "@/lib/day";
 import { groupCompanies } from "@/lib/group";
+import { countryName } from "@/lib/country";
+import { entityKindLabel } from "@/lib/entity-kind";
+import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Party 360 — everything the firm knows about one counterparty.
@@ -76,7 +81,6 @@ export default function PartyPage() {
   // Two fields on the Register form share one explanation, so the paragraph
   // stays outside them and they point at it. A hook, so it lives up here with
   // the others and not after an early return.
-  const registerHintId = useId();
   /**
    * The two lists the Relationships card needs, and neither is about this
    * party.
@@ -217,7 +221,8 @@ export default function PartyPage() {
    * repo already runs on: a write with no read — or, here, with no writer — is
    * not a stored fact.
    */
-  async function registerEntity(form: FormData): Promise<void> {
+  /** True once registered (F05 clears the form); after that the form is gone, since a company registers once. */
+  async function registerEntity(form: FormData): Promise<boolean> {
     setBusy(true);
     setError(null);
     const incorporatedOn = String(form.get("incorporatedOn") ?? "").trim();
@@ -234,9 +239,10 @@ export default function PartyPage() {
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     await load();
+    return true;
   }
 
   async function addIdentifier(form: FormData): Promise<void> {
@@ -289,11 +295,12 @@ export default function PartyPage() {
    * while `party_relationship.ended` sat in the ledger vocabulary with nothing
    * raising it, which is what this comment used to say instead.
    */
-  async function addRelationship(form: FormData): Promise<void> {
+  /** True once recorded: the form stays for the next one and clears (F05). */
+  async function addRelationship(form: FormData): Promise<boolean> {
     const other = String(form.get("otherParty") ?? "");
     // "parent_of:out" — the code and which end THIS party is standing at.
     const [type = "", end = ""] = String(form.get("relation") ?? "").split(":");
-    if (other === "" || type === "") return;
+    if (other === "" || type === "") return false;
     const validTo = String(form.get("relValidTo") ?? "").trim();
     setRelBusy(true);
     setError(null);
@@ -309,10 +316,11 @@ export default function PartyPage() {
     setRelBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     setRelOther("");
     await load();
+    return true;
   }
 
   /**
@@ -450,7 +458,9 @@ export default function PartyPage() {
                 .join(" · ") || "Company"
             : profile.person !== null
               ? [
-                  profile.person.nationality,
+                  profile.person.nationality === null || profile.person.nationality === ""
+                    ? null
+                    : countryName(profile.person.nationality),
                   profile.person.dateOfBirth === null ? null : longDay(profile.person.dateOfBirth),
                 ]
                   .filter((v): v is string => v !== null && v !== "")
@@ -535,6 +545,17 @@ export default function PartyPage() {
         rungs={rungs}
       />
 
+      {/* CA#22 (audit 2026-10-03): where the client is billed. Not for one
+          of the firm's own companies, whose address is on Your firm. */}
+      {!profile.party.isOwnCompany && (
+        <BillingAddressCard
+          partyId={partyId}
+          current={profile.party.billingAddress}
+          canWrite={canWrite && profile.party.archivedAt === null}
+          onSaved={load}
+        />
+      )}
+
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered
           company is not a blank space on this page — it is the reason its
           compliance calendar is empty, and the empty state is the only place
@@ -562,10 +583,8 @@ export default function PartyPage() {
               <tbody>
                 {profile.legalEntities.map((e) => (
                   <tr key={`${e.jurisdiction}-${e.entityType}`}>
-                    <Td>
-                      <Pill tone="code">{e.jurisdiction}</Pill>
-                    </Td>
-                    <Td>{codeLabel(e.entityType)}</Td>
+                    <Td>{countryName(e.jurisdiction)}</Td>
+                    <Td>{entityKindLabel(e.entityType)}</Td>
                     <Td className="nowrap">
                       {e.incorporatedOn === null ? <NotSet /> : longDay(e.incorporatedOn)}
                     </Td>
@@ -599,43 +618,34 @@ export default function PartyPage() {
 
           {/* The write that had no caller. Offered on `party:write`, the same
               permission the identifier form below takes — registering a company
-              is a fact about a client, not an administrative act. OPEN while
-              there is no registration (it is why the calendar is empty), behind
-              a disclosure once there is one. */}
-          {permissions.includes("party:write") && (
-            <details className="card-foot" open={profile.legalEntities.length === 0}>
-              <summary>
-                {profile.legalEntities.length === 0 ? "Register it" : "Register in another country"}
-              </summary>
+              is a fact about a client, not an administrative act. Offered only
+              while there is NO registration: a company is registered once, and
+              a company in another country is its own client (the API refuses a
+              second one, ALREADY_REGISTERED). */}
+          {permissions.includes("party:write") && profile.legalEntities.length > 0 && (
+            <p className="card-foot text-sm text-muted">
+              A company is registered in one country. For a company in another country, add it as its
+              own client and link the two as one group.
+            </p>
+          )}
+          {permissions.includes("party:write") && profile.legalEntities.length === 0 && (
+            <details className="card-foot" open>
+              <summary>Register it</summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void registerEntity(form);
-              }}
+              onSubmit={(event) => keepTyped(event, (form) => registerEntity(form))}
             >
               <FieldStack>
                 <FieldRow>
-                  {/* The line below explains BOTH of these and neither on its
-                      own, so it stays outside the fields and they point at it
-                      by hand — `Field`'s own `hint` would have had to say it
-                      twice, once under each. */}
+                  {/* By NAME, both (CA#22): a country picker and a list of
+                      kinds, saved as the codes the filing rules match on. They
+                      were typed codes ("e.g. IN", "use the codes your
+                      compliance rules use"). */}
                   <Field label="Country">
-                    <Input
-                      name="jurisdiction"
-                      maxLength={2}
-                      placeholder="e.g. IN"
-                      required
-                      aria-describedby={registerHintId}
-                      style={{ textTransform: "uppercase" }}
-                    />
+                    <CountrySelect name="jurisdiction" blankLabel="Choose a country" required />
                   </Field>
                   <Field label="Kind of company">
-                    <Input
-                      name="entityType"
-                      placeholder="e.g. Private Limited"
-                      required
-                      aria-describedby={registerHintId}
-                    />
+                    <EntityKindSelect name="entityType" required />
                   </Field>
                   <Field label="Incorporated" optional>
                     <Input name="incorporatedOn" type="date" />
@@ -650,11 +660,6 @@ export default function PartyPage() {
                     />
                   </Field>
                 </FieldRow>
-                {/* Compliance rules match the country exactly, and the kind of
-                    company narrows them: the codes must be the rules' own. */}
-                <p className="field-hint" id={registerHintId}>
-                  Use the codes your compliance rules use.
-                </p>
                 <div className="cluster">
                   <Button type="submit" variant="secondary" loading={busy}>
                     Register
@@ -747,9 +752,9 @@ export default function PartyPage() {
               // Remounted after each add, so the phone box empties with the rest.
               key={profile.identifiers.length}
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 void addIdentifier(form);
-              }}
+              })}
             >
               <FieldStack>
                 <FieldRow>
@@ -919,7 +924,7 @@ export default function PartyPage() {
               {longDay(ending.relationship.validFrom)}.
             </p>
             <ErrorNotice error={endError} />
-            <form action={endRelationship}>
+            <form onSubmit={(event) => keepTyped(event, endRelationship)}>
               <FieldStack>
                 {/* A DATE BOX, NOT A BANNER — and `FieldRow` does not do it,
                     which was worth measuring rather than assuming.
@@ -970,9 +975,7 @@ export default function PartyPage() {
             </summary>
             <form
               style={{ marginTop: "var(--s-3)" }}
-              action={(form) => {
-                void addRelationship(form);
-              }}
+              onSubmit={(event) => keepTyped(event, (form) => addRelationship(form))}
             >
               {/* A NAMED GROUP WITH NO LEGEND, and it is not decoration.
                   Measured on this page with the form open: the account team's
@@ -1000,8 +1003,10 @@ export default function PartyPage() {
                       <option value="" disabled>
                         Choose a company or a person
                       </option>
+                      {/* Not the firm's own companies (CA#59): they are who
+                          does the work, never related to a client this way. */}
                       {parties
-                        .filter((c) => c.id !== partyId)
+                        .filter((c) => c.id !== partyId && !c.isOwnCompany)
                         .map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.displayName}
@@ -1026,8 +1031,11 @@ export default function PartyPage() {
                     </option>
                     {relationChoices(
                       types,
-                      profile.party.displayName,
-                      parties.find((c) => c.id === relOther)?.displayName ?? "",
+                      { name: profile.party.displayName, kind: profile.party.kind },
+                      (() => {
+                        const o = parties.find((c) => c.id === relOther);
+                        return o === undefined ? null : { name: o.displayName, kind: o.kind };
+                      })(),
                     ).map((c) => (
                       <option key={c.value} value={c.value}>
                         {c.sentence}
@@ -1187,15 +1195,40 @@ function relationSentence(r: PartyRelationship, types: readonly RelationshipType
  * blank in it is not a sentence, and offering "Cobalt Foods is the parent of"
  * with nothing after it invites somebody to choose it.
  */
+type PartyKind = "organization" | "person";
+
+/**
+ * Which way round each relationship can be true, by the kinds of the two
+ * parties (CA#53). Every type was offered both ways for any two parties, so
+ * the list held "Deccan Agro Foods is a director of Anil Deshpande". Only the
+ * plainly impossible is left out (the API refuses the same, `relationshipFits`):
+ * nobody is a director or a shareholder OF a person, and only a person is
+ * somebody's employee or signatory. A company as a director is left in, since
+ * some countries allow it. A code not listed is offered both ways, as before.
+ */
+const FITS: Readonly<Record<string, (from: PartyKind, to: PartyKind) => boolean>> = {
+  director_of: (_from, to) => to === "organization",
+  shareholder_of: (_from, to) => to === "organization",
+  authorised_signatory_of: (from) => from === "person",
+  employee_of: (from) => from === "person",
+  parent_of: (from, to) => from === "organization" && to === "organization",
+};
+
 function relationChoices(
   types: readonly RelationshipType[],
-  thisName: string,
-  otherName: string,
+  thisParty: { readonly name: string; readonly kind: PartyKind },
+  other: { readonly name: string; readonly kind: PartyKind } | null,
 ): { value: string; sentence: string }[] {
-  if (otherName === "") return [];
+  if (other === null || other.name === "") return [];
+  const fits = (code: string, from: PartyKind, to: PartyKind): boolean =>
+    FITS[code]?.(from, to) ?? true;
   return types.flatMap((t) => [
-    { value: `${t.code}:out`, sentence: `${thisName} is ${t.label} ${otherName}` },
-    { value: `${t.code}:in`, sentence: `${otherName} is ${t.label} ${thisName}` },
+    ...(fits(t.code, thisParty.kind, other.kind)
+      ? [{ value: `${t.code}:out`, sentence: `${thisParty.name} is ${t.label} ${other.name}` }]
+      : []),
+    ...(fits(t.code, other.kind, thisParty.kind)
+      ? [{ value: `${t.code}:in`, sentence: `${other.name} is ${t.label} ${thisParty.name}` }]
+      : []),
   ]);
 }
 

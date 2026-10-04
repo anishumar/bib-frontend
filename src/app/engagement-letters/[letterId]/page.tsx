@@ -1,5 +1,9 @@
 "use client";
 
+import { QuantityField } from "@/components/quantity-field";
+import { BillingTimingControl } from "@/components/billing-timing";
+import { AdvanceStatus } from "@/components/advance-status";
+import { LineAdvanceControl } from "@/components/line-advance";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +20,7 @@ import {
   formatCount,
   formatMoney,
   lawFits,
+  perPeriod,
   readClauseBody,
   readServiceBody,
 } from "@/lib/api/client";
@@ -58,6 +63,9 @@ import { EngagementActions, EngagementStatePill } from "@/components/engagement-
 import { RoutingWarning } from "@/components/letter-builder/routing-warning";
 import { totalWords } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
+import { Money } from "@/components/fees";
+import { StandardsHelp } from "@/lib/ui/who-may";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * One engagement letter: the document, its signatures, and the work it created.
@@ -251,6 +259,13 @@ export default function LetterPage() {
   const pickedService = (() => {
     const entry = services.find((e) => e.published?.id === picked) ?? services[0];
     return entry === undefined ? null : readServiceBody(entry.published?.body);
+  })();
+  // How often the picked service is billed, as the catalogue says: the label
+  // and the live fee of the quantity box follow it (F03).
+  const pickedRecurrence = (() => {
+    const entry = services.find((e) => e.published?.id === picked) ?? services[0];
+    const raw = entry?.published?.body?.["recurrence"];
+    return typeof raw === "string" ? raw : null;
   })();
   // A draft deleted as a mistake (0086) is still a draft by status, and FINAL:
   // nothing on this page may be offered for it, so it is not a draft here.
@@ -665,9 +680,17 @@ export default function LetterPage() {
             <tr>
               <Th>Line</Th>
               <Th>Begins</Th>
-              <Th align="right">Qty</Th>
+              <Th>Billed</Th>
+              {/* HOW MANY EACH PERIOD, the price for one, what comes off it, and
+                  the fee for one period (F03, F17): "12 · INR 25,000 · INR
+                  2,70,000" read as an arithmetic error with the 10% hidden. */}
+              <Th align="right">How many</Th>
               <Th align="right">Rate</Th>
-              <Th align="right">Net</Th>
+              <Th align="right">Discount</Th>
+              <Th align="right">Fee</Th>
+              {/* A SERVICE'S OWN ADVANCE (0320). Not on a letter with one
+                  advance for the whole of it: never both. */}
+              {!letter.advanceRequired && <Th align="right">Advance</Th>}
               {isDraft && <Th />}
             </tr>
           </thead>
@@ -731,11 +754,36 @@ export default function LetterPage() {
                         signature" already says it for a line with none. */}
                     {start.day !== null && <div className="text-sm text-muted">{start.from}</div>}
                   </Td>
+                  {/* WHEN IT IS INVOICED (0319): signing sets the engagement's
+                      billing schedule from this. A grouped line is billed with
+                      its section, whose own choice is on the section. */}
+                  <Td className="nowrap">
+                    {l.feeGroupId !== null ? (
+                      <span className="text-sm text-muted">With its section</span>
+                    ) : (
+                      <BillingTimingControl
+                        label={`When ${l.description} is billed`}
+                        frequency={l.billingFrequency}
+                        timing={l.billingTiming}
+                        on={l.billingOn}
+                        editable={isDraft && permissions.includes("party:write")}
+                        busy={busy !== null}
+                        onSave={(billingTiming, billingOn) => {
+                          void act(`timing-${l.id}`, () =>
+                            api.PATCH("/api/v1/engagement-letters/{letterId}/lines/{lineId}", {
+                              params: { path: { letterId, lineId: l.id } },
+                              body: { billingTiming, billingOn },
+                            }),
+                          );
+                        }}
+                      />
+                    )}
+                  </Td>
                   <Td align="right">{formatCount(l.quantity)}</Td>
                   {l.feeGroupId !== null ? (
                     // PRICED BY ITS SECTION (0083): no figure of its own to
                     // show, and a blank would read as free.
-                    <Td align="right" colSpan={2} className="text-sm text-muted">
+                    <Td align="right" colSpan={3} className="text-sm text-muted">
                       in {groupOf(l.feeGroupId)?.code ?? "a section"}
                       {(() => {
                         const g = groupOf(l.feeGroupId);
@@ -745,12 +793,46 @@ export default function LetterPage() {
                   ) : (
                     <>
                       <Td align="right" className="nowrap">
-                        {formatMoney(l.unitAmount, l.currency)}
+                        <Money amount={l.unitAmount} currency={l.currency} />
                       </Td>
                       <Td align="right" className="nowrap">
-                        {formatMoney(l.net, l.currency)}
+                        {l.discountPercent === null || /^0*(\.0+)?$/.test(l.discountPercent) ? (
+                          <span className="text-muted">None</span>
+                        ) : (
+                          `${formatCount(l.discountPercent)}%`
+                        )}
+                      </Td>
+                      <Td align="right" className="nowrap">
+                        <Money amount={l.net} currency={l.currency} />
+                        {l.net !== null && l.billingFrequency !== null && perPeriod(l.billingFrequency) !== "" && (
+                          <div className="text-sm text-muted">{perPeriod(l.billingFrequency).trim()}</div>
+                        )}
                       </Td>
                     </>
+                  )}
+                  {!letter.advanceRequired && (
+                    <Td align="right" className="nowrap">
+                      {l.feeGroupId !== null ? (
+                        <span className="text-sm text-muted">None</span>
+                      ) : (
+                        <LineAdvanceControl
+                          label={`Advance for ${l.description}`}
+                          amount={l.advanceAmount}
+                          hasAdvance={l.hasAdvance}
+                          currency={l.currency}
+                          editable={isDraft && permissions.includes("party:write")}
+                          busy={busy !== null}
+                          onSave={(advanceAmount) => {
+                            void act(`advance-${l.id}`, () =>
+                              api.PATCH("/api/v1/engagement-letters/{letterId}/lines/{lineId}", {
+                                params: { path: { letterId, lineId: l.id } },
+                                body: { advanceAmount },
+                              }),
+                            );
+                          }}
+                        />
+                      )}
+                    </Td>
                   )}
                   {isDraft && (
                     <Td align="right">
@@ -789,7 +871,7 @@ export default function LetterPage() {
             })}
             {lines.length === 0 && (
               <tr>
-                <Td colSpan={6} className="text-sm text-muted">
+                <Td colSpan={7} className="text-sm text-muted">
                   No services on this letter yet.
                 </Td>
               </tr>
@@ -810,14 +892,18 @@ export default function LetterPage() {
           </div>
           {letter.advanceRequired && (
             <div className="text-md text-muted">
-              advance {formatMoney(letter.advanceAmount, totals.currency)}
-              {letter.advanceRecordedAt === null
-                ? " · outstanding"
-                : ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
+              advance <Money amount={letter.advanceAmount} currency={totals.currency} />
+              {/* Where it stands is the Advance card's (0322: nothing writes
+                  advanceRecordedAt any more; letters from before T3 keep it). */}
+              {letter.advanceRecordedAt !== null && ` · recorded ${longInstant(letter.advanceRecordedAt)}`}
             </div>
           )}
         </div>
       </Card>
+
+      {/* THE ADVANCE (0320; 0322): its invoice and where it stands. It holds no
+          work since 0322 (signing starts it). Nothing when there is no advance. */}
+      {isSigned && <AdvanceStatus letterId={letterId} />}
 
       {/* ── The letter's own prose ─────────────────────────────────────
           Not clauses. A clause is a term of the contract, drawn from a versioned
@@ -925,10 +1011,21 @@ export default function LetterPage() {
               <Notice tone={standardTerms.added.length > 0 ? "ok" : "info"} role="status">
                 <div>
                   <p>
-                    {standardTerms.added.length === 0
-                      ? "No term was added."
-                      : `Added ${String(standardTerms.added.length)}: ${standardTerms.added.map((a) => a.title).join(", ")}.`}
+                    {standardTerms.added.length > 0
+                      ? `Added ${String(standardTerms.added.length)}: ${standardTerms.added.map((a) => a.title).join(", ")}.`
+                      : standardTerms.skipped.length === 0
+                        ? // CA#3: the firm has written none; say so and who can.
+                          `No term was added: the firm has no standard terms for ${record.issuingEntity.displayName} yet.`
+                        : "No term was added."}
                   </p>
+                  {standardTerms.added.length === 0 && standardTerms.skipped.length === 0 && (
+                    <StandardsHelp
+                      opening={false}
+                      terms="none"
+                      issuerPartyId={record.issuer.partyId}
+                      issuerHasCountry={record.issuer.jurisdiction !== null}
+                    />
+                  )}
                   {standardTerms.skipped.length > 0 && (
                     <ul className="mt-1 text-sm">
                       {standardTerms.skipped.map((s) => {
@@ -954,14 +1051,14 @@ export default function LetterPage() {
         {isDraft && (
           <form
             className="mt-4"
-            action={(form) => {
-              void act("clause", () =>
+            onSubmit={(event) => keepTyped(event, (form) => {
+              return act("clause", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/clauses", {
                   params: { path: { letterId } },
                   body: { clauseVersionId: String(form.get("clauseVersionId")) },
                 }),
               );
-            }}
+            })}
           >
             <div className="field-row">
               <Field
@@ -1005,7 +1102,7 @@ export default function LetterPage() {
             <summary className="card-title">Add a service</summary>
           <form
             className="mt-4"
-            action={(form) => {
+            onSubmit={(event) => keepTyped(event, (form) => {
               const effectiveFrom = String(form.get("effectiveFrom") ?? "").trim();
               // Only the tailored blocks somebody actually wrote. An empty box
               // means "print the catalogue's words", and the API refuses a
@@ -1022,7 +1119,9 @@ export default function LetterPage() {
                   .map((k) => [k, String(form.get(k) ?? "").trim()] as const)
                   .filter(([, v]) => v !== ""),
               );
-              void act("line", () =>
+              // Cleared only once it is on the letter (F05), the section
+              // choice with it: a refusal keeps all nine boxes as typed.
+              return act("line", () =>
                 api.POST("/api/v1/engagement-letters/{letterId}/lines", {
                   params: { path: { letterId } },
                   body: {
@@ -1045,8 +1144,11 @@ export default function LetterPage() {
                     ...tailored,
                   },
                 }),
-              );
-            }}
+              ).then((added) => {
+                if (added) setAddFee("");
+                return added;
+              });
+            })}
           >
             {/* `<Field>` throughout, which is what wires a label to its
                 control and points `aria-describedby` at the hint. Hand-rolled,
@@ -1141,9 +1243,8 @@ export default function LetterPage() {
               </div>
             )}
             <div className="field-row mb-4">
-              <Field label="Quantity">
-                <AmountInput decimals={4} name="quantity" defaultValue="1" required />
-              </Field>
+              {/* HOW MANY EACH PERIOD (F03): never a term in months. */}
+              <QuantityField frequency={pickedRecurrence} currency={letter.currency} />
               {addFee === "" && (
               <Field label={`Agreed price (${letter.currency})`}>
                 {/* THE LIST PRICE ONLY IN THIS LETTER'S OWN CURRENCY. A
@@ -1310,6 +1411,22 @@ export default function LetterPage() {
             <RoutingWarning routing={routing} client={record.party} />
           )}
 
+          {/* CA#2 / CA#3 (audit 2026-10-03): what the API will refuse a send
+              for, said before the press, with where the words come from. */}
+          {isDraft &&
+            (!record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "") ||
+              record.clauses.length === 0) && (
+              <Notice tone="warn" eyebrow="Before it can be sent">
+                <StandardsHelp
+                  opening={!record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "")}
+                  terms={record.clauses.length === 0 ? "missing" : false}
+                  issuerPartyId={record.issuer.partyId}
+                  issuerHasCountry={record.issuer.jurisdiction !== null}
+                  writeAt={`/engagement-letters/${letter.id}/build?step=preview` as Route}
+                />
+              </Notice>
+            )}
+
           {isDraft && signing.sends && (
             // WHOM DOCUSIGN SHOULD ASK. The client's signatory, by name and
             // address; DocuSign emails them the letter and they sign there. The
@@ -1318,7 +1435,7 @@ export default function LetterPage() {
             <form
               ref={sendForm}
               className="mt-2"
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 void act("send", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/send", {
                     // An undated letter is dated today where you are, not on
@@ -1332,7 +1449,7 @@ export default function LetterPage() {
                     },
                   }),
                 );
-              }}
+              })}
             >
               <p className="text-md text-muted">
                 {providerName} emails them the letter to sign. It shows as signed minutes later.
@@ -1426,13 +1543,33 @@ export default function LetterPage() {
               `.cluster` already sets `flex-wrap: wrap` and no margin at all —
               which is why `mt-3` is here: under DocuSign a form or a notice
               now sits directly above this row. */}
+          {/* NO E-SIGNATURE SERVICE (CA#23): say what the press does, before
+              and after. It said "Send for signature" and nothing went. */}
+          {isDraft && !signing.sends && (
+            <p className="text-md text-muted mt-2">
+              No e-signature service is set up, so nothing is emailed from here. Lock the letter,
+              download the PDF and send it to the client yourself, then record their signature
+              below when it comes back.
+            </p>
+          )}
+          {letter.status === "sent" && !signing.sends && (
+            <p className="text-md text-muted mt-2">
+              Nothing was emailed from here. If you have not yet, download the PDF and send it to
+              the client yourself, then record their signature below.
+            </p>
+          )}
+
           <div className="cluster mt-3">
             {isDraft && !signing.sends && (
               <ConfirmAction
                 disabled={busy !== null}
-                title={`Send ${letter.ref} for signature?`}
-                confirmLabel="Send it"
-                consequence={<p>{sendConsequence}</p>}
+                title={`Lock ${letter.ref} as sent?`}
+                confirmLabel="Lock it"
+                consequence={
+                  <p>
+                    {sendConsequence} Nothing is emailed: you send the PDF to the client yourself.
+                  </p>
+                }
                 onConfirm={() => {
                   void act("send", () =>
                     api.POST("/api/v1/engagement-letters/{letterId}/send", {
@@ -1441,7 +1578,7 @@ export default function LetterPage() {
                   );
                 }}
               >
-                Send for signature
+                Lock it as sent
               </ConfirmAction>
             )}
             {/* A letter the client has SEEN is withdrawn, which keeps the record
@@ -1473,26 +1610,13 @@ export default function LetterPage() {
                 Withdraw
               </ConfirmAction>
             )}
-            {letter.advanceRequired && isSigned && letter.advanceRecordedAt === null && (
-              <Button
-                disabled={busy !== null}
-                onClick={() => {
-                  void act("advance", () =>
-                    api.POST("/api/v1/engagement-letters/{letterId}/advance", {
-                      params: { path: { letterId } },
-                    }),
-                  );
-                }}
-              >
-                Record the advance
-              </Button>
-            )}
+
           </div>
 
           {letter.status === "sent" && recordsByHand && (
             <form
               className="mt-4"
-              action={(form) => {
+              onSubmit={(event) => keepTyped(event, (form) => {
                 const signedByTitle = String(form.get("signedByTitle") ?? "").trim();
                 void act("sign", () =>
                   api.POST("/api/v1/engagement-letters/{letterId}/signature", {
@@ -1508,7 +1632,7 @@ export default function LetterPage() {
                     },
                   }),
                 );
-              }}
+              })}
             >
               <p className="text-md text-muted">
                 {/* Said plainly, because the audit trail will say it too: this

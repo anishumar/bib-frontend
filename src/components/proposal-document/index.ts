@@ -13,7 +13,7 @@
  * `words` is how the PDF says money, frequency and the per-frequency total.
  * The builder says them the same way by importing them from here.
  */
-export { ProposalPdf, BrandMissing, TERMS, addPiece, blockPiece, choicePiece, textPiece } from "./proposal-pdf";
+export { ProposalPdf, BrandMissing, FeesNotShown, TERMS, addPiece, blockPiece, choicePiece, textPiece } from "./proposal-pdf";
 export { BackToStandard } from "./back-to-standard";
 export { EditableChoice, EditableText } from "./editable";
 export { EditableFee } from "./fee";

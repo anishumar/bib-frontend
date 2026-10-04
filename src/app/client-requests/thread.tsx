@@ -63,5 +63,8 @@ export function ReplyLine({
  */
 export function whereItStands(request: ClientRequest): string {
   if (!request.awaitingFirm) return "We replied last";
-  return request.replies.length === 0 ? "Waiting on us" : "They came back";
+  // "They came back" means they wrote AFTER we answered. It read off any reply
+  // at all, so a client who added a follow-up to a request the firm had never
+  // answered was shown as coming back (audit 2026-10-03, F29).
+  return request.replies.some((r) => r.authorSide === "firm") ? "They came back" : "Waiting on us";
 }

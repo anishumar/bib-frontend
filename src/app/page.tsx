@@ -4,12 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { api, apiError } from "@/lib/api/client";
+import { agoWords, api, apiError, billLabel, billingPersonName, invoiceNumberWords, noPriceWords } from "@/lib/api/client";
 import type {
+  BillingAdvance,
+  BillingAdvanceDuty,
+  BillingDue,
   ClientRequest,
   Escalation,
   MyStep,
   Readiness,
+  SentBack,
   StepCheck,
   WorkItem,
   WorkItemCheckRow,
@@ -53,8 +57,13 @@ import { readinessCount } from "@/lib/ui/readiness";
  *                             steps waiting for a checker
  *   /client-requests          the live inbox, kept to what is on my desk
  *   /escalations?mine         what the ladder told me about
+ *   /billing/dues?mine        bills to raise: mine as the manager, and my
+ *                             reports' once a week has passed (0318)
+ *   /billing/advances?mine    advances still a draft or unpaid that I chase:
+ *                             as the client's SPOC, Key Manager or partner,
+ *                             and as an admin to issue, or a week on (0322)
  *
- * Six calls on load (seven for an administrator, who also gets the firm's setup
+ * Eight calls on load (nine for an administrator, who also gets the firm's setup
  * readiness as one line at the top, V2.6), and nothing per row: every read carries the client BY ID
  * and the due day, which the API grew for this screen. An escalation about one
  * of my own tasks is a FLAG on that task's row, not a second row.
@@ -72,14 +81,29 @@ import { readinessCount } from "@/lib/ui/readiness";
  * ── WHOSE TURN ─────────────────────────────────────────────────────────────
  *
  * Every row says who has to move next: you; a checker (your task or step is
- * waiting for a check); the client (you replied and they have not come back);
- * or an earlier step (a step on your desk that cannot start yet). Waiting on the
+ * waiting for a check); the client (you replied and they have not come back,
+ * or an advance invoice they have not paid); an admin (a draft invoice only an
+ * administrator may issue, `tenant:admin`); or an earlier step (a step on your
+ * desk that cannot start yet). Waiting on the
  * client for a TASK is not derivable yet (it needs the open asks on the board's
  * read, a P1 task), so a task is yours or a checker's.
+ *
+ * ── SENT BACK TO YOU (audit 2026-10-03, CA#29) ─────────────────────────────
+ *
+ * A task or step a checker sent back, and nobody has sent again, is "Sent back
+ * to you" with the checker's note under it, and it is on the desk NOW (Today,
+ * unless already late) whatever its due day. The roleplay's article was sent
+ * back with a note and this screen said she was up to date.
+ *
+ * ── THE COMPANY, NOT THE GROUP (F32) ───────────────────────────────────────
+ *
+ * The Client column names the company the work is for when the work names one
+ * ("TDS deposit · Cobalt Logistics" read "Cobalt Foods" before), and the group
+ * only when it does not.
  */
 
 type Bucket = "overdue" | "today" | "week" | "later";
-type Turn = "me" | "checker" | "client" | "earlier";
+type Turn = "me" | "checker" | "client" | "admin" | "earlier";
 
 interface Row {
   readonly key: string;
@@ -101,6 +125,7 @@ const TURN_WORDS: Readonly<Record<Turn, string>> = {
   me: "You",
   checker: "A checker",
   client: "The client",
+  admin: "An admin",
   earlier: "An earlier step",
 };
 
@@ -159,6 +184,9 @@ export default function MyDayPage() {
   const userId = session?.userId ?? null;
   // Only an administrator sees the firm's setup (the API refuses anybody else).
   const admin = session?.permissions.includes("tenant:admin") === true;
+  // CA#6 (0335): issuing a draft invoice is `invoice:issue`, not the whole of
+  // administering the firm.
+  const issuer = session?.permissions.includes("invoice:issue") === true;
 
   useEffect(() => {
     // The shell knows who is signed in; until it does there is nothing to ask.
@@ -166,14 +194,18 @@ export default function MyDayPage() {
     let live = true;
     void (async () => {
       const today = browserDay();
-      const [tasks, steps, taskChecks, stepChecks, requests, escalated, ready] = await Promise.all([
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready, advances] = await Promise.all([
         api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
         api.GET("/api/v1/my-steps", {}),
         api.GET("/api/v1/work-item-checks", {}),
         api.GET("/api/v1/checks", {}),
         api.GET("/api/v1/client-requests", {}),
         api.GET("/api/v1/escalations", { params: { query: { mine: "true" } } }),
+        api.GET("/api/v1/billing/dues", { params: { query: { mine: "true" } } }),
         admin ? api.GET("/api/v1/tenancy/readiness", {}) : Promise.resolve(null),
+        // Every staff login: the API answers only the advances this person
+        // chases, each with why (`duties`), so nobody else's is listed (0322).
+        api.GET("/api/v1/billing/advances", { params: { query: { mine: "true" } } }),
       ]);
       if (!live) return;
       if (tasks.response.status === 401) {
@@ -189,12 +221,15 @@ export default function MyDayPage() {
       }
       const built = buildRows({
         me: userId,
+        issuer,
         tasks: tasks.data.items,
         steps: steps.data?.steps ?? [],
         taskChecks: taskChecks.data?.checks ?? [],
         stepChecks: stepChecks.data?.checks ?? [],
         requests: requests.data?.requests ?? [],
         escalations: escalated.data?.rows ?? [],
+        dues: bills.data?.dues ?? [],
+        advances: advances.data?.advances ?? [],
       });
       setRows(built);
       setReadiness(ready?.data ?? null);
@@ -210,7 +245,7 @@ export default function MyDayPage() {
     return () => {
       live = false;
     };
-  }, [userId, admin, router, reportCounts]);
+  }, [userId, admin, issuer, router, reportCounts]);
 
   if (session === null || rows === null) return <Loading label="Loading your day" />;
 
@@ -222,6 +257,9 @@ export default function MyDayPage() {
     (grouped.get("overdue")?.length ?? 0) +
     (grouped.get("today")?.length ?? 0) +
     (grouped.get("week")?.length ?? 0);
+  // "Nothing due" with a filing legally due in eight days read as "you are up
+  // to date" (CA#11). With nothing this week, the next dated thing is named.
+  const next = grouped.get("later")?.find((r) => r.dueOn !== null) ?? null;
 
   return (
     <Page>
@@ -233,7 +271,13 @@ export default function MyDayPage() {
 
       {dueSoon === 0 && (
         <Card>
-          <Empty title="Nothing due. You are up to date." icon="check" />
+          {next === null || next.dueOn === null ? (
+            <Empty title="Nothing due. You are up to date." icon="check" />
+          ) : (
+            <Empty title="Nothing due this week" icon="check">
+              {`Next: ${next.what}${next.clientName === null ? "" : `, ${next.clientName}`}, due ${longDay(next.dueOn)}.`}
+            </Empty>
+          )}
         </Card>
       )}
 
@@ -367,12 +411,17 @@ function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
  */
 function buildRows(input: {
   me: string;
+  /** Holds `invoice:issue` (0335): issues a draft invoice. */
+  issuer: boolean;
   tasks: readonly WorkItem[];
   steps: readonly MyStep[];
   taskChecks: readonly WorkItemCheckRow[];
   stepChecks: readonly StepCheck[];
   requests: readonly ClientRequest[];
   escalations: readonly Escalation[];
+  dues: readonly BillingDue[];
+  /** `?mine=true`: the advances I chase, each with its `duties`. */
+  advances: readonly BillingAdvance[];
 }): Row[] {
   const out: Row[] = [];
 
@@ -396,17 +445,24 @@ function buildRows(input: {
     // One word: the rung and who was told are on the board's Escalated tab, and
     // the firm's rung label repeated on every late row drowned the reason above.
     if (escalatedTask.has(t.id)) flags.push({ tone: "warn", text: "Escalated" });
+    // The date is the LAW's, not the firm's turnaround (CA#11): said, so a
+    // filing's deadline is not read as a soft target.
+    if (t.isStatutoryDue && t.dueOn !== null) flags.push({ tone: "warn", text: "Legal due date" });
+    // SENT BACK TO YOU (CA#29): the checker's note, under the title.
+    const back = t.hasOpenReview ? null : t.sentBack;
+    if (back !== null) flags.unshift({ tone: "danger", text: sentBackWords(back) });
     out.push({
       key: `task-${t.id}`,
       what: t.title,
-      kind: `Task · ${t.state.name}`,
+      kind: back !== null ? "Sent back to you" : `Task · ${t.state.name}`,
       href: `/work-items/${t.id}` as Route,
-      clientId: t.clientPartyId,
-      clientName: t.clientName,
+      // The company the work is for, when it names one (F32).
+      clientId: t.entityPartyId ?? t.clientPartyId,
+      clientName: t.entityName ?? t.clientName,
       dueOn: t.dueOn,
       turn: t.hasOpenReview ? "checker" : "me",
       flags,
-      now: false,
+      now: back !== null,
     });
   }
 
@@ -420,19 +476,27 @@ function buildRows(input: {
   const mySteps = new Set(input.steps.map((s) => stepKey(s.jobId, s.stepKey)));
   for (const s of input.steps) {
     const waitingForCheck = checking.has(stepKey(s.jobId, s.stepKey));
+    const back = waitingForCheck ? null : s.sentBack;
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (back !== null) flags.push({ tone: "danger", text: sentBackWords(back) });
+    // The job's date is a filing's legal date when that came first (CA#11).
+    if (s.job !== null && s.job.filingDueOn !== null && s.job.filingDueOn === s.job.dueOn) {
+      flags.push({ tone: "warn", text: "Legal due date" });
+    }
     out.push({
       key: `step-${s.id}`,
       what: s.label,
-      kind: `${waitingForCheck ? "Step, done" : "Step"} · ${jobWords(s.job)}`,
+      kind: back !== null ? `Sent back to you · ${jobWords(s.job)}` : `${waitingForCheck ? "Step, done" : "Step"} · ${jobWords(s.job)}`,
       href: `/work/${s.jobId}` as Route,
-      clientId: s.job?.clientPartyId ?? null,
-      clientName: s.job?.clientName ?? null,
+      // The company the job is for (F32), else whoever is billed.
+      clientId: s.job?.entityPartyId ?? s.job?.clientPartyId ?? null,
+      clientName: s.job?.entityName ?? s.job?.clientName ?? null,
       dueOn: s.job?.dueOn ?? null,
       // `blocked` on a step is the engine waiting on a PERSON: this one, unless
       // the step is done and a check is open on it.
       turn: waitingForCheck ? "checker" : s.status === "pending" ? "earlier" : "me",
-      flags: [],
-      now: false,
+      flags,
+      now: back !== null,
     });
   }
 
@@ -445,8 +509,8 @@ function buildRows(input: {
       what: c.workItemTitle,
       kind: `Check${c.submittedByName === null ? "" : ` · by ${c.submittedByName}`}`,
       href: `/work-items/${c.workItemId}` as Route,
-      clientId: c.clientPartyId,
-      clientName: c.clientName,
+      clientId: c.entityPartyId ?? c.clientPartyId,
+      clientName: c.entityName ?? c.clientName,
       dueOn: c.dueOn,
       turn: "me",
       flags: [],
@@ -469,8 +533,8 @@ function buildRows(input: {
         mineToDecide && c.submittedByName !== null ? ` · by ${c.submittedByName}` : ""
       }`,
       href: `/work/${c.jobId}` as Route,
-      clientId: c.job?.clientPartyId ?? null,
-      clientName: c.job?.clientName ?? null,
+      clientId: c.job?.entityPartyId ?? c.job?.clientPartyId ?? null,
+      clientName: c.job?.entityName ?? c.job?.clientName ?? null,
       dueOn: c.job?.dueOn ?? null,
       turn: mineToDecide ? "me" : "checker",
       flags: [],
@@ -510,7 +574,7 @@ function buildRows(input: {
       kind: `Escalated to you${holder === null ? "" : ` · with ${holder}`}`,
       href: (e.workItemId !== null ? `/work-items/${e.workItemId}` : "/calendar") as Route,
       clientId: e.clientPartyId,
-      clientName: e.clientName ?? e.entityName,
+      clientName: e.entityName ?? e.clientName,
       dueOn: e.dueOn,
       turn: "me",
       flags: [],
@@ -518,5 +582,158 @@ function buildRows(input: {
     });
   }
 
+  out.push(...billRows(input.me, input.issuer, input.dues));
+  out.push(...advanceRows(input.advances));
+
   return out;
+}
+
+/** "Sent back by Priya Mehta: two bills missing" (CA#29). */
+function sentBackWords(back: SentBack): string {
+  const who = back.decidedByName === null ? "Sent back" : `Sent back by ${back.decidedByName}`;
+  return back.notes === null || back.notes.trim() === "" ? who : `${who}: ${back.notes}`;
+}
+
+const DUTY_WORDS: Readonly<Record<Exclude<BillingAdvanceDuty, "admin">, string>> = {
+  spoc: "SPOC",
+  key_manager: "Key Manager",
+  partner: "Partner",
+};
+
+/**
+ * ADVANCES I CHASE (0322). The work started at signing and the advance invoice
+ * was drafted then (Ashish, 2026-10-02); until it is paid it is on the desks of
+ * the client's SPOC for the work, its Key Manager and the partner above them
+ * (`duties`, worked out by the API). An administrator gets the ones waiting for
+ * an admin (no invoice yet, or a draft to issue) and any still pending a week
+ * after signing ("Escalated", the weekly summary's list).
+ *
+ * Whose turn: a draft is an admin's (only they issue), an issued one the
+ * client's (they pay). The row is dated the last day before the firm's
+ * Overdue days run out (`overdueOn`, Your firm), so it turns Overdue here the
+ * same morning the Advances tab says so. Until then it is Today, every day:
+ * Ashish asked for the reminder to stay on the dashboard until the money is
+ * in, and dated by its due day an unpaid advance sat in Later (closed) for its
+ * first week, which the walk found.
+ */
+function advanceRows(advances: readonly BillingAdvance[]): Row[] {
+  return advances.map((a) => {
+    const asAdmin = a.duties.includes("admin");
+    const roles = a.duties.filter((d): d is Exclude<BillingAdvanceDuty, "admin"> => d !== "admin");
+    const forWhat = a.engagementId === null ? a.letter.ref : `${a.serviceName} · ${a.letter.ref}`;
+    const invoice = a.invoice !== null && a.invoice.status !== "cancelled" ? a.invoice : null;
+    const issued = a.stage === "unpaid" || a.stage === "part_paid";
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (a.escalated) flags.push({ tone: "warn", text: "Escalated" });
+
+    let what: string;
+    let turn: Turn;
+    let href: Route = (invoice === null ? "/invoices?tab=advances" : `/invoices/${invoice.id}`) as Route;
+    if (issued) {
+      what = `Advance ${a.stage === "part_paid" ? "part paid" : "not paid"}: ${invoiceNumberWords(invoice?.number ?? null)}`;
+      turn = "client";
+    } else if (a.stage === "on_draft") {
+      // Item 14b: issuing is an admin's, so a SPOC or a manager is told where it is.
+      what = asAdmin ? "Issue the advance invoice" : "Advance invoice: with an admin to issue";
+      turn = asAdmin ? "me" : "admin";
+    } else if (a.draftBlocked === "billed_by_hand" && a.handRaised !== null) {
+      // Linking an advance is an admin's too (0321).
+      what = asAdmin ? `Link ${a.handRaised.number} as the advance` : `Advance: with an admin to link ${a.handRaised.number}`;
+      turn = asAdmin ? "me" : "admin";
+      href = "/invoices?tab=raise" as Route;
+    } else if (a.draftBlocked === "no_tax_rate" && asAdmin) {
+      what = `Set a tax rate for ${a.issuer.displayName}`;
+      turn = "me";
+      href = "/admin/firm#billing" as Route;
+    } else {
+      // No invoice yet: anybody who may raise (the SPOC, a manager) can, typing
+      // the tax rate in the dialog.
+      what = "Raise the advance invoice";
+      turn = "me";
+      href = "/invoices?tab=raise" as Route;
+    }
+
+    const since = `${issued ? "issued" : "signed"} ${agoWords(a.daysPending)}`;
+    const role = roles.length === 0 ? "" : ` · you are the ${roles.map((d) => DUTY_WORDS[d]).join(", ")}`;
+    return {
+      key: `advance-${a.id}`,
+      what,
+      kind: `Advance · ${forWhat} · ${since}${role}`,
+      href,
+      clientId: a.party.id,
+      clientName: a.party.displayName,
+      dueOn: a.overdueOn === null ? null : addDays(a.overdueOn, -1),
+      turn,
+      flags,
+      now: true,
+    };
+  });
+}
+
+/**
+ * BILLS TO RAISE (auto-invoice, 0318), from `/billing/dues?mine`: one row per
+ * invoice that could be raised (client, company, currency and manager, the four
+ * an invoice cannot mix), and one per draft invoice made from bills and not yet
+ * issued. Due on the last day before the oldest bill escalates to the
+ * manager's own manager (the API does that 7 days after the bill date, so it
+ * turns Overdue here the same morning); it is on my desk NOW either way. A
+ * bill escalated to me from somebody who reports to me says whose it is.
+ *
+ * A bill with NO PRICE is also on the client's SPOC's desk and every
+ * administrator's (Ashish: the SPOC, the manager and the admin, every week):
+ * "Needs a price · with <manager>", and a flag counting the weeks it has waited,
+ * which is the weekly reminder. The manager's own row carries the same flag.
+ *
+ * A draft made from bills is issued by an administrator only (`tenant:admin`),
+ * and since 0322 it has no number until then: an admin reads "Issue the draft
+ * invoice", anybody else "With an admin to issue" (review item 14b).
+ */
+function billRows(me: string, issuer: boolean, dues: readonly BillingDue[]): Row[] {
+  const groups = new Map<string, BillingDue[]>();
+  for (const d of dues) {
+    const key =
+      d.status === "drafted" && d.invoice !== null
+        ? `invoice-${d.invoice.id}`
+        : `bill-${[d.party.id, d.issuer.id, d.currency, d.manager?.userId ?? ""].join("|")}`;
+    groups.set(key, [...(groups.get(key) ?? []), d]);
+  }
+  const rows: Row[] = [];
+  for (const [key, list] of groups) {
+    const first = [...list].sort((a, b) => a.billOn.localeCompare(b.billOn))[0];
+    if (first === undefined) continue;
+    const more = list.length > 1 ? ` and ${String(list.length - 1)} more` : "";
+    const mine = first.manager?.userId === me;
+    const holder = first.manager === null ? null : billingPersonName(first.manager);
+    const drafted = first.status === "drafted" && first.invoice !== null;
+    const flags: { tone: "danger" | "warn"; text: string }[] = [];
+    if (mine && first.escalated && first.managerReportsTo !== null) {
+      flags.push({ tone: "warn", text: `Also with ${billingPersonName(first.managerReportsTo)}` });
+    }
+    // The longest-waiting bill with no price, counted in weeks.
+    const unpriced = list.filter((d) => !d.priced && d.status === "open");
+    if (unpriced.length > 0) {
+      flags.push({ tone: "warn", text: noPriceWords(Math.max(...unpriced.map((d) => d.daysSinceBillOn))) });
+    }
+    // Not the manager: either it escalated to me, or I am reminded of a price.
+    const escalatedToMe = list.some((d) => d.escalated && d.managerReportsTo?.userId === me);
+    rows.push({
+      key,
+      what: drafted
+        ? `${issuer ? "Issue the draft invoice" : "Waiting to be issued"}: ${billLabel(first)}${more}`
+        : `Raise the invoice: ${billLabel(first)}${more}`,
+      kind: mine
+        ? drafted
+          ? "Draft invoice"
+          : "Bill to raise"
+        : `${escalatedToMe ? "Escalated to you" : "Needs a price"}${holder === null ? "" : ` · with ${holder}`}`,
+      href: (drafted && first.invoice !== null ? `/invoices/${first.invoice.id}` : "/invoices?tab=raise") as Route,
+      clientId: first.party.id,
+      clientName: first.party.displayName,
+      dueOn: addDays(first.billOn, 6),
+      turn: drafted && !issuer ? "admin" : "me",
+      flags,
+      now: !drafted || issuer,
+    });
+  }
+  return rows;
 }

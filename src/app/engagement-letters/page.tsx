@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, apiError, codeLabel, formatMoney } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import { countryName } from "@/lib/country";
 import { longDay } from "@/lib/day";
 import type { LetterSummary } from "@/lib/api/client";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { Empty, Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
+import { Money } from "@/components/fees";
 
 /**
  * Engagement letters — what the firm has AGREED, as opposed to what it offered.
@@ -131,7 +132,7 @@ export default function LettersPage() {
                     </Pill>
                   </Td>
                   <Td align="right" className="nowrap">
-                    {formatMoney(l.totals.net, l.totals.currency)}
+                    <Money amount={l.totals.net} currency={l.totals.currency} />
                   </Td>
                   <RowChevron />
                 </Tr>

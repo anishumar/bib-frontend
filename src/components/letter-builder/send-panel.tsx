@@ -10,6 +10,13 @@ import { Card, CardTitle } from "@/components/tw";
 import { useSession } from "@/components/layout";
 import { RoutingWarning } from "./routing-warning";
 import { reloadLetter, useLetter } from "./store";
+import { StandardsHelp } from "@/lib/ui/who-may";
+
+/** "a, b and c". */
+function andWords(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1] ?? ""}`;
+}
 
 /**
  * SENDING THE LETTER FOR SIGNATURE, from the builder's step 3 (T6.18 S6).
@@ -47,8 +54,12 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
   const isDraft = letter.status === "draft" && letter.deletedAt === null;
   const canWrite = session?.permissions.includes("party:write") ?? false;
   const providerName = signing.provider === "docusign" ? "DocuSign" : signing.provider;
+  // CA#2 (audit 2026-10-03): page 1 must say something between "Dear …" and
+  // "Yours sincerely"; the API refuses the send otherwise (LETTER_HAS_NO_BODY).
+  const hasOpening = record.blocks.some((b) => b.kind === "cover" && !b.isHeading && b.body.trim() !== "");
   const missing = [
     record.lines.length === 0 ? "a service" : null,
+    hasOpening ? null : "an opening paragraph under Cover letter",
     record.clauses.length === 0 ? "the terms" : null,
   ].filter((m): m is string => m !== null);
   const name = signerName ?? record.addressedTo?.displayName ?? "";
@@ -111,8 +122,27 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
                 </Field>
               </FieldRow>
             )}
+            {/* NO E-SIGNATURE SERVICE (CA#23): the press locks the letter and
+                marks it sent, and nothing is emailed. It said "Send for
+                signature" and the manager believed the client had it. */}
+            {!signing.sends && (
+              <p className="text-sm text-muted">
+                No e-signature service is set up, so nothing is emailed from here. This locks the
+                letter. Download the PDF and send it to the client yourself, then record their
+                signature on the letter page.
+              </p>
+            )}
             {missing.length > 0 && (
-              <p className="text-sm text-muted">Add {missing.join(" and ")} before sending.</p>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted">Add {andWords(missing)} before sending.</p>
+                {/* Where the words come from, and who can write them (CA#3). */}
+                <StandardsHelp
+                  opening={!hasOpening}
+                  terms={record.clauses.length === 0 ? "missing" : false}
+                  issuerPartyId={record.issuer.partyId}
+                  issuerHasCountry={record.issuer.jurisdiction !== null}
+                />
+              </div>
             )}
             {error !== null && (
               <p role="alert" className="text-sm text-danger">
@@ -121,7 +151,7 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
             )}
             <div className="cluster">
               <Button type="submit" loading={busy} disabled={busy || missing.length > 0}>
-                {signing.sends ? `Send with ${providerName}` : "Send for signature"}
+                {signing.sends ? `Send with ${providerName}` : "Lock it as sent"}
               </Button>
             </div>
           </form>
@@ -130,7 +160,7 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
         {letter.status === "sent" && (
           <Notice tone="neutral" role="status">
             {signing.request === null
-              ? "Sent for signature. Record the client's signature on the letter page when it comes back."
+              ? "Locked as sent. Nothing was emailed from here: send the PDF to the client yourself, then record their signature on the letter page."
               : signing.request.envelopeId === null
                 ? `Sent, but ${providerName} has not emailed it yet. Try again from the letter page.`
                 : `Out for signature with ${providerName}, sent to ${signing.request.signerName}.`}

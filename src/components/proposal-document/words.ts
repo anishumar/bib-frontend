@@ -11,6 +11,7 @@
  * paper. There is no second copy to drift.
  */
 
+import { formatMoney } from "@/lib/api/client";
 import type { ProposalLine, ProposalRecord } from "@/lib/api/client";
 
 export type BillingFrequency = NonNullable<ProposalLine["billingFrequency"]>;
@@ -25,38 +26,17 @@ export const FREQUENCY_WORDS: Readonly<Record<BillingFrequency, string>> = {
   custom: "Custom",
 };
 
-type NumericLiteral = `${number}`;
-
 /**
- * `wholeMoney`: "INR 50,000" for a whole amount, "INR 12,500.50" when there is
- * a fraction, always the ISO code. The decimal STRING goes to Intl as it is
- * (Intl formats a numeric string exactly); it never becomes a JS number.
+ * `documentMoney` (render-source, audit 2026-10-03, B19 / CA#49): the PDF
+ * writes money exactly as every screen does now, "₹12,50,000" in lakhs for
+ * rupees, "AED 4,000" for any other currency, paise only when there are some.
+ * So the builder's words and the paper's are the screens' one formatter.
  */
 export function pdfMoney(amount: string, currency: string): string {
-  if (!/^-?\d+(?:\.\d+)?$/.test(amount)) return `${currency} ${amount}`;
-  const whole = /^-?\d+(\.0+)?$/.test(amount);
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  }).format(amount as NumericLiteral);
-  // Rupees in lakhs, as the proposal PDF prints them since 2026-09-28
-  // (`inLakhs` in render-source.ts): "INR 12,50,000".
-  return `${currency} ${currency === "INR" ? inLakhs(formatted) : formatted}`;
+  return formatMoney(amount, currency);
 }
 
-/** "1,250,000.50" to "12,50,000.50": the last three digits, then pairs. The
- *  renderer's own `inLakhs`, word for word. */
-function inLakhs(western: string): string {
-  const negative = western.startsWith("-");
-  const [integer = "", fraction] = (negative ? western.slice(1) : western).split(".");
-  const digits = integer.replace(/,/g, "");
-  const last = digits.slice(-3);
-  const rest = digits.slice(0, -3);
-  const pairs = rest.length === 0 ? [] : (rest.match(/(\d{1,2})(?=(\d{2})*$)/g) ?? []);
-  return `${negative ? "-" : ""}${[...pairs, last].join(",")}${fraction === undefined ? "" : `.${fraction}`}`;
-}
-
-/** `proposalFee`: "INR 50,000 Yearly (note)", or the line's reason for having
+/** `proposalFee`: "₹50,000 Yearly (note)", or the line's reason for having
  *  no price, never a blank or a zero (G1.6). */
 export function feeWords(
   net: string | null,

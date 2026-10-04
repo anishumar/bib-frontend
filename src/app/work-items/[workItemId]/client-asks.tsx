@@ -76,10 +76,22 @@ export function ClientAsks({
   workItemId,
   canWrite,
   isClientVisible,
+  about,
+  prefill,
+  hiddenHint = "Hidden from the client portal, so they will not see an ask. Turn it on above.",
 }: {
   workItemId: string;
   canWrite: boolean;
   isClientVisible: boolean;
+  /** Which task the asks hang off, said under the title where the panel is not
+   *  on the task's own page (a job's page, CA#37). */
+  about?: string;
+  /** Open the form with these words, each time `key` changes: a process step's
+   *  "Ask the client" (CA#37) starts the ask with the step's title. */
+  prefill?: { readonly key: number; readonly prompt: string } | null;
+  /** What to say when the task is hidden from the portal: the switch is on the
+   *  task's own page, so another page says where it is. */
+  hiddenHint?: string;
 }) {
   const [asks, setAsks] = useState<readonly ClientAsk[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,12 +101,22 @@ export function ClientAsks({
   // no screen can draw a control for" from a compile error into a 400 somebody
   // sees in the browser.
   const [kind, setKind] = useState<AskKind>("document");
-  const [documentKind, setDocumentKind] = useState<AskDocumentKind>("working_paper");
+  // Nothing preselected (F13): an untouched form filed every client document
+  // as a working paper.
+  const [documentKind, setDocumentKind] = useState<AskDocumentKind | "">("");
   const [prompt, setPrompt] = useState("");
   /** The ask form, closed until somebody means to ask (Wave 4): it was an open
    *  form of three fields on every task, asked of or not. */
   const [asking, setAsking] = useState(false);
   const { panel: formRef, trigger: openRef } = useSwapFocus(asking);
+  // A step's "Ask the client" (CA#37): React's recipe for following a prop,
+  // compared with what was last seen and set during render.
+  const [seenPrefill, setSeenPrefill] = useState<number | null>(null);
+  if (prefill !== undefined && prefill !== null && prefill.key !== seenPrefill) {
+    setSeenPrefill(prefill.key);
+    setAsking(true);
+    setPrompt(prefill.prompt);
+  }
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/work-items/{workItemId}/asks", {
@@ -126,8 +148,12 @@ export function ClientAsks({
     await load();
   }
 
-  const raise = () =>
-    act("raise", async () => {
+  const raise = () => {
+    if (kind === "document" && documentKind === "") {
+      setError("Choose how to file what the client sends.");
+      return Promise.resolve();
+    }
+    return act("raise", async () => {
       const result = await api.POST("/api/v1/work-items/{workItemId}/asks", {
         params: { path: { workItemId } },
         body: {
@@ -136,15 +162,17 @@ export function ClientAsks({
           // Sent ONLY for a document ask — the API refuses it on the other two,
           // because a filing decision on an approval is a field somebody filled
           // in without meaning to.
-          documentKind: kind === "document" ? documentKind : null,
+          documentKind: kind === "document" && documentKind !== "" ? documentKind : null,
         },
       });
       if (!result.error) {
         setPrompt("");
+        setDocumentKind("");
         setAsking(false);
       }
       return result;
     });
+  };
 
   if (asks === null && error === null) return null;
 
@@ -157,6 +185,7 @@ export function ClientAsks({
         <CardTitle level={2}>Asked of the client</CardTitle>
         {open.length > 0 && <Pill tone="warn">{`${String(open.length)} open`}</Pill>}
       </CardHead>
+      {about !== undefined && <p className="text-sm text-ink-2">{about}</p>}
 
       <Stack gap="tight">
         {/* THE ONE PLACE THIS PANEL AND THE SWITCH ABOVE INTERACT. An ask about
@@ -166,7 +195,7 @@ export function ClientAsks({
             somebody to discover from an unanswered request. */}
         {!isClientVisible && (
           <Notice tone="warn">
-            <p>Hidden from the client portal, so they will not see an ask. Turn it on above.</p>
+            <p>{hiddenHint}</p>
           </Notice>
         )}
 
@@ -244,8 +273,12 @@ export function ClientAsks({
                 <Field label="File it as" hint="The client never sees this.">
                   <Select
                     value={documentKind}
+                    required
                     onChange={(e) => setDocumentKind(e.target.value as AskDocumentKind)}
                   >
+                    <option value="" disabled>
+                      Choose…
+                    </option>
                     {DOCUMENT_KINDS.map((k) => (
                       <option key={k.value} value={k.value}>
                         {k.label}

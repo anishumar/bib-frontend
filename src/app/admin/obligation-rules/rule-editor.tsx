@@ -21,6 +21,9 @@ import {
   Table,
   Td,
 } from "@/components/ui";
+import { plural } from "@/lib/plural";
+import { CountrySelect } from "@/components/country-select";
+export { rulePackLabel } from "@/lib/rule-pack";
 
 /**
  * The form a partner answers a compliance rule with (T6.4).
@@ -79,9 +82,12 @@ export interface RuleDraft {
   readonly fiscalYearStartMonth: number;
   readonly hasFormula: boolean;
   readonly kind: DueRuleKind;
-  readonly dueMonthOffset: number;
-  readonly dueDayOfMonth: number;
-  readonly dueDaysAfter: number;
+  /** Null until somebody types it: a rule with no formula opens with EMPTY
+   *  boxes (audit 2026-10-03, CA#9). It pre-filled "the 20th of the following
+   *  month", which is GSTR-3B's date, onto a yearly return like ITR. */
+  readonly dueMonthOffset: number | null;
+  readonly dueDayOfMonth: number | null;
+  readonly dueDaysAfter: number | null;
   readonly unresolvedReason: string;
   readonly module: string;
   readonly authority: string;
@@ -115,9 +121,10 @@ export function draftOf(rule: ObligationRule | null): RuleDraft {
     // are writing it because they know when it is due.
     hasFormula: rule === null ? true : rule.dueRule != null,
     kind: rule?.dueRule?.kind ?? "day_of_month",
-    dueMonthOffset: rule?.dueRule?.dueMonthOffset ?? 1,
-    dueDayOfMonth: rule?.dueRule?.dueDayOfMonth ?? 20,
-    dueDaysAfter: rule?.dueRule?.dueDaysAfter ?? 30,
+    // The rule's own numbers, or nothing: never a guessed date (CA#9).
+    dueMonthOffset: rule?.dueRule?.dueMonthOffset ?? null,
+    dueDayOfMonth: rule?.dueRule?.dueDayOfMonth ?? null,
+    dueDaysAfter: rule?.dueRule?.dueDaysAfter ?? null,
     unresolvedReason: rule?.unresolvedReason ?? "",
     module: rule?.module ?? "",
     authority: rule?.authority ?? "",
@@ -201,15 +208,23 @@ function problemsOf(d: RuleDraft, creating: boolean): Problems {
   const out: Problems = {};
   if (creating) {
     if (d.name.trim() === "") out.name = "Give the filing a name, for example GSTR-3B.";
-    if (!/^[A-Za-z]{2}$/.test(d.jurisdiction.trim())) {
-      out.jurisdiction = "Give the country as its two-letter code, for example IN for India.";
+    if (d.jurisdiction.trim() === "") {
+      out.jurisdiction = "Choose the country.";
     }
     if (d.rulePack.trim() === "") {
       out.rulePack = `Give the rule pack a name. Your firm's own is ${firmRulePack()}.`;
     }
   }
-  if (d.hasFormula && d.kind === "day_of_month" && (d.dueDayOfMonth < 1 || d.dueDayOfMonth > 31)) {
-    out.dueDayOfMonth = "Give a day of the month from 1 to 31.";
+  if (d.hasFormula && d.kind === "day_of_month") {
+    if (d.dueDayOfMonth === null || d.dueDayOfMonth < 1 || d.dueDayOfMonth > 31) {
+      out.dueDayOfMonth = "Give a day of the month from 1 to 31.";
+    }
+    if (d.dueMonthOffset === null) {
+      out.dueMonthOffset = "Give the months after the period ends. 0 is the same month.";
+    }
+  }
+  if (d.hasFormula && d.kind === "days_after" && d.dueDaysAfter === null) {
+    out.dueDaysAfter = "Give the number of days.";
   }
   if (!d.hasFormula && d.unresolvedReason.trim() === "") {
     out.unresolvedReason =
@@ -233,8 +248,10 @@ export function describeDraft(d: RuleDraft): string {
   if (!d.hasFormula) return `${every} · no date is computed`;
   const from = d.recurrence === "event" ? "the event" : "the period ends";
   if (d.kind === "days_after") {
+    if (d.dueDaysAfter === null) return `${every} · the date is not filled in yet`;
     return `${every} · ${String(d.dueDaysAfter)} days after ${from}`;
   }
+  if (d.dueDayOfMonth === null || d.dueMonthOffset === null) return `${every} · the date is not filled in yet`;
   const day = ordinal(d.dueDayOfMonth);
   if (d.dueMonthOffset === 0) return `${every} · the ${day} of the month the period ends in`;
   if (d.dueMonthOffset === 1) return `${every} · the ${day} of the following month`;
@@ -385,6 +402,12 @@ function intOf(raw: string, min: number): number {
   return Number.isFinite(n) && n >= min ? n : min;
 }
 
+/** The same, but an EMPTY box stays empty (null): a formula number is never
+ *  filled in for the partner (CA#9). The form then says what is missing. */
+export function intOrNull(raw: string, min: number): number | null {
+  return raw.trim() === "" ? null : intOf(raw, min);
+}
+
 export function RuleEditor({
   draft,
   onChange,
@@ -495,11 +518,12 @@ export function RuleEditor({
               />
             </Field>
             <Field label="Country" error={shown.jurisdiction ?? null}>
-              <Input
+              {/* A picker (F24): it was a typed two-letter code. */}
+              <CountrySelect
                 value={draft.jurisdiction}
-                maxLength={2}
-                placeholder="e.g. IN"
-                onChange={(e) => { set("jurisdiction", e.target.value.toUpperCase()); }}
+                blankLabel="Choose a country"
+                required
+                onChange={(e) => { set("jurisdiction", e.target.value); }}
               />
             </Field>
             <Field label="Rule pack" error={shown.rulePack ?? null}>
@@ -568,7 +592,7 @@ export function RuleEditor({
           explanation rather than the API's 409. */}
       {shapeLocked && (
         <Notice tone="warn" eyebrow="The period shape is fixed now">
-          This rule has made {produced} filing{produced === 1 ? "" : "s"} on these periods. To
+          This rule has made {plural(produced, "filing")} on these periods. To
           change them, retire it and write a new one.
         </Notice>
       )}
@@ -598,24 +622,27 @@ export function RuleEditor({
                   <Field label="Day of the month" error={shown.dueDayOfMonth ?? null}>
                     <Input
                       inputMode="numeric"
-                      value={String(draft.dueDayOfMonth)}
-                      onChange={(e) => { set("dueDayOfMonth", intOf(e.target.value, 1)); }}
+                      placeholder="e.g. 15"
+                      value={draft.dueDayOfMonth === null ? "" : String(draft.dueDayOfMonth)}
+                      onChange={(e) => { set("dueDayOfMonth", intOrNull(e.target.value, 1)); }}
                     />
                   </Field>
-                  <Field label="Months after the period ends">
+                  <Field label="Months after the period ends" error={shown.dueMonthOffset ?? null}>
                     <Input
                       inputMode="numeric"
-                      value={String(draft.dueMonthOffset)}
-                      onChange={(e) => { set("dueMonthOffset", intOf(e.target.value, 0)); }}
+                      placeholder="e.g. 2"
+                      value={draft.dueMonthOffset === null ? "" : String(draft.dueMonthOffset)}
+                      onChange={(e) => { set("dueMonthOffset", intOrNull(e.target.value, 0)); }}
                     />
                   </Field>
                 </>
               ) : (
-                <Field label="Days after the period ends">
+                <Field label="Days after the period ends" error={shown.dueDaysAfter ?? null}>
                   <Input
                     inputMode="numeric"
-                    value={String(draft.dueDaysAfter)}
-                    onChange={(e) => { set("dueDaysAfter", intOf(e.target.value, 0)); }}
+                    placeholder="e.g. 30"
+                    value={draft.dueDaysAfter === null ? "" : String(draft.dueDaysAfter)}
+                    onChange={(e) => { set("dueDaysAfter", intOrNull(e.target.value, 0)); }}
                   />
                 </Field>
               )}

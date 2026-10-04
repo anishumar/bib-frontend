@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
 import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
-import { Page, PageHeader, Stack } from "@/components/layout";
+import { Page, PageHeader, Stack, useSession } from "@/components/layout";
 import { Loading } from "@/components/states";
 import { ConfirmDialog } from "@/components/confirm-action";
 import {
@@ -55,6 +55,8 @@ export default function PeoplePage() {
   const [grades, setGrades] = useState<StaffGrade[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** The last row change that held, said in a live region (CA#45). */
+  const [saved, setSaved] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   // "Add somebody" is the page's one brand button, top right, and opens a
   // dialog (Wave 4). What came of the last add is said ON THE PAGE after the
@@ -64,6 +66,11 @@ export default function PeoplePage() {
   // Revoking access asks first (V1.3); restoring it does not.
   const [revoking, setRevoking] = useState<{ member: Member; from: HTMLElement | null } | null>(null);
   const { trigger: addTrigger } = useSwapFocus(adding);
+  // F33 (audit 2026-10-03): somebody who reaches this page by its address
+  // without administering the firm was offered Add somebody over an empty
+  // table. They are shown the API's refusal and nothing to press.
+  const session = useSession();
+  const administers = session?.permissions.includes("tenant:admin") === true;
 
   const load = useCallback(async (): Promise<void> => {
     const [roster, published, ladder] = await Promise.all([
@@ -100,9 +107,15 @@ export default function PeoplePage() {
 
   /** Every mutation funnels through here so one place owns the busy flag, the
    *  error message and the reload. */
-  async function act(key: string, call: () => Promise<{ error?: unknown }>): Promise<void> {
+  async function act(
+    key: string,
+    call: () => Promise<{ error?: unknown }>,
+    /** What to say once it held (CA#45): these selects saved with no sign. */
+    done?: string,
+  ): Promise<void> {
     setBusy(key);
     setError(null);
+    setSaved(null);
     const result = await call();
     if (result.error) {
       setError(apiError(result.error).message);
@@ -111,14 +124,24 @@ export default function PeoplePage() {
     }
     await load();
     setBusy(null);
+    if (done !== undefined) setSaved(done);
   }
 
+  /** The person's name as the roster shows it, for the "Saved" line. */
+  const who = (membershipId: string): string => {
+    const m = members.find((x) => x.membership.id === membershipId);
+    return m === undefined ? "Their" : `${m.displayName ?? m.email}'s`;
+  };
+
   function changeRole(membershipId: string, role: string): void {
-    void act(membershipId, () =>
-      api.PUT("/api/v1/tenancy/members/{membershipId}/role", {
-        params: { path: { membershipId } },
-        body: { role },
-      }),
+    void act(
+      membershipId,
+      () =>
+        api.PUT("/api/v1/tenancy/members/{membershipId}/role", {
+          params: { path: { membershipId } },
+          body: { role },
+        }),
+      `Saved. ${who(membershipId)} role is changed.`,
     );
   }
 
@@ -126,11 +149,14 @@ export default function PeoplePage() {
    *  missing one — a client contact has no rung, and neither does somebody whose
    *  designation the firm has never ranked. */
   function changeGrade(membershipId: string, gradeId: string | null): void {
-    void act(membershipId, () =>
-      api.PUT("/api/v1/tenancy/members/{membershipId}/grade", {
-        params: { path: { membershipId } },
-        body: { gradeId },
-      }),
+    void act(
+      membershipId,
+      () =>
+        api.PUT("/api/v1/tenancy/members/{membershipId}/grade", {
+          params: { path: { membershipId } },
+          body: { gradeId },
+        }),
+      `Saved. ${who(membershipId)} grade is changed.`,
     );
   }
 
@@ -142,11 +168,14 @@ export default function PeoplePage() {
    * person's work. `null` is a real answer: a partner reports to nobody.
    */
   function changeReportsTo(membershipId: string, reportsToUserId: string | null): void {
-    void act(membershipId, () =>
-      api.PUT("/api/v1/tenancy/members/{membershipId}/reports-to", {
-        params: { path: { membershipId } },
-        body: { reportsToUserId },
-      }),
+    void act(
+      membershipId,
+      () =>
+        api.PUT("/api/v1/tenancy/members/{membershipId}/reports-to", {
+          params: { path: { membershipId } },
+          body: { reportsToUserId },
+        }),
+      `Saved. ${who(membershipId)} reporting line is changed.`,
     );
   }
 
@@ -160,6 +189,14 @@ export default function PeoplePage() {
   }
 
   if (!loaded) return <Loading label="Loading the roster" />;
+  if (session !== null && !administers) {
+    return (
+      <Page>
+        <PageHeader title="People" />
+        <ErrorNotice error={error} />
+      </Page>
+    );
+  }
 
   return (
     <Page>
@@ -179,6 +216,11 @@ export default function PeoplePage() {
       />
 
       <ErrorNotice error={error} />
+
+      {/* A live region, so a change made in a row says it held (CA#45). */}
+      <p className="text-md" role="status" aria-live="polite">
+        {saved}
+      </p>
 
       {outcome !== null && <AddedNotice outcome={outcome} />}
 
@@ -237,9 +279,13 @@ export default function PeoplePage() {
                         firm's lists sets a select's width and pushed the last
                         columns out of view. `.select` declares its own
                         max-width, so the cap cannot sit on the select. */}
+                    {/* A FLOOR as well as a cap (CA#46): the select measured its
+                        width before the web font arrived and cut "Associate"
+                        and "Siddharth Rao" short by a few pixels. */}
                     <span className="inline-block max-w-44 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Role for ${m.displayName ?? m.email}`}
                         value={m.membership.role}
                         disabled={busy === m.membership.id}
@@ -253,14 +299,32 @@ export default function PeoplePage() {
                             {m.membership.role} (not published)
                           </option>
                         )}
-                        {roles.map((r) => (
-                          <option key={r.entry.key} value={r.entry.key}>
-                            {readRoleBody(r.published?.body).label || r.entry.key}
-                          </option>
-                        ))}
+                        {/* Only the roles for THIS person's surface (F18): a
+                            staff member was offered "Client contact", one
+                            mis-pick from becoming a portal login. */}
+                        {roles
+                          .filter((r) => readRoleBody(r.published?.body).audience === m.membership.audience)
+                          .map((r) => (
+                            <option key={r.entry.key} value={r.entry.key}>
+                              {readRoleBody(r.published?.body).label || r.entry.key}
+                            </option>
+                          ))}
                       </Select>
                     </span>
                   </Td>
+                  {m.membership.audience !== "STAFF" ? (
+                    /* A client's login has no grade and reports to nobody at
+                       the firm (F18): no selects that mean nothing for them. */
+                    <>
+                      <Td>
+                        <span className="muted">Not for clients</span>
+                      </Td>
+                      <Td>
+                        <span className="muted">Not for clients</span>
+                      </Td>
+                    </>
+                  ) : (
+                  <>
                   <Td>
                     {/* A WRAPPER caps it: one long role, grade or name in the
                         firm's lists sets a select's width and pushed the last
@@ -269,6 +333,7 @@ export default function PeoplePage() {
                     <span className="inline-block max-w-44 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Grade for ${m.displayName ?? m.email}`}
                         value={m.grade?.id ?? ""}
                         disabled={busy === m.membership.id}
@@ -297,9 +362,10 @@ export default function PeoplePage() {
                         firm's lists sets a select's width and pushed the last
                         columns out of view. `.select` declares its own
                         max-width, so the cap cannot sit on the select. */}
-                    <span className="inline-block max-w-44 align-middle">
+                    <span className="inline-block max-w-56 align-middle">
                       <Select
                         variant="quiet"
+                        className="min-w-36"
                         aria-label={`Reporting line for ${m.displayName ?? m.email}`}
                         value={m.membership.reportsToUserId ?? ""}
                         disabled={busy === m.membership.id}
@@ -331,6 +397,8 @@ export default function PeoplePage() {
                       </Select>
                     </span>
                   </Td>
+                  </>
+                  )}
                   <Td>{m.membership.commercialVisibility ? "Visible" : "Hidden"}</Td>
                   <Td align="right">
                     {/* IN A MENU (Wave 4): the one press here that takes
@@ -472,26 +540,11 @@ function AddMember({
   // The refusal is shown IN the dialog, beside the form that caused it.
   const [error, setError] = useState<string | null>(null);
 
-  const chosenRole = role || roles[0]?.entry.key || "";
-
-  // What a client-portal login would actually be able to use: nothing.
-  //
-  // Gate 2 (audience) runs before gate 3 (role) and admits a portal session
-  // only to the handful of session routes, none of which needs a permission.
-  // So a portal membership carrying `manager` is not a hole — every staff route
-  // answers 403 — but it is a decision an admin can make believing it did
-  // something, and the roster would then show them as a Manager.
-  //
-  // The API does not refuse it, deliberately: which roles are portal roles is
-  // not a fact the system records yet, and inventing that rule here would put
-  // it in the one place a firm cannot change. So this SAYS so rather than
-  // silently filtering the dropdown, which would hide a real state from an
-  // admin looking at it. The real fix is a role that declares its audience, and
-  // it lands with the client portal.
-  const strandedPermissions =
-    audience === "CLIENT_PORTAL"
-      ? readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body).permissions
-      : [];
+  // NOTHING PRESELECTED (F13): it was the first published role. And only the
+  // roles for the surface chosen (F18), so a staff member cannot be added as a
+  // client contact, or the other way round.
+  const chosenRole = role;
+  const offered = roles.filter((r) => readRoleBody(r.published?.body).audience === audience);
 
   async function submit(): Promise<void> {
     setBusy(true);
@@ -571,44 +624,37 @@ function AddMember({
             </Field>
           </FieldRow>
           <FieldRow>
-            <Field label="Role">
-              <Select
-                value={chosenRole}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                }}
-              >
-                {roles.map((r) => (
-                  <option key={r.entry.key} value={r.entry.key}>
-                    {readRoleBody(r.published?.body).label || r.entry.key}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             <Field label="Signs in to">
               <Select
                 value={audience}
                 onChange={(e) => {
                   setAudience(e.target.value);
+                  setRole("");
                 }}
               >
                 <option value="STAFF">Staff workspace</option>
                 <option value="CLIENT_PORTAL">Client portal</option>
               </Select>
             </Field>
+            <Field label="Role">
+              <Select
+                value={chosenRole}
+                required
+                onChange={(e) => {
+                  setRole(e.target.value);
+                }}
+              >
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {offered.map((r) => (
+                  <option key={r.entry.key} value={r.entry.key}>
+                    {readRoleBody(r.published?.body).label || r.entry.key}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </FieldRow>
-
-          {strandedPermissions.length > 0 && (
-            <Notice tone="warn" eyebrow="Will not apply">
-              <p>
-                A client-portal login cannot use {strandedPermissions.join(", ")}. The roster
-                will still call them &ldquo;
-                {readRoleBody(roles.find((r) => r.entry.key === chosenRole)?.published?.body)
-                  .label || chosenRole}
-                &rdquo;.
-              </p>
-            </Notice>
-          )}
 
           <Checkbox
             label="Can see fees"

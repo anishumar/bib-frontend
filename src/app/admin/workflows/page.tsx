@@ -4,9 +4,11 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, apiError, codeLabel } from "@/lib/api/client";
-import type { ConfigEntry } from "@/lib/api/client";
+import type { ConfigEntry, StaffGrade } from "@/lib/api/client";
 import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select, Textarea } from "@/components/ui";
 import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
+import { shortNameFrom } from "@/lib/short-name";
+import { CheckRuleForm } from "@/lib/ui/check-rule-form";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -33,6 +35,17 @@ import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/
  * what the engine reads. A cycle is possible to type and the API refuses it by
  * NAMING the loop — a better error than any drag-and-drop would give, and the
  * screen shows it verbatim.
+ *
+ * ── WRITTEN IN A PERSON'S WORDS (audit 2026-10-03, CA#26 and CA#27) ─────────
+ *
+ * Every process and step asked for a "Short name, lower case, cannot change
+ * later", steps ran side by side unless "Waits for" was ticked, and those boxes
+ * were labelled with the short names ("collect", "recon-2b"). Now the short
+ * name is made from the title and is under More for anybody who wants to set
+ * it; a step ADDED here waits for the step before it (a process already written
+ * keeps what it says); "Waits for" names the steps by their titles; and a step
+ * that should be checked under a rule the firm has not written yet can have one
+ * written in place, put in force and chosen, without leaving the editor.
  */
 
 type Executor = "human" | "agent" | "agent_with_approval";
@@ -65,6 +78,10 @@ interface StepDraft {
   /** The step's REVIEW POINTS, likewise: the checker's list, not the doer's. */
   reviewText: string;
   reviewBefore: readonly ChecklistLine[];
+  /** The short name still follows the title (CA#26): true for a step written
+   *  in this editor until somebody types their own; false for a step that came
+   *  from a saved version, whose name jobs already record. */
+  autoKey: boolean;
 }
 
 /**
@@ -374,6 +391,8 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
         checklistBefore: readLines(s["checklist"]),
         reviewText: readLines(s["reviewPoints"]).map((l) => l.label).join("\n"),
         reviewBefore: readLines(s["reviewPoints"]),
+        // A saved step's name is a handle jobs already record: never re-made.
+        autoKey: false,
       };
     }),
   };
@@ -711,7 +730,7 @@ function NewTemplate({
         initialLabel=""
         initialSteps={[
           {
-            key: "collect",
+            key: "collect-what-we-need-from-the-client",
             label: "Collect what we need from the client",
             executor: "human",
             dependsOn: [],
@@ -725,6 +744,7 @@ function NewTemplate({
             checklistBefore: [],
             reviewText: "",
             reviewBefore: [],
+            autoKey: true,
           },
         ]}
         note="Saved as a draft. Nothing follows it until you put it in force."
@@ -766,43 +786,79 @@ function StepEditor({
   onError: (message: string) => void;
 }) {
   const [key, setKey] = useState(templateKey ?? "");
+  // The process's short name follows its name until somebody types their own
+  // (CA#26). Only for a new process: a saved one's never moves.
+  const [keyTouched, setKeyTouched] = useState(false);
   const [label, setLabel] = useState(initialLabel);
   const [steps, setSteps] = useState<StepDraft[]>([...initialSteps]);
   const [busy, setBusy] = useState(false);
   const [policies, setPolicies] = useState<CheckRule[]>([]);
+  /** Every rule's short name, drafts included, so a rule written here does not
+   *  clash with one that exists. */
+  const [policyKeys, setPolicyKeys] = useState<string[]>([]);
+  const processKey = templateKey ?? (keyTouched ? key.trim() : shortNameFrom(label, "entry", "process"));
 
   // Fetched HERE rather than on the page, because only an open editor needs it
   // and only PUBLISHED rules may be offered: a draft governs nothing, and
   // pointing a step at one would name a rule no check will ever apply.
+  const loadPolicies = useCallback(async (): Promise<void> => {
+    const result = await api.GET("/api/v1/config/{kind}", {
+      params: { path: { kind: "verification_policy" } },
+    });
+    if (result.error) return;
+    setPolicyKeys(result.data.entries.map((e) => e.entry.key));
+    setPolicies(
+      result.data.entries.flatMap((e) => {
+        const body = e.published?.body;
+        if (!body) return [];
+        const label = typeof body["label"] === "string" ? body["label"] : e.entry.key;
+        return [{ key: e.entry.key, label }];
+      }),
+    );
+  }, []);
   useEffect(() => {
     void (async () => {
-      const result = await api.GET("/api/v1/config/{kind}", {
-        params: { path: { kind: "verification_policy" } },
-      });
-      if (result.error) return;
-      setPolicies(
-        result.data.entries.flatMap((e) => {
-          const body = e.published?.body;
-          if (!body) return [];
-          const label = typeof body["label"] === "string" ? body["label"] : e.entry.key;
-          return [{ key: e.entry.key, label }];
-        }),
-      );
+      await loadPolicies();
     })();
-  }, []);
+  }, [loadPolicies]);
 
+  /**
+   * One step changed. Two things follow from a new short name (CA#26): a step
+   * whose name still follows its title gets a new one as the title is typed,
+   * and every step that waits for it is pointed at the new one, so a renamed
+   * step never leaves a "Waits for" naming a step that is not there.
+   */
   function patch(index: number, change: Partial<StepDraft>): void {
-    setSteps((current) => current.map((s, i) => (i === index ? { ...s, ...change } : s)));
+    setSteps((current) => {
+      const before = current[index];
+      if (before === undefined) return current;
+      let next: StepDraft = { ...before, ...change };
+      if (change.key !== undefined) next = { ...next, autoKey: false };
+      else if (change.label !== undefined && before.autoKey) {
+        const taken = current.filter((_, i) => i !== index).map((s) => s.key);
+        next = { ...next, key: shortNameFrom(change.label, "step", `step-${String(index + 1)}`, taken) };
+      }
+      const renamed = next.key !== before.key && before.key !== "";
+      return current.map((s, i) => {
+        if (i === index) return next;
+        return renamed && s.dependsOn.includes(before.key)
+          ? { ...s, dependsOn: s.dependsOn.map((d) => (d === before.key ? next.key : d)) }
+          : s;
+      });
+    });
   }
 
   function addStep(): void {
     setSteps((current) => [
       ...current,
       {
-        key: "",
+        key: shortNameFrom("", "step", `step-${String(current.length + 1)}`, current.map((s) => s.key)),
         label: "",
         executor: "human",
-        dependsOn: [],
+        // IN ORDER BY DEFAULT (CA#26): a CA writes steps in the order they are
+        // done, and a new step ran alongside the others unless a box was
+        // ticked. It waits for the step before it; untick to run it alongside.
+        dependsOn: [current.at(-1)?.key ?? ""].filter((k) => k !== ""),
         conditionFact: "",
         conditionOp: "equals",
         conditionValue: "",
@@ -813,6 +869,7 @@ function StepEditor({
         checklistBefore: [],
         reviewText: "",
         reviewBefore: [],
+        autoKey: true,
       },
     ]);
   }
@@ -841,7 +898,7 @@ function StepEditor({
       templateKey === null
         ? await api.POST("/api/v1/config/{kind}", {
             params: { path: { kind: "workflow_template" } },
-            body: { key: key.trim(), body },
+            body: { key: processKey, body },
           })
         : await api.POST("/api/v1/config/{kind}/{key}/versions", {
             params: { path: { kind: "workflow_template", key: templateKey } },
@@ -873,17 +930,6 @@ function StepEditor({
           <legend>, so nothing changes on screen. */}
       <fieldset className="m-0 min-w-0 border-0 p-0" aria-label={scope}>
         <FieldRow>
-          {templateKey === null && (
-            <Field label="Short name" hint="Lower case. Cannot change later.">
-              <Input
-                value={key}
-                placeholder="e.g. gst-monthly"
-                onChange={(e) => {
-                  setKey(e.target.value);
-                }}
-              />
-            </Field>
-          )}
           <Field label="Name">
             <Input
               value={label}
@@ -894,6 +940,22 @@ function StepEditor({
             />
           </Field>
         </FieldRow>
+        {/* MADE FROM THE NAME (CA#26), and here for anybody who wants to set
+            it: services name a process by it, so it cannot change later. */}
+        {templateKey === null && (
+          <details className="mt-2">
+            <summary className="text-sm">More</summary>
+            <Field label="Short name" hint="Made from the name. Services refer to it, so it cannot change later.">
+              <Input
+                value={processKey}
+                onChange={(e) => {
+                  setKeyTouched(true);
+                  setKey(e.target.value);
+                }}
+              />
+            </Field>
+          </details>
+        )}
       </fieldset>
 
       {steps.map((step, index) => (
@@ -902,11 +964,19 @@ function StepEditor({
           index={index}
           scope={scope}
           step={step}
-          others={steps.filter((_, i) => i !== index).map((s) => s.key).filter((k) => k !== "")}
+          others={steps.flatMap((s, i) =>
+            i === index || s.key === "" ? [] : [{ key: s.key, title: s.label.trim() === "" ? `Step ${String(i + 1)}` : s.label.trim() }],
+          )}
           onChange={(change) => {
             patch(index, change);
           }}
           policies={policies}
+          policyKeys={policyKeys}
+          onRuleWritten={(ruleKey) => {
+            void loadPolicies().then(() => {
+              patch(index, { verificationPolicyKey: ruleKey });
+            });
+          }}
           onRemove={() => {
             removeStep(index);
           }}
@@ -937,6 +1007,8 @@ function StepFields({
   step,
   others,
   policies,
+  policyKeys,
+  onRuleWritten,
   onChange,
   onRemove,
 }: {
@@ -944,11 +1016,19 @@ function StepFields({
   /** The process this step belongs to, by its permanent handle. */
   scope: string;
   step: StepDraft;
-  others: readonly string[];
+  /** The other steps it may wait for: the short name the API reads, and the
+   *  title a person reads (CA#26). */
+  others: readonly { readonly key: string; readonly title: string }[];
   policies: readonly CheckRule[];
+  /** Every rule's short name, so a rule written here does not clash. */
+  policyKeys: readonly string[];
+  /** A rule was written and put in force from this step (CA#27). */
+  onRuleWritten: (ruleKey: string) => void;
   onChange: (change: Partial<StepDraft>) => void;
   onRemove: () => void;
 }) {
+  const [writingRule, setWritingRule] = useState(false);
+  const [ruleError, setRuleError] = useState<string | null>(null);
   /*
    * `useId`, not `step-0`.
    *
@@ -1007,15 +1087,6 @@ function StepFields({
             }}
           />
         </Field>
-        <Field id={`${id}-key`} label="Short name">
-          <Input
-            value={step.key}
-            placeholder="e.g. reconcile"
-            onChange={(e) => {
-              onChange({ key: e.target.value });
-            }}
-          />
-        </Field>
         <Field id={`${id}-executor`} label="Who does it">
           <Select
             value={step.executor}
@@ -1033,10 +1104,20 @@ function StepFields({
         <BandFields step={step} onChange={onChange} />
       </FieldRow>
       {/* UNDER THE ROW, not in a column of it (the FieldRow rule). */}
-      <p className="field-hint">
-        {EXECUTORS.find((x) => x.value === step.executor)?.hint} The short name is lower case
-        and cannot change once work has run.
-      </p>
+      <p className="field-hint">{EXECUTORS.find((x) => x.value === step.executor)?.hint}</p>
+      {/* THE SHORT NAME, made from the title (CA#26). Under More: jobs record
+          a step by it, so once work has run it cannot change. */}
+      <details className="mt-2">
+        <summary className="text-sm">More</summary>
+        <Field id={`${id}-key`} label="Short name" hint="Made from the step's title. Cannot change once work has run.">
+          <Input
+            value={step.key}
+            onChange={(e) => {
+              onChange({ key: e.target.value });
+            }}
+          />
+        </Field>
+      </details>
 
       {others.length > 0 && (
         <div className="mt-2">
@@ -1049,15 +1130,15 @@ function StepFields({
             <div className="flex flex-wrap gap-2">
               {others.map((other) => (
                 <Checkbox
-                  key={other}
-                  label={other}
-                  checked={step.dependsOn.includes(other)}
+                  key={other.key}
+                  label={other.title}
+                  checked={step.dependsOn.includes(other.key)}
                   aria-describedby={`${id}-waits-hint`}
                   onChange={(e) => {
                     onChange({
                       dependsOn: e.target.checked
-                        ? [...step.dependsOn, other]
-                        : step.dependsOn.filter((d) => d !== other),
+                        ? [...step.dependsOn, other.key]
+                        : step.dependsOn.filter((d) => d !== other.key),
                     });
                   }}
                 />
@@ -1066,7 +1147,7 @@ function StepFields({
             {/* Wired by hand: this describes the GROUP, and `Field` — which
                 would do the wiring for us — is for one control. */}
             <p className="field-hint" id={`${id}-waits-hint`}>
-              Nothing ticked: it starts as soon as the work does.
+              A new step waits for the one before it. Nothing ticked: it starts as soon as the work does.
             </p>
           </Fieldset>
         </div>
@@ -1188,7 +1269,7 @@ function StepFields({
           label="When it is done, who checks it?"
           hint={
             policies.length === 0
-              ? "No rule is in force yet. Add one on Who checks work."
+              ? "No rule is in force yet. Write one below."
               : "The doer can never check their own work."
           }
         >
@@ -1218,7 +1299,42 @@ function StepFields({
             )}
           </Select>
         </Field>
+        {/* WRITTEN WHERE IT IS NEEDED (CA#27). A step could only name a rule
+            written beforehand on Who checks work, so a partner here met "No
+            rule is in force yet" and had to leave, losing the process. The
+            same form opens in place, puts the rule in force and chooses it. */}
+        {!writingRule && (
+          <Button
+            variant="link"
+            size="sm"
+            className="mt-1"
+            aria-label={`Write a new rule for who checks: ${groupName}`}
+            onClick={() => {
+              setWritingRule(true);
+            }}
+          >
+            {policies.length === 0 ? "Write a rule" : "Write a new rule"}
+          </Button>
+        )}
       </div>
+      {writingRule && (
+        <div className="mt-2 max-w-[64ch] rounded-md border border-line bg-surface p-4">
+          {ruleError !== null && ruleError !== "" && <Notice tone="danger">{ruleError}</Notice>}
+          <InlineRuleForm
+            takenKeys={policyKeys}
+            onDone={(ruleKey) => {
+              setWritingRule(false);
+              setRuleError(null);
+              onRuleWritten(ruleKey);
+            }}
+            onCancel={() => {
+              setWritingRule(false);
+              setRuleError(null);
+            }}
+            onError={setRuleError}
+          />
+        </div>
+      )}
 
       {/* THE CHECKER'S LIST (T6.15), offered only once somebody checks the
           step: review points are ticked by the checker, and a step nobody
@@ -1306,5 +1422,43 @@ function StepFields({
         </Button>
       </div>
     </fieldset>
+  );
+}
+
+/** The rule form, with the firm's ladder it needs, for a step (CA#27). */
+function InlineRuleForm({
+  takenKeys,
+  onDone,
+  onCancel,
+  onError,
+}: {
+  takenKeys: readonly string[];
+  onDone: (ruleKey: string) => void;
+  onCancel: () => void;
+  onError: (message: string) => void;
+}) {
+  const [grades, setGrades] = useState<StaffGrade[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    void api.GET("/api/v1/tenancy/grades", {}).then((r) => {
+      if (live) setGrades(r.data?.grades ?? []);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (grades === null) return <p className="text-sm text-muted">Loading…</p>;
+  return (
+    <CheckRuleForm
+      policyKey={null}
+      grades={grades}
+      takenKeys={takenKeys}
+      putInForce
+      onDone={(ruleKey) => {
+        onDone(ruleKey);
+      }}
+      onCancel={onCancel}
+      onError={onError}
+    />
   );
 }

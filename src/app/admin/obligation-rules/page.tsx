@@ -35,10 +35,13 @@ import {
   Exceptions,
   MONTHS,
   RuleEditor,
+  rulePackLabel,
   type RuleDraft,
 } from "./rule-editor";
 import { Supersede } from "./supersede";
 import { longDay } from "@/lib/day";
+import { plural } from "@/lib/plural";
+import { countryName } from "@/lib/country";
 
 /**
  * What the law asks of the firm's clients, and when (T3.2, completed by T6.4).
@@ -434,7 +437,9 @@ function Rules() {
   const count = (c: RuleCoverage): number => counts.get(c) ?? 0;
   const filterTabs: TabItem<string>[] = [
     { value: "all", label: "All", count: rules.filter((r) => r.isActive).length },
-    { value: "generating", label: "Producing dates", count: count("generating") },
+    // "Producing dates 0" said nothing a partner could act on (F34): these
+    // are the rules that put filings on the calendar.
+    { value: "generating", label: "On the calendar", count: count("generating") },
     { value: "unlinked", label: "Not used by a service", count: count("unlinked") },
     ...(count("unconfirmed") > 0
       ? [{ value: "unconfirmed", label: "Not yet confirmed", count: count("unconfirmed") }]
@@ -506,7 +511,7 @@ function Rules() {
         {focused.length > 0 && (
           <Notice tone="ok" eyebrow="From the calendar">
             <p>
-              Showing the {focused.length} rule{focused.length === 1 ? "" : "s"} that blocked one
+              Showing the {plural(focused.length, "rule")} that blocked one
               engagement&rsquo;s calendar. {/* "and confirm it": answering a
               shipped rule leaves it unconfirmed, and it still puts nothing on
               the calendar. */}
@@ -562,6 +567,8 @@ function Rules() {
             <p className="field-hint">
               {filter === "needs_formula"
                 ? "Some never apply to your clients. It is fine to leave those."
+                : filter === "generating" && count("generating") === 0
+                  ? "None yet. A rule reaches the calendar once it has a date, is ticked Confirmed, and a service in the Catalogue uses it. "
                 : filter === "unconfirmed"
                   ? "Nothing reaches the calendar from these until somebody confirms them."
                   : "A rule reaches clients once a service in the Catalogue uses it. "}
@@ -683,7 +690,7 @@ function OpenRule({
             h3. */}
         <h2>{open.name}</h2>
         <p className="sub">
-          {open.jurisdiction} &middot; <span className="mono">{open.rulePack}</span>
+          {countryName(open.jurisdiction)} &middot; {rulePackLabel(open.rulePack)}
         </p>
       </div>
       {messages}
@@ -765,6 +772,8 @@ function RuleRow({
   onPatch: (body: Record<string, unknown>, said: string) => void;
 }) {
   const [lead, setLead] = useState(String(rule.leadTimeDays));
+  /** Why the lead time cannot be set yet, in words, or null when it can. */
+  const leadLocked = mayWrite && rule.coverage !== "generating" ? LEAD_LOCKED[rule.coverage] : null;
 
   // WHICH ROW TODAY'S FILINGS ARE DUE ON (T6.16 follow-up). The library lists
   // every row of a chain, and each row's formula is its own, which is what
@@ -845,7 +854,7 @@ function RuleRow({
           {elsewhere !== null && <Sub>{elsewhere}</Sub>}
           {rule.instanceCount > 0 && (
             <Sub>
-              {rule.instanceCount} filing{rule.instanceCount === 1 ? "" : "s"} made
+              {plural(rule.instanceCount, "filing")} made
             </Sub>
           )}
           {/* THE WINDOW, and it is not decoration. A rule that has handed over
@@ -883,9 +892,18 @@ function RuleRow({
                The title stays as the mouse-user's tooltip. */
             aria-label={`Lead time in days for ${rule.name}`}
             title="Days before the legal deadline that the work should start"
+            {...(leadLocked === null ? {} : { "aria-describedby": `lead-why-${rule.id}` })}
           />{" "}
           days
         </span>
+        {/* WHY it is greyed, in words (audit 2026-10-03, CA#25): it was
+            disabled with no hint, and a partner could not tell it waits for
+            the tick in the next column. */}
+        {leadLocked !== null && (
+          <span className="sub" id={`lead-why-${rule.id}`}>
+            {leadLocked}
+          </span>
+        )}
       </Td>
       <Td>
         {/* The moment a date stops coming from a document and starts coming
@@ -976,7 +994,7 @@ function otherRowToday(
 }
 
 const LABEL: Record<RuleCoverage, string> = {
-  generating: "Producing dates",
+  generating: "On the calendar",
   needs_formula: "Waiting on a fact",
   event_driven: "Event-driven",
   unlinked: "Not used by a service",
@@ -1000,4 +1018,13 @@ const TONE: Record<RuleCoverage, PillTone> = {
   // has checked. It puts nothing on the calendar until somebody does.
   unconfirmed: "ok",
   retired: "danger",
+};
+
+/** Why "Start early" is greyed for a rule that does not produce dates yet. */
+const LEAD_LOCKED: Readonly<Record<Exclude<ObligationRule["coverage"], "generating">, string>> = {
+  unconfirmed: "Tick Confirmed first to set this.",
+  needs_formula: "Give the rule a date first.",
+  unlinked: "Add it to a service first.",
+  event_driven: "Not used: it has no fixed date.",
+  retired: "Retired.",
 };

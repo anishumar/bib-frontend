@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, apiError } from "@/lib/api/client";
 import { homeFor } from "@/lib/api/home";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { Button, Card, ErrorNotice, Field, FieldStack, Input, Notice } from "@/components/ui";
 
 /**
@@ -27,6 +28,28 @@ export default function LoginPage() {
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
+
+  // ALREADY SIGNED IN (F31): opening this page with a live session goes
+  // straight to that person's home rather than showing a form they do not
+  // need. Anything but a clear "yes" (a 401, a busy API) leaves the form.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const [me, mine] = await Promise.all([
+          api.GET("/api/v1/auth/me", {}),
+          api.GET("/api/v1/tenancy/me/memberships", {}),
+        ]);
+        if (!live || me.data === undefined || mine.data === undefined) return;
+        router.replace(homeFor({ principal: me.data, memberships: mine.data.memberships }));
+      } catch {
+        // No answer: stay on the form.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [router]);
 
   async function onSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -91,7 +114,7 @@ export default function LoginPage() {
       <div>
         <div className="stack loose">
           <div>
-            <p className="eyebrow">10X Workspace</p>
+            <p className="eyebrow">{PRODUCT_NAME}</p>
             <h1>Sign in</h1>
           </div>
 

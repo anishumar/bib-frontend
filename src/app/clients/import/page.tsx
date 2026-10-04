@@ -27,6 +27,8 @@ import {
   Td,
   Th,
 } from "@/components/ui";
+import { plural } from "@/lib/plural";
+import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
  * Bringing a firm's existing book of clients in from a spreadsheet.
@@ -198,7 +200,7 @@ export default function ClientImportPage() {
     return (
       <Page>
         <Denied permission="tenant:admin">
-          Loading the book creates clients, letters and assignments in one go, so only a firm
+          Importing creates clients, letters and assignments in one go, so only a firm
           administrator can do it.
         </Denied>
       </Page>
@@ -211,7 +213,7 @@ export default function ClientImportPage() {
       {/* Wave 4: one line under the title. A client already on file is
           skipped, never overwritten. */}
       <PageHeader
-        title="Bring in the book"
+        title="Import clients from Excel"
         lede="Every row is checked first. Nothing is saved until you confirm."
       />
 
@@ -226,9 +228,9 @@ export default function ClientImportPage() {
         </CardHead>
         <form
           ref={formRef}
-          action={(form) => {
+          onSubmit={(event) => keepTyped(event, (form) => {
             void upload(form);
-          }}
+          })}
         >
           <div className="stack">
             <Field label="Clients" hint="Needs a “Client Name” column.">
@@ -358,10 +360,27 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
   return (
     <Card>
       <CardHead title="The sheets" level={2}>
-        {/* Headers are matched by name, so a title row above them is fine;
-            23/08/2026 can be read two ways. */}
-        <p className="lede">Write dates as 2026-08-23 or 23-Aug-2026, never 23/08/2026.</p>
+        {/* Excel date cells are read as dates (fix/import-excel-dates). A
+            date typed as TEXT, which is all a .csv holds, is refused when it
+            can be read two ways: 03/04/2026 is March or April. */}
+        <p className="lede">
+          In Excel, type dates as you normally do. In a .csv, write them as 2026-08-23 or
+          23-Aug-2026.
+        </p>
       </CardHead>
+      {/* ALL THREE TEMPLATES, in one row above the tabs (CA#61). Each used to
+          sit inside its own tab, so a reader on Clients never saw that People
+          and Engagements had one. CSV: the import reads .csv and .xlsx alike,
+          and the product has an xlsx READER but no writer, so an .xlsx with
+          dropdowns would mean a new dependency. */}
+      <Cluster>
+        <span className="muted">Templates:</span>
+        {template.sheets.map((s) => (
+          <Button key={s.key} variant="secondary" size="sm" onClick={() => download(s.key)}>
+            {SHEET_LABEL[s.key]} (.csv)
+          </Button>
+        ))}
+      </Cluster>
       <Tabs
         id={tabsId}
         label="Sheets"
@@ -375,14 +394,7 @@ function Templates({ template, depts }: { template: ImportTemplate; depts: Servi
         return (
           <TabPanel tabsId={tabsId} value={s.key}>
             <div className="stack" style={{ marginTop: "var(--s-4)" }}>
-              <Cluster>
-                <Button variant="secondary" size="sm" onClick={() => download(s.key)}>
-                  Download {SHEET_LABEL[s.key].toLowerCase()} template
-                </Button>
-                <span className="muted">
-                  The header row must include &ldquo;{s.marker}&rdquo;.
-                </span>
-              </Cluster>
+              <p className="muted">The header row must include &ldquo;{s.marker}&rdquo;.</p>
               <TableWrap>
                 <Table>
                   <thead>
@@ -514,8 +526,7 @@ function ImportReport({
 
         {r.compliance.floor === null && r.compliance.engagementsBeforeReachBack > 0 && (
           <Notice tone="warn" eyebrow="Compliance calendar">
-            {r.compliance.engagementsBeforeReachBack} engagement
-            {r.compliance.engagementsBeforeReachBack === 1 ? "" : "s"} started before{" "}
+            {plural(r.compliance.engagementsBeforeReachBack, "engagement")} started before{" "}
             {r.compliance.reachBackFrom}. The calendar looks back ninety days, so until you set the
             date deadlines are tracked from, every filing you already made will show as missed. Set
             “ask about deadlines from” under{" "}
@@ -531,7 +542,7 @@ function ImportReport({
               loading={busy === "confirm"}
               onClick={onConfirm}
             >
-              Load {r.counts.clientsToCreate} client{r.counts.clientsToCreate === 1 ? "" : "s"}
+              {`Load ${plural(r.counts.clientsToCreate, "client")}`}
             </Button>
             <span className="muted">
               {r.blocking > 0
