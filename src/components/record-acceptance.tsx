@@ -142,11 +142,13 @@ export function RecordAcceptance({
       };
       const result = isLetter
         ? await api.POST("/api/v1/engagement-letters/{letterId}/acceptance", {
-            params: { path: { letterId: subject.id } },
+            // The RECORDER's day: the latest the client can have said yes on,
+            // held by the API to the company's day or one either side (0337).
+            params: { path: { letterId: subject.id }, query: { asOf: today } },
             body,
           })
         : await api.POST("/api/v1/proposals/{proposalId}/acceptance", {
-            params: { path: { proposalId: subject.id } },
+            params: { path: { proposalId: subject.id }, query: { asOf: today } },
             body,
           });
       if (result.error) {

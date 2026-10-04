@@ -92,7 +92,7 @@ export function CompanyCalendarFields({
             ? "April. Indian law fixes it."
             : entity === null
               ? "Its invoice numbers and billing periods follow this year."
-              : "Numbers already drawn keep their year. A new series starts when the new year begins.",
+              : "Invoices already numbered, and work and billing already running, keep the year they started on. New numbers and new work follow this from the next new year.",
         )}
       >
         <Select

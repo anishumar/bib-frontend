@@ -262,8 +262,11 @@ date formatter, import it; do not copy the nearest one you find.
 - **A company's document is NOT dated on `browserDay` (0337).** Each of the firm's companies has
   its own year and time zone, and the API dates its invoices, letters, acceptances, credit notes
   and raised bills on THAT company's day. So Issue, the due date, credit notes, Raise, refunds,
-  letter Send and a recorded acceptance send no `asOf`; a sentence that names the day Issue will
-  use reads the invoice's `issuesOn`. A year label is the API's (`financialYearLabel` on an
+  every letter Send (builder and letter page), a signature recorded by hand and the letter
+  preview send no `asOf`; a sentence that names the day Issue will use reads the invoice's
+  `issuesOn`. **A recorded acceptance is the exception:** its date is the RECORDER's statement,
+  so it sends `asOf=browserDay()` (letters and proposals), which the API holds to the company's
+  day or one either side. A year label is the API's (`financialYearLabel` on an
   invoice, `label` on a series: `2026-27`, or `2027` for a calendar-year company), never built
   from `financialYear`. Reminders and buckets ("Overdue", "Today") stay on `browserDay`.
   Your firm → Companies shows "Year and clock" and sets both in Add / Change
