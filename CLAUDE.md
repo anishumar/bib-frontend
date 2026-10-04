@@ -2982,6 +2982,19 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   what to pay back from `paid` ("Pay back ₹X", never more than was received; "Nothing was paid,
   so nothing goes back." when nothing was). A second person acting on the same bill gets the
   API's `BILL_BUSY` sentence. Invoice lines name the advance invoice with no amounts in the words.
+- **Work vs Billing (Q041, 2026-10-04)** is the third tab (`?tab=work`, `work-vs-billing.tsx`), read
+  from `GET /billing/work-vs-billing`: one row per client, service and period with the work, the bill,
+  its invoice and the money, and a sentence wherever a person must act. The page reads the default view
+  with the rest, so the tab counts the rows that need attention (danger tone); the tab asks again only
+  when a filter changes (Client, Manager, From and To months, Only problems). `?client=` sets the client:
+  the client page's Engagements card links there ("Work vs Billing"). A strip (Need attention, Done not
+  billed, Unpaid past due, Skipped; the ageing as "N over 30 days") and four columns, so it fits 1280:
+  **Client and service** (client, service, period and letter, manager), **Work** (pill, the day done,
+  the filings under it), **Billing** (the bill's pill and amount, its date, the invoice and payment pill,
+  how late and what is owed), **Needs attention** (the flags in the danger tone, the notes muted, a link
+  to the fix: Set billing, Automatic billing, To raise). The API sends codes; `flagWords` / `noteWords`
+  are the words. A retainer billed while its month is open reads "Billed before the work is finished."
+  and is never red. Without fees: "Fees hidden" and no amount anywhere. Walk: `wvb-walk.mjs` (40).
 - Walk: `bib/demo-assets/tools/ai-walk.mjs` on an `ai-fixture.mjs` firm, sweeping that one firm with
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.

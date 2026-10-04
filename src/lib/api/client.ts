@@ -1068,6 +1068,16 @@ export type BillingRefund =
 export type BillingBillNow =
   paths["/api/v1/billing/bill-now"]["get"]["responses"][200]["content"]["application/json"]["engagements"][number];
 
+/**
+ * WORK VS BILLING (Q041): one row per client, service and period with its jobs,
+ * bill, invoice and money, and the API's flags (codes; the screen writes the
+ * words). Amounts are null for a login without the fee axis (`feesVisible`).
+ */
+export type WorkBilling =
+  paths["/api/v1/billing/work-vs-billing"]["get"]["responses"][200]["content"]["application/json"];
+export type WorkBillingRow = WorkBilling["rows"][number];
+export type WorkBillingFlag = WorkBillingRow["flags"][number];
+
 /** A bill in words: "Bookkeeping, Oct 2026", "Statutory audit, final bill",
  *  "Advance, EL-2026-0007" or "Advance for Statutory audit". */
 export function billLabel(d: Pick<BillingDue, "kind" | "serviceName" | "periodLabel" | "engagementId" | "letter">): string {
