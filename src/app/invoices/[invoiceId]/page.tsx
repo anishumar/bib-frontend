@@ -60,6 +60,7 @@ import { browserDay, longDay } from "@/lib/day";
 import { cleanAmount, compareSigned } from "@/lib/money";
 import { MissingMoney, Money, useSeesFees } from "@/components/fees";
 import { keepTyped } from "@/lib/ui/keep-typed";
+import { PART_LABEL, TaxCard, taxParts, treatmentWords } from "./tax";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -261,6 +262,15 @@ export default function InvoicePage() {
                       first, or it will not be issued.{" "}
                     </>
                   )}
+                  {treatmentWords(invoice.tax, record.lut) !== null && (
+                    <>
+                      Tax: {treatmentWords(invoice.tax, record.lut)}
+                      {invoice.tax.placeOfSupply?.stateName != null
+                        ? `, place of supply ${invoice.tax.placeOfSupply.stateName}`
+                        : ""}
+                      .{" "}
+                    </>
+                  )}
                   Its lines and amounts are then locked, and its PDF is filed and shown to the
                   client. To correct it later, you cancel it and raise a new invoice.
                 </p>
@@ -427,6 +437,23 @@ export default function InvoicePage() {
         )}
       </Card>
 
+      {/* ── What it says about tax (Q056, Q057) ───────────────────────── */}
+      {(draft || invoice.tax.treatment !== null || invoice.tax.tds !== null) && (
+        <TaxCard
+          record={record}
+          canChoose={permissions.includes("party:write")}
+          busy={busy}
+          onChoosePlace={(stateCode) =>
+            void act(() =>
+              api.PUT("/api/v1/invoices/{invoiceId}/place-of-supply", {
+                params: { path: { invoiceId } },
+                body: { stateCode },
+              }),
+            )
+          }
+        />
+      )}
+
       {/* ── The money, as the database computed it ─────────────────────── */}
       {issued && balance !== null && (
         <Card>
@@ -441,6 +468,13 @@ export default function InvoicePage() {
             <MetaItem label="Credited">
               <span className="num">{money(balance.credited, balance.currency)}</span>
             </MetaItem>
+            {/* Q057: TDS the client deducted settles the invoice like money,
+                and is not money in the bank. */}
+            {(invoice.tax.tds !== null || (balance.tds !== null && !/^-?0*(\.0+)?$/.test(balance.tds))) && (
+              <MetaItem label="TDS deducted">
+                <span className="num">{money(balance.tds, balance.currency)}</span>
+              </MetaItem>
+            )}
             {/* A NEGATIVE outstanding is not an error: the client overpaid, or
                 settled two invoices with one transfer. The API records what
                 actually arrived (the user's decision, audit 2026-10-03), and the
@@ -472,6 +506,7 @@ export default function InvoicePage() {
             <thead>
               <tr>
                 <Th>Description</Th>
+                <Th>SAC</Th>
                 <Th align="right">Qty</Th>
                 <Th align="right">Unit</Th>
                 <Th align="right">Discount</Th>
@@ -484,6 +519,37 @@ export default function InvoicePage() {
               {record.lines.map((l) => (
                 <tr key={l.id}>
                   <Td>{l.description}</Td>
+                  {/* THE SERVICE'S CODE (Q056), changed here on a draft. Saved
+                      when the box is left. A GST invoice is refused at issue
+                      while a line has none. */}
+                  <Td className="nowrap">
+                    {draft && permissions.includes("party:write") ? (
+                      <Input
+                        key={`sac-${l.id}-${l.sac ?? ""}`}
+                        size="sm"
+                        variant="quiet"
+                        inputMode="numeric"
+                        maxLength={6}
+                        aria-label={`SAC for ${l.description}`}
+                        placeholder="e.g. 998222"
+                        defaultValue={l.sac ?? ""}
+                        disabled={busy}
+                        style={{ width: "7.5rem" }}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next === (l.sac ?? "")) return;
+                          void act(() =>
+                            api.PUT("/api/v1/invoices/{invoiceId}/lines/{lineId}/sac", {
+                              params: { path: { invoiceId, lineId: l.id } },
+                              body: { sac: next === "" ? null : next },
+                            }),
+                          );
+                        }}
+                      />
+                    ) : (
+                      (l.sac ?? <NotSet>None</NotSet>)
+                    )}
+                  </Td>
                   <Td align="right">{formatCount(l.quantity)}</Td>
                   <Td align="right" className="nowrap">
                     {money(l.unitAmount, l.currency)}
@@ -497,7 +563,15 @@ export default function InvoicePage() {
                   {/* Tax is per LINE because it is per service: 18% on
                       professional fees and 0% on a recharge, on one invoice. */}
                   <Td align="right" className="nowrap">
-                    {formatCount(l.taxPercent)}% · {money(l.tax, l.currency)}
+                    {invoice.tax.treatment === "gst_export_lut" ? "0" : formatCount(l.taxPercent)}% · {money(l.tax, l.currency)}
+                    {/* The split, as the PDF's summary prints it (Q056). */}
+                    {taxParts(invoice.tax).length > 0 && invoice.tax.treatment !== "gst_export_lut" && (
+                      <span className="block text-sm text-muted">
+                        {taxParts(invoice.tax)
+                          .map((p) => `${PART_LABEL[p]} ${l[p] === null ? "" : formatMoney(l[p], l.currency)}`)
+                          .join(" · ")}
+                      </span>
+                    )}
                   </Td>
                   <Td align="right" className="nowrap">
                     {money(l.net, l.currency)}
@@ -529,18 +603,25 @@ export default function InvoicePage() {
               ))}
             </tbody>
             <tfoot>
+              {/* THE TAX BY PART (Q056): CGST and SGST (or UTGST), or IGST, as
+                  the PDF prints them; one Tax row on a plain invoice. */}
+              {(taxParts(invoice.tax).length === 0
+                ? [{ label: "Tax", amount: record.totals.tax }]
+                : taxParts(invoice.tax).map((p) => ({ label: PART_LABEL[p], amount: record.totals[p] }))
+              ).map((row) => (
+                <tr key={row.label}>
+                  <Td colSpan={5} />
+                  <Td align="right" className="label">
+                    {row.label}
+                  </Td>
+                  <Td align="right" className="nowrap">
+                    {money(row.amount, record.totals.currency)}
+                  </Td>
+                  {draft && mayWriteMoney && <Td />}
+                </tr>
+              ))}
               <tr>
-                <Td colSpan={4} />
-                <Td align="right" className="label">
-                  Tax
-                </Td>
-                <Td align="right" className="nowrap">
-                  {money(record.totals.tax, record.totals.currency)}
-                </Td>
-                {draft && mayWriteMoney && <Td />}
-              </tr>
-              <tr>
-                <Td colSpan={4} />
+                <Td colSpan={5} />
                 <Td align="right" className="label">
                   Total
                 </Td>
@@ -549,6 +630,32 @@ export default function InvoicePage() {
                 </Td>
                 {draft && mayWriteMoney && <Td />}
               </tr>
+              {/* Q057: the TDS the client deducts, on the amount before tax,
+                  and what it pays. The bill stays the total. */}
+              {invoice.tax.tds !== null && (
+                <>
+                  <tr>
+                    <Td colSpan={5} />
+                    <Td align="right" className="label">
+                      Less TDS u/s {invoice.tax.tds.section} @ {String(Number(invoice.tax.tds.percent))}%
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      ({money(record.totals.tds, record.totals.currency)})
+                    </Td>
+                    {draft && mayWriteMoney && <Td />}
+                  </tr>
+                  <tr>
+                    <Td colSpan={5} />
+                    <Td align="right" className="label">
+                      Net payable
+                    </Td>
+                    <Td align="right" className="nowrap">
+                      <strong>{money(record.totals.netPayable, record.totals.currency)}</strong>
+                    </Td>
+                    {draft && mayWriteMoney && <Td />}
+                  </tr>
+                </>
+              )}
             </tfoot>
           </Table>
         </TableWrap>
@@ -561,6 +668,7 @@ export default function InvoicePage() {
               const discount = cleanAmount(String(form.get("discountPercent") ?? ""));
               const tax = cleanAmount(String(form.get("taxPercent") ?? ""));
               const engagementId = String(form.get("engagementId") ?? "");
+              const sac = String(form.get("sac") ?? "").trim();
               return act(async () => {
                 const result = await api.POST("/api/v1/invoices/{invoiceId}/lines", {
                   params: { path: { invoiceId } },
@@ -575,6 +683,8 @@ export default function InvoicePage() {
                     // line billed a client for something the system could not
                     // connect to the contract that agreed it.
                     ...(engagementId === "" ? {} : { engagementId }),
+                    // Blank: the catalogue service's SAC, for a line billing one.
+                    ...(sac === "" ? {} : { sac }),
                   },
                 });
                 if (!result.error) setChosen(null);
@@ -718,6 +828,9 @@ export default function InvoicePage() {
                     required
                     placeholder="e.g. 18"
                   />
+                </Field>
+                <Field label="SAC" optional hint="Blank: the service's, from the catalogue.">
+                  <Input name="sac" inputMode="numeric" maxLength={6} placeholder="e.g. 998222" />
                 </Field>
               </FieldRow>
               <div className="cluster">
@@ -873,6 +986,7 @@ export default function InvoicePage() {
                 <Th>Method</Th>
                 <Th>Reference</Th>
                 <Th align="right">Amount</Th>
+                <Th align="right">TDS</Th>
               </tr>
             </thead>
             <tbody>
@@ -887,6 +1001,10 @@ export default function InvoicePage() {
                   <Td align="right" className="nowrap">
                     {money(p.amount, p.currency)}
                   </Td>
+                  {/* Q057: what the client deducted with this remittance. */}
+                  <Td align="right" className="nowrap">
+                    {p.tdsAmount !== null && /^-?0*(\.0+)?$/.test(p.tdsAmount) ? <NotSet>None</NotSet> : money(p.tdsAmount, p.currency)}
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -900,6 +1018,7 @@ export default function InvoicePage() {
             onSubmit={(event) => keepTyped(event, (form) => {
               const reference = String(form.get("reference") ?? "");
               const note = String(form.get("note") ?? "");
+              const tdsAmount = cleanAmount(String(form.get("tdsAmount") ?? ""));
               return act(() =>
                 api.POST("/api/v1/invoices/{invoiceId}/payments", {
                   params: { path: { invoiceId } },
@@ -909,6 +1028,7 @@ export default function InvoicePage() {
                     method: String(form.get("method")) as Payment["method"],
                     ...(reference === "" ? {} : { reference }),
                     ...(note === "" ? {} : { note }),
+                    ...(tdsAmount === "" ? {} : { tdsAmount }),
                   },
                 }),
               ).then((saved) => {
@@ -924,7 +1044,7 @@ export default function InvoicePage() {
             <fieldset className="fieldset" aria-label="Record a payment">
               <FieldStack>
                 <FieldRow>
-                  <Field label="Amount" hint="A negative amount reverses a payment.">
+                  <Field label="Amount received" hint="A negative amount reverses a payment.">
                     <AmountInput
                       signed
                       name="amount"
@@ -934,6 +1054,19 @@ export default function InvoicePage() {
                         setPayTyped(e.target.value);
                       }}
                     />
+                  </Field>
+                  {/* Q057: the TDS the client deducted from this remittance.
+                      The invoice is settled when the money and the TDS cover it. */}
+                  <Field
+                    label="TDS deducted"
+                    optional
+                    hint={
+                      invoice.tax.tds === null
+                        ? "If the client deducted TDS."
+                        : `Expected ${record.totals.tds === null ? "" : formatMoney(record.totals.tds, record.totals.currency)} (u/s ${invoice.tax.tds.section}).`
+                    }
+                  >
+                    <AmountInput signed name="tdsAmount" placeholder="e.g. 2500" />
                   </Field>
                   <Field label="Received">
                     <Input name="receivedOn" type="date" defaultValue={today} required />
