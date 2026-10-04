@@ -33,6 +33,47 @@ export const TIME_ZONES: readonly { readonly value: string; readonly label: stri
   { value: "UTC", label: "UTC, no country's calendar" },
 ];
 
+/** A zone a person reads: the country name off `TIME_ZONES`, else the IANA
+ *  name itself ("Asia/Tokyo"). */
+export function zoneLabel(zone: string): string {
+  const known = TIME_ZONES.find((z) => z.value === zone);
+  return known === undefined ? zone : known.label.replace(/ \(.*\)$/, "");
+}
+
+/**
+ * The one zone a country keeps, or null when it keeps several (the United
+ * States has six) or is not on the list. A copy of the API's table
+ * (`zoneForCountry`, IANA's `zone1970.tab` cut to this product's countries),
+ * used to PRESELECT a new company's zone (0337): a guess the person sees and
+ * can change, never a value sent without them.
+ */
+const SINGLE_ZONE_COUNTRIES: Readonly<Record<string, string>> = {
+  AE: "Asia/Dubai",
+  BD: "Asia/Dhaka",
+  BH: "Asia/Bahrain",
+  CH: "Europe/Zurich",
+  FR: "Europe/Paris",
+  GB: "Europe/London",
+  HK: "Asia/Hong_Kong",
+  IE: "Europe/Dublin",
+  IN: "Asia/Kolkata",
+  IT: "Europe/Rome",
+  JP: "Asia/Tokyo",
+  KW: "Asia/Kuwait",
+  LK: "Asia/Colombo",
+  MU: "Indian/Mauritius",
+  NL: "Europe/Amsterdam",
+  NP: "Asia/Kathmandu",
+  OM: "Asia/Muscat",
+  QA: "Asia/Qatar",
+  SA: "Asia/Riyadh",
+  SG: "Asia/Singapore",
+};
+
+export function zoneForCountry(country: string): string | null {
+  return SINGLE_ZONE_COUNTRIES[country.trim().toUpperCase()] ?? null;
+}
+
 export function TimeZoneCard({
   chosen,
   busy,

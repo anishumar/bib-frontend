@@ -166,7 +166,7 @@ export function ToRaiseTab({
     setSaid(null);
     setActing(true);
     const result = await api.POST("/api/v1/billing/refunds/{dueId}/credit-note", {
-      params: { path: { dueId: r.dueId }, query: { asOf: browserDay() } },
+      params: { path: { dueId: r.dueId } },
     });
     setActing(false);
     if (result.error) {
@@ -775,9 +775,9 @@ type Raised = {
  * One draft invoice from the ticked bills. Asked per bill: the tax rate
  * (prefilled with the rate this work's last invoice line carried) and the
  * amount, only where the letter fixed none. The exchange rate starts at the
- * one the letters were struck at, when they agree. "Today" is the reader's
- * calendar day (`asOf`), so an invoice raised at 00:30 in Mumbai is not
- * Greenwich's yesterday.
+ * one the letters were struck at, when they agree. The invoice is dated today
+ * on its company's calendar (0337), which the API decides, so an invoice
+ * raised at 00:30 in Mumbai is not Greenwich's yesterday.
  */
 function RaiseDialog({
   dues,
@@ -812,7 +812,6 @@ function RaiseDialog({
     setError(null);
     const dueOn = String(form.get("dueOn") ?? "");
     const result = await api.POST("/api/v1/billing/raise", {
-      params: { query: { asOf: browserDay() } },
       body: {
         dueIds: dues.map((d) => d.id),
         lines: dues.map((d) => {

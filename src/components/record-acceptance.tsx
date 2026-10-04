@@ -142,7 +142,7 @@ export function RecordAcceptance({
       };
       const result = isLetter
         ? await api.POST("/api/v1/engagement-letters/{letterId}/acceptance", {
-            params: { path: { letterId: subject.id }, query: { asOf: today } },
+            params: { path: { letterId: subject.id } },
             body,
           })
         : await api.POST("/api/v1/proposals/{proposalId}/acceptance", {
