@@ -50,6 +50,7 @@ import { countryName } from "@/lib/country";
 import { entityKindLabel } from "@/lib/entity-kind";
 import { CountrySelect } from "@/components/country-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
+import { YearEndField } from "@/components/year-end-field";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
@@ -73,6 +74,8 @@ export default function PartyPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The country picked on the register form, which decides its year-end field (Q076). */
+  const [registerCountry, setRegisterCountry] = useState("");
   const [archiving, setArchiving] = useState(false);
   // The add form's Type, so the Value box can be the right kind of box.
   const [identType, setIdentType] = useState<IdentifierType>(IDENTIFIER_TYPES[0]);
@@ -565,8 +568,9 @@ export default function PartyPage() {
           <CardTitle level={2}>Registered</CardTitle>
           {profile.legalEntities.length === 0 ? (
             <p className="muted">
-              Not registered yet, so <Link href="/calendar">the calendar</Link> shows no filings
-              for it.
+              Not registered yet: record its country and kind of company. Until then{" "}
+              <Link href="/calendar">the calendar</Link> shows no filings for it, and no proposal or
+              letter can be written for it.
             </p>
           ) : (
           <TableWrap>
@@ -591,7 +595,13 @@ export default function PartyPage() {
                     {/* MM-DD: a financial year ends on a date in the calendar,
                         not in a particular year. */}
                     <Td className="nowrap">
-                      {e.financialYearEnd === null ? <NotSet /> : yearEnds(e.financialYearEnd)}
+                      {e.financialYearEnd !== null ? (
+                        yearEnds(e.financialYearEnd)
+                      ) : e.jurisdiction === "IN" ? (
+                        "31 March"
+                      ) : (
+                        <NotSet>Not set: needed outside India</NotSet>
+                      )}
                     </Td>
                     <Td>
                       <Pill dot tone={e.status === "active" ? "ok" : "danger"}>
@@ -611,6 +621,7 @@ export default function PartyPage() {
               current={{
                 jurisdiction: profile.legalEntities[0].jurisdiction,
                 entityType: profile.legalEntities[0].entityType,
+                financialYearEnd: profile.legalEntities[0].financialYearEnd,
               }}
               onSaved={load}
             />
@@ -642,7 +653,15 @@ export default function PartyPage() {
                       were typed codes ("e.g. IN", "use the codes your
                       compliance rules use"). */}
                   <Field label="Country">
-                    <CountrySelect name="jurisdiction" blankLabel="Choose a country" required />
+                    <CountrySelect
+                      name="jurisdiction"
+                      blankLabel="Choose a country"
+                      required
+                      value={registerCountry}
+                      onChange={(e) => {
+                        setRegisterCountry(e.target.value);
+                      }}
+                    />
                   </Field>
                   <Field label="Kind of company">
                     <EntityKindSelect name="entityType" required />
@@ -650,15 +669,9 @@ export default function PartyPage() {
                   <Field label="Incorporated" optional>
                     <Input name="incorporatedOn" type="date" />
                   </Field>
-                  {/* MM-DD, never a full date: a financial year ends on a day in
-                      the calendar, not in one particular year. */}
-                  <Field label="Year ends" optional hint="Month and day.">
-                    <Input
-                      name="financialYearEnd"
-                      placeholder="e.g. 03-31"
-                      pattern="[0-9]{2}-[0-9]{2}"
-                    />
-                  </Field>
+                  {/* Q076: a month and a day, required outside India; India's
+                      is fixed at 31 March and not asked. */}
+                  <YearEndField country={registerCountry} />
                 </FieldRow>
                 <div className="cluster">
                   <Button type="submit" variant="secondary" loading={busy}>

@@ -11096,7 +11096,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Correct a registered company's country or kind */
+        /** Correct a registered company's country, kind or year end */
         patch: {
             parameters: {
                 query?: never;
@@ -22100,7 +22100,7 @@ export interface paths {
         };
         /**
          * Is this firm set up well enough to run its work?
-         * @description Thirteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
+         * @description Fourteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every quoted or engaged client company's country, company type and (outside India) year end, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
          */
         get: {
             parameters: {
@@ -24659,6 +24659,23 @@ export interface components {
             tradeName?: string;
             industry?: string;
             website?: string;
+            /**
+             * @description Required (Q076). The country it is registered in, ISO 3166-1 two letters: IN, AE, SG, US.
+             * @example IN
+             */
+            jurisdiction: string;
+            /**
+             * @description Required (Q076). What kind of company: private_limited, llp, pte_ltd, fzco, c_corp... the firm's own word.
+             * @example private_limited
+             */
+            entityType: string;
+            /**
+             * @description MM-DD, the last day of its financial year. REQUIRED outside India; an Indian company's is fixed at 03-31 and may be left out (anything else is refused).
+             * @example 12-31
+             */
+            financialYearEnd?: string;
+            /** Format: date */
+            incorporatedOn?: string;
         };
         Person: {
             /** Format: uuid */
@@ -24738,6 +24755,11 @@ export interface components {
             jurisdiction?: string;
             /** @example private_limited */
             entityType?: string;
+            /**
+             * @description Q076: MM-DD. Required for a company outside India (moving one out of India asks for it); an Indian company's is fixed at 03-31.
+             * @example 12-31
+             */
+            financialYearEnd?: string;
         };
         PartyIdentifier: {
             /** Format: uuid */
@@ -27675,12 +27697,12 @@ export interface components {
             ref: string | null;
             /** @description The subject's name as the firm wrote it; empty for the firm's own gap. */
             name: string;
-            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
+            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; client_details country | company_type | year_end; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
             missing: string[];
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "client_details" | "account_team" | "portal_contacts";
             /**
              * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
              * @enum {string}
@@ -27695,7 +27717,7 @@ export interface components {
         ReadinessResponse: {
             /** @description The firm's calendar day the lines were computed on. */
             asOf: string;
-            /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
+            /** @description The fourteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
         };
         MailSenders: {

@@ -8,6 +8,7 @@ import { countryName } from "@/lib/country";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
+import { YearEndField } from "@/components/year-end-field";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
@@ -195,25 +196,29 @@ export function IdentifierActions({
   );
 }
 
-/** Correct a registered company's country or kind. */
+/** Correct a registered company's country, kind or year end (Q076: the year
+ *  end is required outside India and fixed at 31 March inside it). */
 export function CorrectEntity({
   partyId,
   current,
   onSaved,
 }: {
   partyId: string;
-  current: { readonly jurisdiction: string; readonly entityType: string };
+  current: { readonly jurisdiction: string; readonly entityType: string; readonly financialYearEnd: string | null };
   onSaved: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [country, setCountry] = useState(current.jurisdiction);
 
   async function save(form: FormData): Promise<void> {
     const jurisdiction = String(form.get("jurisdiction") ?? "");
     const entityType = String(form.get("entityType") ?? "").trim();
-    const body: { jurisdiction?: string; entityType?: string } = {};
+    const yearEnd = String(form.get("financialYearEnd") ?? "");
+    const body: { jurisdiction?: string; entityType?: string; financialYearEnd?: string } = {};
     if (jurisdiction !== current.jurisdiction) body.jurisdiction = jurisdiction;
     if (entityType !== current.entityType) body.entityType = entityType;
+    if (jurisdiction !== "IN" && yearEnd !== "" && yearEnd !== current.financialYearEnd) body.financialYearEnd = yearEnd;
     if (Object.keys(body).length === 0) {
       setError("Nothing changed.");
       return;
@@ -234,7 +239,7 @@ export function CorrectEntity({
 
   return (
     <details className="card-foot">
-      <summary>Correct the country or kind</summary>
+      <summary>Correct the country, kind or year end</summary>
       <form
         className="stack"
         onSubmit={(event) => keepTyped(event, (form) => {
@@ -243,11 +248,18 @@ export function CorrectEntity({
       >
         <FieldRow>
           <Field label="Country">
-            <CountrySelect name="jurisdiction" defaultValue={current.jurisdiction} />
+            <CountrySelect
+              name="jurisdiction"
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+              }}
+            />
           </Field>
           <Field label="Kind of company">
             <EntityKindSelect name="entityType" required defaultValue={current.entityType} />
           </Field>
+          <YearEndField country={country} defaultValue={current.financialYearEnd} />
         </FieldRow>
         <ErrorNotice error={error} />
         <div className="cluster">

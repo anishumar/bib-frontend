@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
+import { YearEndField } from "@/components/year-end-field";
 import { api, apiError } from "@/lib/api/client";
 import type { OwnedClient, PartySummary } from "@/lib/api/client";
 import { Page, PageHeader, useSession } from "@/components/layout";
@@ -56,6 +58,8 @@ export default function ClientsPage() {
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<"organization" | "person">("organization");
+  /** The country picked on the add form, which decides the year-end field (Q076). */
+  const [newCountry, setNewCountry] = useState("");
   const kindTabs = useId();
   const addForm = useId();
   // Whose book to show. `mine` reads the assignments (G3.2) rather than
@@ -115,6 +119,11 @@ export default function ClientsPage() {
               ...optional("tradeName"),
               ...optional("industry"),
               ...optional("website"),
+              // Q076: required, and abroad the year end too. India's is
+              // fixed at 31 March and not sent.
+              jurisdiction: String(form.get("jurisdiction") ?? ""),
+              entityType: String(form.get("entityType") ?? ""),
+              ...(String(form.get("jurisdiction") ?? "") === "IN" ? {} : optional("financialYearEnd")),
             },
           })
         : await api.POST("/api/v1/parties/persons", {
@@ -323,25 +332,46 @@ export default function ClientsPage() {
           >
             <TabPanel tabsId={kindTabs} value={kind}>
               {kind === "organization" ? (
-                <FieldRow>
-                  <Field label="Legal name">
-                    <Input
-                      name="legalName"
-                      required
-                      autoFocus
-                      placeholder="e.g. Kaveri Foods Pvt Ltd"
-                    />
-                  </Field>
-                  <Field label="Trade name" optional>
-                    <Input name="tradeName" placeholder="e.g. Kaveri Foods" />
-                  </Field>
-                  <Field label="Industry" optional>
-                    <Input name="industry" placeholder="e.g. Food processing" />
-                  </Field>
-                  <Field label="Website" optional>
-                    <Input name="website" placeholder="e.g. kaverifoods.in" />
-                  </Field>
-                </FieldRow>
+                <FieldStack>
+                  <FieldRow>
+                    <Field label="Legal name">
+                      <Input
+                        name="legalName"
+                        required
+                        autoFocus
+                        placeholder="e.g. Kaveri Foods Pvt Ltd"
+                      />
+                    </Field>
+                    <Field label="Trade name" optional>
+                      <Input name="tradeName" placeholder="e.g. Kaveri Foods" />
+                    </Field>
+                    <Field label="Industry" optional>
+                      <Input name="industry" placeholder="e.g. Food processing" />
+                    </Field>
+                    <Field label="Website" optional>
+                      <Input name="website" placeholder="e.g. kaverifoods.in" />
+                    </Field>
+                  </FieldRow>
+                  {/* Q076: country and kind are required on every new client
+                      company; the year end too outside India. */}
+                  <FieldRow>
+                    <Field label="Country">
+                      <CountrySelect
+                        name="jurisdiction"
+                        blankLabel="Choose a country"
+                        required
+                        value={newCountry}
+                        onChange={(e) => {
+                          setNewCountry(e.target.value);
+                        }}
+                      />
+                    </Field>
+                    <Field label="Kind of company">
+                      <EntityKindSelect name="entityType" required />
+                    </Field>
+                    <YearEndField country={newCountry} />
+                  </FieldRow>
+                </FieldStack>
               ) : (
                 <FieldRow>
                   <Field label="Full name">
