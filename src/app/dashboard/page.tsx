@@ -71,6 +71,8 @@ import {
 } from "@/components/tw";
 import { BillingByCompany } from "./billing-by-company";
 import { RevenueByManagerSection } from "./revenue-by-manager";
+import { FeesByCurrency } from "./fees-by-currency";
+import type { components } from "@/lib/api/schema";
 import { plural } from "@/lib/plural";
 
 type Axis = "client" | "service";
@@ -84,15 +86,17 @@ export default function DashboardPage() {
   const [owed, setOwed] = useState<readonly DashboardSlice[]>([]);
   const [billing, setBilling] = useState<RevenueByCompany | null>(null);
   const [byManager, setByManager] = useState<RevenueByManager | null>(null);
+  const [byCurrency, setByCurrency] = useState<components["schemas"]["MrrByCurrency"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
-    const [head, byClient, byCompany, managers] = await Promise.all([
+    const [head, byClient, byCompany, managers, currencies] = await Promise.all([
       api.GET("/api/v1/dashboard/overview", {}),
       api.GET("/api/v1/dashboard/receivables/by-client", {}),
       api.GET("/api/v1/dashboard/revenue/by-company", { params: { query: { months: 12 } } }),
       api.GET("/api/v1/dashboard/revenue/by-manager", { params: { query: { months: 12 } } }),
+      api.GET("/api/v1/dashboard/mrr-by-currency", {}),
     ]);
     if (head.response.status === 401) {
       router.push("/login");
@@ -111,6 +115,7 @@ export default function DashboardPage() {
     setOwed(byClient.data?.slices ?? []);
     setBilling(byCompany.data ?? null);
     setByManager(managers.data ?? null);
+    setByCurrency(currencies.data ?? null);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -384,6 +389,9 @@ export default function DashboardPage() {
           </div>
         )}
       </Card>
+
+      {/* ── Recurring fees by currency, at today's rate too (0345) ─────────── */}
+      {byCurrency !== null && <FeesByCurrency data={byCurrency} />}
 
       {/* ── What each company billed, month by month (Wave 5) ──────────────── */}
       {billing !== null && billing.companies.length > 0 && <BillingByCompany data={billing} />}

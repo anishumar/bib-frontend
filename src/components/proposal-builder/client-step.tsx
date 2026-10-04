@@ -1,5 +1,6 @@
 "use client";
 
+import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
@@ -303,7 +304,20 @@ export function ClientStep({
   // Until the firm's companies have been read there is no rate to ask for.
   const reporting = firm?.reportingCurrency ?? currency;
   const foreign = currency !== "" && currency !== reporting;
-  const known = rates.get(currency);
+  // A NEW proposal's rate (0345): the feed's for today first, then the
+  // firm's last one. A draft keeps the rate saved on it.
+  const [feedRate, setFeedRate] = useState<{ code: string; s: FxSuggestion | null } | null>(null);
+  const wantFeed = draft === null && foreign;
+  useEffect(() => {
+    if (!wantFeed) return;
+    void fxSuggestion(currency, browserDay()).then((s) => {
+      setFeedRate({ code: currency, s });
+    });
+  }, [wantFeed, currency]);
+  const fromFeed = wantFeed && feedRate?.code === currency ? feedRate.s : null;
+  const lastUsed = rates.get(currency);
+  const known =
+    fromFeed === null ? lastUsed : { rate: fromFeed.rate, on: fromFeed.on, ref: fromFeed.source, feed: true as const };
   const fxRate = foreign ? (ratePick ?? known?.rate ?? "") : "1";
   // A rate carried over from an earlier proposal is as of THAT proposal's day;
   // a rate somebody types now is as of today.
@@ -919,7 +933,9 @@ export function ClientStep({
                       ? "The rate it was quoted at."
                       : known === undefined
                         ? `Your books are in ${reporting}.`
-                        : `Your last rate, on ${known.ref} (${longDay(known.on)}).`
+                        : "feed" in known
+                          ? `${known.ref} rate, ${longDay(known.on)}.`
+                          : `Your last rate, on ${known.ref} (${longDay(known.on)}).`
                   }
                 >
                   <AmountInput decimals={10}

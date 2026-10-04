@@ -52,6 +52,7 @@ import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
 import { keepTyped } from "@/lib/ui/keep-typed";
 import { CurrencySelect } from "@/components/currency-select";
+import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
  *  Your firm lands on it. Advances (0320): every advance and where it stands. */
@@ -132,6 +133,18 @@ function Invoices() {
   /** The client whose letters were last asked for, so a slow answer about an
    *  earlier choice cannot overwrite a later one. */
   const asked = useRef("");
+  /** The feed's rate for a foreign-currency invoice (0345), pre-filled. */
+  const [fxFetched, setFxFetched] = useState<{ code: string; s: FxSuggestion | null } | null>(null);
+  const fxCode = currency.trim().toUpperCase();
+  const fxWanted = raising && fxCode.length === 3 && fxCode !== reportingCurrency;
+  // Only the answer for the currency now chosen counts.
+  const fxSuggested = fxWanted && fxFetched?.code === fxCode ? fxFetched.s : null;
+  useEffect(() => {
+    if (!fxWanted) return;
+    void fxSuggestion(fxCode, browserDay()).then((s) => {
+      setFxFetched({ code: fxCode, s });
+    });
+  }, [fxWanted, fxCode]);
 
   const load = useCallback(async (): Promise<void> => {
     const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff] = await Promise.all([
@@ -625,12 +638,23 @@ function Invoices() {
                 <>
                   <Field
                     label={`${reportingCurrency} for one ${currency.trim().toUpperCase()}`}
-                    hint={`How many ${reportingCurrency} one ${currency.trim().toUpperCase()} is worth.`}
+                    hint={
+                      fxSuggested === null
+                        ? `How many ${reportingCurrency} one ${currency.trim().toUpperCase()} is worth.`
+                        : `${fxSuggested.source} rate, ${longDay(fxSuggested.on)}. Change it if you use another.`
+                    }
                   >
-                    <AmountInput decimals={10} name="fxRate" required placeholder="e.g. 83.25" />
+                    <AmountInput
+                      key={fxSuggested?.rate ?? "typed"}
+                      decimals={10}
+                      name="fxRate"
+                      required
+                      placeholder="e.g. 83.25"
+                      defaultValue={fxSuggested?.rate ?? ""}
+                    />
                   </Field>
                   <Field label="Rate on">
-                    <Input name="fxRateDate" type="date" defaultValue={today} required />
+                    <Input key={fxSuggested?.on ?? "today"} name="fxRateDate" type="date" defaultValue={fxSuggested?.on ?? today} required />
                   </Field>
                 </>
               )}

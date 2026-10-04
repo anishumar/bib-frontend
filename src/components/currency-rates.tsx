@@ -7,6 +7,7 @@ import { AmountInput, Button, Field, FieldRow, Input } from "@/components/ui";
 import { CurrencySelect } from "@/components/currency-select";
 import { browserDay, longDay } from "@/lib/day";
 import { currencyLabel } from "@/lib/currency";
+import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 
 export interface CurrencyRateRow {
   readonly currency: string;
@@ -51,6 +52,21 @@ export function CurrencyRates({
   const [adding, setAdding] = useState("");
   const [rate, setRate] = useState("");
   const [day, setDay] = useState(browserDay());
+  /** The feed's rate for the currency being added (0345), filled in and
+   *  shown with its source; typing over it makes the rate "typed". */
+  const [suggested, setSuggested] = useState<FxSuggestion | null>(null);
+
+  async function choose(currency: string): Promise<void> {
+    setAdding(currency);
+    setSuggested(null);
+    if (currency === "") return;
+    const s = await fxSuggestion(currency, browserDay());
+    setSuggested(s);
+    if (s !== null) {
+      setRate(s.rate);
+      setDay(s.on);
+    }
+  }
 
   useEffect(() => {
     void api.GET("/api/v1/firm-entities", {}).then((r) => {
@@ -58,18 +74,18 @@ export function CurrencyRates({
     });
   }, []);
 
-  async function put(currency: string, fxRate: string, fxRateDate: string): Promise<boolean> {
+  async function put(currency: string, fxRate: string, fxRateDate: string, source?: string): Promise<boolean> {
     setBusy(currency);
     setError(null);
     const result =
       kind === "proposal"
         ? await api.PUT("/api/v1/proposals/{proposalId}/rates/{currency}", {
             params: { path: { proposalId: documentId, currency } },
-            body: { fxRate, fxRateDate },
+            body: { fxRate, fxRateDate, ...(source === undefined ? {} : { source }) },
           })
         : await api.PUT("/api/v1/engagement-letters/{letterId}/rates/{currency}", {
             params: { path: { letterId: documentId, currency } },
-            body: { fxRate, fxRateDate },
+            body: { fxRate, fxRateDate, ...(source === undefined ? {} : { source }) },
           });
     if (result.error) {
       setError(apiError(result.error).message);
@@ -134,10 +150,15 @@ export function CurrencyRates({
           onSubmit={(e) => {
             e.preventDefault();
             if (adding === "" || rate.trim() === "") return;
-            void put(adding, rate.replace(/[,\s]/g, ""), day).then((ok) => {
+            const typed = rate.replace(/[,\s]/g, "");
+            // The feed's name goes with its rate; anything changed is "typed".
+            const source =
+              suggested !== null && typed === suggested.rate && day === suggested.on ? suggested.source : undefined;
+            void put(adding, typed, day, source).then((ok) => {
               if (ok) {
                 setAdding("");
                 setRate("");
+                setSuggested(null);
               }
             });
           }}
@@ -149,11 +170,20 @@ export function CurrencyRates({
                 blankLabel="Choose a currency"
                 exclude={[main, ...rates.map((r) => r.currency)]}
                 onChange={(e) => {
-                  setAdding(e.target.value);
+                  void choose(e.target.value);
                 }}
               />
             </Field>
-            <Field label={adding === "" ? `Its rate in ${books}` : `1 ${adding} is how many ${books}`}>
+            <Field
+              label={adding === "" ? `Its rate in ${books}` : `1 ${adding} is how many ${books}`}
+              hint={
+                suggested === null
+                  ? undefined
+                  : rate.replace(/[,\s]/g, "") === suggested.rate && day === suggested.on
+                    ? `${suggested.source} rate, ${longDay(suggested.on)}. Change it if you agreed another.`
+                    : "Typed by you."
+              }
+            >
               <AmountInput
                 decimals={10}
                 value={rate}

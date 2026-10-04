@@ -21547,6 +21547,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/mrr-by-currency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recurring fees by currency, at the signed rates and at today's rate
+         * @description 0345, Q009. Each currency's recurring fees a month in that currency, in the reporting currency at the rates the letters were signed at (MRR, unchanged), and at today's rate from the exchange-rate feed with its date and source; per client too. Never one figure that adds two currencies.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MrrByCurrency"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/mrr/{axis}": {
         parameters: {
             query?: never;
@@ -21833,6 +21890,75 @@ export interface paths {
                 };
                 /** @description The session has not selected an org, or the role may not administer the firm */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fx/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The feed's exchange rate for a currency, in the firm's own currency
+         * @description A SUGGESTION for a document's rate box, never a term: the rate a document carries is the one saved on it (0344). From the product's daily table, fetched once a day; a day not held yet is asked of the feed once. 404 FX_RATE_UNAVAILABLE when no rate is held for the pair and the feed could not supply one: the person types it.
+         */
+        get: {
+            parameters: {
+                query: {
+                    currency: string;
+                    on: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FxQuote"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No rate for this currency (FX_RATE_UNAVAILABLE) */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -26875,6 +27001,42 @@ export interface components {
             dsoDays: number | null;
             dsoWindowDays: number;
         };
+        TodaysRate: {
+            /** @description One unit of the currency, in the reporting currency. */
+            fxRate: string;
+            /** @description The day of the rate: the firm's day or the latest before it. */
+            fxRateDate: string;
+            /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
+            source: string;
+        } | null;
+        MrrByCurrency: {
+            reportingCurrency: string;
+            /** @description The firm's day the rates are today's for. */
+            asOf: string;
+            currencies: {
+                currency: string;
+                /** @description A month of the recurring fees, in this currency. */
+                monthly: string;
+                /** @description In the reporting currency at each letter's own rate: what MRR counts. */
+                atSignedRates: string;
+                /** @description In the reporting currency at today's rate; null with no rate held. */
+                atTodaysRate: string | null;
+                todaysRate: components["schemas"]["TodaysRate"];
+                engagements: number;
+            }[];
+            clients: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                currency: string;
+                monthly: string;
+                atSignedRates: string;
+                atTodaysRate: string | null;
+            }[];
+            /** @description Equals MRR on the overview. */
+            totalAtSignedRates: string;
+            totalAtTodaysRate: string | null;
+        };
         DashboardSlice: {
             key: string;
             /** @description The name, never the uuid. */
@@ -26995,6 +27157,17 @@ export interface components {
             asOf: string;
             /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
+        };
+        FxQuote: {
+            currency: string;
+            /** @description The firm's own currency: what the rate is in. */
+            reportingCurrency: string;
+            /** @description One unit of `currency`, in `reportingCurrency`. A decimal string. */
+            fxRate: string;
+            /** @description The day of the rate actually used: the day asked for or the latest before it (a weekend, a feed that was down), or the earliest after it when the feed's history starts later. */
+            fxRateDate: string;
+            /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
+            source: string;
         };
     };
     responses: never;
