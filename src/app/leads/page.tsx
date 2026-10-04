@@ -320,9 +320,15 @@ export default function LeadsPage() {
       setCaptureError("Choose the contact person's role, or clear their name.");
       return;
     }
-    // Whose desk (CA#19): "auto" is the firm's own rule, as before; "none"
-    // leaves it in the unassigned queue; anything else is that colleague.
-    const owner = String(form.get("owner") ?? "auto");
+    // Whose desk (CA#19, Q066): an explicit choice, never a default. "auto" is
+    // the firm's own rule; "none" leaves it in the unassigned queue; anything
+    // else is that colleague, and the rule never overrides a person named here.
+    const owner = String(form.get("owner") ?? "");
+    if (owner === "") {
+      setBusy(null);
+      setCaptureError("Choose who the lead is assigned to: a colleague, the firm's rule, or leave it unassigned.");
+      return;
+    }
     // Both optional, and a blank one is SENT AS ABSENT: an unknown country and
     // an unknown value are real answers at capture, never a reason to refuse.
     const jurisdiction = String(form.get("jurisdiction") ?? "");
@@ -937,8 +943,14 @@ export default function LeadsPage() {
                 the email and phone are theirs.
               </p>
             </div>
-            <Field label="Owner">
-              <Select name="owner" defaultValue="auto">
+            <Field
+              label="Assign to"
+              hint="The person chosen gets it. Admins are told about every new lead."
+            >
+              <Select name="owner" required defaultValue="">
+                <option value="" disabled>
+                  Choose…
+                </option>
                 <option value="auto">The firm&rsquo;s rule picks</option>
                 {staff.map((m) => (
                   <option key={m.userId} value={m.userId}>
