@@ -52,6 +52,7 @@ const LABELS: Readonly<Record<Key, string>> = {
   client_details: "Country, kind and year end for every client company",
   account_team: "Key Manager and SPOCs for every client",
   portal_contacts: "A portal login for every client",
+  return_periods: "Return periods from the tax authority",
 };
 
 const FIX: Readonly<Record<Key, Route>> = {
@@ -69,6 +70,7 @@ const FIX: Readonly<Record<Key, Route>> = {
   client_details: "/clients",
   account_team: "/clients",
   portal_contacts: "/clients",
+  return_periods: "/clients",
 };
 
 /** A firm-level gap, in words. */
@@ -101,6 +103,7 @@ function missingWords(missing: readonly string[]): string {
     if (m === "company_type") return "no kind of company";
     if (m === "year_end") return "no year end";
     if (m === "address") return "no registered address";
+    if (m.startsWith("return_period:")) return `no ${m.slice("return_period:".length)} return period`;
     return m;
   });
   const text = words.join(", ");
@@ -109,7 +112,10 @@ function missingWords(missing: readonly string[]): string {
 
 /** Where one gap is fixed, when it is about one thing. */
 function gapHref(key: Key, gap: ReadinessLine["gaps"][number]): Route | null {
-  if ((key === "account_team" || key === "portal_contacts" || key === "client_details") && gap.id !== null) {
+  if (
+    (key === "account_team" || key === "portal_contacts" || key === "client_details" || key === "return_periods") &&
+    gap.id !== null
+  ) {
     return `/clients/${gap.id}` as Route;
   }
   if (key === "processes" && gap.ref !== null) return `/catalogue/${gap.ref}` as Route;

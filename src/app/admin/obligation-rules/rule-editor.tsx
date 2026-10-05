@@ -80,6 +80,9 @@ export type DueRuleKind = "day_of_month" | "days_after";
 export interface RuleDraft {
   readonly recurrence: string;
   readonly fiscalYearStartMonth: number;
+  /** Whose year a quarter or a year is cut on (0358): the rule's, or each
+   *  client's own year end (UAE corporate tax, Singapore's annual filings). */
+  readonly periodBasis: "rule_calendar" | "client_year_end" | "authority_assigned";
   readonly hasFormula: boolean;
   readonly kind: DueRuleKind;
   /** Null until somebody types it: a rule with no formula opens with EMPTY
@@ -112,6 +115,7 @@ export function draftOf(rule: ObligationRule | null): RuleDraft {
   return {
     recurrence: rule?.recurrence ?? "monthly",
     fiscalYearStartMonth: rule?.fiscalYearStartMonth ?? 4,
+    periodBasis: rule?.periodBasis ?? "rule_calendar",
     // A NEW rule defaults to computing a date; an existing one reads its own
     // state. Found by writing one: the form opened on "it depends on something
     // this system does not hold" with an empty reason, so the first press of
@@ -155,6 +159,7 @@ export function bodyOf(d: RuleDraft): Record<string, unknown> {
   return {
     recurrence: d.recurrence,
     fiscalYearStartMonth: d.fiscalYearStartMonth,
+    periodBasis: d.periodBasis,
     dueRule: formula,
     unresolvedReason: d.hasFormula ? null : d.unresolvedReason.trim(),
     module: d.module.trim() || null,
@@ -287,13 +292,21 @@ export function describeRule(rule: Pick<ObligationRule, "recurrence" | "dueRule"
  * a date TO, where "Every month" again would be noise: a successor keeps its
  * predecessor's period shape, because the amendment form cannot change it.
  */
-export function describeDue(rule: Pick<ObligationRule, "recurrence" | "dueRule">): string | null {
+export function describeDue(
+  rule: Pick<ObligationRule, "recurrence" | "dueRule"> & { readonly periodBasis?: ObligationRule["periodBasis"] },
+): string | null {
   if (rule.dueRule === null) return null;
 
   // An EVENT rule counts from the event, never from a period: it does not have
   // one. Saying "after the period ends" there would describe a mechanism that
-  // does not exist.
-  const from = rule.recurrence === "event" ? "the event" : "the period ends";
+  // does not exist. A yearly rule on the client's year end counts from THAT
+  // (0358), which is how UAE corporate tax is worded.
+  const from =
+    rule.recurrence === "event"
+      ? "the event"
+      : rule.recurrence === "annual" && rule.periodBasis === "client_year_end"
+        ? "the client's year ends"
+        : "the period ends";
 
   if (rule.dueRule.kind === "days_after") {
     return `${String(rule.dueRule.dueDaysAfter ?? 0)} days after ${from}`;
@@ -558,7 +571,25 @@ export function RuleEditor({
             <option value="event">When something happens</option>
           </Select>
         </Field>
-        <Field label="Financial year starts in">
+        <Field label="Periods follow">
+          <Select
+            value={draft.periodBasis}
+            disabled={shapeLocked || draft.recurrence === "event"}
+            {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
+            onChange={(e) => {
+              const v = e.target.value;
+              set(
+                "periodBasis",
+                v === "client_year_end" || v === "authority_assigned" ? v : "rule_calendar",
+              );
+            }}
+          >
+            <option value="rule_calendar">One year for everyone</option>
+            <option value="client_year_end">Each client&apos;s year end</option>
+            <option value="authority_assigned">Each client&apos;s assigned period</option>
+          </Select>
+        </Field>
+        <Field label={draft.periodBasis === "client_year_end" ? "Year starts, if no year end" : "Financial year starts in"}>
           <Select
             value={String(draft.fiscalYearStartMonth)}
             disabled={shapeLocked}
@@ -584,7 +615,11 @@ export function RuleEditor({
            nothing, and this paragraph is replaced by a Notice once the shape
            is locked. */
         <p id={periodNoteId} className="field-hint">
-          April for India, so a quarter runs April to June.
+          {draft.periodBasis === "authority_assigned"
+            ? "Each client's period from its tax authority, e.g. UAE VAT. Needs the group, e.g. VAT."
+            : draft.periodBasis === "client_year_end" && draft.recurrence !== "monthly"
+              ? "Cut on each client's own year end, e.g. UAE corporate tax."
+              : "April for India, so a quarter runs April to June."}
         </p>
       )}
 

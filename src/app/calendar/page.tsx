@@ -16,6 +16,7 @@ import { MonthView } from "./month-view";
 import { Empty, Loading } from "@/components/states";
 import { Button, Card, CardHead, Checkbox, ErrorNotice, Input, LinkButton, Notice, NotSet, Pill, Select, Sub, TabPanel, Table, TableWrap, Tabs, Td, Th, Tooltip } from "@/components/ui";
 import { browserDay, longDay } from "@/lib/day";
+import { FilingClock, FilingNotes, otherClock, pastLegalDeadline } from "./filing-clock";
 import { plural } from "@/lib/plural";
 import { rulePackLabel } from "@/lib/rule-pack";
 
@@ -297,7 +298,9 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
   // is UTC midnight and prints as the 19th west of Greenwich, which moves a
   // statutory deadline by a day.
   const lateInternally = row.internalTargetOn < today && !row.isTerminal;
-  const lateLegally = row.statutoryDueOn < today && row.filedOn === null && !row.isTerminal;
+  // The LEGAL deadline on the filing's own day (Q070 Part B), never the
+  // reader's: a UAE return is not missed at India's midnight.
+  const lateLegally = pastLegalDeadline(row);
   // What this row IS, for the link at the end of it — see below.
   const about = [row.name, row.entityName, row.periodLabel].filter(Boolean).join(", ");
 
@@ -324,6 +327,13 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
         {row.clientName !== null && row.clientName !== row.entityName && (
           <Sub>{row.clientName}</Sub>
         )}
+        {/* Under the company, which wraps: the period cell is nowrap, and this
+            sentence there widened the table past the screen. */}
+        {row.periodBasis === "rule_fallback" && (
+          <Sub>
+            <FilingNotes row={{ ...row, filedByWorkItemId: null }} />
+          </Sub>
+        )}
       </Td>
       <Td className="nowrap">{row.periodLabel}</Td>
       <Td className="nowrap">
@@ -347,6 +357,11 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
           {longDay(row.statutoryDueOn)}
         </span>
         {lateLegally && <Sub>Missed</Sub>}
+        {otherClock(row) !== null && (
+          <Sub>
+            <FilingClock row={row} />
+          </Sub>
+        )}
       </Td>
       <Td>
         <Pill dot tone={row.needsDecision ? "danger" : row.isTerminal ? "neutral" : "ok"}>
@@ -361,6 +376,11 @@ function CalendarLine({ row, today }: { row: CalendarRow; today: string }) {
           <Sub>
             {`Filed ${longDay(row.filedOn)}`}
             {row.filedOn > row.statutoryDueOn ? ", late" : ""}
+          </Sub>
+        )}
+        {row.filedByWorkItemId !== null && row.filedByWorkItemId !== row.workItemId && (
+          <Sub>
+            <FilingNotes row={{ ...row, periodBasis: "rule_calendar" }} />
           </Sub>
         )}
       </Td>

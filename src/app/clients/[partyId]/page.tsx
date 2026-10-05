@@ -21,6 +21,8 @@ import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
 import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
+import { clockLabel, EntityClock } from "./entity-clock";
+import { ReturnPeriods } from "./return-periods";
 import {
   Button,
   Card,
@@ -581,6 +583,7 @@ export default function PartyPage() {
                   <Th>Kind of company</Th>
                   <Th>Incorporated</Th>
                   <Th>Year ends</Th>
+                  <Th>Filing clock</Th>
                   <Th>Status</Th>
                 </tr>
               </thead>
@@ -603,6 +606,10 @@ export default function PartyPage() {
                         <NotSet>Not set: needed outside India</NotSet>
                       )}
                     </Td>
+                    {/* Whose midnight its filings are missed at (Q070 Part B). */}
+                    <Td className="nowrap">
+                      <span className={clockLabel(e).own ? undefined : "text-muted"}>{clockLabel(e).text}</span>
+                    </Td>
                     <Td>
                       <Pill dot tone={e.status === "active" ? "ok" : "danger"}>
                         {codeLabel(e.status)}
@@ -622,6 +629,24 @@ export default function PartyPage() {
                 jurisdiction: profile.legalEntities[0].jurisdiction,
                 entityType: profile.legalEntities[0].entityType,
                 financialYearEnd: profile.legalEntities[0].financialYearEnd,
+              }}
+              onSaved={load}
+            />
+          )}
+          {profile.legalEntities[0] !== undefined && (
+            <ReturnPeriods
+              partyId={partyId}
+              periods={profile.returnPeriods}
+              canWrite={canWrite}
+              onSaved={load}
+            />
+          )}
+          {canWrite && profile.legalEntities[0] !== undefined && (
+            <EntityClock
+              partyId={partyId}
+              current={{
+                jurisdiction: profile.legalEntities[0].jurisdiction,
+                timeZone: profile.legalEntities[0].timeZone,
               }}
               onSaved={load}
             />

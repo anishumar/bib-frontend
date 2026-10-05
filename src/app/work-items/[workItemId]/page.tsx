@@ -353,6 +353,7 @@ export default function WorkItemPage() {
       {filing !== null && (
         <Filing
           filing={filing}
+          workItemId={workItemId}
           company={item.entityName ?? item.clientName}
           canWrite={canWrite}
           busy={busy === "filing"}
@@ -948,9 +949,15 @@ function Notes({
  * the client's portal still said Pending. Linking makes this task the one that
  * files it: completing the task marks the filing filed, as completing the
  * calendar's own task does, and the calendar raises no second task for it.
+ *
+ * A PERIOD JOB'S TASK FILES ITS PERIOD (Q063): finishing "GST · Sep 2026"
+ * files that month's open returns on a rule its service carries, and they are
+ * listed here (`filedHere`); reopening the task un-files exactly those. A
+ * filing filed by a task other than this one says which.
  */
 function Filing({
   filing,
+  workItemId,
   company,
   canWrite,
   busy,
@@ -958,6 +965,7 @@ function Filing({
   onUnlink,
 }: {
   filing: TaskFiling;
+  workItemId: string;
   company: string;
   canWrite: boolean;
   busy: boolean;
@@ -966,11 +974,31 @@ function Filing({
 }) {
   const [choice, setChoice] = useState("");
   const linked = filing.linked;
-  if (linked === null && filing.open.length === 0) return null;
+  if (linked === null && filing.open.length === 0 && filing.filedHere.length === 0) return null;
+  const byOther =
+    linked !== null && linked.filedByWorkItemId !== null && linked.filedByWorkItemId !== workItemId
+      ? linked
+      : null;
   return (
     <Card>
-      <CardTitle level={2}>Filing</CardTitle>
-      {linked !== null ? (
+      <CardTitle level={2}>{filing.filedHere.length > 1 ? "Filings" : "Filing"}</CardTitle>
+      {filing.filedHere.length > 0 && (
+        <div className="stack tight">
+          <p className="m-0">Completing this task filed:</p>
+          <ul className="m-0 stack tight">
+            {filing.filedHere.map((f) => (
+              <li key={f.obligationId} className="cluster">
+                <strong>{`${f.name} · ${f.periodLabel}`}</strong>
+                {f.filedOn !== null && <Pill dot tone="ok">{`Filed ${longDay(f.filedOn)}`}</Pill>}
+              </li>
+            ))}
+          </ul>
+          <p className="m-0 text-ink-2">
+            {`Reopening the task marks ${filing.filedHere.length === 1 ? "it" : "them"} not filed.`}
+          </p>
+        </div>
+      )}
+      {filing.filedHere.length > 0 && linked === null ? null : linked !== null ? (
         <div className="cluster">
           <p className="m-0">
             This task files <strong>{`${linked.name} · ${linked.periodLabel}`}</strong>, due{" "}
@@ -981,6 +1009,15 @@ function Filing({
               <span className="text-ink-2">Completing the task marks it filed.</span>
             )}
           </p>
+          {byOther !== null && byOther.filedByWorkItemId !== null && (
+            <p className="m-0 text-ink-2">
+              Filed by{" "}
+              <Link href={`/work-items/${byOther.filedByWorkItemId}`}>
+                {byOther.filedByTitle ?? "another task"}
+              </Link>
+              . This task can be closed.
+            </p>
+          )}
           {canWrite && linked.filedOn === null && (
             <Button variant="ghost" size="sm" disabled={busy} onClick={onUnlink}>
               Not this filing
