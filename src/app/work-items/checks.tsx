@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api, apiError } from "@/lib/api/client";
-import type { WorkItemCheckRow } from "@/lib/api/client";
+import type { LinkableFiling, WorkItemCheckRow } from "@/lib/api/client";
 import {
   Button,
   Card,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { Empty } from "@/components/states";
 import { longInstant } from "@/lib/day";
+import { allPortalDays, PortalDates, portalDaysToday } from "@/lib/ui/portal-dates";
 
 /**
  * Tasks that are finished and waiting for somebody else to look at them.
@@ -153,13 +154,44 @@ function CheckRow({
    *  back. Approving needs no note; rejecting cannot happen without one. */
   const [sendingBack, setSendingBack] = useState(false);
   const [notes, setNotes] = useState("");
+  /** Q084: approving finishes the task. When that files returns, the panel
+   *  asking the day each was filed on the portal, before the approval goes. */
+  const [filing, setFiling] = useState<readonly LinkableFiling[] | null>(null);
+  const [portalDays, setPortalDays] = useState<Record<string, string>>({});
 
-  async function decide(decision: "approved" | "rejected", note: string | null): Promise<void> {
+  /** Approve: straight away, unless the task files returns (Q084), when the
+   *  portal days are asked first, as they are on the task page. */
+  async function approve(): Promise<void> {
+    setBusy(true);
+    onError("");
+    const read = await api.GET("/api/v1/work-items/{workItemId}/filing", {
+      params: { path: { workItemId: check.workItemId } },
+    });
+    setBusy(false);
+    if (read.error) {
+      onError(apiError(read.error).message);
+      return;
+    }
+    const files = read.data.filesOnDone;
+    if (files.length === 0) {
+      await decide("approved", null);
+      return;
+    }
+    setSendingBack(false);
+    setPortalDays(portalDaysToday(files));
+    setFiling(files);
+  }
+
+  async function decide(
+    decision: "approved" | "rejected",
+    note: string | null,
+    filedOn?: Record<string, string>,
+  ): Promise<void> {
     setBusy(true);
     onError("");
     const result = await api.POST("/api/v1/work-item-checks/{approvalId}/decide", {
       params: { path: { approvalId: check.id } },
-      body: { decision, notes: note },
+      body: { decision, notes: note, ...(filedOn === undefined ? {} : { filedOn }) },
     });
     setBusy(false);
     if (result.error) {
@@ -171,6 +203,7 @@ function CheckRow({
     }
     setSendingBack(false);
     setNotes("");
+    setFiling(null);
     onDecided();
   }
 
@@ -205,9 +238,10 @@ function CheckRow({
               <Button
                 variant="secondary"
                 size="sm"
-                loading={busy && !sendingBack}
+                loading={busy && !sendingBack && filing === null}
+                aria-expanded={filing !== null}
                 onClick={() => {
-                  void decide("approved", null);
+                  void approve();
                 }}
               >
                 Approve
@@ -217,6 +251,7 @@ function CheckRow({
                 size="sm"
                 aria-expanded={sendingBack}
                 onClick={() => {
+                  setFiling(null);
                   setSendingBack(!sendingBack);
                 }}
               >
@@ -245,6 +280,38 @@ function CheckRow({
               somebody decides the product is guessing. */}
           <Td colSpan={5}>
             <Sub>{check.viewer.reason ?? "Not yours to check."}</Sub>
+          </Td>
+        </tr>
+      )}
+      {filing !== null && (
+        <tr>
+          {/* Q084: the same question the task page asks when this task is
+              closed there, so approving from the queue never stamps today on
+              a return filed on the portal days ago. */}
+          <Td colSpan={5}>
+            <PortalDates filings={filing} value={portalDays} onChange={setPortalDays} />
+            <span className="cluster tight">
+              <Button
+                variant="primary"
+                size="sm"
+                loading={busy}
+                disabled={!allPortalDays(filing, portalDays)}
+                onClick={() => {
+                  void decide("approved", null, portalDays);
+                }}
+              >
+                Approve and record these days
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFiling(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </span>
           </Td>
         </tr>
       )}

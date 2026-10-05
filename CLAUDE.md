@@ -3322,11 +3322,18 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
 - **Q084** The task page (`app/work-items/[workItemId]/page.tsx`) asks "Filed on the portal on", one
   date per return in `filing.filesOnDone`, before a Done state from the State list is saved and on
   the Approve form; today by default, `max` today. It sends `filedOn` (obligation id -> day); the
-  API's refusal is shown as is. The Checks queue's Approve still files on today.
+  API's refusal is shown as is. The Checks queue's Approve (`app/work-items/checks.tsx`) reads the
+  task's `filing` first and, when it files returns, asks the same days before approving
+  ("Approve and record these days"); one component, `lib/ui/portal-dates.tsx`. The work board has
+  no state change of its own.
 - **Q087** Your firm -> "Bank details and LUT on invoices" carries a Round off switch per company
   (`PUT /firm-entities/{id}/round-off`); the invoice page prints a Round off row above the Total
   when `totals.roundOff` is not zero.
 - **Q085** The Revenue report's nobody row by manager reads "No manager yet (incl. advances not
   adjusted)" on screen and in the CSV.
-- Walk: `bib/demo-assets/tools/ans-walk.mjs` (29).
+- Follow-ups: `lib/ui/time-zone.tsx` lists "United States, Pacific (America/Los_Angeles)" (Q075:
+  10x's US company keeps LA time); the advance box on the proposal's letter form and the letter
+  builder reads "Ask for an advance" with a note that the work starts at signing (it has not waited
+  for the advance since 3 Oct); the Round off hint says an Indian company starts on (0380).
+- Walks: `bib/demo-assets/tools/ans-walk.mjs` (29), `fix4-walk.mjs` (17).
 

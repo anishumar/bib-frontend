@@ -10,7 +10,6 @@ import {
   cx,
   Dialog,
   Field,
-  Fieldset,
   FieldStack,
   Input,
   LinkButton,
@@ -55,6 +54,7 @@ import { browserDay, longDay, longInstant } from "@/lib/day";
 import { ClientAsks } from "./client-asks";
 import { Documents } from "@/lib/ui/documents";
 import { keepTyped } from "@/lib/ui/keep-typed";
+import { allPortalDays, PortalDates, portalDaysToday } from "@/lib/ui/portal-dates";
 
 /**
  * One work item — the page where it is actually worked (T3.1).
@@ -634,7 +634,7 @@ function Details({
                 setBlockedPick(null);
                 if (next.isTerminal && next.isSuccess && filesOnDone.length > 0) {
                   setDonePick(next.id);
-                  setPortalDays(todayFor(filesOnDone));
+                  setPortalDays(portalDaysToday(filesOnDone));
                   return;
                 }
                 setDonePick(null);
@@ -777,7 +777,7 @@ function Details({
         >
           <PortalDates filings={filesOnDone} value={portalDays} onChange={setPortalDays} />
           <div className="cluster">
-            <Button type="submit" size="sm" disabled={busy === "state" || !allDays(filesOnDone, portalDays)}>
+            <Button type="submit" size="sm" disabled={busy === "state" || !allPortalDays(filesOnDone, portalDays)}>
               {`Mark ${doneTarget.name.toLowerCase()}`}
             </Button>
             <Button
@@ -823,50 +823,6 @@ function Details({
         </Notice>
       )}
     </Card>
-  );
-}
-
-/** Q084: every return this close files, filed on the portal today unless typed. */
-function todayFor(filings: readonly LinkableFiling[]): Record<string, string> {
-  const today = browserDay();
-  return Object.fromEntries(filings.map((f) => [f.obligationId, today]));
-}
-
-function allDays(filings: readonly LinkableFiling[], days: Record<string, string>): boolean {
-  return filings.every((f) => (days[f.obligationId] ?? "") !== "");
-}
-
-/**
- * Q084 (10x, 2026-10-05: "While closing job, ask filing date separately"): the
- * day each return was filed ON THE PORTAL, which is the filing's date of
- * record and what lateness is counted from. Today by default; never later.
- */
-function PortalDates({
-  filings,
-  value,
-  onChange,
-}: {
-  filings: readonly LinkableFiling[];
-  value: Record<string, string>;
-  onChange: (next: Record<string, string>) => void;
-}) {
-  const today = browserDay();
-  return (
-    <Fieldset legend="Filed on the portal on">
-      {filings.map((f) => (
-        <Field key={f.obligationId} label={`${f.name} · ${f.periodLabel}`} hint={`Due ${longDay(f.statutoryDueOn)}`}>
-          <Input
-            type="date"
-            max={today}
-            required
-            value={value[f.obligationId] ?? ""}
-            onChange={(e) => {
-              onChange({ ...value, [f.obligationId]: e.target.value });
-            }}
-          />
-        </Field>
-      ))}
-    </Fieldset>
   );
 }
 
@@ -1306,7 +1262,7 @@ function DecideReview({
 }) {
   const [notes, setNotes] = useState("");
   // Q084: approving finishes the task, so it files its returns: their portal days.
-  const [portalDays, setPortalDays] = useState<Record<string, string>>(() => todayFor(filesOnDone));
+  const [portalDays, setPortalDays] = useState<Record<string, string>>(() => portalDaysToday(filesOnDone));
   const [checkers, setCheckers] = useState<WorkItemChecker[] | "failed" | null>(null);
 
   async function loadCheckers(): Promise<void> {
@@ -1355,7 +1311,7 @@ function DecideReview({
           </Field>
           <div className="cluster">
             <Button
-              disabled={busy === review.id || openLines > 0 || !allDays(filesOnDone, portalDays)}
+              disabled={busy === review.id || openLines > 0 || !allPortalDays(filesOnDone, portalDays)}
               onClick={() => {
                 onDecide(
                   review.id,
