@@ -26,6 +26,7 @@ import type {
   Colleague,
   Principal,
   ReviewRule,
+  LinkableFiling,
   TaskFiling,
   WorkItem,
   WorkItemChecker,
@@ -190,11 +191,12 @@ export default function WorkItemPage() {
       openLines={openLines.length}
       canWrite={canWrite}
       busy={busy}
-      onDecide={(approvalId, decision, notes) => {
+      filesOnDone={filing?.filesOnDone ?? []}
+      onDecide={(approvalId, decision, notes, filedOn) => {
         void act(approvalId, () =>
           api.POST("/api/v1/work-item-checks/{approvalId}/decide", {
             params: { path: { approvalId } },
-            body: { decision, notes },
+            body: { decision, notes, ...(filedOn === undefined ? {} : { filedOn }) },
           }),
         );
       }}
@@ -274,11 +276,12 @@ export default function WorkItemPage() {
         roster={roster}
         busy={busy}
         stepsHandedOver={stepsHandedOver}
-        onMove={(stateId, blockedReason) =>
+        filesOnDone={filing?.filesOnDone ?? []}
+        onMove={(stateId, blockedReason, filedOn) =>
           act("state", () =>
             api.POST("/api/v1/work-items/{workItemId}/state", {
               params: { path: { workItemId } },
-              body: { stateId, blockedReason },
+              body: { stateId, blockedReason, ...(filedOn === undefined ? {} : { filedOn }) },
             }),
           )
         }
@@ -571,6 +574,7 @@ function Details({
   roster,
   busy,
   stepsHandedOver,
+  filesOnDone,
   onMove,
   onVisibility,
   onAssign,
@@ -581,7 +585,9 @@ function Details({
   roster: Colleague[];
   busy: string | null;
   stepsHandedOver: number | null;
-  onMove: (stateId: string, blockedReason: string | null) => Promise<boolean>;
+  /** Q084: the returns finishing this task would file; each asks its portal day. */
+  filesOnDone: readonly LinkableFiling[];
+  onMove: (stateId: string, blockedReason: string | null, filedOn?: Record<string, string>) => Promise<boolean>;
   onVisibility: (visible: boolean) => void;
   onAssign: (userId: string | null) => void;
 }) {
@@ -591,10 +597,15 @@ function Details({
   // other pick has already been saved.
   const [blockedPick, setBlockedPick] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  // Q084: a DONE state picked on a task that files returns, waiting for the
+  // day each was filed on the portal.
+  const [donePick, setDonePick] = useState<string | null>(null);
+  const [portalDays, setPortalDays] = useState<Record<string, string>>({});
   const mayMove = canWrite && vocabulary !== null;
   const mayAssign = canWrite && roster.length > 0;
-  const shownStateId = blockedPick ?? currentStateId;
+  const shownStateId = blockedPick ?? donePick ?? currentStateId;
   const blockedTarget = vocabulary?.states.find((s) => s.id === blockedPick) ?? null;
+  const doneTarget = vocabulary?.states.find((s) => s.id === donePick) ?? null;
 
   return (
     <Card>
@@ -611,13 +622,21 @@ function Details({
                 if (next === undefined) return;
                 if (next.id === currentStateId) {
                   setBlockedPick(null);
+                  setDonePick(null);
                   return;
                 }
                 if (next.isBlocked) {
                   setBlockedPick(next.id);
+                  setDonePick(null);
                   return;
                 }
                 setBlockedPick(null);
+                if (next.isTerminal && next.isSuccess && filesOnDone.length > 0) {
+                  setDonePick(next.id);
+                  setPortalDays(todayFor(filesOnDone));
+                  return;
+                }
+                setDonePick(null);
                 void onMove(next.id, null);
               }}
             >
@@ -745,6 +764,34 @@ function Details({
           </div>
         </form>
       )}
+      {doneTarget !== null && mayMove && (
+        <form
+          className="stack tight"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void onMove(doneTarget.id, null, portalDays).then((ok) => {
+              if (ok) setDonePick(null);
+            });
+          }}
+        >
+          <PortalDates filings={filesOnDone} value={portalDays} onChange={setPortalDays} />
+          <div className="cluster">
+            <Button type="submit" size="sm" disabled={busy === "state" || !allDays(filesOnDone, portalDays)}>
+              {`Mark ${doneTarget.name.toLowerCase()}`}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setDonePick(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
       {mayAssign && (
         <p className="field-hint" id="assign-hint">
           Handing it on also hands over the job&rsquo;s untaken steps, where grade allows.
@@ -775,6 +822,51 @@ function Details({
         </Notice>
       )}
     </Card>
+  );
+}
+
+/** Q084: every return this close files, filed on the portal today unless typed. */
+function todayFor(filings: readonly LinkableFiling[]): Record<string, string> {
+  const today = browserDay();
+  return Object.fromEntries(filings.map((f) => [f.obligationId, today]));
+}
+
+function allDays(filings: readonly LinkableFiling[], days: Record<string, string>): boolean {
+  return filings.every((f) => (days[f.obligationId] ?? "") !== "");
+}
+
+/**
+ * Q084 (10x, 2026-10-05: "While closing job, ask filing date separately"): the
+ * day each return was filed ON THE PORTAL, which is the filing's date of
+ * record and what lateness is counted from. Today by default; never later.
+ */
+function PortalDates({
+  filings,
+  value,
+  onChange,
+}: {
+  filings: readonly LinkableFiling[];
+  value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}) {
+  const today = browserDay();
+  return (
+    <fieldset className="stack tight">
+      <legend className="label">Filed on the portal on</legend>
+      {filings.map((f) => (
+        <Field key={f.obligationId} label={`${f.name} · ${f.periodLabel}`} hint={`Due ${longDay(f.statutoryDueOn)}`}>
+          <Input
+            type="date"
+            max={today}
+            required
+            value={value[f.obligationId] ?? ""}
+            onChange={(e) => {
+              onChange({ ...value, [f.obligationId]: e.target.value });
+            }}
+          />
+        </Field>
+      ))}
+    </fieldset>
   );
 }
 
@@ -1078,6 +1170,7 @@ function Reviews({
   openLines,
   canWrite,
   busy,
+  filesOnDone,
   onDecide,
 }: {
   reviews: readonly WorkItemReview[];
@@ -1089,7 +1182,13 @@ function Reviews({
   openLines: number;
   canWrite: boolean;
   busy: string | null;
-  onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
+  filesOnDone: readonly LinkableFiling[];
+  onDecide: (
+    approvalId: string,
+    decision: "approved" | "rejected",
+    notes: string | null,
+    filedOn?: Record<string, string>,
+  ) => void;
 }) {
   // Nothing sent for review yet: no card at all. Send for review is the
   // page's own button, top right.
@@ -1105,6 +1204,7 @@ function Reviews({
           openLines={openLines}
           canWrite={canWrite}
           busy={busy}
+          filesOnDone={filesOnDone}
           onDecide={onDecide}
         />
       )}
@@ -1188,6 +1288,7 @@ function DecideReview({
   openLines,
   canWrite,
   busy,
+  filesOnDone,
   onDecide,
 }: {
   review: WorkItemReview;
@@ -1195,9 +1296,17 @@ function DecideReview({
   openLines: number;
   canWrite: boolean;
   busy: string | null;
-  onDecide: (approvalId: string, decision: "approved" | "rejected", notes: string | null) => void;
+  filesOnDone: readonly LinkableFiling[];
+  onDecide: (
+    approvalId: string,
+    decision: "approved" | "rejected",
+    notes: string | null,
+    filedOn?: Record<string, string>,
+  ) => void;
 }) {
   const [notes, setNotes] = useState("");
+  // Q084: approving finishes the task, so it files its returns: their portal days.
+  const [portalDays, setPortalDays] = useState<Record<string, string>>(() => todayFor(filesOnDone));
   const [checkers, setCheckers] = useState<WorkItemChecker[] | "failed" | null>(null);
 
   async function loadCheckers(): Promise<void> {
@@ -1232,6 +1341,9 @@ function DecideReview({
 
       {canWrite && (viewer === null || viewer.eligible) && (
         <>
+          {filesOnDone.length > 0 && (
+            <PortalDates filings={filesOnDone} value={portalDays} onChange={setPortalDays} />
+          )}
           <Field label="Note" hint="Required to send it back.">
             <Textarea
               rows={2}
@@ -1243,9 +1355,14 @@ function DecideReview({
           </Field>
           <div className="cluster">
             <Button
-              disabled={busy === review.id || openLines > 0}
+              disabled={busy === review.id || openLines > 0 || !allDays(filesOnDone, portalDays)}
               onClick={() => {
-                onDecide(review.id, "approved", notes.trim() || null);
+                onDecide(
+                  review.id,
+                  "approved",
+                  notes.trim() || null,
+                  filesOnDone.length > 0 ? portalDays : undefined,
+                );
               }}
             >
               Approve
