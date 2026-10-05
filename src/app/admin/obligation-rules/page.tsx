@@ -418,6 +418,25 @@ function Rules() {
     await load();
   }
 
+  /** A draft country pack (Q074): unconfirmed and on no service, so nothing
+   *  reaches the calendar until a filing is added to a service. */
+  async function seedPack(country: "AE" | "SG" | "US", name: string): Promise<void> {
+    setBusy(true);
+    setError(null);
+    const res = await api.POST("/api/v1/obligation-rules/seed-pack/{country}", { params: { path: { country } } });
+    setBusy(false);
+    if (res.error) {
+      setError(apiError(res.error).message);
+      return;
+    }
+    setNotice(
+      res.data.created === 0
+        ? `Nothing to add. The ${name} filings are already here.`
+        : `Added ${String(res.data.created)} ${name} filings, unconfirmed. Add one to a service in the Catalogue to use it.`,
+    );
+    await load();
+  }
+
   const counts = useMemo(() => {
     const by = new Map<RuleCoverage, number>();
     for (const r of rules) by.set(r.coverage, (by.get(r.coverage) ?? 0) + 1);
@@ -532,6 +551,23 @@ function Rules() {
               </p>
             )}
           </Notice>
+        )}
+
+        {mayWrite && loaded && (
+          <details>
+            <summary>Filings for other countries (draft, to confirm)</summary>
+            <div className="cluster" style={{ marginTop: "var(--s-2)" }}>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void seedPack("AE", "UAE")}>
+                Load UAE filings
+              </Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void seedPack("SG", "Singapore")}>
+                Load Singapore filings
+              </Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void seedPack("US", "US")}>
+                Load US filings
+              </Button>
+            </div>
+          </details>
         )}
 
         {creating && (

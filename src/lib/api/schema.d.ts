@@ -3096,6 +3096,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/obligation-rules/seed-pack/{country}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load a draft country rule pack: AE, SG or US
+         * @description Q074: the UAE, Singapore and US filings prepared from official sources for the firm to confirm. Every rule arrives UNCONFIRMED and on NO service, so nothing reaches the calendar until the firm adds a rule to a service in the catalogue. Idempotent on the rule's identity.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    country: "AE" | "SG" | "US";
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description How many rules were added */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            created: number;
+                        };
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/obligation-filings": {
         parameters: {
             query?: never;

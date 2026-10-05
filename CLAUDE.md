@@ -3179,3 +3179,23 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   remounts on success returns nothing. The handler still clears its refusal BEFORE the call. A
   lint rule refuses `action` on a `<form>`; `demo-assets/tools/audit-verify/f05-walk.mjs` refuses
   every form twice and checks the boxes, the focus and the second press.
+
+## Filings across countries on the screens (S3, 2026-10-05)
+
+- **Calendar** (`src/app/calendar/filing-clock.tsx`): the LEGAL deadline is late on the filing's
+  own day, `row.filingToday` from the API, never the browser's (`pastLegalDeadline`); the start-by
+  date stays on `browserDay`. "Dubai time" / "New York time" shows under a deadline whose clock
+  reads differently from the reader's, **compared by wall clock, never by zone name**: Chrome
+  calls India `Asia/Calcutta` and a name comparison put "Kolkata time" on every Indian row. A row
+  filed by a period job's task says "Filed by <task>"; a `rule_fallback` row says "Using April: no
+  year end recorded for <company>", under the COMPANY cell (the period cell is nowrap and the
+  sentence there widened the table past the screen).
+- **Task page**: a period job's task lists what it filed ("Completing this task filed:") and
+  says reopening un-files them; a linked filing filed by another task names it. JOB_STEPS_OPEN
+  shows the API's sentence naming the open steps.
+- **Rule editor**: "Periods follow": one year for everyone / each client's year end / each
+  client's assigned period (needs the group, e.g. VAT), locked with the period shape.
+- **Client page**: a Filing clock column and setting (`entity-clock.tsx`, US zones), and Tax
+  return periods (`return-periods.tsx`: tax, monthly or quarterly, which months the quarters
+  start in). Setup line "Return periods from the tax authority" links to the client.
+- Rules screen: Load the UAE / Singapore / US draft pack (unconfirmed, on no service).
