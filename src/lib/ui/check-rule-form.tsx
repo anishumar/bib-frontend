@@ -67,7 +67,7 @@ export function CheckRuleForm({
   const [key, setKey] = useState("");
   const [keyTouched, setKeyTouched] = useState(false);
   const [label, setLabel] = useState(initial?.label ?? "");
-  const [rule, setRule] = useState<VerificationRule>(initial?.rule ?? "rank_threshold");
+  const [rule, setRule] = useState<VerificationRule>(initial?.rule ?? "client_key_manager");
   const [gradeCode, setGradeCode] = useState(initial?.minGradeCode ?? "");
   const [busy, setBusy] = useState(false);
   const editorId = useId();
@@ -77,7 +77,8 @@ export function CheckRuleForm({
   // Retired rungs are not offered: writing a NEW rule against a rung the firm
   // has moved on from is a stale choice nobody meant.
   const offered = grades.filter((g) => g.isActive);
-  const needsGrade = rule !== "reporting_line";
+  // Only the two rules that test a grade ask for one.
+  const needsGrade = rule === "rank_threshold" || rule === "reporting_line_or_rank";
   const chosen = offered.find((g) => g.code === gradeCode) ?? null;
   // The short name follows the name until somebody types their own (CA#26).
   const shortName = keyTouched ? key.trim() : shortNameFrom(label, "entry", "rule", takenKeys);
@@ -217,6 +218,13 @@ export function CheckRuleForm({
             </Field>
           )}
         </div>
+      )}
+
+      {rule === "client_key_manager" && (
+        <p className="field-hint" style={{ marginTop: "var(--s-4)" }}>
+          Reads the Key Manager on the client&apos;s account team. A client with no Key Manager is
+          checked by the person who signs for the firm.
+        </p>
       )}
 
       {rule === "reporting_line" && (

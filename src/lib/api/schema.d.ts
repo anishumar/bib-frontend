@@ -19508,6 +19508,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/firm-entities/{entityPartyId}/round-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Round this company's invoice totals to the whole unit, or stop (Q087)
+         * @description On: each invoice's total after tax is rounded to the nearest whole unit, half away from zero, and the difference prints as a Round off line. Drafts follow at once; an issued invoice keeps what it did.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityPartyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetRoundOffRequest"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not one of the firm's companies */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/firm-entities/{entityPartyId}/bank-accounts": {
         parameters: {
             query?: never;
@@ -26216,6 +26286,10 @@ export interface components {
             stateId: string;
             /** @description Required when the target state is one the firm has marked as BLOCKED, and refused otherwise. 'Blocked' on its own records that work is stuck and never why — and a year later 'are our delays ours or the client's' has no query that can answer it. */
             blockedReason?: string | null;
+            /** @description Q084: the day each return was filed on the PORTAL, by obligation id, when this finishes a task that files returns (`filesOnDone` on the task's filing read). A return left out is filed on today. A day that has not come yet, or one before the return's period began, is refused (400 INVALID_FILED_ON) and nothing moves. */
+            filedOn?: {
+                [key: string]: string;
+            };
         };
         AssignedWorkItem: components["schemas"]["WorkItem"] & {
             /** @description How many of the job's steps moved to the new owner with the task: the steps nobody held, or that the task's previous owner held, which the process lets the new owner do. Zero when the task has no job, when it was taken off a desk, or when another open task of the same job is on somebody else's desk. */
@@ -26278,6 +26352,8 @@ export interface components {
             open: components["schemas"]["LinkableFiling"][];
             /** @description The filings this task filed besides its own (Q063): finishing a period job's task files every open filing of its company inside the job's period on a rule its service carries, and reopening it un-files exactly these. */
             filedHere: components["schemas"]["LinkableFiling"][];
+            /** @description Q084: what finishing this task NOW would file (its own filing while unfiled, and a period job's returns). The close asks the portal filing day for each. Empty when it files nothing. */
+            filesOnDone: components["schemas"]["LinkableFiling"][];
         };
         LinkTaskFilingRequest: {
             /** Format: uuid */
@@ -26317,6 +26393,10 @@ export interface components {
             decision: "approved" | "rejected";
             /** @description Mandatory on a rejection. WHY work came back is the only signal that ever explains rework — marking the task Completed later erases the fact that it was rejected. */
             notes?: string | null;
+            /** @description Q084: the day each return was filed on the PORTAL, by obligation id, when this finishes a task that files returns (`filesOnDone` on the task's filing read). A return left out is filed on today. A day that has not come yet, or one before the return's period began, is refused (400 INVALID_FILED_ON) and nothing moves. */
+            filedOn?: {
+                [key: string]: string;
+            };
         };
         WorkItemCheckViewer: {
             eligible: boolean;
@@ -26563,7 +26643,7 @@ export interface components {
              * @description Why not, when not. Sent so a screen can SAY it rather than greying a button out: "you did this work" and "nobody has put you on the ladder" are different problems and only one of them is the viewer's to fix.
              * @enum {string|null}
              */
-            reason: "IS_THE_MAKER" | "NO_WORK_PERMISSION" | "BELOW_GRADE" | "UNGRADED" | "NOT_THE_MAKERS_MANAGER" | null;
+            reason: "IS_THE_MAKER" | "NO_WORK_PERMISSION" | "BELOW_GRADE" | "UNGRADED" | "NOT_THE_MAKERS_MANAGER" | "NOT_THE_CLIENTS_CHECKER" | "NO_CLIENT_CHECKER" | null;
         };
         StepCheck: {
             /** Format: uuid */
@@ -26583,7 +26663,7 @@ export interface components {
              * @description Which rule the firm had in force when this check opened, PINNED. Null when the step names no policy, or names one the firm has withdrawn — then maker != checker is the whole rule.
              * @enum {string|null}
              */
-            rule: "rank_threshold" | "reporting_line" | "reporting_line_or_rank" | null;
+            rule: "rank_threshold" | "reporting_line" | "reporting_line_or_rank" | "client_key_manager" | null;
             /** @enum {string} */
             decision: "pending" | "approved" | "rejected";
             /** @description What the checker objected to. The only thing that ever explains rework. */
@@ -26612,7 +26692,7 @@ export interface components {
              * @description Why not, when not. Sent so a screen can SAY it rather than greying a button out: "you did this work" and "nobody has put you on the ladder" are different problems and only one of them is the viewer's to fix.
              * @enum {string|null}
              */
-            reason: "IS_THE_MAKER" | "NO_WORK_PERMISSION" | "BELOW_GRADE" | "UNGRADED" | "NOT_THE_MAKERS_MANAGER" | null;
+            reason: "IS_THE_MAKER" | "NO_WORK_PERMISSION" | "BELOW_GRADE" | "UNGRADED" | "NOT_THE_MAKERS_MANAGER" | "NOT_THE_CLIENTS_CHECKER" | "NO_CLIENT_CHECKER" | null;
         };
         PossibleCheckersResponse: {
             checkers: components["schemas"]["PossibleChecker"][];
@@ -28694,6 +28774,8 @@ export interface components {
             tds: string | null;
             /** @description `total` less `tds`: what the client remits. */
             netPayable: string | null;
+            /** @description Q087: what rounding the total to the whole unit added (negative when it rounded down); `total` includes it. "0" when the invoice does not round: a draft follows its company's setting, an issued invoice what it did when issued. */
+            roundOff: string | null;
         };
         /** @description What is still owed, from the same view /receivables reads. On the LIST because `status` is about the document and says nothing about money: walked, a fully-settled invoice sat beside one 75 days overdue, both reading `issued` and both showing their full value. NULL on a draft — nobody has been asked yet, and a zero outstanding there would read as settled. Redacted with every other figure for a caller without the fee axis. */
         InvoiceListBalance: {
@@ -28984,6 +29066,11 @@ export interface components {
                 reference: string;
                 filedOn: string | null;
             }[];
+            /** @description Q087: whether its invoices round the total to the whole unit with a Round off line. */
+            roundOff: boolean;
+        };
+        SetRoundOffRequest: {
+            roundOff: boolean;
         };
         AddBankAccountRequest: {
             accountName: string;

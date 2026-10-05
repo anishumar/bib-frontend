@@ -214,6 +214,8 @@ export const CHECK_INELIGIBILITY: Readonly<Record<CheckIneligibility, string>> =
   BELOW_GRADE: "Below the grade this step is checked at",
   UNGRADED: "Not on the firm's ladder yet",
   NOT_THE_MAKERS_MANAGER: "Not the maker's manager",
+  NOT_THE_CLIENTS_CHECKER: "Not the client's Key Manager",
+  NO_CLIENT_CHECKER: "The client has no Key Manager",
 };
 
 /** What each rule means, in the words the founder's screen offers it in. */
@@ -222,6 +224,11 @@ export const VERIFICATION_RULES: readonly {
   readonly label: string;
   readonly detail: string;
 }[] = [
+  {
+    value: "client_key_manager",
+    label: "The client's Key Manager",
+    detail: "The Key Manager of the client the work is for. If there is none, or they did the work, the person who signs for the firm.",
+  },
   {
     value: "rank_threshold",
     label: "Anybody senior enough",
