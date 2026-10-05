@@ -3313,3 +3313,20 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   sent as); `ErrorNotice` shows it as is.
 - A period job's task refuses Done / Approve before its period ends (`JOB_PERIOD_NOT_ENDED`); the
   task page shows the API's sentence.
+
+## 10x's answers of 5 Oct (S8): Q069, Q084, Q087, Q085
+
+- **Q069** The check-rule form (`lib/ui/check-rule-form.tsx`) offers "The client's Key Manager"
+  first and defaults a new rule to it; it asks no grade. Refusals `NOT_THE_CLIENTS_CHECKER` and
+  `NO_CLIENT_CHECKER` have short words in `CHECK_INELIGIBILITY`.
+- **Q084** The task page (`app/work-items/[workItemId]/page.tsx`) asks "Filed on the portal on", one
+  date per return in `filing.filesOnDone`, before a Done state from the State list is saved and on
+  the Approve form; today by default, `max` today. It sends `filedOn` (obligation id -> day); the
+  API's refusal is shown as is. The Checks queue's Approve still files on today.
+- **Q087** Your firm -> "Bank details and LUT on invoices" carries a Round off switch per company
+  (`PUT /firm-entities/{id}/round-off`); the invoice page prints a Round off row above the Total
+  when `totals.roundOff` is not zero.
+- **Q085** The Revenue report's nobody row by manager reads "No manager yet (incl. advances not
+  adjusted)" on screen and in the CSV.
+- Walk: `bib/demo-assets/tools/ans-walk.mjs` (29).
+
