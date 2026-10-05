@@ -1286,17 +1286,13 @@ function BillingCard({
   return (
     <Card id="billing">
       <CardHead level={2} title="Automatic billing" />
-      <Switch
-        label="Make a bill when each period falls due"
-        checked={settings.autoBilling}
-        disabled={busy === "billing"}
-        onChange={(event) => {
-          void onSet(event.target.checked, fromMonth);
-        }}
-      />
-      {/* Q027: the month automatic billing starts from. Asked BEFORE the
-          switch goes on, so turning it on never bills months the firm has
-          already billed by hand. */}
+      {/* Q027: the month automatic billing starts from, ABOVE the switch and
+          not below it, because the switch COMMITS this month as it is flipped
+          (`onSet(checked, fromMonth)`) and it starts on the browser's current
+          one. Read downwards the firm picks the month and then turns billing
+          on, which is the order the runbook asks for; with the switch first,
+          one click on a firm going live in November quietly commits October.
+          "Change month" then exists for correcting it, not for doing it. */}
       <FieldRow>
         <Field label="Starts from">
           <Select
@@ -1325,6 +1321,14 @@ function BillingCard({
           </Button>
         )}
       </FieldRow>
+      <Switch
+        label="Make a bill when each period falls due"
+        checked={settings.autoBilling}
+        disabled={busy === "billing"}
+        onChange={(event) => {
+          void onSet(event.target.checked, fromMonth);
+        }}
+      />
       {/* Outside the row: a hint inside a FieldRow column rides its input up. */}
       <p className="field-hint">
         {settings.autoBilling && settings.autoBillingFrom !== null

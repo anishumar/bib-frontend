@@ -44,7 +44,9 @@ export function ReturnPeriods({
 
   async function save(form: FormData): Promise<void> {
     const tax = String(form.get("tax") ?? "").trim();
-    const firstMonth = frequency === "quarterly" ? Number(form.get("firstMonth") ?? 1) : null;
+    // No `?? 1`: the month is required above, and a missing one must reach the
+    // API as the refusal it is rather than becoming January quietly.
+    const firstMonth = frequency === "quarterly" ? Number(form.get("firstMonth")) : null;
     setBusy(true);
     setError(null);
     const result = await api.PUT("/api/v1/parties/{partyId}/return-periods", {
@@ -117,8 +119,16 @@ export function ReturnPeriods({
               </Select>
             </Field>
             {frequency === "quarterly" && (
+              /* NO DEFAULT MONTH (Q073). The authority assigns the stagger and
+                 all three are ordinary, so a pre-picked January is a guess
+                 that rides all the way through to the money: a filing rule on
+                 "each client's assigned period" cuts this company's returns on
+                 this quarter, and `billingDues({ onClientQuarter })` then bills
+                 on that quarter's last day. Whoever knows the stagger has to
+                 say it; `required` holds the form until they do. */
               <Field label="Quarters start in">
-                <Select name="firstMonth" defaultValue="1">
+                <Select name="firstMonth" defaultValue="" required>
+                  <option value="">Not chosen yet</option>
                   {Object.entries(STAGGERS).map(([m, words]) => (
                     <option key={m} value={m}>
                       {words}
