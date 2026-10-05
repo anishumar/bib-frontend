@@ -21,8 +21,9 @@ npm run api:generate     # types, straight from the running API
 npm run dev              # http://localhost:3000
 ```
 
-Sign in at `/login`. To create a login, use the backend's provisioning API — see
-`bib-backend/docs/BUILD-PLAN.md`.
+Sign in at `/login`. To create a login, use the backend's provisioning API, or run the backend's
+`npm run smoke` (it prints logins) — see `bib-backend/README.md`. The live task board is
+`bib-backend/docs/MERGE_BUILD-PLAN.md` (`docs/BUILD-PLAN.md` is superseded).
 
 ## Where things are
 
