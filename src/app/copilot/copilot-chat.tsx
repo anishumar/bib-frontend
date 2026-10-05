@@ -102,7 +102,7 @@ function signpostFor(question: string): { href: Route; label: string } | null {
   return hit === undefined ? null : { href: hit.href, label: hit.label };
 }
 
-export default function CopilotPage() {
+export function CopilotChat() {
   const router = useRouter();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);

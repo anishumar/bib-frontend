@@ -134,7 +134,8 @@ const GROUPS: NavGroup[] = [
   },
   /* NO AI COPILOT LINK until it can answer (CA#51). It sat in every staff
      member's menu reading "Not live yet", which says nothing anybody can use.
-     The page still exists at /copilot; put the link back here, as
+     The page answers 404 unless NEXT_PUBLIC_BIB_COPILOT=on (S7,
+     `app/copilot/page.tsx`); the day it goes on, put the link back here, as
      `{ label: "Workspace", icon: "copilot", items: [{ href: "/copilot",
      label: "AI Copilot", icon: "copilot" }] }`, the day it goes live. */
   {
