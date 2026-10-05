@@ -82,7 +82,7 @@ export interface RuleDraft {
   readonly fiscalYearStartMonth: number;
   /** Whose year a quarter or a year is cut on (0358): the rule's, or each
    *  client's own year end (UAE corporate tax, Singapore's annual filings). */
-  readonly periodBasis: "rule_calendar" | "client_year_end";
+  readonly periodBasis: "rule_calendar" | "client_year_end" | "authority_assigned";
   readonly hasFormula: boolean;
   readonly kind: DueRuleKind;
   /** Null until somebody types it: a rule with no formula opens with EMPTY
@@ -574,14 +574,19 @@ export function RuleEditor({
         <Field label="Periods follow">
           <Select
             value={draft.periodBasis}
-            disabled={shapeLocked || draft.recurrence === "monthly" || draft.recurrence === "event"}
+            disabled={shapeLocked || draft.recurrence === "event"}
             {...(shapeLocked ? {} : { "aria-describedby": periodNoteId })}
             onChange={(e) => {
-              set("periodBasis", e.target.value === "client_year_end" ? "client_year_end" : "rule_calendar");
+              const v = e.target.value;
+              set(
+                "periodBasis",
+                v === "client_year_end" || v === "authority_assigned" ? v : "rule_calendar",
+              );
             }}
           >
             <option value="rule_calendar">One year for everyone</option>
             <option value="client_year_end">Each client&apos;s year end</option>
+            <option value="authority_assigned">Each client&apos;s assigned period</option>
           </Select>
         </Field>
         <Field label={draft.periodBasis === "client_year_end" ? "Year starts, if no year end" : "Financial year starts in"}>
@@ -610,9 +615,11 @@ export function RuleEditor({
            nothing, and this paragraph is replaced by a Notice once the shape
            is locked. */
         <p id={periodNoteId} className="field-hint">
-          {draft.periodBasis === "client_year_end" && draft.recurrence !== "monthly"
-            ? "Cut on each client's own year end, e.g. UAE corporate tax."
-            : "April for India, so a quarter runs April to June."}
+          {draft.periodBasis === "authority_assigned"
+            ? "Each client's period from its tax authority, e.g. UAE VAT. Needs the group, e.g. VAT."
+            : draft.periodBasis === "client_year_end" && draft.recurrence !== "monthly"
+              ? "Cut on each client's own year end, e.g. UAE corporate tax."
+              : "April for India, so a quarter runs April to June."}
         </p>
       )}
 

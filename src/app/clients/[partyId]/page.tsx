@@ -22,6 +22,7 @@ import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
 import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import { clockLabel, EntityClock } from "./entity-clock";
+import { ReturnPeriods } from "./return-periods";
 import {
   Button,
   Card,
@@ -618,6 +619,14 @@ export default function PartyPage() {
                 jurisdiction: profile.legalEntities[0].jurisdiction,
                 entityType: profile.legalEntities[0].entityType,
               }}
+              onSaved={load}
+            />
+          )}
+          {profile.legalEntities[0] !== undefined && (
+            <ReturnPeriods
+              partyId={partyId}
+              periods={profile.returnPeriods}
+              canWrite={canWrite}
               onSaved={load}
             />
           )}

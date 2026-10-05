@@ -11024,6 +11024,153 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/parties/{partyId}/return-periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record a company's return period for one tax, as its tax authority assigned it
+         * @description Q073: e.g. UAE VAT, quarterly on the February stagger. A filing rule that follows the authority-assigned period for that tax cuts this company's returns on it. One per tax; setting it again changes it, and filings already generated stay.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetReturnPeriod"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReturnPeriods"];
+                    };
+                };
+                /** @description Not a tax code, not monthly or quarterly, no quarter months, or nothing changed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The client is not registered as a company */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{partyId}/return-periods/{tax}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a company's recorded return period for one tax off */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                    tax: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Taken off */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReturnPeriods"];
+                    };
+                };
+                /** @description None is recorded for that tax */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not do this */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{partyId}/legal-entity/time-zone": {
         parameters: {
             query?: never;
@@ -22572,10 +22719,10 @@ export interface components {
             linkedAt: string;
         };
         /**
-         * @description Whose year a quarter, half-year or year is cut on (0358): the rule's own (fiscalYearStartMonth, every rule before this) or the CLIENT's financial year end, which is how UAE corporate tax and Singapore's annual filings run. A client with no year end recorded falls back to the rule's month, and the calendar says so. Part of the period shape: editable only while the rule has produced nothing. Monthly is a month either way.
+         * @description Whose year a quarter, half-year or year is cut on (0358): the rule's own (fiscalYearStartMonth, every rule before this) or the CLIENT's financial year end, which is how UAE corporate tax and Singapore's annual filings run. A client with no year end recorded falls back to the rule's month, and the calendar says so. authority_assigned (0359): each client's return period for the rule's module as its tax authority assigned it (monthly, or a quarter stagger, e.g. UAE VAT); a client with none gets no filing and is listed on Setup. Needs a module. Part of the period shape: editable only while the rule has produced nothing. Monthly is a month either way on the first two.
          * @enum {string}
          */
-        ObligationPeriodBasis: "rule_calendar" | "client_year_end";
+        ObligationPeriodBasis: "rule_calendar" | "client_year_end" | "authority_assigned";
         ObligationDueRule: {
             /**
              * @description 'day_of_month' is N months after the period ends, then day D — 'the 20th of the month following'. 'days_after' is N days after the period ends. Both are DATA rather than a formula somebody has to parse, which is what lets the database check them.
@@ -22851,7 +22998,7 @@ export interface components {
              * @description What this row's period followed (0358). rule_fallback: the rule follows the client's year end and none was recorded, so the rule's own month (ruleYearStartMonth) was used.
              * @enum {string}
              */
-            periodBasis: "rule_calendar" | "client_year_end" | "rule_fallback";
+            periodBasis: "rule_calendar" | "client_year_end" | "rule_fallback" | "authority_assigned";
             ruleYearStartMonth: number;
             /** Format: uuid */
             resolutionOptionId: string | null;
@@ -24575,6 +24722,24 @@ export interface components {
             /** @example private_limited */
             entityType?: string;
         };
+        ReturnPeriod: {
+            /** @description The tax, as a filing rule's group names it: VAT. */
+            tax: string;
+            /** @enum {string} */
+            frequency: "monthly" | "quarterly";
+            /** @description Quarterly only: the first month of its first calendar-year quarter. 1 Jan/Apr/Jul/Oct, 2 Feb/May/Aug/Nov, 3 Mar/Jun/Sep/Dec. Null when monthly. */
+            firstMonth: number | null;
+        };
+        ReturnPeriods: {
+            returnPeriods: components["schemas"]["ReturnPeriod"][];
+        };
+        SetReturnPeriod: {
+            /** @example VAT */
+            tax: string;
+            /** @enum {string} */
+            frequency: "monthly" | "quarterly";
+            firstMonth?: number | null;
+        };
         SetLegalEntityTimeZone: {
             /** @example America/Los_Angeles */
             timeZone: string | null;
@@ -24675,6 +24840,8 @@ export interface components {
             organization: components["schemas"]["Organization"] & unknown;
             person: components["schemas"]["Person"] & unknown;
             legalEntities: components["schemas"]["LegalEntity"][];
+            /** @description The company's return periods as its tax authorities assigned them (Q073, 0359), by tax. */
+            returnPeriods: components["schemas"]["ReturnPeriod"][];
             identifiers: components["schemas"]["PartyIdentifier"][];
             relationships: components["schemas"]["PartyRelationshipRecord"][];
         };
@@ -27516,7 +27683,7 @@ export interface components {
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts" | "return_periods";
             /**
              * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
              * @enum {string}
