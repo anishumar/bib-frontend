@@ -116,6 +116,14 @@ export default function AccountPage() {
                 as, even though the password belongs to none of them. */}
             <MetaItem label="Firm">{me.tenantName ?? "No firm selected"}</MetaItem>
             <MetaItem label="Role">{me.role === null ? <NotSet /> : codeLabel(me.role)}</MetaItem>
+            {/* Whether this login sees what the firm charges. It used to be a
+                third fragment on the top bar of every screen (" · fees
+                visible"); it is a fact about THIS person, it does not change,
+                and this is the person's own page. The firm sets it, on
+                /admin/people. */}
+            <MetaItem label="Fees">
+              {me.commercialVisibility === true ? "Visible to you" : "Hidden from you"}
+            </MetaItem>
           </Meta>
 
           <details className="disclosure">

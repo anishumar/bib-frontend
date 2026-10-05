@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import type { ReactNode } from "react";
+import { useAnchoredPanel } from "./anchored";
 import { cx } from "./class-names";
 
 /**
@@ -16,10 +17,11 @@ import { cx } from "./class-names";
  * every ancestor's overflow and containment, so it is never clipped, wherever
  * the menu is put.
  *
- * `popover="auto"` brings light dismiss and Escape from the browser. Placed
- * under its button when it opens (and kept there while the page scrolls),
- * right-aligned by default, flipped above when there is no room below.
- * Choosing an item closes it.
+ * `popover="auto"` brings light dismiss and Escape from the browser. Where the
+ * panel goes is `useAnchoredPanel` (`./anchored`), shared with the notification
+ * bell: under its button when it opens, kept there while the page scrolls,
+ * right-aligned by default, flipped above when there is no room below, and
+ * pulled back inside the window on both axes. Choosing an item closes it.
  *
  * For a menu of ACTIONS. A menu that picks a value is a `<Select>`, which is
  * better at it in every way that matters on a phone.
@@ -36,53 +38,7 @@ export function Menu({
   className?: string;
 }) {
   const id = useId();
-  const button = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-
-  const place = useCallback((): void => {
-    const b = button.current;
-    const p = panel.current;
-    if (b === null || p === null) return;
-    const r = b.getBoundingClientRect();
-    const gap = 4;
-    const below = r.bottom + gap;
-    const height = p.offsetHeight;
-    const flip = below + height > window.innerHeight && r.top - gap - height > 0;
-    p.style.top = `${String(flip ? r.top - gap - height : below)}px`;
-    if (align === "right") {
-      p.style.left = "auto";
-      p.style.right = `${String(Math.max(8, document.documentElement.clientWidth - r.right))}px`;
-    } else {
-      p.style.right = "auto";
-      p.style.left = `${String(Math.max(8, r.left))}px`;
-    }
-  }, [align]);
-
-  useEffect(() => {
-    const p = panel.current;
-    if (p === null) return;
-    const follow = (): void => {
-      place();
-    };
-    const toggled = (event: Event): void => {
-      const open = (event as ToggleEvent).newState === "open";
-      button.current?.setAttribute("aria-expanded", String(open));
-      if (open) {
-        place();
-        window.addEventListener("scroll", follow, true);
-        window.addEventListener("resize", follow);
-      } else {
-        window.removeEventListener("scroll", follow, true);
-        window.removeEventListener("resize", follow);
-      }
-    };
-    p.addEventListener("toggle", toggled);
-    return () => {
-      p.removeEventListener("toggle", toggled);
-      window.removeEventListener("scroll", follow, true);
-      window.removeEventListener("resize", follow);
-    };
-  }, [place]);
+  const { button, panel } = useAnchoredPanel<HTMLButtonElement, HTMLDivElement>(align);
 
   return (
     <span className={cx("menu", className)}>

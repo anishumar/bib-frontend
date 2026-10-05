@@ -8,17 +8,25 @@
  * NOT: it is read when the panel opens, because a person opens it a few times a
  * day and the count is what they glance at.
  *
- * Built on `<details>` like `Menu`, so it opens, closes and answers Escape
- * without a click-outside handler. Opening a notification marks it read and
- * goes to the thing it is about.
+ * IN THE TOP LAYER, like `Menu` (CA#17). It was a `<details>` whose panel was a
+ * plain child, and `.menu-panel` is `position: fixed; inset: auto` - which pins
+ * an element where it WOULD have been in the flow. The bell sits at the right
+ * hand end of the top bar, so a 26rem panel started there and ran off the right
+ * edge of the window: the heading cut in half, the rows unreachable, and nothing
+ * to scroll to them, because a fixed box does not widen the page.
+ * `useAnchoredPanel` places it and holds it inside the window; `popover="auto"`
+ * gives the light dismiss and the Escape key the `<details>` was there for.
+ *
+ * Opening a notification marks it read and goes to the thing it is about.
  */
 import Link from "next/link";
 import type { Route } from "next";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { NotificationItem } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
+import { useAnchoredPanel } from "@/components/ui/anchored";
 import { notificationsChanged, useUnreadCount } from "./unread";
 import { arrived } from "./when";
 
@@ -26,7 +34,7 @@ const LATEST = 8;
 
 export function NotificationBell({ enabled }: { enabled: boolean }) {
   const count = useUnreadCount(enabled);
-  const box = useRef<HTMLDetailsElement>(null);
+  const id = useId();
   const [rows, setRows] = useState<readonly NotificationItem[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -40,8 +48,14 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
     setRows(data.rows);
   }, []);
 
+  const opened = useCallback((): void => {
+    void load();
+  }, [load]);
+
+  const { button, panel } = useAnchoredPanel<HTMLButtonElement, HTMLDivElement>("right", opened);
+
   const close = (): void => {
-    if (box.current !== null) box.current.open = false;
+    panel.current?.hidePopover();
   };
 
   async function markAll(): Promise<void> {
@@ -54,22 +68,28 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
   const badge = count === null || count === 0 ? null : count > 99 ? "99+" : String(count);
 
   return (
-    <details
-      ref={box}
-      className="menu notify-bell"
-      onToggle={(e) => {
-        if (e.currentTarget.open) void load();
-      }}
-    >
-      <summary
+    <span className="menu notify-bell">
+      <button
+        ref={button}
+        type="button"
         className="notify-bell-button"
+        popoverTarget={id}
+        aria-haspopup="dialog"
+        aria-expanded="false"
         aria-label={badge === null ? "Notifications" : `Notifications, ${badge} unread`}
         title="Notifications"
       >
         <Icon name="bell" size={18} />
         {badge !== null && <span className="notify-badge">{badge}</span>}
-      </summary>
-      <div className="menu-panel notify-panel" data-align="right">
+      </button>
+      <div
+        ref={panel}
+        id={id}
+        popover="auto"
+        className="menu-panel notify-panel"
+        data-align="right"
+        aria-label="Notifications"
+      >
         <div className="notify-panel-head">
           <b>Notifications</b>
           {rows !== null && rows.some((r) => r.readAt === null) && (
@@ -105,7 +125,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
           </Link>
         </div>
       </div>
-    </details>
+    </span>
   );
 }
 
