@@ -16,6 +16,7 @@ import type {
   Colleague,
   InvoiceSummary,
   PartySummary,
+  TaxDefault,
 } from "@/lib/api/client";
 import { Page, PageHeader, useSession } from "@/components/layout";
 import { Empty, Loading } from "@/components/states";
@@ -52,14 +53,16 @@ import { MissingMoney } from "@/components/fees";
 import { ToRaiseTab } from "./to-raise";
 import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
+import { AdjustTab } from "./adjust";
 import { WorkVsBillingTab } from "./work-vs-billing";
 import { keepTyped } from "@/lib/ui/keep-typed";
 import { CurrencySelect } from "@/components/currency-select";
 import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
- *  Your firm lands on it. Advances (0320): every advance and where it stands. */
-const TABS = ["invoices", "raise", "work", "advances", "setup"] as const;
+ *  Your firm lands on it. Advances (0320): every advance and where it stands.
+ *  To adjust (0363): advances taken before a letter, until mapped. */
+const TABS = ["invoices", "raise", "work", "advances", "adjust", "setup"] as const;
 type TabKey = (typeof TABS)[number];
 
 /**
@@ -113,6 +116,9 @@ function Invoices() {
   /** Work vs Billing's default view (Q041), read with the rest so its tab can
    *  count what needs attention before anybody opens it. */
   const [workBilling, setWorkBilling] = useState<WorkBilling | null>(null);
+  /** Advances taken before a letter with something left to map (0363). */
+  const [toAdjust, setToAdjust] = useState(0);
+  const [taxDefaults, setTaxDefaults] = useState<TaxDefault[]>([]);
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [entities, setEntities] = useState<{ id: string; displayName: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +161,7 @@ function Invoices() {
   }, [fxWanted, fxCode]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work, soon] = await Promise.all([
+    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work, soon, adhoc] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -172,6 +178,7 @@ function Invoices() {
       api.GET("/api/v1/tenancy/colleagues", {}),
       api.GET("/api/v1/billing/work-vs-billing", {}),
       api.GET("/api/v1/billing/bill-early", {}),
+      api.GET("/api/v1/advances", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -197,6 +204,8 @@ function Invoices() {
     setAutoBilling(settings.data?.autoBilling ?? null);
     setColleagues(staff.data ? [...staff.data.colleagues] : []);
     setWorkBilling(work.data ?? null);
+    setToAdjust(adhoc.data?.advances.filter((a) => a.status === "open").length ?? 0);
+    setTaxDefaults(settings.data ? [...settings.data.taxDefaults] : []);
     setError(null);
     setLoaded(true);
   }, [router]);
@@ -381,6 +390,15 @@ function Invoices() {
       />
     ) : tab === "advances" ? (
       <AdvancesTab advances={advances} />
+    ) : tab === "adjust" ? (
+      <AdjustTab
+        parties={parties}
+        entities={entities}
+        colleagues={colleagues}
+        reportingCurrency={reportingCurrency}
+        taxDefaults={taxDefaults}
+        onChanged={load}
+      />
     ) : tab === "setup" ? (
       <NotSetUpTab rows={unscheduled} canWrite={canWrite} onChanged={load} />
     ) : invoices.length === 0 ? (
@@ -534,6 +552,12 @@ function Invoices() {
               label: "Advances",
               count: waitingStart,
               ...(waitingStart > 0 ? { tone: "warn" as const } : {}),
+            },
+            {
+              value: "adjust",
+              label: "To adjust",
+              count: toAdjust,
+              ...(toAdjust > 0 ? { tone: "warn" as const } : {}),
             },
             { value: "setup", label: "Billing not set up", count: notSetUp },
           ]}

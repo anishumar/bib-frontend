@@ -21,6 +21,7 @@ import { AccountTeamPanel } from "./account-team";
 import { PortalContactsPanel } from "./portal-contacts";
 import { ChasingPanel } from "./chasing";
 import { EngagementsPanel } from "./engagements";
+import { ClientAdvancesPanel } from "./advances";
 import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import { clockLabel, EntityClock } from "./entity-clock";
 import { ReturnPeriods } from "./return-periods";
@@ -519,6 +520,12 @@ export default function PartyPage() {
       {/* What the firm does for this client, and End / Pause / Resume on each
           (V2.3). A client who leaves is ended here, then archived above. */}
       <EngagementsPanel partyId={partyId} canWrite={canWrite} />
+
+      {/* Money the client paid before a letter (0363): until it is mapped to
+          the services above, it is on this list. */}
+      {!profile.party.isOwnCompany && (
+        <ClientAdvancesPanel partyId={partyId} clientName={profile.party.displayName} />
+      )}
 
       {/* THE CLIENT'S OWN PEOPLE. Two panels in a row and they are opposite
           halves of the same question: the one above is who at the FIRM owns
