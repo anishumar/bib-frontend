@@ -261,7 +261,7 @@ function CompanyBlock({
         />
         <p className="field-hint" id={roundHint}>
           Rounds each invoice&rsquo;s total to the nearest whole unit and prints the difference as Round off.
-          Invoices already issued keep their total.
+          Invoices already issued keep their total. On from the start for a company registered in India.
         </p>
       </div>
       {company.bankAccounts.length === 0 ? (

@@ -30,6 +30,8 @@ export const TIME_ZONES: readonly { readonly value: string; readonly label: stri
   { value: "Asia/Singapore", label: "Singapore (Asia/Singapore)" },
   { value: "Europe/London", label: "United Kingdom (Europe/London)" },
   { value: "America/New_York", label: "United States, Eastern (America/New_York)" },
+  // 10x Global's US company keeps Los Angeles time (Sid, 4 Oct 2026, Q075).
+  { value: "America/Los_Angeles", label: "United States, Pacific (America/Los_Angeles)" },
   { value: "UTC", label: "UTC, no country's calendar" },
 ];
 

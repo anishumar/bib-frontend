@@ -846,7 +846,10 @@ function WriteItUp({
               )}
 
               <Checkbox
-                label="Hold the work until an advance is paid"
+                // The work no longer waits for the advance (3 Oct 2026): signing
+                // starts it and drafts the advance invoice.
+                label="Ask for an advance"
+                note="The work starts when the letter is signed. The advance is drafted as an invoice and adjusted against the first bills."
                 checked={advanceRequired}
                 onChange={(e) => {
                   setAdvanceRequired(e.target.checked);
