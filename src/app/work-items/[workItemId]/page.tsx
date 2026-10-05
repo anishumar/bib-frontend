@@ -10,6 +10,7 @@ import {
   cx,
   Dialog,
   Field,
+  Fieldset,
   FieldStack,
   Input,
   LinkButton,
@@ -851,8 +852,7 @@ function PortalDates({
 }) {
   const today = browserDay();
   return (
-    <fieldset className="stack tight">
-      <legend className="label">Filed on the portal on</legend>
+    <Fieldset legend="Filed on the portal on">
       {filings.map((f) => (
         <Field key={f.obligationId} label={`${f.name} · ${f.periodLabel}`} hint={`Due ${longDay(f.statutoryDueOn)}`}>
           <Input
@@ -866,7 +866,7 @@ function PortalDates({
           />
         </Field>
       ))}
-    </fieldset>
+    </Fieldset>
   );
 }
 
