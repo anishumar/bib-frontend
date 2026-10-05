@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BillEarly } from "@/components/bill-early";
 import { Documents } from "@/lib/ui/documents";
 import { api, apiError, CHECK_INELIGIBILITY, codeLabel } from "@/lib/api/client";
 import type { AgentProposal, CheckLine, Job, JobStep, StepCheck, WorkItem } from "@/lib/api/client";
@@ -446,6 +447,8 @@ export default function JobStepsPage({ params }: { params: Promise<{ jobId: stri
         }
       />
       <ErrorNotice error={error} />
+      {/* Finished before its bill date: offer the bill now (Q071 b). */}
+      {job?.status === "done" && <BillEarly jobId={jobId} canWrite={permissions.includes("party:write")} />}
 
       {steps.length === 0 ? (
         <p className="max-w-[var(--measure)] text-ink-2">

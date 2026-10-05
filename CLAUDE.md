@@ -3044,6 +3044,41 @@ at issue), so the one automatic draft there is, the advance at signing, burns no
   `ai-sweep-tenant.mts`. **It paces itself under the API's 300 requests a minute**: the shell reads a
   429 on `/auth/me` as signed out and sends the page to `/login`, which a fast walk hits mid-run.
 
+### A yearly bill on its filing's day, and Raise invoice now (Q071, 2026-10-05)
+
+Ashish (4 Oct): yearly statutory work is billed ON its due date; other yearly work on a day set
+when the letter is finalised; and after a job or task closes, offer to raise the invoice. The rules
+are the backend's (`bib-backend/CLAUDE.md`, "A yearly bill on its filing's due date"); the screens:
+
+- **The letter builder's yearly words** (`components/billing-timing.tsx`): a yearly line offers
+  "On its annual filing's due date, else at the end of each year" (the default), "At the start of
+  each year", and "Every year on a date I choose" (the existing `on_date`, which IS the "invoice
+  setup at EL finalisation": no new field). A sent or signed letter prints the same words.
+- **`BillEarly`** (`components/bill-early.tsx`) on the job page (job done) and the task page (task
+  finished): `GET /billing/bill-early?jobId=` / `?workItemId=`, nothing rendered when there is
+  nothing to offer. "Raise invoice now" writes the bill (`POST /billing/bill-early`) and takes the
+  reader to To raise, where it is ticked and raised the ordinary way. No fee line without fees.
+- **To raise** has "Work done before its bill date" (Bill it now), beside "One-time work with no
+  process"; the fee column says Hidden without fees, No price when the letter named none.
+- **My day**: `bill-early?mine=true` rows for the bill's manager, under Today, no due day (an
+  offer, not a deadline), opening the job.
+- Walk: `demo-assets/tools/bdr-walk.mjs q071` (38) on `bdr-fixture.mjs`.
+
+### Who won the work, and the revenue report (Q049, 2026-10-05)
+
+- **"Won by"** on the letter page (`components/letter-originator.tsx`, a `MetaItem` in "The
+  document"): the originator and how it was arrived at ("From the lead's owner", "From who prepared
+  the proposal", "Set by Pat Partner on 05 Oct 2026", "Nobody recorded"). **Change** only for a
+  `tenant:admin` login; the select offers the colleagues and "Nobody". Correctable on a SIGNED letter
+  too: it is not a term.
+- **"Revenue report"** on The firm's numbers (`app/dashboard/revenue-report.tsx`), under Revenue by
+  manager: By (Manager / Originator), From, To (default: this financial year to date, the firm's own
+  year), Company, Currency. **One table per currency with its own total; never a figure across two
+  currencies**, and nothing converted (Revenue by manager above it still converts at stored rates,
+  as before). Download CSV (`lib/csv.ts`, one row per person and currency, then each currency's total).
+  The whole page is behind the fee axis, so a login without fees never reaches it.
+- Walk: `bdr-walk.mjs q049` (29) on `bdr-rev-fixture.mjs`.
+
 ## Two screens that show the registry rather than hiding it
 
 `/catalogue`'s **Edit** never edits in place: it saves a NEW version, because publishing

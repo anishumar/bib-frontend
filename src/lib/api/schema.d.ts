@@ -19703,6 +19703,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/bill-early": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Periods whose work is done before their bill date (Raise invoice now)
+         * @description Recurring work finished before its bill comes due (Q071 b): a period job done, or the filing that dates a yearly bill done. Each may be billed today instead of waiting. Empty while automatic billing is off. Narrow to one job (`jobId`), one task (`workItemId`), one client (`partyId`), or the bills whose manager is the caller (`mine=true`).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    jobId?: string;
+                    workItemId?: string;
+                    partyId?: string;
+                    mine?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Billable early */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            periods: components["schemas"]["BillingEarlyBill"][];
+                        };
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Bill a period now, its work being done (Raise invoice now)
+         * @description Writes the period's bill, dated today, onto To raise, to be raised there the ordinary way. It is the bill the daily run would have made on its date, made sooner: never a second bill for the same period.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BillEarly"];
+                };
+            };
+            responses: {
+                /** @description On To raise */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BilledEarly"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such service billed on a schedule at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Billed already, work not done, or automatic billing is off */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/dues/{dueId}/skip": {
         parameters: {
             query?: never;
@@ -22016,6 +22152,220 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/revenue/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Revenue by manager or by originator, per currency (Q049)
+         * @description Invoiced, collected and outstanding per person and per CURRENCY: amounts in two currencies are never added or converted. `by=manager` is the invoice's manager (fixed when it is issued); `by=originator` is who won the letter each invoice line bills (0355), each line taking its share of the invoice's credit notes, money and balance. Drafts and cancelled invoices count nowhere. The period defaults to this financial year to date. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    by?: "manager" | "originator";
+                    from?: string;
+                    to?: string;
+                    issuerPartyId?: string;
+                    currency?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RevenueReport"];
+                    };
+                };
+                /** @description A malformed day, a period that ends before it starts, or more than three years */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engagement-letters/{letterId}/originator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who won the work of this letter (its originator)
+         * @description The salesperson credited in the revenue report by originator (Q049): the person a partner or an administrator set, else the owner of the deal's lead, else the colleague who prepared the proposal, else nobody.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The originator */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterOriginator"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Say who won the work of this letter
+         * @description A partner's or an administrator's (`tenant:admin`). `userId` null says nobody did (a renewal). Active staff of this firm only (ORIGINATOR_NOT_STAFF, 409). Writes `engagement_letter.originator_set` when it changes. The originator's revenue is read through the letter, so this re-credits its invoices. Allowed on a signed letter: it is not a term the client agreed to.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetLetterOriginator"];
+                };
+            };
+            responses: {
+                /** @description Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LetterOriginator"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or not a partner or an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not active staff here, or the letter was deleted as a mistake */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -27241,6 +27591,62 @@ export interface components {
             /** Format: uuid */
             dueId: string;
         };
+        BillingEarlyBill: {
+            /** @description `e:<engagement id>` (a service priced on its own) or `g:<fee group id>` (one fee for several). */
+            subjectKey: string;
+            /** Format: uuid */
+            engagementId: string | null;
+            /** Format: uuid */
+            feeGroupId: string | null;
+            party: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            serviceName: string;
+            letterRef: string;
+            currency: string;
+            /** @description One whole period's fee before tax; null without fee visibility or when the letter names none. */
+            fullAmount: string | null;
+            /** @description The period the bill is for. A yearly bill dated by a filing is labelled with the FILING's year (Q071). */
+            period: {
+                start: string;
+                end: string;
+                label: string;
+            };
+            /** @description The day the bill would be made without billing early. */
+            plannedBillOn: string;
+            /** @description The yearly statutory filing whose due date is `plannedBillOn` (Q071). */
+            datedByFiling: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                dueOn: string;
+            } | null;
+            /** @description The finished work that makes the period billable now: the latest, when several. */
+            work: {
+                /** @enum {string} */
+                kind: "job" | "filing";
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                jobId: string | null;
+                /** @description A filing's name; null for a period job. */
+                name: string | null;
+                doneOn: string;
+            };
+            /** Format: uuid */
+            managerUserId: string | null;
+        };
+        BilledEarly: {
+            /** Format: uuid */
+            dueId: string;
+        };
+        BillEarly: {
+            /** @description `e:<engagement id>` (a service priced on its own) or `g:<fee group id>` (one fee for several). */
+            subjectKey: string;
+            periodStart: string;
+        };
         SkipDue: {
             reason: string;
         };
@@ -27641,6 +28047,76 @@ export interface components {
                 /** @description Invoices it issued in the window in ANOTHER currency: in `billedReporting`, not in `billed`, because nothing stores a rate between two currencies that are not the reporting one. Zero for a company billing in the reporting currency. */
                 otherCurrencyInvoices: number;
             }[];
+        };
+        RevenueReport: {
+            /** @enum {string} */
+            by: "manager" | "originator";
+            from: string;
+            to: string;
+            /** @description The day outstanding is owed at: `to`, or today if sooner. */
+            asOf: string;
+            financialYearStartMonth: number | null;
+            /** @description The firm's whole, one per currency: each person's rows of that currency add up to it. */
+            currencies: {
+                /** @description Every amount on this row is in this currency, never converted. */
+                currency: string;
+                /** @description Issued in the period, before tax, less credit notes issued in the period at their pre-tax share. */
+                invoiced: string;
+                /** @description Money received in the period, with tax. */
+                collected: string;
+                /** @description Owed at the close of `asOf`. */
+                outstanding: string;
+                /** @description Invoices issued in the period that count here. */
+                invoices: number;
+            }[];
+            rows: {
+                /**
+                 * Format: uuid
+                 * @description Null: naming nobody.
+                 */
+                userId: string | null;
+                name: string | null;
+                activeStaff: boolean;
+                /** @description Every amount on this row is in this currency, never converted. */
+                currency: string;
+                /** @description Issued in the period, before tax, less credit notes issued in the period at their pre-tax share. */
+                invoiced: string;
+                /** @description Money received in the period, with tax. */
+                collected: string;
+                /** @description Owed at the close of `asOf`. */
+                outstanding: string;
+                /** @description Invoices issued in the period that count here. */
+                invoices: number;
+            }[];
+        };
+        LetterOriginator: {
+            /** Format: uuid */
+            letterId: string;
+            letterRef: string;
+            /**
+             * Format: uuid
+             * @description Null: nobody.
+             */
+            userId: string | null;
+            name: string | null;
+            /** @description False for a person who has left: their revenue stays theirs. */
+            activeStaff: boolean;
+            /**
+             * @description `set` (a partner or an administrator said so), `lead_owner` (the deal's lead's owner), `proposal_preparer` (who prepared the proposal), or `none`.
+             * @enum {string}
+             */
+            how: "set" | "lead_owner" | "proposal_preparer" | "none";
+            /** @description ISO 8601 UTC instant a person last set it; null while read off the deal. */
+            setAt: string | null;
+            setBy: {
+                /** Format: uuid */
+                userId: string;
+                name: string | null;
+            } | null;
+        };
+        SetLetterOriginator: {
+            /** Format: uuid */
+            userId: string | null;
         };
         DashboardRevenueByManager: {
             /** @description Every amount below, each document at the rate stored on it, never today's. */

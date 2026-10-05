@@ -9,6 +9,7 @@ import type {
   WorkBilling,
   BillingAdvance,
   BillingBillNow,
+  BillingEarlyBill,
   BillingDue,
   BillingRefund,
   BillingUnscheduled,
@@ -106,6 +107,8 @@ function Invoices() {
   const [advances, setAdvances] = useState<BillingAdvance[]>([]);
   const [refunds, setRefunds] = useState<BillingRefund[]>([]);
   const [billNow, setBillNow] = useState<BillingBillNow[]>([]);
+  /** Periods whose work is done before their bill date (Q071 b). */
+  const [early, setEarly] = useState<BillingEarlyBill[]>([]);
   const [autoBilling, setAutoBilling] = useState<boolean | null>(null);
   /** Work vs Billing's default view (Q041), read with the rest so its tab can
    *  count what needs attention before anybody opens it. */
@@ -152,7 +155,7 @@ function Invoices() {
   }, [fxWanted, fxCode]);
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work] = await Promise.all([
+    const [list, book, firm, billed, unset, settings, advance, refund, oneTime, staff, work, soon] = await Promise.all([
       api.GET("/api/v1/invoices", {}),
       api.GET("/api/v1/parties", {}),
       // WHICH OF THE FIRM'S OWN COMPANIES is charging: the firm's members
@@ -168,6 +171,7 @@ function Invoices() {
       api.GET("/api/v1/billing/bill-now", {}),
       api.GET("/api/v1/tenancy/colleagues", {}),
       api.GET("/api/v1/billing/work-vs-billing", {}),
+      api.GET("/api/v1/billing/bill-early", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -189,6 +193,7 @@ function Invoices() {
     setAdvances(advance.data?.advances ?? []);
     setRefunds(refund.data?.refunds ?? []);
     setBillNow(oneTime.data?.engagements ?? []);
+    setEarly(soon.data?.periods ?? []);
     setAutoBilling(settings.data?.autoBilling ?? null);
     setColleagues(staff.data ? [...staff.data.colleagues] : []);
     setWorkBilling(work.data ?? null);
@@ -364,6 +369,7 @@ function Invoices() {
         seesFees={seesFees === true}
         refunds={refunds}
         billNow={billNow}
+        early={early}
         onChanged={load}
       />
     ) : tab === "work" ? (

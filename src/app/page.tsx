@@ -9,6 +9,7 @@ import type {
   BillingAdvance,
   BillingAdvanceDuty,
   BillingDue,
+  BillingEarlyBill,
   ClientRequest,
   Escalation,
   MyStep,
@@ -62,8 +63,10 @@ import { readinessCount } from "@/lib/ui/readiness";
  *   /billing/advances?mine    advances still a draft or unpaid that I chase:
  *                             as the client's SPOC, Key Manager or partner,
  *                             and as an admin to issue, or a week on (0322)
+ *   /billing/bill-early?mine  work I manage finished before its bill date: an
+ *                             offer to raise the invoice now (Q071 b)
  *
- * Eight calls on load (nine for an administrator, who also gets the firm's setup
+ * Nine calls on load (ten for an administrator, who also gets the firm's setup
  * readiness as one line at the top, V2.6), and nothing per row: every read carries the client BY ID
  * and the due day, which the API grew for this screen. An escalation about one
  * of my own tasks is a FLAG on that task's row, not a second row.
@@ -194,7 +197,7 @@ export default function MyDayPage() {
     let live = true;
     void (async () => {
       const today = browserDay();
-      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready, advances] = await Promise.all([
+      const [tasks, steps, taskChecks, stepChecks, requests, escalated, bills, ready, advances, early] = await Promise.all([
         api.GET("/api/v1/work-items", { params: { query: { mine: "true", asOf: today } } }),
         api.GET("/api/v1/my-steps", {}),
         api.GET("/api/v1/work-item-checks", {}),
@@ -206,6 +209,8 @@ export default function MyDayPage() {
         // Every staff login: the API answers only the advances this person
         // chases, each with why (`duties`), so nobody else's is listed (0322).
         api.GET("/api/v1/billing/advances", { params: { query: { mine: "true" } } }),
+        // Work I manage finished before its bill date (Q071 b).
+        api.GET("/api/v1/billing/bill-early", { params: { query: { mine: "true" } } }),
       ]);
       if (!live) return;
       if (tasks.response.status === 401) {
@@ -230,6 +235,7 @@ export default function MyDayPage() {
         escalations: escalated.data?.rows ?? [],
         dues: bills.data?.dues ?? [],
         advances: advances.data?.advances ?? [],
+        early: early.data?.periods ?? [],
       });
       setRows(built);
       setReadiness(ready?.data ?? null);
@@ -422,6 +428,8 @@ function buildRows(input: {
   dues: readonly BillingDue[];
   /** `?mine=true`: the advances I chase, each with its `duties`. */
   advances: readonly BillingAdvance[];
+  /** `?mine=true`: work whose bill I would raise, done before its bill date. */
+  early: readonly BillingEarlyBill[];
 }): Row[] {
   const out: Row[] = [];
 
@@ -584,8 +592,31 @@ function buildRows(input: {
 
   out.push(...billRows(input.me, input.issuer, input.dues));
   out.push(...advanceRows(input.advances));
+  out.push(...earlyRows(input.early));
 
   return out;
+}
+
+/**
+ * WORK DONE BEFORE ITS BILL DATE (Q071 b; Ashish: "after a job/task is
+ * closed, offer to raise the invoice"), from `/billing/bill-early?mine`: one
+ * row per period, for the manager whose bill it would be. An offer, not a
+ * deadline: it carries no due day, and the bill comes on its own date anyway.
+ * The row opens the job, where "Raise invoice now" is, else To raise.
+ */
+function earlyRows(early: readonly BillingEarlyBill[]): Row[] {
+  return early.map((b) => ({
+    key: `early-${b.subjectKey}-${b.period.start}`,
+    what: `Work done: raise the invoice now for ${b.serviceName}, ${b.period.label}`,
+    kind: `Bill early · due ${longDay(b.plannedBillOn)}${b.datedByFiling === null ? "" : ` (${b.datedByFiling.name})`}`,
+    href: (b.work.jobId !== null ? `/work/${b.work.jobId}` : "/invoices?tab=raise") as Route,
+    clientId: b.party.id,
+    clientName: b.party.displayName,
+    dueOn: null,
+    turn: "me",
+    flags: [],
+    now: true,
+  }));
 }
 
 /** "Sent back by Priya Mehta: two bills missing" (CA#29). */
