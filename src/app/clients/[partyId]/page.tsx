@@ -1,5 +1,6 @@
 "use client";
 
+import { TdsCard } from "./tds-card";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -559,6 +560,11 @@ export default function PartyPage() {
           canWrite={canWrite && profile.party.archivedAt === null}
           onSaved={load}
         />
+      )}
+
+      {/* Q057: the TDS the client deducts, which its invoices print. */}
+      {!profile.party.isOwnCompany && (
+        <TdsCard partyId={partyId} canWrite={canWrite && profile.party.archivedAt === null} />
       )}
 
       {/* ALWAYS RENDERED, even when there is nothing in it. An unregistered

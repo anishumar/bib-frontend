@@ -55,6 +55,8 @@ import { keepTyped } from "@/lib/ui/keep-typed";
 interface FirmEntity {
   readonly id: string;
   readonly displayName: string;
+  /** Where it is registered: the 16-character GST number rule is India's. */
+  readonly jurisdiction: string | null;
 }
 
 export default function BrandPage() {
@@ -101,7 +103,7 @@ export default function BrandPage() {
       setLoaded(true);
       return;
     }
-    const list = firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name }));
+    const list = firm.data.entities.map((e) => ({ id: e.partyId, displayName: e.name, jurisdiction: e.jurisdiction }));
     setEntities(list);
 
     const perEntity = await Promise.all(
@@ -496,7 +498,14 @@ function InvoiceNumbers({
   // The current prefix is whatever the rows agree on; they are all set by one
   // UPDATE, so they always do. Taking the newest year's is the honest reading
   // if a direct database edit ever made them disagree.
-  const current = [...invoices].sort((a, b) => b.financialYear - a.financialYear)[0]?.prefix;
+  const newest = [...invoices].sort((a, b) => b.financialYear - a.financialYear)[0];
+  const current = newest?.prefix;
+  // Q080: a GST tax invoice number may have at most 16 characters (CGST Rule
+  // 46(b)). Said as the prefix is typed, for an Indian company; the choice is
+  // the firm's, so nothing refuses it.
+  const [typed, setTyped] = useState(current ?? "INV");
+  const sample = `${typed}/${newest?.label ?? "2026-27"}/0001`;
+  const tooLong = entity.jurisdiction === "IN" && sample.length > 16;
 
   return (
     <div style={{ marginTop: "var(--s-5)" }}>
@@ -595,9 +604,19 @@ function InvoiceNumbers({
                         defaultValue={current ?? ""}
                         maxLength={12}
                         required
+                        onChange={(e) => setTyped(e.target.value.trim().toUpperCase())}
                       />
                     </Field>
                   </FieldRow>
+                  {tooLong && (
+                    <Notice tone="warn" eyebrow="Longer than a GST invoice number may be">
+                      <p>
+                        {sample} is {sample.length} characters. A GST tax invoice number may have at most 16
+                        (CGST Rule 46(b)), so a shorter prefix keeps {entity.displayName}&rsquo;s invoices
+                        within it.
+                      </p>
+                    </Notice>
+                  )}
                   <div className="cluster">
                     <Button
                       type="submit"

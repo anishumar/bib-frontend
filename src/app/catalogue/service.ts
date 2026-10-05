@@ -81,6 +81,9 @@ export interface ServiceRecord {
   /** The process every job for this service follows (T2.7). A key: the
    *  catalogue points at the firm's CURRENT process, the job pins a version. */
   readonly workflowTemplateKey: string | null;
+  /** How it is taxed, per issuing company's country (Q056): India's SAC and
+   *  GST rate under "IN". Empty when the service states none. */
+  readonly tax: Readonly<Record<string, { readonly sac: string | null; readonly ratePercent: string | null }>>;
 }
 
 export function readServiceRecord(body: Record<string, unknown> | undefined): ServiceRecord {
@@ -107,7 +110,19 @@ export function readServiceRecord(body: Record<string, unknown> | undefined): Se
     volumeLimits: readText(body?.["volumeLimits"]),
     exclusions: readText(body?.["exclusions"]),
     workflowTemplateKey: readText(body?.["workflowTemplateKey"]),
+    tax: readTax(body?.["tax"]),
   };
+}
+
+function readTax(raw: unknown): ServiceRecord["tax"] {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
+  const out: Record<string, { sac: string | null; ratePercent: string | null }> = {};
+  for (const [country, entry] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const e = entry as Record<string, unknown>;
+    out[country] = { sac: readText(e["sac"]), ratePercent: readText(e["ratePercent"]) };
+  }
+  return out;
 }
 
 /** A stored string, or null when there is nothing to print. Blank collapses
@@ -323,6 +338,9 @@ export interface ServiceDraft {
   clientObligations: string;
   volumeLimits: string;
   exclusions: string;
+  /** India's SAC and GST rate (Q056), as typed. */
+  sacIn: string;
+  taxRateIn: string;
 }
 
 export type ScopeField = "scope" | "clientObligations" | "volumeLimits" | "exclusions";
@@ -361,6 +379,8 @@ export function draftOf(record: ServiceRecord | null, currency: string): Service
     clientObligations: record?.clientObligations ?? "",
     volumeLimits: record?.volumeLimits ?? "",
     exclusions: record?.exclusions ?? "",
+    sacIn: record?.tax["IN"]?.sac ?? "",
+    taxRateIn: record?.tax["IN"]?.ratePercent ?? "",
   };
 }
 
@@ -403,19 +423,41 @@ export function bodyOf(d: ServiceDraft, kept: ServiceRecord | null): Record<stri
   // means "we quote it", never zero.
   const amount = cleanAmount(d.amount);
   if (amount !== "") body["listPrice"] = { amount, currency: d.currency.toUpperCase() };
+  // Tax per issuing country (Q056): India's from the form, any other country's
+  // kept as the body had it.
+  const tax: Record<string, Record<string, string>> = {};
+  for (const [country, entry] of Object.entries(kept?.tax ?? {})) {
+    if (country === "IN") continue;
+    const e: Record<string, string> = {};
+    if (entry.sac !== null) e["sac"] = entry.sac;
+    if (entry.ratePercent !== null) e["ratePercent"] = entry.ratePercent;
+    if (Object.keys(e).length > 0) tax[country] = e;
+  }
+  const india: Record<string, string> = {};
+  if (d.sacIn.trim() !== "") india["sac"] = d.sacIn.trim();
+  const rate = cleanAmount(d.taxRateIn);
+  if (rate !== "") india["ratePercent"] = rate;
+  if (Object.keys(india).length > 0) tax["IN"] = india;
+  if (Object.keys(tax).length > 0) body["tax"] = tax;
   return body;
 }
 
 /** The fields the form checks before any call, in the words beside each box.
  *  What only the API knows (a code format, a retired Dept) still arrives as
  *  its own sentence. */
-export function refusalsOf(d: ServiceDraft): Partial<Record<"name" | "amount" | "slaDays", string>> {
-  const out: Partial<Record<"name" | "amount" | "slaDays", string>> = {};
+export function refusalsOf(d: ServiceDraft): Partial<Record<"name" | "amount" | "slaDays" | "sacIn" | "taxRateIn", string>> {
+  const out: Partial<Record<"name" | "amount" | "slaDays" | "sacIn" | "taxRateIn", string>> = {};
   if (d.name.trim() === "") out.name = "Give the service a name, e.g. UAE bookkeeping.";
   const amount = cleanAmount(d.amount);
   if (amount !== "" && !/^\d+(\.\d{1,2})?$/.test(amount)) out.amount = "Numbers only, e.g. 25,000.";
   const sla = d.slaDays.trim();
   if (sla !== "" && !/^\d+$/.test(sla)) out.slaDays = "Whole days only, e.g. 10.";
+  const sac = d.sacIn.trim();
+  if (sac !== "" && !/^99\d{4}$/.test(sac)) out.sacIn = "Six digits starting 99, e.g. 998222.";
+  const rate = cleanAmount(d.taxRateIn);
+  if (rate !== "" && (!/^\d{1,3}(\.\d{1,2})?$/.test(rate) || Number(rate) > 100)) {
+    out.taxRateIn = "A rate from 0 to 100, e.g. 18.";
+  }
   return out;
 }
 
@@ -466,6 +508,8 @@ function fields(n: Namer): readonly { readonly label: string; readonly words: (b
     { label: "Charged as", words: (b) => (b.billingBasis === null ? null : BASIS_WORDS[b.billingBasis]) },
     { label: "How often", words: (b) => (b.recurrence === null ? null : RECURRENCE_WORDS[b.recurrence]) },
     { label: "Pricing note", words: (b) => b.pricingNote },
+    { label: "SAC (India)", words: (b) => b.tax["IN"]?.sac ?? null },
+    { label: "Tax rate (India)", words: (b) => (b.tax["IN"]?.ratePercent == null ? null : `${b.tax["IN"].ratePercent}%`) },
     { label: "Turnaround", words: (b) => turnaroundWords(b.slaDays, b.recurrence) },
     {
       label: "How it is delivered",

@@ -3122,6 +3122,35 @@ The API writes and words them (backend CLAUDE.md, "Notifications"); this side sh
   back from Mailpit). Run the
   fixture and the walk 60 s apart, or the fixture meets a 429.
 
+## The GST tax invoice and the TDS line (Q056, Q057, S5)
+
+What the backend's section of the same name decided, as the screens show it.
+
+- **Invoice page** (`app/invoices/[invoiceId]/tax.tsx` + `page.tsx`): a Tax card (how it is taxed in
+  words, place of supply, both GSTINs, reverse charge No, the client's TDS with a link to set it, the
+  account it is paid into). On a draft the place of supply is a picker (`PUT /place-of-supply`; blank
+  follows the client) and each line's SAC a quiet box saved on blur (`PUT /lines/{id}/sac`). The line
+  table has a SAC column and the tax's split under the rate; the foot has CGST/SGST (or UTGST, IGST)
+  rows, then Less TDS and Net payable. `issueBlocked` now also carries PLACE_OF_SUPPLY_UNKNOWN and
+  INVOICE_LINE_NEEDS_SAC, shown where Issue would be. Payments: "Amount received" plus an optional
+  "TDS deducted" (hint: the expected TDS), a TDS column, and "TDS deducted" on the owed card.
+- **Catalogue** service form: a "Tax on the invoice" card, SAC (India) and GST rate %, written into
+  `body.tax.IN`; other countries' entries are kept as the body had them.
+- **Your firm** (`admin/firm/invoicing-card.tsx`, `#invoicing`): each company's GSTIN, bank accounts
+  (Add, Replace, Take off; one per currency plus a general one) and, for an Indian company, LUTs by
+  financial year. Self-contained: it loads `GET /invoicing/companies` and reloads the page after a write.
+- **Client** (`clients/[partyId]/tds-card.tsx`, `#tds`): the TDS it deducts (section + rate) or none.
+  An Indian billing address now picks its state from `components/state-select.tsx` (the API's
+  `GET /invoicing/states`), so a place of supply can always be read; a region typed before stays
+  offered "as typed".
+- **Series** (`admin/brand`): a live warning when an Indian company's prefix makes a number longer
+  than 16 characters (Rule 46(b), Q080). Never a refusal: the choice is 10x's.
+- **Readiness**: the `tax_invoice` line and its gap words (no GSTIN, no bank account, no SAC, no tax rate).
+- `formatMoney` prints whole rupees without ".00" (₹1,800): a check that reads a figure off the screen
+  must not expect the PDF's two places.
+- Walk: `bib/demo-assets/tools/gst-fixture.mjs` + `gst-walk.mjs` (46 checks; each run needs a NEW ids
+  file, it chooses a place and types a SAC).
+
 ## Commands
 
 ```bash

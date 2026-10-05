@@ -7,6 +7,7 @@ import { Button, Card, CardTitle, ErrorNotice, Field, FieldRow, Input, Textarea 
 import { countryName } from "@/lib/country";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
+import { StateSelect } from "@/components/state-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
 import { YearEndField } from "@/components/year-end-field";
 import { keepTyped } from "@/lib/ui/keep-typed";
@@ -387,8 +388,16 @@ export function BillingAddressCard({
               />
             </Field>
             <FieldRow>
-              <Field label={india ? "State" : "State or region"} optional>
-                <Input name="region" maxLength={100} defaultValue={current?.region ?? ""} placeholder={india ? "e.g. Maharashtra" : "e.g. Dubai"} />
+              <Field
+                label={india ? "State" : "State or region"}
+                optional
+                hint={india ? "The place of supply on its tax invoices, when it has no GSTIN." : undefined}
+              >
+                {india ? (
+                  <StateSelect name="region" defaultValue={current?.region ?? ""} />
+                ) : (
+                  <Input name="region" maxLength={100} defaultValue={current?.region ?? ""} placeholder="e.g. Dubai" />
+                )}
               </Field>
               <Field label={india ? "PIN code" : "Postal code"} optional>
                 <Input name="postalCode" maxLength={20} defaultValue={current?.postalCode ?? ""} placeholder={india ? "e.g. 411026" : "e.g. 10001"} />
