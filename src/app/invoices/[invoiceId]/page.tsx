@@ -620,6 +620,20 @@ export default function InvoicePage() {
                   {draft && mayWriteMoney && <Td />}
                 </tr>
               ))}
+              {/* Q087: what rounding the total to the whole unit added, just
+                  above the Total it explains; nothing when it added nothing. */}
+              {record.totals.roundOff !== null && !/^-?0+(\.0+)?$/.test(record.totals.roundOff) && (
+                <tr>
+                  <Td colSpan={5} />
+                  <Td align="right" className="label">
+                    Round off
+                  </Td>
+                  <Td align="right" className="nowrap">
+                    {money(record.totals.roundOff, record.totals.currency)}
+                  </Td>
+                  {draft && mayWriteMoney && <Td />}
+                </tr>
+              )}
               <tr>
                 <Td colSpan={5} />
                 <Td align="right" className="label">

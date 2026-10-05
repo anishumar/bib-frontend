@@ -207,6 +207,8 @@ function Labelled({ id, label, children }: { id: string; label: string; children
   );
 }
 
+const NO_MANAGER = "No manager yet (incl. advances not adjusted)";
+
 function isZero(amount: string): boolean {
   return scaledUnits(amount)?.units === BigInt(0);
 }
@@ -216,7 +218,10 @@ function Money({ amount, currency }: { amount: string; currency: string }) {
 }
 
 function Person({ row, by }: { row: Row; by: By }) {
-  if (row.userId === null) return <NotSet>{by === "manager" ? "No manager" : "No originator"}</NotSet>;
+  // Q085 (0376): an advance is nobody's revenue until a bill takes it, so the
+  // manager view's "nobody" row is mostly advances still to be adjusted.
+  if (row.userId === null)
+    return <NotSet>{by === "manager" ? NO_MANAGER : "No originator"}</NotSet>;
   if (row.name === null) return <NotSet>Not on your staff</NotSet>;
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
@@ -234,7 +239,7 @@ export function csvRows(answer: RevenueReport): CsvCell[][] {
   for (const c of answer.currencies) {
     for (const r of answer.rows.filter((x) => x.currency === c.currency)) {
       out.push([
-        r.userId === null ? `No ${who.toLowerCase()}` : (r.name ?? "Not on your staff"),
+        r.userId === null ? (answer.by === "manager" ? NO_MANAGER : "No originator") : (r.name ?? "Not on your staff"),
         r.currency,
         { number: r.invoiced },
         { number: r.collected },

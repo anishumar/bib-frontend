@@ -18,6 +18,7 @@ import {
   NotSet,
   Select,
   Sub,
+  Switch,
   Table,
   TableWrap,
   Td,
@@ -134,6 +135,19 @@ export function InvoicingCard({ onChanged }: { onChanged: () => Promise<void> })
                   `The LUT for ${l.financialYearLabel} is taken off ${c.name}. Exports from it charge IGST.`,
                 )
               }
+              onRoundOff={(on) =>
+                act(
+                  `round:${c.entityPartyId}`,
+                  () =>
+                    api.PUT("/api/v1/firm-entities/{entityPartyId}/round-off", {
+                      params: { path: { entityPartyId: c.entityPartyId } },
+                      body: { roundOff: on },
+                    }),
+                  on
+                    ? `${c.name}'s invoices now round the total to the nearest whole unit, with a Round off line.`
+                    : `${c.name}'s invoices now keep the exact total.`,
+                )
+              }
             />
           ))}
         </div>
@@ -192,6 +206,7 @@ function CompanyBlock({
   onRetireBank,
   onAddLut,
   onRetireLut,
+  onRoundOff,
 }: {
   company: CompanyInvoicing;
   busy: string | null;
@@ -200,8 +215,11 @@ function CompanyBlock({
   onRetireBank: (b: CompanyBankAccount) => void;
   onAddLut: () => void;
   onRetireLut: (l: CompanyInvoicing["luts"][number]) => void;
+  /** Q087: round each invoice's total to the whole unit, or stop. */
+  onRoundOff: (on: boolean) => void;
 }) {
   const india = company.country === "IN";
+  const roundHint = `round-hint-${company.entityPartyId}`;
   return (
     <section className="stack" aria-label={company.name} data-company={company.entityPartyId}>
       <div className="cluster" style={{ justifyContent: "space-between" }}>
@@ -227,6 +245,24 @@ function CompanyBlock({
             </Button>
           )}
         </div>
+      </div>
+      {/* Q087 (10x, 2026-10-05: "round off"). Drafts follow at once; an
+          issued invoice keeps what it did. */}
+      <div>
+        <Switch
+          label={company.roundOff ? "Round off the total: on" : "Round off the total: off"}
+          aria-label={`Round off the total on ${company.name}'s invoices`}
+          aria-describedby={roundHint}
+          checked={company.roundOff}
+          disabled={busy === `round:${company.entityPartyId}`}
+          onChange={(e) => {
+            onRoundOff(e.target.checked);
+          }}
+        />
+        <p className="field-hint" id={roundHint}>
+          Rounds each invoice&rsquo;s total to the nearest whole unit and prints the difference as Round off.
+          Invoices already issued keep their total.
+        </p>
       </div>
       {company.bankAccounts.length === 0 ? (
         <p className="muted">No bank account yet: its invoices print no payment details.</p>
