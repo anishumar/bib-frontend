@@ -5353,6 +5353,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal-access/clients/{partyId}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A client's group, and its portal contacts who cannot see this client yet */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortalGroup"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal-access/memberships/{membershipId}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a client-portal login read the rest of a client's group too
+         * @description Q064: a group's contact sees its sister companies. Still ONE GRANT PER COMPANY: each company of the server's group list is granted on its own, with its own ledger event and the same refusals as a single grant. A company the login already sees is left alone.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GrantPortalGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Granted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GrantPortalGroupResponse"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not grant access */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The login cannot hold a grant */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal-access/grants/{grantId}/end": {
         parameters: {
             query?: never;
@@ -10959,7 +11096,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Correct a registered company's country or kind */
+        /** Correct a registered company's country, kind or year end */
         patch: {
             parameters: {
                 query?: never;
@@ -21963,7 +22100,7 @@ export interface paths {
         };
         /**
          * Is this firm set up well enough to run its work?
-         * @description Thirteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
+         * @description Fourteen lines: the firm's companies' country and address, its time zone, colleagues added, go-live floor and financial year, a service, standard terms, reporting lines where a check rule reads them, client-request routing, a published process for every service, confirmed and linked compliance rules, the three ladders published, every quoted or engaged client company's country, company type and (outside India) year end, every active client's Key Manager and SPOCs, and a portal login per active client. Each lists what is missing, by name.
          */
         get: {
             parameters: {
@@ -22004,6 +22141,114 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenancy/mail-senders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The domains this firm's client emails may be sent from */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MailSenders"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Replace the domains this firm's client emails may be sent from
+         * @description The whole list, each domain trimmed and lower-cased; an empty list sends every client email from the deployment's sender. Ledger `tenant.send_domains_set`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetMailSenders"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MailSenders"];
+                    };
+                };
+                /** @description A domain that is not one, an email address, or more than twenty */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -23234,6 +23479,39 @@ export interface components {
             /** @description Optional end, half-open — the FIRST DAY NOT IN FORCE. Lets a fixed-term grant (a consultant engaged for a quarter) be written at the moment it is decided rather than relying on somebody remembering to close it. */
             validTo?: string | null;
         };
+        PortalGroupCompany: {
+            /** Format: uuid */
+            partyId: string;
+            name: string;
+        };
+        PortalGroup: {
+            /** @description The OTHER companies in this client's group today: every company joined to it by ownership (parent_of, shareholder_of), both ways and to any depth. Never a person, the firm's own company, an archived company or another firm's. Empty when it is in no group. */
+            companies: components["schemas"]["PortalGroupCompany"][];
+            /** @description Portal contacts who see another company of this group today and NOT this one: offered, never granted silently, when a company joins a group after its contacts were set up. */
+            contactsMissing: {
+                /** Format: uuid */
+                membershipId: string;
+                contactEmail: string;
+                contactDisplayName: string | null;
+                /** @description The group's companies they see today. */
+                sees: string[];
+            }[];
+        };
+        GrantPortalGroupResponse: {
+            /** @description One grant per company, each its own row and its own ledger event. */
+            granted: components["schemas"]["PortalAccess"][];
+            /** @description Companies the login could already see: left as they were. */
+            alreadyHeld: components["schemas"]["PortalGroupCompany"][];
+        };
+        GrantPortalGroupRequest: {
+            /**
+             * Format: uuid
+             * @description The client whose group's OTHER companies are granted. The list is the server's.
+             */
+            clientPartyId: string;
+            /** @description The day access starts; the browser's day. */
+            validFrom?: string;
+        };
         EndPortalAccessRequest: {
             /** @description The FIRST DAY NOT IN FORCE. Absent means TODAY: remove means remove, and the access is gone on the next request rather than at midnight. Ending on the day the grant began is allowed and records an empty range — granted and withdrawn before it was ever in force. The row is then a day coarser than the truth; the `portal_access.ended` event carries the instant. */
             validTo?: string;
@@ -23245,6 +23523,12 @@ export interface components {
             userId: string;
             /** Format: uuid */
             grantId: string;
+            /** @description The group's other companies granted in the same act (Q064). */
+            alsoGranted: {
+                /** Format: uuid */
+                clientPartyId: string;
+                clientName: string;
+            }[];
             /**
              * Format: date-time
              * @description When the emailed link stops working. THE TOKEN IS NOT HERE and never will be: a firm that could read its client's invite link could sign in as that client. It exists in the mail and nowhere else.
@@ -23258,9 +23542,11 @@ export interface components {
             displayName?: string;
             /**
              * Format: uuid
-             * @description The ONE company this contact may read. Required, because an invite with no grant is a login that opens onto nothing — and the contact cannot tell that from a broken product. Somebody who should see four of a group's companies is granted the other three afterwards, one visible decision each.
+             * @description The ONE company this contact may read. Required, because an invite with no grant is a login that opens onto nothing — and the contact cannot tell that from a broken product.
              */
             clientPartyId: string;
+            /** @description Q064: also grant the rest of this company's group (ownership, both ways, any depth), ONE GRANT PER COMPANY, each with its own ledger event, before the letter goes. The list is the server's. Absent or false: this one company. */
+            alsoGroup?: boolean;
             /** @description The day the grant starts — send the BROWSER's calendar day. */
             validFrom?: string;
         };
@@ -24373,6 +24659,23 @@ export interface components {
             tradeName?: string;
             industry?: string;
             website?: string;
+            /**
+             * @description Required (Q076). The country it is registered in, ISO 3166-1 two letters: IN, AE, SG, US.
+             * @example IN
+             */
+            jurisdiction: string;
+            /**
+             * @description Required (Q076). What kind of company: private_limited, llp, pte_ltd, fzco, c_corp... the firm's own word.
+             * @example private_limited
+             */
+            entityType: string;
+            /**
+             * @description MM-DD, the last day of its financial year. REQUIRED outside India; an Indian company's is fixed at 03-31 and may be left out (anything else is refused).
+             * @example 12-31
+             */
+            financialYearEnd?: string;
+            /** Format: date */
+            incorporatedOn?: string;
         };
         Person: {
             /** Format: uuid */
@@ -24452,6 +24755,11 @@ export interface components {
             jurisdiction?: string;
             /** @example private_limited */
             entityType?: string;
+            /**
+             * @description Q076: MM-DD. Required for a company outside India (moving one out of India asks for it); an Indian company's is fixed at 03-31.
+             * @example 12-31
+             */
+            financialYearEnd?: string;
         };
         PartyIdentifier: {
             /** Format: uuid */
@@ -26514,10 +26822,10 @@ export interface components {
              */
             code: "no_bill" | "no_final_bill" | "skipped" | "not_raised" | "not_issued" | "unpaid_overdue";
             /**
-             * @description Why there is no bill: `no_schedule` (billing not set up for the service), `auto_billing_off` (the firm's switch), `no_fiscal_year` (a quarter or year cannot be cut), `not_written` (set up and due, yet nothing was written), `before_auto_billing` (one-time work finished before automatic billing was switched on). On `not_raised`: `no_price` when the letter fixed none.
+             * @description Why there is no bill: `no_schedule` (billing not set up for the service), `auto_billing_off` (the firm's switch), `no_fiscal_year` (a quarter or year cannot be cut), `not_written` (set up and due, yet nothing was written). On `not_raised`: `no_price` when the letter fixed none. Work that ended before the month automatic billing starts from is a NOTE (`before_auto_billing`, Q027), never a flag.
              * @enum {string|null}
              */
-            cause: "no_schedule" | "auto_billing_off" | "no_fiscal_year" | "not_written" | "before_auto_billing" | "no_price" | null;
+            cause: "no_schedule" | "auto_billing_off" | "no_fiscal_year" | "not_written" | "no_price" | null;
             /** @description How old the problem is, in days, counted from `since`. */
             days: number;
             since: string;
@@ -26615,7 +26923,7 @@ export interface components {
             flags: components["schemas"]["WorkBillingFlag"][];
             notes: {
                 /** @enum {string} */
-                code: "raised_before_work_done" | "bill_due_on" | "billing_run_next" | "before_billing_start" | "billed_by_hand" | "not_served" | "covered_by_advance" | "work_in_progress";
+                code: "raised_before_work_done" | "bill_due_on" | "billing_run_next" | "before_billing_start" | "before_auto_billing" | "billed_by_hand" | "not_served" | "covered_by_advance" | "work_in_progress";
                 date: string | null;
                 invoiceNumber: string | null;
             }[];
@@ -26964,6 +27272,8 @@ export interface components {
         BillingSettings: {
             /** @description Whether the daily sweep writes bill dues for this firm. Off until the firm turns it on. */
             autoBilling: boolean;
+            /** @description The day automatic billing starts from (Q027), YYYY-MM-DD, the first of the go-live month the firm chose when it switched on. Nothing that ended or finished before it is billed automatically or shown as missed. Null: never switched on through the app. */
+            autoBillingFrom: string | null;
             advancePolicy: components["schemas"]["AdvancePolicy"];
             /** @description Each company's default tax rate. A company with none gets no automatic advance draft. */
             taxDefaults: components["schemas"]["TaxDefault"][];
@@ -26972,13 +27282,15 @@ export interface components {
         };
         SetBillingSettings: {
             autoBilling?: boolean;
+            /** @description The go-live month, YYYY-MM (Q027). Sent with `autoBilling: true` it is the month the switch starts from (absent = this month); sent alone it moves the month while the switch is on. */
+            autoBillingFrom?: string;
             advancePolicy?: components["schemas"]["AdvancePolicy"];
             taxDefaults?: components["schemas"]["TaxDefault"][];
             /** @description Payment terms in days (0 = due on receipt); null clears them. */
             invoiceDueDays?: number | null;
         };
         /** @enum {string} */
-        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "payment_received" | "dunning_decision" | "filing_missed";
+        NotificationCategory: "task_assigned" | "step_assigned" | "check_requested" | "escalation" | "lead_assigned" | "lead_new" | "client_request" | "client_answered" | "proposal_decided" | "letter_signed" | "bill_to_raise" | "advance_reminder" | "advance_summary" | "payment_received" | "dunning_decision" | "filing_missed";
         Notification: {
             /** Format: uuid */
             id: string;
@@ -27385,12 +27697,12 @@ export interface components {
             ref: string | null;
             /** @description The subject's name as the firm wrote it; empty for the firm's own gap. */
             name: string;
-            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
+            /** @description What is missing, as a closed vocabulary per line: company_details company | country | address; time_zone time_zone; staff colleagues; services service; standard_terms standard_terms; deadlines go_live_floor | fiscal_year_start; reporting_lines manager; request_routing routing; processes process | published_process; compliance_rules confirmed_linked_rule | confirmed; ladders escalation | chaser | nudge; client_details country | company_type | year_end; account_team key_manager | spoc:<Dept code>; portal_contacts portal_login. The screen words them. */
             missing: string[];
         };
         ReadinessLine: {
             /** @enum {string} */
-            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "account_team" | "portal_contacts";
+            key: "company_details" | "time_zone" | "staff" | "deadlines" | "services" | "standard_terms" | "reporting_lines" | "request_routing" | "processes" | "compliance_rules" | "ladders" | "client_details" | "account_team" | "portal_contacts";
             /**
              * @description done, to_do, or nothing_to_check: the line has no subject yet (no clients, no services, no check rule that reads reporting lines), so it is neither done nor to do. A screen counts only the lines that apply.
              * @enum {string}
@@ -27405,8 +27717,15 @@ export interface components {
         ReadinessResponse: {
             /** @description The firm's calendar day the lines were computed on. */
             asOf: string;
-            /** @description The thirteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
+            /** @description The fourteen lines in the order a firm sets itself up. Computed on every read and never stored, so fixing a gap turns its line done on the next one. A ladder line asks that a ladder is PUBLISHED, never which days are on it: the firm has not given its numbers (D3). */
             lines: components["schemas"]["ReadinessLine"][];
+        };
+        MailSenders: {
+            /** @description Mail domains the relay may send FROM (lower case, e.g. 10xglobal.in). A client email whose SPOC's address is in one of them goes from that address; otherwise from the deployment's sender, with the SPOC's name and Reply-To the SPOC. Empty by default: list a domain only once its SPF and DKIM authorise the relay. */
+            sendFromDomains: string[];
+        };
+        SetMailSenders: {
+            sendFromDomains: string[];
         };
         FxQuote: {
             currency: string;

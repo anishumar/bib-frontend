@@ -49,6 +49,7 @@ const LABELS: Readonly<Record<Key, string>> = {
   processes: "A process for every service",
   compliance_rules: "Filings confirmed and linked to services",
   ladders: "Escalation and reminder ladders",
+  client_details: "Country, kind and year end for every client company",
   account_team: "Key Manager and SPOCs for every client",
   portal_contacts: "A portal login for every client",
 };
@@ -65,6 +66,7 @@ const FIX: Readonly<Record<Key, Route>> = {
   processes: "/admin/workflows",
   compliance_rules: "/admin/obligation-rules",
   ladders: "/admin/escalation-ladder",
+  client_details: "/clients",
   account_team: "/clients",
   portal_contacts: "/clients",
 };
@@ -96,6 +98,8 @@ function missingWords(missing: readonly string[]): string {
     if (m === "confirmed") return "linked, not confirmed";
     if (m === "portal_login") return "no portal login";
     if (m === "country") return "no country";
+    if (m === "company_type") return "no kind of company";
+    if (m === "year_end") return "no year end";
     if (m === "address") return "no registered address";
     return m;
   });
@@ -105,7 +109,7 @@ function missingWords(missing: readonly string[]): string {
 
 /** Where one gap is fixed, when it is about one thing. */
 function gapHref(key: Key, gap: ReadinessLine["gaps"][number]): Route | null {
-  if ((key === "account_team" || key === "portal_contacts") && gap.id !== null) {
+  if ((key === "account_team" || key === "portal_contacts" || key === "client_details") && gap.id !== null) {
     return `/clients/${gap.id}` as Route;
   }
   if (key === "processes" && gap.ref !== null) return `/catalogue/${gap.ref}` as Route;

@@ -48,7 +48,7 @@ import { Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
 import { countryName } from "@/lib/country";
-import { longDay } from "@/lib/day";
+import { browserDay, longDay, monthYear } from "@/lib/day";
 import { ReadinessCard } from "@/lib/ui/readiness";
 import { TimeZoneCard } from "@/lib/ui/time-zone";
 import { NotificationSettings } from "@/components/notify/settings";
@@ -193,12 +193,14 @@ export default function FirmPage() {
   const [grades, setGrades] = useState<StaffGrade[]>([]);
   /** The firm's time zone (0071), here since 2026-10-03; null when refused. */
   const [timeZone, setTimeZone] = useState<string | null>(null);
+  /** The domains client email may be sent from (Q059, 0350); null when refused. */
+  const [sendDomains, setSendDomains] = useState<string[] | null>(null);
 
   /** What "Same as the firm" means for a company's year and clock (0337). */
   const firmCalendar: FirmCalendar = { timeZone, fiscalYearStartMonth: policy?.fiscalYearStartMonth ?? null };
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure, senders] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/signatories", {}),
@@ -212,6 +214,7 @@ export default function FirmPage() {
       api.GET("/api/v1/tenancy/grades", {}),
       // The time zone lives on this page (CA#16); Structure no longer has it.
       api.GET("/api/v1/tenancy/structure", {}),
+      api.GET("/api/v1/tenancy/mail-senders", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -242,6 +245,7 @@ export default function FirmPage() {
     setBilling(billed.data ?? null);
     setGrades(ladder.data?.grades ?? []);
     setTimeZone(structure.data?.timeZone ?? null);
+    setSendDomains(senders.data?.sendFromDomains ?? null);
     setLoaded(true);
   }, [router]);
 
@@ -344,6 +348,22 @@ export default function FirmPage() {
 
       <SignatoriesCard signatories={signatories} colleagues={colleagues} busy={busy} act={act} />
 
+      {sendDomains !== null && (
+        <ClientEmailCard
+          domains={sendDomains}
+          busy={busy === "mail-senders"}
+          onSave={(domains) =>
+            act(
+              "mail-senders",
+              () => api.PUT("/api/v1/tenancy/mail-senders", { body: { sendFromDomains: domains } }),
+              domains.length === 0
+                ? "Client emails go from the app's address, with your colleague's name."
+                : "Saved. Colleagues on these domains now send client emails from their own address.",
+            )
+          }
+        />
+      )}
+
       <DeadlinesCard
         policy={policy}
         busy={busy === "policy"}
@@ -362,13 +382,23 @@ export default function FirmPage() {
           entities={entities}
           grades={grades}
           busy={busy}
-          onSet={(on) =>
+          onSet={(on, fromMonth) =>
             act(
               "billing",
-              () => api.PUT("/api/v1/billing/settings", { body: { autoBilling: on } }),
+              () =>
+                api.PUT("/api/v1/billing/settings", {
+                  body: on ? { autoBilling: true, autoBillingFrom: fromMonth } : { autoBilling: false },
+                }),
               on
-                ? "Automatic billing is on. Bills appear under Invoices, To raise."
+                ? `Automatic billing is on from ${monthYear(`${fromMonth}-01`)}. Bills appear under Invoices, To raise.`
                 : "Automatic billing is off. No new bills are made.",
+            )
+          }
+          onFrom={(fromMonth) =>
+            act(
+              "billing",
+              () => api.PUT("/api/v1/billing/settings", { body: { autoBillingFrom: fromMonth } }),
+              `Automatic billing now starts from ${monthYear(`${fromMonth}-01`)}.`,
             )
           }
           onPolicy={(advancePolicy) =>
@@ -1222,6 +1252,7 @@ function BillingCard({
   grades,
   busy,
   onSet,
+  onFrom,
   onPolicy,
   onTaxRates,
   onDueDays,
@@ -1230,11 +1261,16 @@ function BillingCard({
   entities: readonly FirmEntity[];
   grades: readonly StaffGrade[];
   busy: string | null;
-  onSet: (on: boolean) => Promise<boolean>;
+  onSet: (on: boolean, fromMonth: string) => Promise<boolean>;
+  onFrom: (fromMonth: string) => Promise<boolean>;
   onPolicy: (policy: AdvancePolicy) => Promise<boolean>;
   onTaxRates: (rates: TaxDefault[]) => Promise<boolean>;
   onDueDays: (days: number | null) => Promise<boolean>;
 }) {
+  const thisMonth = browserDay().slice(0, 7);
+  const saved = settings.autoBillingFrom?.slice(0, 7) ?? null;
+  const [fromMonth, setFromMonth] = useState(settings.autoBilling && saved !== null ? saved : thisMonth);
+  const months = goLiveMonths(thisMonth, saved);
   return (
     <Card id="billing">
       <CardHead level={2} title="Automatic billing" />
@@ -1243,9 +1279,46 @@ function BillingCard({
         checked={settings.autoBilling}
         disabled={busy === "billing"}
         onChange={(event) => {
-          void onSet(event.target.checked);
+          void onSet(event.target.checked, fromMonth);
         }}
       />
+      {/* Q027: the month automatic billing starts from. Asked BEFORE the
+          switch goes on, so turning it on never bills months the firm has
+          already billed by hand. */}
+      <FieldRow>
+        <Field label="Starts from">
+          <Select
+            value={fromMonth}
+            disabled={busy === "billing"}
+            onChange={(e) => {
+              setFromMonth(e.target.value);
+            }}
+          >
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {monthYear(`${m}-01`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {settings.autoBilling && fromMonth !== saved && (
+          <Button
+            variant="secondary"
+            disabled={busy === "billing"}
+            onClick={() => {
+              void onFrom(fromMonth);
+            }}
+          >
+            Change month
+          </Button>
+        )}
+      </FieldRow>
+      {/* Outside the row: a hint inside a FieldRow column rides its input up. */}
+      <p className="field-hint">
+        {settings.autoBilling && settings.autoBillingFrom !== null
+          ? `On from ${settings.autoBillingFrom.endsWith("-01") ? monthYear(settings.autoBillingFrom) : longDay(settings.autoBillingFrom)}. Nothing that ended before it is billed or shown as missed.`
+          : "Periods that end before this month are never billed or shown as missed: you billed those by hand."}
+      </p>
       <p className="text-sm text-ink-2">
         Only for services with billing set up.{" "}
         <Link href={"/invoices?tab=setup" as Route}>See which are not</Link>
@@ -1263,6 +1336,79 @@ function BillingCard({
         onSave={onTaxRates}
       />
       <PaymentTerms days={settings.invoiceDueDays} busy={busy === "due-days"} onSave={onDueDays} />
+    </Card>
+  );
+}
+
+/**
+ * The months a firm may go live from (Q027): two years back to one year ahead
+ * of this month, newest last, plus the saved one should it be older. The API
+ * takes any month from 2000 to a year ahead; the list is what a person picks.
+ */
+function goLiveMonths(thisMonth: string, saved: string | null): string[] {
+  const index = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
+  const label = (i: number): string => `${String(Math.floor(i / 12))}-${String((i % 12) + 1).padStart(2, "0")}`;
+  const now = index(thisMonth);
+  const out: string[] = [];
+  for (let i = now - 24; i <= now + 12; i++) out.push(label(i));
+  if (saved !== null && !out.includes(saved)) out.unshift(saved);
+  return out;
+}
+
+/**
+ * WHO A CLIENT EMAIL IS FROM (Q059). Every email to a client (the portal
+ * invitation, a proposal) carries the name of the client's SPOC for that work,
+ * else its Key Manager, and replies reach them. Their OWN address is the From
+ * only for a domain listed here, which a firm adds once its mail provider lets
+ * this app send for it (SPF and DKIM); a From the provider has not allowed is
+ * refused or lands in spam, so the list starts empty.
+ */
+function ClientEmailCard({
+  domains,
+  busy,
+  onSave,
+}: {
+  domains: readonly string[];
+  busy: boolean;
+  onSave: (domains: string[]) => Promise<boolean>;
+}) {
+  const [text, setText] = useState(domains.join("\n"));
+  const typed = text
+    .split(/[\s,;]+/)
+    .map((d) => d.trim())
+    .filter((d) => d !== "");
+  const changed = typed.join("\n") !== domains.join("\n");
+  return (
+    <Card id="client-email">
+      <CardHead level={2} title="Client emails" />
+      <p>
+        Emails to a client come from the client&rsquo;s SPOC for that work, or its Key Manager, by
+        name. A reply reaches that person.
+      </p>
+      <Field
+        label="Domains we may send from"
+        optional
+        hint="One per line, e.g. yourfirm.com. Add a domain only after your mail provider allows this app to send for it (SPF and DKIM). Until then, emails go from the app's own address."
+      >
+        <Textarea
+          rows={3}
+          value={text}
+          disabled={busy}
+          onChange={(e) => {
+            setText(e.target.value);
+          }}
+        />
+      </Field>
+      <div>
+        <Button
+          disabled={busy || !changed}
+          onClick={() => {
+            void onSave(typed);
+          }}
+        >
+          Save domains
+        </Button>
+      </div>
     </Card>
   );
 }

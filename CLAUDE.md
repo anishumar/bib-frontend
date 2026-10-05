@@ -3179,3 +3179,23 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   remounts on success returns nothing. The handler still clears its refusal BEFORE the call. A
   lint rule refuses `action` on a `<form>`; `demo-assets/tools/audit-verify/f05-walk.mjs` refuses
   every form twice and checks the boxes, the focus and the second press.
+
+## Quick wins of 2026-10-05 (Q066, Q027, Q059, Q064, Q076)
+
+- **New lead, "Assign to"**: required, nothing preselected (a colleague, the firm's rule, or
+  unassigned). The hint says admins hear of every new lead.
+- **Your firm > Automatic billing**: "Starts from" month select (two years back to a year ahead)
+  sits beside the switch and is sent WITH it; while on, "Change month". Work vs Billing reads
+  `before_auto_billing` as a note.
+- **Your firm > Client emails**: who client emails are from, and "Domains we may send from" (one
+  per line; add one only once the mail provider allows this app: SPF/DKIM).
+- **Client page > Portal access**: the invite form's "Also give access to the group's other
+  companies: ..." is ticked when the server's group (`GET /portal-access/clients/{id}/group`) is
+  not empty; "Give another company" offers the server's group (sisters included) and "Give the
+  whole group (N)"; a "Same group" notice offers contacts who see the group but not this company.
+- **Clients**: `YearEndField` (`components/year-end-field.tsx`): India reads "31 March (fixed for
+  India)" in a read-only input (so a FieldRow lines up), elsewhere a required month + day pick
+  posting `MM-DD` in a hidden input. Used by Add a client (country and kind now required), the
+  register form and "Correct the country, kind or year end". Setup's `client_details` line links
+  each gap to the client.
+- Walk: `bib/demo-assets/tools/qw-walk.mjs` 38/38.
