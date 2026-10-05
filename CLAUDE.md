@@ -492,7 +492,7 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 |---|---|
 | `/login` | email + password → the httpOnly session cookie |
 | `/` | **My day** (V2.1), where staff land: everything on the reader's desk (tasks, steps, checks to decide, client requests, escalations) as ONE list in Overdue / Today / This week / Later. Clients land on `/portal` |
-| `/copilot` | **AI Copilot** — a chat screen for a feature that does not exist yet, and says so (the sidebar link reads "Not live yet"). The session's own facts (ids, permissions, memberships) sit under it behind a closed disclosure |
+| `/copilot` | **AI Copilot** — answers 404 unless `NEXT_PUBLIC_BIB_COPILOT=on` (S7, 2026-10-05: unreleased features are not shown); no sidebar link. The screen is kept in `copilot-chat.tsx` |
 | `/admin/firm` | **Your firm** (Wave 4: "The firm itself" and "Our companies" merged): **Setup** first (V2.6: eight readiness lines, each Done or To do with what is missing and a link to the screen that fixes it, `#setup`), then **Companies** (the firm's own companies, **Add a company** in a dialog, Change, a More menu to each one's logo and wording, and the country-to-company table, where a pick saves), **Signing** (who signs and as what), **Deadlines** (count from, and the financial year's first month), and the **discount limit** (moved from the Catalogue; published in the same act). One sidebar link |
 | `/admin/companies` | redirects to `/admin/firm#companies` so old links land |
 | `/admin/people` | the firm's roster — add somebody, change a role or grade, say who they report to, revoke or restore access |
@@ -3303,3 +3303,13 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
   return periods (`return-periods.tsx`: tax, monthly or quarterly, which months the quarters
   start in). Setup line "Return periods from the tax authority" links to the client.
 - Rules screen: Load the UAE / Singapore / US draft pack (unconfirmed, on no service).
+
+## Release hardening (S7, 2026-10-05)
+
+- `/copilot` answers 404 unless the deployment sets `NEXT_PUBLIC_BIB_COPILOT=on` (nothing does);
+  the screen lives on in `app/copilot/copilot-chat.tsx`, type-checked, for the day it can answer.
+- `schema.d.ts` was regenerated from the merged release API (S1-S5); `npm run check` is green on it.
+- A refused upload now says `CONTENT_NOT_OF_TYPE` in plain words (the file is not the type it was
+  sent as); `ErrorNotice` shows it as is.
+- A period job's task refuses Done / Approve before its period ends (`JOB_PERIOD_NOT_ENDED`); the
+  task page shows the API's sentence.
