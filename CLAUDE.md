@@ -3314,6 +3314,44 @@ Key Manager, else the person who signs for the firm, to HAND OUT. Three screen c
 - A period job's task refuses Done / Approve before its period ends (`JOB_PERIOD_NOT_ENDED`); the
   task page shows the API's sentence.
 
+## The shell's chrome: the panel that left the page, and the two stacked labels (2026-10-05)
+
+The user, on a QA screenshot: *"notification bell icon is going out of the page and teh rectengualr
+text look so ai genrated"*. Three things, and the first was a real bug.
+
+- **The notification panel ran off the right edge of the window.** `.menu-panel` is
+  `position: fixed; inset: auto`, which pins a box where it WOULD have been in the flow. `Menu`
+  puts it in the top layer and places it by hand; the bell was still a `<details>` with the panel
+  as a plain child, so a 26rem panel started at the bell, at the right-hand end of the top bar, and
+  ended 238px past the edge at every desktop width. Nothing scrolled to it, because a fixed box
+  does not widen the page. The placement is now **`useAnchoredPanel` (`components/ui/anchored.ts`),
+  shared by `Menu` and the bell**: under the button, flipped above when there is no room below, and
+  pulled back inside the window on BOTH axes, never nearer than 8px to an edge — so a panel wider
+  or taller than the window lands at that margin instead of half off. The refs are the HOOK's, not
+  arguments: placing means writing to `panel.current.style`, and the React Compiler refuses to let
+  a hook modify what it was handed. The bell is a `<button popovertarget>` now, its open state
+  `aria-expanded`, not `[open]`; Escape and light dismiss come from the popover.
+- **The top bar said three unrelated things on one line of middots** — `BiB · 10x Global · fees
+  visible`: the build's codename, the firm the sidebar already names, and a permission flag. It is
+  **where the reader is**: the nav section and the screen, found by `trail()` as the longest nav
+  href the path starts with, so `/clients/<id>` is "Commercial / Clients" while the page itself is
+  headed by the client's name. Only links this reader is offered are matched. **A group of one
+  names no section** ("Audit trail", never "Record / Audit trail"), the exclusion the sidebar's
+  search already makes, because that label is never drawn. Nothing matched draws nothing. The slash
+  is `aria-hidden` with real spaces around it, so it is seen and not spoken.
+- **The sidebar's head is one line.** CA#40 put the product's name under the firm's, so the head of
+  every sidebar was two stacked names, the lower one the same constant on every screen of every
+  firm. The firm's name takes the line; **the product names itself once, at the FOOT of the column**
+  (`.brand-foot`), and on every sign-in page. The mark is 2rem and `data-chars="3"` sizes a
+  three-character one ("10x Global" -> "10x") to fit. **The portal's head keeps its second line**,
+  because "Client portal" says which app it is.
+- **Whether this login sees fees is on `/account`**, a fact about the person, on the person's page.
+  And the browser tab is `PRODUCT_NAME` alone: it read "BiB · 10X Workspace", which put the build's
+  codename in front of the commissioned name in the one place a client's staff cannot miss it.
+- Walk: `bib/demo-assets/tools/shell-chrome-walk.mjs` (63 checks at 1440 / 1280 / 1024 / 390, on an
+  `epb-fixture.mjs` firm), which measures the panel's box against the window rather than asserting
+  a rule, and reports what the old placement would have done.
+
 ## 10x's answers of 5 Oct (S8): Q069, Q084, Q087, Q085
 
 - **Q069** The check-rule form (`lib/ui/check-rule-form.tsx`) offers "The client's Key Manager"

@@ -462,6 +462,54 @@ function visible(item: NavItem, p: Principal): boolean {
   return true;
 }
 
+/**
+ * The screens reached from the foot of the sidebar rather than from the nav.
+ * They are two, and they are named here rather than being added to `GROUPS`,
+ * which is the MAP of the product: a link to "Your account" in the Delivery
+ * section would be a worse answer than a short list.
+ */
+const OUTSIDE_NAV: readonly { href: string; section: string; label: string }[] = [
+  { href: "/account", section: "You", label: "Your account" },
+  { href: "/notifications", section: "You", label: "Notifications" },
+];
+
+/**
+ * Where the reader is: the nav section and the screen, for the top bar.
+ *
+ * The LONGEST nav href the path starts with, so a record's own page belongs to
+ * its list's section — /proposals/PR-2026-0001 is Commercial / Proposals, which
+ * is what somebody on it wants from a bar, since the page is headed by the
+ * proposal's own number. Only links this reader is offered are matched, so the
+ * bar never names a screen their role cannot open.
+ *
+ * Null when nothing matches, and the bar then draws nothing. A guess from the
+ * path's own words ("admin" -> "Admin") is how a bar starts saying things no
+ * screen says.
+ */
+function trail(pathname: string, p: Principal | null): { section: string; page: string } | null {
+  if (p === null) return null;
+  let best: { section: string; page: string; len: number } | null = null;
+  const consider = (section: string, page: string, href: string): void => {
+    if (!isCurrent(pathname, href)) return;
+    if (best !== null && href.length <= best.len) return;
+    best = { section, page, len: href.length };
+  };
+  for (const group of GROUPS) {
+    const allowed = group.items.filter((item) => visible(item, p));
+    /* A GROUP OF ONE IS A PLAIN LINK IN THE SIDEBAR, so its section name is
+       never on screen: "Record / Audit trail" would name a section the reader
+       has no way to see. The sidebar's own search makes the same exclusion for
+       the same reason. */
+    for (const item of allowed) {
+      consider(allowed.length === 1 ? item.label : group.label, item.label, item.href);
+    }
+  }
+  for (const item of OUTSIDE_NAV) consider(item.section, item.label, item.href);
+  if (best === null) return null;
+  const { section, page } = best;
+  return { section, page };
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -703,6 +751,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
+  const firmName = principal?.tenantName ?? PRODUCT_NAME;
+  const firmMark = firmInitials(principal?.tenantName);
+  /* Where the reader is, for the top bar. Read off GROUPS rather than off
+     `groups` below, which the search box filters: typing in it must not
+     empty the bar. */
+  const here = trail(pathname, principal);
+
   const needle = query.trim().toLowerCase();
   const groups = principal === null ? [] : GROUPS.map((g) => {
     const allowed = g.items.filter((i) => visible(i, principal));
@@ -777,16 +832,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           Skip to the page
         </a>
         <aside className="sidebar">
-          {/* THE FIRM'S OWN MARK (CA#40). The badge read "10x" on every
-              firm's workspace; it is now this firm's initials and name, and
-              the product's name sits under it. */}
-          <Link href="/" className="brand">
-            <span className="mark" aria-hidden="true">
-              {firmInitials(principal?.tenantName)}
+          {/* THE FIRM'S OWN MARK (CA#40), AND ONE LINE OF IT. CA#40 fixed the
+              badge, which read "10x" on every firm's workspace, and put the
+              product's name under the firm's - so the head of the sidebar
+              became two stacked names, the lower one the same constant on
+              every screen of every firm. The firm's name is the identity here
+              and takes the line; the product names itself at the foot of this
+              column, and on every sign-in page. The portal's head keeps its
+              second line, because "Client portal" says which app it is.
+
+              `data-chars` is the mark's length: `firmInitials` keeps a name
+              that leads with a figure whole ("10x Global" -> "10x"), and three
+              characters did not fit the disc at the body size. */}
+          <Link href="/" className="brand" title={firmName}>
+            <span className="mark" data-chars={firmMark.length} aria-hidden="true">
+              {firmMark}
             </span>
             <span className="brand-id">
-              <b>{principal?.tenantName ?? PRODUCT_NAME}</b>
-              <span>{PRODUCT_NAME}</span>
+              <b>{firmName}</b>
             </span>
           </Link>
 
@@ -961,6 +1024,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   Sign out
                 </Button>
+                {/* THE ONE PLACE IN THE WORKSPACE THE PRODUCT NAMES ITSELF
+                    (CA#40). It was under the firm's name at the head of this
+                    column, where it read as a second name for the firm. */}
+                <p className="brand-foot">{PRODUCT_NAME}</p>
               </div>
             </>
           )}
@@ -968,26 +1035,39 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="main">
           <header className="topbar">
-            <p className="crumb">
-              <b>BiB</b>
-              {/* THE FIRM'S NAME, not the first eight characters of its uuid.
-                  That is what stood here, and it identified the firm to the
-                  database and to nobody else. The id is still the fallback for
-                  the state that should not happen — a session pointed at a
-                  tenant row that has gone — because a bar that silently drops
-                  the firm is worse than one showing a uuid. */}
-              {principal !== null && principal.tenantId !== null && (
+            {/* WHERE THE READER IS, and nothing else. It read
+                "BiB · 10x Global · fees visible": the dev codename, the firm
+                the sidebar already names, and a permission flag, three
+                unrelated facts strung on middots - which is what a bar looks
+                like when nothing has decided what it is for. The firm is in
+                the sidebar, the product's name at its foot, and whether this
+                login sees fees is on Your account, where a fact about the
+                person belongs. A top bar says the section and the screen, and
+                on a record's own page it is the only thing that does: a
+                proposal's page is headed by its number, not by "Proposals".
+
+                `trail` finds the longest nav href the path starts with, so
+                /proposals/PR-2026-0001 belongs to Commercial / Proposals.
+                Nothing matched draws nothing, rather than a guess. */}
+            <nav className="crumb" aria-label="Where you are">
+              {here !== null && (
                 <>
-                  {" · "}
-                  {principal.tenantName === null ? (
-                    <span className="mono">{principal.tenantId.slice(0, 8)}</span>
-                  ) : (
-                    principal.tenantName
+                  {here.section !== here.page && (
+                    <>
+                      <span>{here.section}</span>{" "}
+                      {/* The slash is drawn, not spoken: a reader hearing
+                          "Delivery slash Work board" learns nothing the pause
+                          does not already say. The spaces around it are real
+                          text, so the two words stay two words without it. */}
+                      <span className="crumb-sep" aria-hidden="true">
+                        /
+                      </span>{" "}
+                    </>
                   )}
+                  <b>{here.page}</b>
                 </>
               )}
-              {principal?.commercialVisibility === true && " · fees visible"}
-            </p>
+            </nav>
             <div className="topbar-tools">
               {/* Only once a firm is chosen: every notification is a firm's. */}
               {principal !== null && principal.tenantId !== null && (

@@ -39,9 +39,13 @@ const mono = IBM_Plex_Mono({
   display: "swap",
 });
 
+/* THE COMMISSIONED NAME, and only that. `brand.ts` says this name is the one
+   every firm's staff see on the sign-in pages and the browser tab; the tab
+   read "BiB · 10X Workspace", which put the build's own codename in front of
+   it on every screen, in the one place a client's staff cannot miss it. */
 export const metadata: Metadata = {
-  title: `BiB · ${PRODUCT_NAME}`,
-  description: "Business in a Box: the staff workspace.",
+  title: PRODUCT_NAME,
+  description: "The workspace your firm runs its work from.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

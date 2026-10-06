@@ -107,9 +107,10 @@ html {
   display: grid;
   place-items: center;
   flex: none;
-  width: 1.875rem;
-  height: 1.875rem;
-  border-radius: 8px;
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  border-radius: 9px;
   /* THE ONE PLACE THE PRODUCT PUTS ITS NAME. `--brand` and not `--accent`,
      because accent is also `--ok` and painting the mark with it would spend a
      status colour on a logo. */
@@ -119,13 +120,21 @@ html {
   font-size: var(--t-sm);
   letter-spacing: -0.04em;
 }
+/* A name that LEADS with a figure keeps its word whole, so a mark is two
+   characters or three ("10x Global" -> "10x"). Three at the body size fill the
+   disc edge to edge; `overflow: hidden` above is the backstop for a face whose
+   figures are wider than ours. */
+.brand .mark[data-chars="3"] {
+  font-size: var(--t-xs);
+  letter-spacing: -0.05em;
+}
 .brand .brand-id {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 .brand b {
-  font-size: var(--t-sm);
+  font-size: var(--t-md);
   font-weight: 600;
   letter-spacing: -0.015em;
   overflow: hidden;
@@ -353,6 +362,15 @@ html {
   justify-content: flex-start;
   padding: 0 var(--s-2);
 }
+/* The product's own name, on the left edge the two links above it keep. Quiet
+   on purpose: it is whose product this is, not a thing to act on. */
+.brand-foot {
+  margin: var(--s-1) 0 0;
+  padding: 0 var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--faint);
+  letter-spacing: 0.02em;
+}
 .who {
   display: flex;
   align-items: center;
@@ -472,6 +490,13 @@ html {
 .crumb b {
   color: var(--ink);
   font-weight: 600;
+}
+/* A slash, not a middot: a middot is what the bar used to join three facts
+   that had nothing to do with each other, and the one thing a reader has to
+   see here is that the second word sits INSIDE the first. */
+.crumb-sep {
+  margin: 0 0.15em;
+  color: var(--faint);
 }
 
 /* The page canvas. ONE definition of how wide a page is and how far its
