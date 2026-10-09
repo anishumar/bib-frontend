@@ -305,7 +305,8 @@ cannot be undone, and three versions would phrase that differently.
 - **After it works the page reloads and says so**: `DeletedNotice` (`warn`, nothing went wrong)
   names when (`longInstant`) and who, and every control that would be refused is gone (`isDraft`
   false once deleted; the lead page hides its forms; Documents stops offering to attach; the letter's
-  wording is `editable={!isSigned && !deleted}`, which the walk found gated on "not signed" alone).
+  wording is `editable={!isSigned && !deleted}`: gated on "not signed" alone, the walk found Add and
+  "Strike it off" on a deleted draft; the API refuses them too since 0087).
   Lists need no change: the API leaves deleted items out.
 - **A draft letter has no Withdraw**: Withdraw is for a letter the client has SEEN.
 
