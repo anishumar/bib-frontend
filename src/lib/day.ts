@@ -192,3 +192,31 @@ export function daysBefore(day: string, today: string): number {
   };
   return Math.round((utc(today) - utc(day)) / 86_400_000);
 }
+
+/** A `YYYY-MM-DD` as a UTC midnight, for counting whole days. Never printed. */
+function utcMidnight(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+}
+
+function utcDay(ms: number): string {
+  const at = new Date(ms);
+  return `${String(at.getUTCFullYear())}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`;
+}
+
+/**
+ * `day` moved by `days` whole calendar days, `YYYY-MM-DD` in and out. Counted
+ * on UTC midnights like `daysBefore`, so a clock change cannot move it, and a
+ * month end, a year end and 29 February come out as the calendar has them.
+ * It is the backend's `addDays` (scheduler) on this side: a request template's
+ * "send 1, due 5" is counted with it from the period's last day (F1.7).
+ */
+export function addDays(day: string, days: number): string {
+  return utcDay(utcMidnight(day) + days * 86_400_000);
+}
+
+/** The last day of the month `day` falls in, `YYYY-MM-DD`. */
+export function monthEnd(day: string): string {
+  const [y, m] = day.split("-").map(Number);
+  return utcDay(Date.UTC(y ?? 1970, m ?? 1, 0));
+}

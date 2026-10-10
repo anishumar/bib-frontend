@@ -500,6 +500,7 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 | `/admin/grades` | the firm's seniority ladder — add a rung, rename it, re-rank it, retire it |
 | `/admin/structure` | the firm's Depts and delivery teams, and which of them (if either) splits a client's work |
 | `/admin/workflows` | how the firm does its work — the steps a job walks, written once, each with its sub-steps and, where somebody checks it, the checker's review points |
+| `/admin/request-templates` | **what clients are asked for each period, and by when** (F1.7): each template's items (what the client reads, document / question / approval, what a file is filed as, ask and due days after the period ends), drafted then published. A process step names a published one under "Ask the client for" |
 | `/admin/verification` | who may check somebody else's work — the firm picks the rule; maker≠checker is not on the page |
 | `/admin/escalation-ladder` | when the firm hears that its own work has gone quiet — the rungs, and who each one tells |
 | `/admin/client-reminders` | when a CLIENT hears from the firm — the chase ladder (forward from the day we asked, stopped by a freeze) and the heads-up ladder (back from a statutory date, not stopped by one). Two config kinds, one screen. |
@@ -722,6 +723,8 @@ Both sections stay — a firm may be waiting on more than one thing at a time.
   otherwise would be the lie the backend refused to write as a `scan()` returning "clean".
 - **No due date anywhere, and no field to type one into** on the firm's side either
   (`work-items/[workItemId]/client-asks.tsx`). The firm has never published its turnaround times.
+  **Reversed 2026-10-10 (F1.5, backend 0385):** a day the FIRM stated is shown; see "Request
+  templates and an ask's due day" below.
 
 `ClientAsks` on `/work-items/[workItemId]` is the other half: raise one, read what came back, and
 **"Got what we needed" / "No longer needed"** — because `answered` is not `closed` and this is
@@ -3375,3 +3378,53 @@ text look so ai genrated"*. Three things, and the first was a real bug.
   for the advance since 3 Oct); the Round off hint says an Indian company starts on (0380).
 - Walks: `bib/demo-assets/tools/ans-walk.mjs` (29), `fix4-walk.mjs` (17).
 
+## Request templates and an ask's due day (F1.5, F1.7, 2026-10-10)
+
+FinCompliance F1 (backend `docs/FIN_BUILD_PLAN.md`, "F1 contract"): a firm writes down once what it
+asks a client for every period, a process step names the list, and the requests sweep (F1.4, not
+built yet) raises one ask per item per period.
+
+- **The body types live in ONE module, `src/lib/request-template.ts`, and it says why.** A config
+  body is `{ [key: string]: unknown }` on the wire for every kind, so `schema.d.ts` has nothing to
+  generate; the backend's `validateRequestTemplateBody` is the definition. What the schema DOES
+  carry is taken from it (the ask kind and document kind are `ClientAsk`'s unions). Stored bodies
+  are read through `readRequestTemplate` (null on anything else); a process step's key through
+  `readStepRequestTemplateKey`. The ask form on a task and the template editor share
+  `ASK_KINDS` / `ASK_FILING_KINDS` from it.
+- **`/admin/request-templates`** (under Processes in "How work runs"): one card per template with
+  its items in a table ("1 day after the period ends", "5 days after the period ends", "Filed as
+  Client's books ..."), Draft / In force / Unpublished changes, **Publish vN**, Change it, and its
+  history. Draft then publish, like Processes. **New template** is the brand button; **Start from an
+  example: Monthly close** (empty state, and in the new form) fills Sales invoices, Purchase
+  invoices, Bank statements and Expense claims, each a document filed as `books_input`, send 1 and
+  due 5 (v3.2 section 11). Nothing is seeded. Short names are made from the words (`shortNameFrom`,
+  under More), as on Processes.
+- **The API's rules are checked before the save** (`checkTemplate`): one sentence per problem in a
+  danger notice on the item ("Make it due after the day it is asked: 2 days or more."), and one
+  CONSTANT line at the foot. Not a count: `ErrorNotice` takes focus whenever its message changes, so
+  a count pulled the cursor out of the box being fixed on every keystroke. The API's refusal is still
+  shown verbatim when it arrives.
+- **Each item says its two days back in words and with a real month** under the day boxes: "Asked 1
+  day after the period ends, due 5 days after. For October 2026: asked 01 Nov 2026, due 05 Nov
+  2026." Counted with `addDays` / `monthEnd`, added to `@/lib/day` (UTC midnights, like
+  `daysBefore`). The day boxes are held to 32rem: at the row's width each was 500px for one digit.
+- **Processes: "Ask the client for"** on every step, "Nothing" or a PUBLISHED template, written as
+  `requestTemplateKey` (null for Nothing). A key the step already names that is not in force stays
+  selectable, "(not in force)", as the checker select does. The summary line says "asks the client
+  for Monthly close". Before this the editor rebuilt every step from its own fields, so saving a
+  process would have DROPPED a key written elsewhere.
+- **The task's asks** (`client-asks.tsx`): "Due 05 Nov 2026" first on the line (`longDay`), and
+  ", late" in `tone-danger` for an OPEN ask past its day on `browserDay()`, the board's own rule; an
+  answered ask is never late. A template-raised ask names no person (`raisedByName` null), so it
+  reads "From Monthly close · asked ..." (`useRequestTemplateNames`, fetched only when such an ask
+  is on the page; the short name in words until it arrives). The raise form has **Due by
+  (optional)**, `min` today, sent only when filled; the API holds it to the FIRM's today
+  (`INVALID_DUE_DATE`) and its sentence is shown.
+- **The portal's action centre** shows "Due 05 Nov 2026" beside "Waiting on you" on what the client
+  still owes, and nothing on what they have sent. Never "late" or "overdue" there: that is the
+  accusation the reminder line already avoids.
+- Walked 2026-10-10 on the Fin Sandbox firm (3004 / 8084): template created from the example,
+  refused in words, saved, published; a draft process step pointed at it and read back; an ask with
+  a due day raised on a task made through New task (hidden from the portal, then withdrawn). A late
+  template ask and the portal were checked by rewriting the API's answer in the browser, because
+  no screen can make either yet (a past due day is refused by hand, and the sweep is F1.4).
