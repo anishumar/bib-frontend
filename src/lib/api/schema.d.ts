@@ -6104,7 +6104,7 @@ export interface paths {
                         "application/json": components["schemas"]["ClientAsk"];
                     };
                 };
-                /** @description Empty prompt, unknown kind, or a documentKind that does not fit */
+                /** @description Empty prompt, unknown kind, a documentKind that does not fit, or a dueOn that is not a day or is before the firm's today (INVALID_DUE_DATE) */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -12429,7 +12429,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
                 };
                 cookie?: never;
             };
@@ -12471,7 +12471,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
                 };
                 cookie?: never;
             };
@@ -12547,7 +12547,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
                     key: string;
                 };
                 cookie?: never;
@@ -12615,7 +12615,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
                     key: string;
                 };
                 cookie?: never;
@@ -12694,7 +12694,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+                    kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
                     key: string;
                     version: number;
                 };
@@ -25938,8 +25938,18 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "answered" | "closed" | "withdrawn";
+            /** @description Who asked. Null when a request template raised it (`fromTemplate` is set): the requests sweep asks on the firm's behalf and names no person. Also null when the account has been erased — a real answer, the shape the ledger's actor join has. */
             raisedByName: string | null;
             raisedAt: string;
+            /** @description The day you want it by, as YYYY-MM-DD, or null when none was stated. A DAY, never an instant: show it as written, never through a Date in the reader's zone. Set by a request template's due offset, or typed when raising by hand. The chaser still counts from when you asked (`raisedAt`), not from this day. */
+            dueOn: string | null;
+            /** @description The request template and item this ask was raised from, or null when a person raised it. One template item is asked at most once per task, so this pair is also why a second sweep raised nothing. Not on the client's surface: it is your own bookkeeping. */
+            fromTemplate: {
+                /** @description The request template's config key. */
+                templateKey: string;
+                /** @description The item's key inside that template. */
+                itemKey: string;
+            } | null;
             /** @description When they FIRST replied, never restated by a later one. It is the number a firm reaches for when a filing goes late. */
             firstAnsweredAt: string | null;
             closedByName: string | null;
@@ -25958,6 +25968,8 @@ export interface components {
              * @enum {string|null}
              */
             documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input" | null;
+            /** @description The day you want it by, as YYYY-MM-DD. Optional: leave it out and the ask has no due day, as every ask did before. A day that does not exist, or one before today on your firm's calendar (your firm's time zone, not the browser's), is 400 INVALID_DUE_DATE. The client sees it. Reminders still count from when you asked. */
+            dueOn?: string | null;
         };
         ClientRequestReply: {
             /** Format: uuid */
@@ -26071,8 +26083,10 @@ export interface components {
             companyName: string | null;
             /** @description What the firm is doing that this is part of. */
             workItemTitle: string;
-            /** @description When you were asked. THERE IS NO DUE DATE ON THIS SURFACE and there will not be one: no deadline this product invented reaches a client, so how long it has been outstanding is a fact and 'by Friday' would be a promise nobody made. */
+            /** @description When you were asked. */
             raisedAt: string;
+            /** @description The day the firm wants this by, as YYYY-MM-DD, or null when the firm stated none. Only ever a day the FIRM set — its monthly request list's own date, or one somebody at the firm typed — never one this product worked out. A DAY and not an instant: show it as written. It may already have passed by the time you read it. */
+            dueOn: string | null;
             /** @description When the firm last reminded you about this, or null if it never has. A DATE AND NOT A COUNT, deliberately: `you have been reminded 4 times` is a tally about you rather than something you can act on, and on a daily cadence it reads `9 times` within a fortnight. The firm keeps every rung on its own screen, where it is the evidence behind `we asked four times` when a filing goes late. */
             lastRemindedAt: string | null;
             responses: components["schemas"]["PortalAskResponse"][];
@@ -27223,7 +27237,7 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
             /** @enum {string} */
-            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge";
+            kind: "service" | "role" | "policy" | "clause" | "dunning" | "workflow_template" | "confidence_tier" | "verification_policy" | "compliance_policy" | "escalation" | "chaser" | "nudge" | "request_template";
             key: string;
         };
         ConfigVersion: {
@@ -27261,13 +27275,13 @@ export interface components {
         DefineConfigEntryRequest: {
             /** @description Stable url-safe handle, e.g. "gst-filing". Not the display name. */
             key: string;
-            /** @description The configuration body. Its shape depends on the kind. */
+            /** @description The configuration body. Its shape depends on the kind, and the domain refuses an unknown field with a sentence naming it. `request_template`: `{ label, items: [{ key, label, askKind, documentKind, sendOffsetDays, dueOffsetDays }] }`, 1 to 30 items; `askKind` is document, question or approval; `documentKind` is a document kind when `askKind` is document and null otherwise; both offsets are whole days counted from the period's LAST day, send 0 to 90 and due 1 to 120 and later than send. `workflow_template`: each step may carry `requestTemplateKey`, the key of a `request_template` (read live when a job reaches the step), or null or absent for a step that asks the client for nothing. */
             body: {
                 [key: string]: unknown;
             };
         };
         AddConfigVersionRequest: {
-            /** @description The configuration body. Its shape depends on the kind. */
+            /** @description The configuration body. Its shape depends on the kind, and the domain refuses an unknown field with a sentence naming it. `request_template`: `{ label, items: [{ key, label, askKind, documentKind, sendOffsetDays, dueOffsetDays }] }`, 1 to 30 items; `askKind` is document, question or approval; `documentKind` is a document kind when `askKind` is document and null otherwise; both offsets are whole days counted from the period's LAST day, send 0 to 90 and due 1 to 120 and later than send. `workflow_template`: each step may carry `requestTemplateKey`, the key of a `request_template` (read live when a job reaches the step), or null or absent for a step that asks the client for nothing. */
             body: {
                 [key: string]: unknown;
             };

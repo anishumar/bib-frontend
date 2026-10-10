@@ -298,6 +298,14 @@ const GROUPS: NavGroup[] = [
         icon: "processes",
         needs: "tenant:admin",
       },
+      /* F1.7. Directly under Processes because a process step is what names
+         one: what the client is asked for each period, and by when. */
+      {
+        href: "/admin/request-templates",
+        label: "Request templates",
+        icon: "files",
+        needs: "tenant:admin",
+      },
       {
         href: "/admin/work-vocabulary",
         label: "Work states",

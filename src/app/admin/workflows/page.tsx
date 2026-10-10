@@ -9,6 +9,8 @@ import { Button, Checkbox, Field, FieldRow, Fieldset, Input, Select, Textarea } 
 import { Card, CardTitle, ErrorNotice, Notice, Page, PageHeader, Pill } from "@/components/tw";
 import { shortNameFrom } from "@/lib/short-name";
 import { CheckRuleForm } from "@/lib/ui/check-rule-form";
+import { readStepRequestTemplateKey, useRequestTemplateNames } from "@/lib/request-template";
+import type { RequestTemplateName } from "@/lib/request-template";
 
 /**
  * Where a firm writes down how it does its work (T2.7).
@@ -65,6 +67,10 @@ interface StepDraft {
    *  a step nobody checks — which is every step of every process written before
    *  this field existed, and the right default. */
   verificationPolicyKey: string;
+  /** The request template the client is asked for each period at this step
+   *  (F1.2), or "" for nothing, which is null on the wire and what every step
+   *  written before the field existed means. */
+  requestTemplateKey: string;
   /** The grade band that may do this step, as grade CODES; "" is an open end.
    *  Both "" means anybody, which is null on the wire. */
   performerMin: string;
@@ -329,6 +335,8 @@ function toBody(
       // "" means nobody checks it, and that is null on the wire — not an empty
       // string, which the API would refuse as not being a config key.
       verificationPolicyKey: s.verificationPolicyKey === "" ? null : s.verificationPolicyKey,
+      // "" is "Nothing", null on the wire, for the same reason.
+      requestTemplateKey: s.requestTemplateKey === "" ? null : s.requestTemplateKey,
       performer: toPerformer(s, grades),
       // ALWAYS arrays, never left out, so a version written here says "none"
       // in so many words. Review points on a step that names no check are
@@ -385,6 +393,8 @@ function fromBody(body: Record<string, unknown>): { label: string; steps: StepDr
               : "",
         verificationPolicyKey:
           typeof s["verificationPolicyKey"] === "string" ? s["verificationPolicyKey"] : "",
+        // Absent on every version written before F1.2, and those are frozen.
+        requestTemplateKey: readStepRequestTemplateKey(s) ?? "",
         performerMin: readCode(s["performer"], "minGradeCode"),
         performerMax: readCode(s["performer"], "maxGradeCode"),
         checklistText: readLines(s["checklist"]).map((l) => l.label).join("\n"),
@@ -411,6 +421,10 @@ export default function WorkflowsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [writing, setWriting] = useState(false);
+  // The firm's request templates, by name, read once for every card and editor
+  // on the page: the summary names a step's template by its label, and a step
+  // may be pointed only at a PUBLISHED one (F1.2).
+  const requestTemplates = useRequestTemplateNames() ?? [];
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/config/{kind}", {
@@ -476,6 +490,7 @@ export default function WorkflowsPage() {
 
       {writing && (
         <NewTemplate
+          requestTemplates={requestTemplates}
           onClose={() => {
             setWriting(false);
           }}
@@ -494,6 +509,7 @@ export default function WorkflowsPage() {
             key={t.entry.key}
             entry={t}
             busy={busy}
+            requestTemplates={requestTemplates}
             onPublish={publish}
             onSaved={() => void load()}
             onError={setError}
@@ -510,12 +526,14 @@ export default function WorkflowsPage() {
 function TemplateCard({
   entry,
   busy,
+  requestTemplates,
   onPublish,
   onSaved,
   onError,
 }: {
   entry: ConfigEntry;
   busy: string | null;
+  requestTemplates: readonly RequestTemplateName[];
   onPublish: (key: string, version: number) => void;
   onSaved: () => void;
   onError: (message: string) => void;
@@ -552,7 +570,7 @@ function TemplateCard({
         </p>
       )}
 
-      <StepList steps={shown.steps} />
+      <StepList steps={shown.steps} requestTemplates={requestTemplates} />
 
       <div className="mt-4 flex flex-wrap gap-2">
         {draft !== null && (
@@ -587,6 +605,7 @@ function TemplateCard({
           templateKey={entry.entry.key}
           initialLabel={shown.label}
           initialSteps={shown.steps}
+          requestTemplates={requestTemplates}
           note="Saved as a new version. Work under way keeps the version it started on."
           onDone={() => {
             setEditing(false);
@@ -612,7 +631,13 @@ function bandWords(min: string, max: string, grades: readonly { code: string; na
   return `${name(max)} or below`;
 }
 
-function StepList({ steps }: { steps: readonly StepDraft[] }) {
+function StepList({
+  steps,
+  requestTemplates,
+}: {
+  steps: readonly StepDraft[];
+  requestTemplates: readonly RequestTemplateName[];
+}) {
   const grades = useGrades();
   // "after collect" named the step by its HANDLE; the reader knows it by the
   // words above it (Wave 4).
@@ -653,6 +678,16 @@ function StepList({ steps }: { steps: readonly StepDraft[] }) {
               <>
                 {" "}
                 · then checked ({codeLabel(s.verificationPolicyKey)})
+              </>
+            )}
+            {/* What the client is asked for at this step (F1.2), by the
+                template's own name; its short name until the names arrive. */}
+            {s.requestTemplateKey !== "" && (
+              <>
+                {" "}
+                · asks the client for{" "}
+                {requestTemplates.find((t) => t.key === s.requestTemplateKey)?.label ??
+                  s.requestTemplateKey}
               </>
             )}
           </span>
@@ -714,10 +749,12 @@ function StepLines({ step }: { step: StepDraft }) {
 // ── Writing one ──────────────────────────────────────────────────────────────
 
 function NewTemplate({
+  requestTemplates,
   onClose,
   onSaved,
   onError,
 }: {
+  requestTemplates: readonly RequestTemplateName[];
   onClose: () => void;
   onSaved: () => void;
   onError: (message: string) => void;
@@ -738,6 +775,7 @@ function NewTemplate({
             conditionOp: "equals",
             conditionValue: "",
             verificationPolicyKey: "",
+            requestTemplateKey: "",
             performerMin: "",
             performerMax: "",
             checklistText: "",
@@ -747,6 +785,7 @@ function NewTemplate({
             autoKey: true,
           },
         ]}
+        requestTemplates={requestTemplates}
         note="Saved as a draft. Nothing follows it until you put it in force."
         onDone={() => {
           onClose();
@@ -774,6 +813,7 @@ function StepEditor({
   templateKey,
   initialLabel,
   initialSteps,
+  requestTemplates,
   note,
   onDone,
   onError,
@@ -781,6 +821,7 @@ function StepEditor({
   templateKey: string | null;
   initialLabel: string;
   initialSteps: readonly StepDraft[];
+  requestTemplates: readonly RequestTemplateName[];
   note: string;
   onDone: () => void;
   onError: (message: string) => void;
@@ -863,6 +904,7 @@ function StepEditor({
         conditionOp: "equals",
         conditionValue: "",
         verificationPolicyKey: "",
+        requestTemplateKey: "",
         performerMin: "",
         performerMax: "",
         checklistText: "",
@@ -972,6 +1014,7 @@ function StepEditor({
           }}
           policies={policies}
           policyKeys={policyKeys}
+          requestTemplates={requestTemplates}
           onRuleWritten={(ruleKey) => {
             void loadPolicies().then(() => {
               patch(index, { verificationPolicyKey: ruleKey });
@@ -1008,6 +1051,7 @@ function StepFields({
   others,
   policies,
   policyKeys,
+  requestTemplates,
   onRuleWritten,
   onChange,
   onRemove,
@@ -1022,6 +1066,8 @@ function StepFields({
   policies: readonly CheckRule[];
   /** Every rule's short name, so a rule written here does not clash. */
   policyKeys: readonly string[];
+  /** The firm's request templates; only the published ones are offered. */
+  requestTemplates: readonly RequestTemplateName[];
   /** A rule was written and put in force from this step (CA#27). */
   onRuleWritten: (ruleKey: string) => void;
   onChange: (change: Partial<StepDraft>) => void;
@@ -1261,6 +1307,53 @@ function StepFields({
             </Notice>
           </div>
         )}
+      </div>
+
+      {/* WHAT THE CLIENT IS ASKED FOR at this step, each period (F1.2). Only
+          PUBLISHED templates are offered, for the reason only published check
+          rules are: a draft asks nobody anything. A template the step already
+          names but the firm has not published (or has withdrawn) stays
+          selectable, marked, so opening the editor never drops it silently. */}
+      <div className="mt-2 max-w-[360px]">
+        <Field
+          id={`${id}-ask`}
+          label="Ask the client for"
+          hint={
+            requestTemplates.some((t) => t.inForce) ? (
+              "Asked each period, on the template's days."
+            ) : (
+              <>
+                No template is published yet.{" "}
+                <Link href="/admin/request-templates">Write one</Link>
+              </>
+            )
+          }
+        >
+          <Select
+            value={step.requestTemplateKey}
+            onChange={(e) => {
+              onChange({ requestTemplateKey: e.target.value });
+            }}
+          >
+            <option value="">Nothing</option>
+            {requestTemplates
+              .filter((t) => t.inForce)
+              .map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            {step.requestTemplateKey !== "" &&
+              !requestTemplates.some((t) => t.inForce && t.key === step.requestTemplateKey) && (
+                <option value={step.requestTemplateKey}>
+                  {`${
+                    requestTemplates.find((t) => t.key === step.requestTemplateKey)?.label ??
+                    step.requestTemplateKey
+                  } (not in force)`}
+                </option>
+              )}
+          </Select>
+        </Field>
       </div>
 
       <div className="mt-2 max-w-[360px]">

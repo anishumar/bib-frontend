@@ -15,12 +15,24 @@
  * client for one thing and moving on three others; coupling them here would make
  * that the product's opinion rather than the firm's.
  *
- * ── NO DUE DATE FIELD, AND ITS ABSENCE IS THE POINT ─────────────────────
+ * ── A DUE DAY, BUT ONLY ONE THE FIRM STATED (F1.5, reversing T6.6) ────────
  *
- * There is nowhere to type "by Friday" because no deadline this product invented
- * reaches a client. The firm has never given its turnaround times, so a date
- * typed here would be a promise nobody made, quoted back at the firm. How long
- * an ask has been outstanding is on the row, and that is a fact.
+ * T6.6 left no due date anywhere: the firm had never given its turnaround
+ * times, so a date here would have been a promise nobody made. A request
+ * template (F1, backend 0385) is the firm writing its own day down, "the
+ * month's records by the 5th", and an ask it raises carries that day. Somebody
+ * raising one by hand may type a day too, and may leave it empty: empty is no
+ * due day, as every older ask has. The API refuses a day before the firm's
+ * today and its sentence is shown as it comes.
+ *
+ * Late is an OPEN ask past its day, judged on the reader's own calendar day
+ * (`browserDay`), as the board judges a task. An answered ask is not late: the
+ * client did their part and the firm is the one looking. The chaser still
+ * counts from when the ask was raised, not from this day.
+ *
+ * An ask the requests sweep raised names no person (`raisedByName` is null),
+ * so the row says which template it came from instead of "somebody who has
+ * since left".
  *
  * ── AND A CLIENT'S ANSWER DOES NOT CLOSE IT ─────────────────────────────
  *
@@ -32,7 +44,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { api, apiError } from "@/lib/api/client";
+import { api, apiError, codeLabel } from "@/lib/api/client";
 import type { ClientAsk } from "@/lib/api/client";
 import {
   Button,
@@ -42,6 +54,7 @@ import {
   Field,
   FieldRow,
   ErrorNotice,
+  Input,
   Notice,
   Pill,
   Select,
@@ -49,31 +62,16 @@ import {
   useSwapFocus,
 } from "@/components/ui";
 import { Stack } from "@/components/layout";
-import { longInstant } from "@/lib/day";
-
-/** The three the API accepts, with the sentence that says when to use each. A
- *  fourth would be a row the client's screen cannot draw a control for. */
-type AskKind = ClientAsk["askKind"];
-type AskDocumentKind = NonNullable<ClientAsk["documentKind"]>;
-
-const KINDS: readonly { value: AskKind; label: string }[] = [
-  { value: "document", label: "A document (they upload a file)" },
-  { value: "question", label: "A question (they answer in words)" },
-  { value: "approval", label: "An approval (they say yes or no)" },
-];
-
-/** What an uploaded answer gets FILED as. The firm chooses when it asks; the
- *  client never sees this and never picks it. */
-const DOCUMENT_KINDS: readonly { value: AskDocumentKind; label: string }[] = [
-  { value: "working_paper", label: "Working paper" },
-  { value: "identity_proof", label: "Identity proof" },
-  { value: "statutory_filing", label: "Statutory filing" },
-  { value: "correspondence", label: "Correspondence" },
-  // What FinCompliance reads (backend 0383): a client's invoices, statements,
-  // payroll and receipts for their books.
-  { value: "books_input", label: "Client's books (invoices, statements, payroll)" },
-  { value: "other", label: "Other" },
-];
+import { browserDay, longDay, longInstant } from "@/lib/day";
+// The three kinds the API accepts and what an upload may be filed as, said the
+// same way here and on a request template's items (F1.7): one list, in the
+// module that types the template.
+import {
+  ASK_FILING_KINDS as DOCUMENT_KINDS,
+  ASK_KINDS as KINDS,
+  useRequestTemplateNames,
+} from "@/lib/request-template";
+import type { AskDocumentKind, AskKind } from "@/lib/request-template";
 
 export function ClientAsks({
   workItemId,
@@ -108,6 +106,8 @@ export function ClientAsks({
   // as a working paper.
   const [documentKind, setDocumentKind] = useState<AskDocumentKind | "">("");
   const [prompt, setPrompt] = useState("");
+  /** The day the firm wants it by, `YYYY-MM-DD`, or "" for none (F1.5). */
+  const [dueOn, setDueOn] = useState("");
   /** The ask form, closed until somebody means to ask (Wave 4): it was an open
    *  form of three fields on every task, asked of or not. */
   const [asking, setAsking] = useState(false);
@@ -120,6 +120,12 @@ export function ClientAsks({
     setAsking(true);
     setPrompt(prefill.prompt);
   }
+
+  // Names for the asks a request template raised (F1.5), read only when there
+  // is one: most tasks have none, and a template's NAME is all that is wanted.
+  const templateNames = useRequestTemplateNames(
+    (asks ?? []).some((a) => a.fromTemplate !== null),
+  );
 
   const load = useCallback(async (): Promise<void> => {
     const result = await api.GET("/api/v1/work-items/{workItemId}/asks", {
@@ -166,11 +172,14 @@ export function ClientAsks({
           // because a filing decision on an approval is a field somebody filled
           // in without meaning to.
           documentKind: kind === "document" && documentKind !== "" ? documentKind : null,
+          // Left out when empty: no due day, as every ask before F1.5.
+          ...(dueOn === "" ? {} : { dueOn }),
         },
       });
       if (!result.error) {
         setPrompt("");
         setDocumentKind("");
+        setDueOn("");
         setAsking(false);
       }
       return result;
@@ -179,6 +188,15 @@ export function ClientAsks({
 
   if (asks === null && error === null) return null;
 
+  /** Which template an ask came from, by name: the template's short name
+   *  until (or unless) the names arrive. Null for an ask a person raised. */
+  function templateLabel(ask: ClientAsk): string | null {
+    if (ask.fromTemplate === null) return null;
+    const key = ask.fromTemplate.templateKey;
+    return templateNames?.find((t) => t.key === key)?.label ?? codeLabel(key);
+  }
+
+  const today = browserDay();
   const open = (asks ?? []).filter((a) => a.status === "open" || a.status === "answered");
   const settled = (asks ?? []).filter((a) => a.status === "closed" || a.status === "withdrawn");
 
@@ -212,6 +230,8 @@ export function ClientAsks({
           <AskLine
             key={ask.askId}
             ask={ask}
+            today={today}
+            templateLabel={templateLabel(ask)}
             canWrite={canWrite}
             busy={busy}
             onClose={() =>
@@ -239,7 +259,14 @@ export function ClientAsks({
             </summary>
             <Stack gap="tight">
               {settled.map((ask) => (
-                <AskLine key={ask.askId} ask={ask} canWrite={false} busy={busy} />
+                <AskLine
+                  key={ask.askId}
+                  ask={ask}
+                  today={today}
+                  templateLabel={templateLabel(ask)}
+                  canWrite={false}
+                  busy={busy}
+                />
               ))}
             </Stack>
           </details>
@@ -299,6 +326,18 @@ export function ClientAsks({
                 placeholder="e.g. Please send the Maharashtra purchase register for July."
               />
             </Field>
+            {/* OPTIONAL, and empty means no due day (F1.5). The API holds it
+                to the firm's own today and its refusal is shown as it comes. */}
+            <div className="max-w-[16rem]">
+              <Field label="Due by" optional hint="They see this day.">
+                <Input
+                  type="date"
+                  min={today}
+                  value={dueOn}
+                  onChange={(e) => setDueOn(e.target.value)}
+                />
+              </Field>
+            </div>
             <div className="cluster">
               <Button
                 variant="secondary"
@@ -326,17 +365,24 @@ export function ClientAsks({
 
 function AskLine({
   ask,
+  today,
+  templateLabel,
   canWrite,
   busy,
   onClose,
   onWithdraw,
 }: {
   ask: ClientAsk;
+  /** The reader's calendar day, `YYYY-MM-DD`, that lateness is judged on. */
+  today: string;
+  /** The request template's name when the sweep raised it, else null. */
+  templateLabel: string | null;
   canWrite: boolean;
   busy: string | null;
   onClose?: () => void;
   onWithdraw?: () => void;
 }) {
+  const late = ask.status === "open" && ask.dueOn !== null && ask.dueOn < today;
   return (
     <div className="notice">
       {/* `.notice` is a flex ROW — it is built for one `.notice-body` and,
@@ -357,7 +403,26 @@ function AskLine({
           <Pill tone={STATUS_TONE[ask.status] ?? "neutral"}>{STATUS_LABEL[ask.status]}</Pill>
         </div>
         <p className="text-ink-2">
-          {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
+          {/* The DAY the firm wants it by first, split and never parsed
+              (`longDay`), and marked late the way the board marks a task. */}
+          {ask.dueOn !== null && (
+            <>
+              <span className={late ? "tone-danger" : undefined}>
+                Due {longDay(ask.dueOn)}
+                {late && ", late"}
+              </span>
+              {" · "}
+            </>
+          )}
+          {templateLabel !== null ? (
+            <>
+              From {templateLabel} · asked {longInstant(ask.raisedAt)}
+            </>
+          ) : (
+            <>
+              {ask.raisedByName ?? "Somebody who has since left"} asked {longInstant(ask.raisedAt)}
+            </>
+          )}
           {ask.firstAnsweredAt !== null && <> · first reply {longInstant(ask.firstAnsweredAt)}</>}
           {ask.closedAt !== null && (
             <>

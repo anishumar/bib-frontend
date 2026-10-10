@@ -54,6 +54,15 @@
  * NULL is ordinary and is drawn as nothing at all. A firm that has published no
  * chaser ladder chases nobody, which is the shipped state.
  *
+ * ── AND THE DAY THE FIRM WANTS IT BY, WHEN THE FIRM STATED ONE (F1.5) ────
+ *
+ * `dueOn` is only ever a day the FIRM set (its monthly request list, or a day
+ * somebody typed when asking) and null otherwise, so nothing is drawn for an
+ * ask without one. It is shown on what the client still OWES, beside the
+ * state, as a plain day: never "late" or "overdue" here. A tally or a red word
+ * on somebody's own page is the accusation the reminder line already avoids;
+ * the firm's own screen is where lateness is marked.
+ *
  * ── AND THE FILE IS NOT SCANNED, WHICH IS SAID RATHER THAN IMPLIED ──────
  *
  * There is no virus scanner in this product. The upload control says so, in one
@@ -75,7 +84,7 @@ import {
 } from "@/components/ui";
 import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
-import { longInstant } from "@/lib/day";
+import { longDay, longInstant } from "@/lib/day";
 
 /** What the firm wants, in one word, above the prompt. */
 const KIND_LABEL: Record<string, string> = {
@@ -284,6 +293,11 @@ function AskCard({
         <Pill tone={ask.status === "open" ? "warn" : "neutral"}>
           {ask.status === "open" ? "Waiting on you" : "Sent"}
         </Pill>
+        {/* A DAY, split and never parsed, so it reads the same wherever the
+            client is. Only on what they still owe: once sent, it is ours. */}
+        {ask.status === "open" && ask.dueOn !== null && (
+          <span className="text-sm text-ink-2">Due {longDay(ask.dueOn)}</span>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 text-sm">
@@ -431,5 +445,5 @@ function SentLine({ response }: { response: PortalAskResponse }) {
 }
 
 /** "03 Sep 2026" from an ISO instant — `longInstant` from `@/lib/day`, the one
- *  date format this product prints. Never with a time: an ask has no deadline
- *  and the hour it was raised is not something a client needs. */
+ *  date format this product prints, and `longDay` for the due DAY. Never with a
+ *  time: the hour an ask was raised is not something a client needs. */
