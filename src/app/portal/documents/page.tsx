@@ -74,6 +74,9 @@ const KIND_LABEL: Record<string, string> = {
   correspondence: "Correspondence",
   proposal: "Proposal",
   working_paper: "Working paper",
+  // Not shown back to a client by default (they sent it); this is the label
+  // when the firm chooses to.
+  books_input: "Records you sent",
   other: "Document",
 };
 

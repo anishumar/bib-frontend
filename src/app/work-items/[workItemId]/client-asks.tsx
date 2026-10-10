@@ -69,6 +69,9 @@ const DOCUMENT_KINDS: readonly { value: AskDocumentKind; label: string }[] = [
   { value: "identity_proof", label: "Identity proof" },
   { value: "statutory_filing", label: "Statutory filing" },
   { value: "correspondence", label: "Correspondence" },
+  // What FinCompliance reads (backend 0383): a client's invoices, statements,
+  // payroll and receipts for their books.
+  { value: "books_input", label: "Client's books (invoices, statements, payroll)" },
   { value: "other", label: "Other" },
 ];
 

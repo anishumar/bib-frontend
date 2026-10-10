@@ -799,6 +799,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/tenants/{tenantId}/fin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch FinCompliance on or off for a firm
+         * @description Platform surface, like suspending a firm: no session reaches it, so a firm cannot turn on a module that reads its clients' books by itself. On, the fin job takes in the files the firm's clients supply FROM THAT MOMENT (`finEnabledSince`); nothing stored earlier is ever taken in. Off, fin's routes answer 404 for the firm and the job skips it; what fin already took in is kept, and switching on again cuts afresh. Idempotent: setting the switch it already has is a 200, records nothing and keeps the original cut. The global BIB_FIN_ENABLED must also be on for anything to run.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetTenantFinRequest"];
+                };
+            };
+            responses: {
+                /** @description The switch as it now stands */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TenantFin"];
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Missing or wrong platform key */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description That key does not carry tenant.provision */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such tenant */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/tenants/{tenantId}/status": {
         parameters: {
             query?: never;
@@ -7027,7 +7108,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+                    kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input";
                 };
                 header?: never;
                 path?: never;
@@ -22433,7 +22514,7 @@ export interface paths {
             parameters: {
                 query?: {
                     partyId?: string;
-                    kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+                    kind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input";
                     limit?: number;
                 };
                 header?: never;
@@ -24399,6 +24480,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fin/intake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Files FinCompliance has taken in, newest first
+         * @description Every file a client supplied since fin was switched on for this firm, with the reader it was sent to. Reading the files themselves is the next stage; this list is what was taken in and where it went.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The intake list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["FinIntakeItem"][];
+                        };
+                    };
+                };
+                /** @description Request failed validation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read the books */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description FinCompliance is not switched on for this firm (FIN_NOT_ENABLED) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -24516,6 +24676,15 @@ export interface components {
             /** Format: email */
             email: string;
             displayName?: string;
+        };
+        TenantFin: {
+            /** Format: uuid */
+            tenantId: string;
+            /** @description When fin was switched on (ISO 8601), or null when it is off. */
+            finEnabledSince: string | null;
+        };
+        SetTenantFinRequest: {
+            enabled: boolean;
         };
         Tenant: {
             /** Format: uuid */
@@ -25763,7 +25932,7 @@ export interface components {
              * @description What an uploaded answer gets FILED as, chosen when the ask was raised. Present exactly when askKind is `document`. The CLIENT never sees or chooses it.
              * @enum {string|null}
              */
-            documentKind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | null;
+            documentKind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input" | null;
             /**
              * @description `answered` IS NOT `closed`. The client responding turns an ask answered; the FIRM decides whether what arrived was what it needed. A client who sent last quarter's register would otherwise see the ask marked done.
              * @enum {string}
@@ -25788,7 +25957,7 @@ export interface components {
              * @description What the uploaded file gets FILED as. Required for a `document` ask and refused on the other two — the client does not choose where in your document store their file lands, you did when you asked.
              * @enum {string|null}
              */
-            documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | null;
+            documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input" | null;
         };
         ClientRequestReply: {
             /** Format: uuid */
@@ -25934,7 +26103,7 @@ export interface components {
              * @description What the document is. A CLOSED set — declared as an enum so a screen that switches on it gets a compile error when a kind is added rather than a silent default.
              * @enum {string}
              */
-            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input";
             /** @description Which of YOUR companies it belongs to. Never null on this surface: a document with no company is the firm's own, and you are not shown those. */
             companyName: string;
             filename: string;
@@ -29887,7 +30056,7 @@ export interface components {
              * @description What the document is. A CLOSED set — the product's own document types, mirrored by the CHECK in migration 0037. Declared as an enum and not a bare string so the generated client keeps the closure: a screen that has to switch on this should get a compile error when a kind is added, not a silent default.
              * @enum {string}
              */
-            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input";
             /** Format: uuid */
             partyId: string | null;
             /** @description The client's name, joined so a list never has to fetch one row per document. */
@@ -29906,7 +30075,7 @@ export interface components {
             /** @description What somebody scanning a client's file sees. Required and not defaulted from the filename, because 'scan_0043.pdf' is not a title. */
             title: string;
             /** @enum {string} */
-            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other";
+            kind: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input";
             /** Format: uuid */
             partyId?: string;
             /** @enum {string} */
@@ -30316,6 +30485,36 @@ export interface components {
             fxRateDate: string;
             /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
             source: string;
+        };
+        FinIntakeItem: {
+            /** Format: uuid */
+            intakeItemId: string;
+            /** Format: uuid */
+            documentId: string;
+            /** Format: uuid */
+            documentVersionId: string;
+            title: string;
+            filename: string;
+            /**
+             * Format: uuid
+             * @description Whose file. Null when it was stored against no client.
+             */
+            clientPartyId: string | null;
+            clientName: string | null;
+            mediaType: string;
+            byteSize: number;
+            /**
+             * @description Which reader the file goes to. `manual` means no reader fits and a person reads it; the file is never discarded.
+             * @enum {string}
+             */
+            route: "sheet" | "pdf" | "image" | "archive" | "manual";
+            /**
+             * @description What decided the route: the media type the upload declared, the filename's extension when that type said nothing useful, or neither (`manual`).
+             * @enum {string}
+             */
+            routeBasis: "media_type" | "extension" | "none";
+            /** @description When fin took the file in (ISO 8601). */
+            takenAt: string;
         };
     };
     responses: never;

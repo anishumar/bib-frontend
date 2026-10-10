@@ -1452,6 +1452,9 @@ export const DOCUMENT_KINDS = [
   "statutory_filing",
   "working_paper",
   "correspondence",
+  // A client's records for their books (backend 0383): FinCompliance reads
+  // this kind and no other. Not "invoice", which is the firm's own bill.
+  "books_input",
   "proposal",
   "engagement_letter",
   "invoice",
@@ -1465,6 +1468,7 @@ export const DOCUMENT_KIND_LABELS: Readonly<Record<string, string>> = {
   statutory_filing: "Statutory filing",
   working_paper: "Working paper",
   correspondence: "Correspondence",
+  books_input: "Client's books (invoices, statements, payroll)",
   proposal: "Proposal",
   engagement_letter: "Engagement letter",
   invoice: "Invoice",
