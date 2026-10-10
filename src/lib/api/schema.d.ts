@@ -24480,6 +24480,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fin/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether FinCompliance is on for this firm
+         * @description 200 with the day it was switched on, or 404 `FIN_NOT_ENABLED`. The staff app asks this once to decide whether to show FinCompliance at all; a role without `books:read` gets 403 and does not see it either.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Fin is on */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FinStatus"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not read the books */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description FinCompliance is not switched on for this firm (FIN_NOT_ENABLED) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fin/intake": {
         parameters: {
             query?: never;
@@ -24489,11 +24555,14 @@ export interface paths {
         };
         /**
          * Files FinCompliance has taken in, newest first
-         * @description Every file a client supplied since fin was switched on for this firm, with the reader it was sent to. Reading the files themselves is the next stage; this list is what was taken in and where it went.
+         * @description Every file a client supplied for their books since fin was switched on for this firm, with the reader it was sent to, a page at a time. Reading the files themselves is the next stage; this list is what was taken in and where it went. `summary` counts the whole filtered set, not the page.
          */
         get: {
             parameters: {
                 query?: {
+                    clientPartyId?: string;
+                    route?: "sheet" | "pdf" | "image" | "archive" | "manual";
+                    before?: string;
                     limit?: number;
                 };
                 header?: never;
@@ -24502,15 +24571,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The intake list */
+                /** @description One page of the intake list, and the counts */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            items: components["schemas"]["FinIntakeItem"][];
-                        };
+                        "application/json": components["schemas"]["FinIntakePage"];
                     };
                 };
                 /** @description Request failed validation */
@@ -30500,6 +30567,9 @@ export interface components {
             /** @description "ExchangeRate-API", "Currency API" or "Same currency". */
             source: string;
         };
+        FinStatus: {
+            enabledSince: string;
+        };
         FinIntakeItem: {
             /** Format: uuid */
             intakeItemId: string;
@@ -30529,6 +30599,26 @@ export interface components {
             routeBasis: "media_type" | "extension" | "none";
             /** @description When fin took the file in (ISO 8601). */
             takenAt: string;
+        };
+        /** @description How many files were taken in, by reader, for the same client filter as the list (never for one page). `manual` is the number waiting for a person. */
+        FinIntakeSummary: {
+            total: number;
+            byRoute: {
+                sheet: number;
+                pdf: number;
+                image: number;
+                archive: number;
+                manual: number;
+            };
+        };
+        FinIntakePage: {
+            items: components["schemas"]["FinIntakeItem"][];
+            summary: components["schemas"]["FinIntakeSummary"];
+            /**
+             * Format: uuid
+             * @description Pass as `before` for the next page; null on the last page.
+             */
+            nextBefore: string | null;
         };
     };
     responses: never;

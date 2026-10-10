@@ -1477,6 +1477,17 @@ export const DOCUMENT_KIND_LABELS: Readonly<Record<string, string>> = {
   other: "Other",
 };
 
+/** FinCompliance (F0.6): one page of the files it took in, newest first, with
+ *  the counts by reader for the same client filter (never for the page). The
+ *  status read and the words are `@/lib/fin`. */
+export type FinIntakePage =
+  paths["/api/v1/fin/intake"]["get"]["responses"][200]["content"]["application/json"];
+export type FinIntakeItem = FinIntakePage["items"][number];
+/** Which reader a file goes to; `manual` is a person. */
+export type FinReader = FinIntakeItem["route"];
+/** What decided the reader: the declared type, the name's ending, or nothing. */
+export type FinRouteBasis = FinIntakeItem["routeBasis"];
+
 /**
  * A file size, for people.
  *

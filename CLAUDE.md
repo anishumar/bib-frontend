@@ -540,6 +540,7 @@ buttons and headline numbers, and **charts in shadcn's look without its library*
 | `/portal/invoices` | what the firm has billed them and what is still outstanding. Drafts are not here; a cancelled invoice IS, and is marked |
 | `/portal/month` | one calendar month of what the firm did — filed, added, billed, and what the client sent back. A SCREEN, not an email |
 | `/client-requests` | **THE OTHER DIRECTION** — what clients have asked the FIRM for, unprompted. Mine / Unassigned / Everything, with the reply box, the attachment picker and Take it on the row |
+| `/fin/intake` | **Files received** (FinCompliance F0.8): every file clients sent for their books since fin was switched on, which reader it goes to and why, counts per reader ("Needs a person" highlighted), client and reader filters in the URL, Show more. Only while `GET /fin/status` answers 200 and the role holds `books:read`; `app/fin/layout.tsx` says plainly when fin is off |
 | `/portal/accept-invite` | **NO SESSION** — where an emailed invitation lands. Setting a password is what creates the login |
 | `/auth/forgot-password` | **NO SESSION** — ask for a reset link. Answers the same sentence whatever happened, because the API answers 202 to everything: a friendlier "we found your account" is exactly the leak the 202 prevents |
 | `/auth/reset-password` | **NO SESSION** — where a reset link lands. Choosing a password replaces the old one, revokes every session the account held, and signs this one in. A FORM, not an effect: nothing is spent by arriving, so a mail scanner that follows the link burns nothing |
@@ -3428,3 +3429,56 @@ built yet) raises one ask per item per period.
   a due day raised on a task made through New task (hidden from the portal, then withdrawn). A late
   template ask and the portal were checked by rewriting the API's answer in the browser, because
   no screen can make either yet (a past due day is refused by hand, and the sweep is F1.4).
+
+## FinCompliance's screens: the status gate, the first error boundary (F0.8, 2026-10-11)
+
+Backend `docs/FIN_BUILD_PLAN.md` F0.6 and F0.8. Fin is a separate stage of the product that a firm
+switches on, and its ground rule 4 is that **fin can fail without BiB failing**.
+
+- **Types are generated, as everywhere.** `GET /api/v1/fin/status` and `GET /api/v1/fin/intake`
+  come from `schema.d.ts` (`npm run api:generate` with the API running with `BIB_FIN_ENABLED=true`,
+  or the fin routes are not in the spec). `FinIntakePage`, `FinIntakeItem`, `FinReader` and
+  `FinRouteBasis` are re-exported in `client.ts`; nothing about fin is typed by hand.
+- **The status gate is ONE read per session and firm, in `@/lib/fin`** (`useFinStatus(principal)`).
+  A module-level store keyed by user and firm, read through `useSyncExternalStore` like the
+  proposal store, so the shell and `app/fin/layout.tsx` share one request (a direct load of
+  `/fin/intake` mounts both at once) and switching firm asks again. It asks only when the session
+  holds `books:read` (otherwise the API's 403 would say nothing new). 200 is ON (with
+  `enabledSince`, an instant: printed with `longInstant`); **every other answer is OFF**, in three
+  words the layout says apart: 404 (`FIN_NOT_ENABLED`, or the deployment's switch off and no route
+  at all) "not switched on for this firm"; no `books:read` `Denied`; anything else (5xx, 429, no
+  answer) "did not answer" with Try again, and that one is NOT remembered, so the next screen that
+  asks tries again rather than hiding fin until a reload.
+- **The nav entry** is `NavItem.fin`, a third condition beside `needs` and `when` (not a `when`:
+  it is not a fact on the session). Its own section, **FinCompliance**, after Delivery; with one
+  screen it is a plain link, "Files received", and the section name appears when a second fin
+  screen joins it. `trail()` and the search see it only while fin is on.
+- **`app/fin/error.tsx` is the app's FIRST error boundary.** A fin page that throws while
+  rendering is replaced by "This FinCompliance screen stopped working", a line that the rest of
+  the workspace is not affected, **Try again** (Next 16.3's `retry`, which the docs prefer to
+  `reset`) and the error's own words closed under "Details for support". The shell, the sidebar
+  and every other screen keep working (walked: the nav opens Audit trail from a broken fin page).
+  **It does not cover `app/fin/layout.tsx`** (Next wraps a segment's pages and nested layouts, never
+  the layout beside it), so the gate is kept to code that cannot throw. An API REFUSAL is not a
+  throw: the page shows its own `ErrorState` with the API's words, and the boundary is for what
+  nobody expected. Nowhere else has a boundary yet; a wider one needs its own decision.
+- **`/fin/intake`, "Files received"**: the counts are the API's `summary` (the CLIENT filter's
+  whole set, never the page and never the reader filter), drawn as six tiles that are filters
+  (`aria-pressed`): All files, PDFs, Spreadsheets, Photos and scans, ZIP files, **Needs a person**
+  (warn while above zero: held up, never wrong). While it is above zero and not the filter, a warn
+  notice says "5 files fit no reader yet. Somebody has to open them." with Show them. One muted
+  line says reading what is inside the files comes next. Client (the book less the firm's own
+  companies, as Work vs Billing; for a role without `party:read`, the clients the rows name) and
+  Reader selects; both in the URL (`?client=&reader=`, `history.replaceState`, as `/work-items`).
+  The table: the title opens the file (`downloadDocument` with the VERSION fin took in), the file
+  name under it, the client (a link with `party:read`), the reader pill with how it was decided
+  ("From its file type", "From its name (.xlsx)", "Nothing fit .json files"), the size
+  (`formatBytes`) and when it was taken in (`longMoment`). **Show more** on the API's
+  `nextBefore`, never page numbers; a row already on screen is never drawn twice. The words live in
+  `@/lib/fin` (`FIN_READERS`, `basisWords`, `finCount`).
+- Walked 2026-10-11 on the Fin Sandbox firm (3000 / 8080, 36 checks): 1,169 = 841 / 222 / 101 / 0 /
+  5; Needs a person is 5 rows; one client's counts add up to its total; Show more appends 50 with no
+  repeat; a file downloads; a reloaded `?client=&reader=` keeps both; nothing hidden at 1280 and
+  1440. The boundary, the 500 state, fin off (status 404) and unreachable (503) were made by
+  rewriting the API's answer in Playwright (`route.fetch` then `fulfill`, which keeps the CORS
+  headers a hand-made response would lack).

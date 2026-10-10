@@ -16,6 +16,7 @@ import { api } from "@/lib/api/client";
 import type { Membership, Principal } from "@/lib/api/client";
 import { PRODUCT_NAME, firmInitials } from "@/lib/brand";
 import { readSession, retryDelayMs } from "@/lib/session";
+import { useFinStatus } from "@/lib/fin";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
@@ -82,6 +83,12 @@ interface NavItem {
   needs?: string;
   /** An extra condition beyond a permission. */
   when?: (p: Principal) => boolean;
+  /**
+   * Shown only while FinCompliance is on for the firm: `GET /fin/status`
+   * answered 200 (`@/lib/fin`). Not a `when`, because it is not a fact on the
+   * session: the shell asks once and the answer arrives after the links do.
+   */
+  fin?: true;
   /** A few words after the label, in the muted count style ("Not live yet"). */
   note?: string;
 }
@@ -210,6 +217,27 @@ const GROUPS: NavGroup[] = [
         label: "Client requests",
         icon: "inbox",
         needs: "party:read",
+      },
+    ],
+  },
+  {
+    /* FinCompliance (F0.8): what the firm does with a client's books. Its own
+       section rather than a line under Delivery, because the screens that
+       follow it (what was read from the files, what was flagged) are one
+       subject and will sit together. With one screen it is a plain link, so
+       the reader sees "Files received" and no section name until the second
+       screen arrives. Shown only while fin is on for the firm (`fin`), and to
+       a role holding `books:read`: the status read decides the first, the
+       session the second. */
+    label: "FinCompliance",
+    icon: "files",
+    items: [
+      {
+        href: "/fin/intake",
+        label: "Files received",
+        icon: "files",
+        needs: "books:read",
+        fin: true,
       },
     ],
   },
@@ -464,9 +492,10 @@ function countFor(counts: NavCounts, href: string): number | undefined {
   return n === undefined || n === 0 ? undefined : n;
 }
 
-function visible(item: NavItem, p: Principal): boolean {
+function visible(item: NavItem, p: Principal, finOn: boolean): boolean {
   if (item.needs !== undefined && !p.permissions.includes(item.needs)) return false;
   if (item.when !== undefined && !item.when(p)) return false;
+  if (item.fin === true && !finOn) return false;
   return true;
 }
 
@@ -494,7 +523,11 @@ const OUTSIDE_NAV: readonly { href: string; section: string; label: string }[] =
  * path's own words ("admin" -> "Admin") is how a bar starts saying things no
  * screen says.
  */
-function trail(pathname: string, p: Principal | null): { section: string; page: string } | null {
+function trail(
+  pathname: string,
+  p: Principal | null,
+  finOn: boolean,
+): { section: string; page: string } | null {
   if (p === null) return null;
   let best: { section: string; page: string; len: number } | null = null;
   const consider = (section: string, page: string, href: string): void => {
@@ -503,7 +536,7 @@ function trail(pathname: string, p: Principal | null): { section: string; page: 
     best = { section, page, len: href.length };
   };
   for (const group of GROUPS) {
-    const allowed = group.items.filter((item) => visible(item, p));
+    const allowed = group.items.filter((item) => visible(item, p, finOn));
     /* A GROUP OF ONE IS A PLAIN LINK IN THE SIDEBAR, so its section name is
        never on screen: "Record / Audit trail" would name a section the reader
        has no way to see. The sidebar's own search makes the same exclusion for
@@ -558,6 +591,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     setCounts((was) => ({ ...was, ...next }));
   }, []);
   const searchRef = useRef<HTMLInputElement>(null);
+  /* Whether FinCompliance is on for this firm, asked once per session and
+     firm (`@/lib/fin`) and only of a role holding `books:read`. Until it
+     answers, and on any answer but 200, its link is not drawn. */
+  const finOn = useFinStatus(principal).kind === "on";
 
   const bare = isBare(pathname);
 
@@ -764,11 +801,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   /* Where the reader is, for the top bar. Read off GROUPS rather than off
      `groups` below, which the search box filters: typing in it must not
      empty the bar. */
-  const here = trail(pathname, principal);
+  const here = trail(pathname, principal, finOn);
 
   const needle = query.trim().toLowerCase();
   const groups = principal === null ? [] : GROUPS.map((g) => {
-    const allowed = g.items.filter((i) => visible(i, principal));
+    const allowed = g.items.filter((i) => visible(i, principal, finOn));
     return {
       label: g.label,
       icon: g.icon,
