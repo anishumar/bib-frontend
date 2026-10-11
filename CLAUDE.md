@@ -128,6 +128,18 @@ The rules, in short:
     is why the chevron stays. Watch `width` rules here: `.nav-top { width: 100% }` was
     invisible in the column (a flex column stretches its items anyway) and made every row
     2100px wide in the strip. One rule, two layouts, wrong only in the one nobody looks at.
+- **Settings are not in the main sidebar (2026-10-10).** The main map is My day, **Work**
+  (was Delivery, now first and open by default), **Commercial**, a rule, Audit trail and
+  **Settings**. The sixteen admin screens plus Your account and Notifications are
+  `SETTINGS_GROUPS` in `app-shell.tsx`: while one of them is open the sidebar shows the
+  settings menu instead ("← Settings", one row that is its name and the way back, then its groups, folding like the main map's: only
+  the one holding the current page opens on its own, so the menu fits a laptop), so the
+  page keeps its full width and every `/admin/*` link still lands where it did. `/settings`
+  opens Your firm for `tenant:admin`, Your account for anybody else. **There is no search box
+  any more** (the user's call, 2026-10-10): the main map is five rows and every settings screen
+  is listed under Settings, so the notes below about the search describe what was. The foot of the sidebar
+  is the person only (name and role); its menu is Your account and Sign out (Notifications is
+  a setting).
 - **A ROW OF BUTTONS IS `.cluster`, NEVER `.row`.** `.row` is `justify-content: space-between`
   — right for a heading with a control at the far end, and it flings two buttons to opposite
   edges of a card. `.cluster` is the one that sits things beside each other with a gap. **And

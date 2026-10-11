@@ -102,6 +102,8 @@ interface NavGroup {
    */
   icon: IconName;
   items: NavItem[];
+  /** A thin rule above it: the daily screens above, the rarely-used below. */
+  divider?: boolean;
 }
 
 /**
@@ -138,6 +140,37 @@ const GROUPS: NavGroup[] = [
      `app/copilot/page.tsx`); the day it goes on, put the link back here, as
      `{ label: "Workspace", icon: "copilot", items: [{ href: "/copilot",
      label: "AI Copilot", icon: "copilot" }] }`, the day it goes live. */
+  {
+    /* What a signed engagement turned into. Open by default (V1.1): it is
+       where the day's work is, and a sidebar with every group shut hid it. */
+    /* "Work" in the sidebar since the 2026-10-10 tidy: it is the first
+       thing a reader opens, so it sits above Commercial. */
+    label: "Work",
+    icon: "board",
+    openByDefault: true,
+    items: [
+      { href: "/work-items", label: "Work board", icon: "board", needs: "party:read" },
+      { href: "/work", label: "Jobs", icon: "engine", needs: "party:read" },
+      {
+        href: "/calendar",
+        label: "Compliance calendar",
+        icon: "calendar",
+        needs: "party:read",
+      },
+      // T6.8 — work that arrived from the OTHER direction. It sits in Delivery
+      // rather than Commercial because a client asking for a copy of something
+      // is asking the firm to DO something, which is what this section is; and
+      // it is a top-level screen rather than a panel on the client page because
+      // there is no routing — nobody is assigned one, so a firm-wide list IS
+      // the screen.
+      {
+        href: "/client-requests",
+        label: "Client requests",
+        icon: "inbox",
+        needs: "party:read",
+      },
+    ],
+  },
   {
     /* The book, the pipeline, what the firm has quoted and what it has agreed. */
     label: "Commercial",
@@ -185,38 +218,37 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    /* What a signed engagement turned into. Open by default (V1.1): it is
-       where the day's work is, and a sidebar with every group shut hid it. */
-    label: "Delivery",
-    icon: "board",
-    openByDefault: true,
-    items: [
-      { href: "/work-items", label: "Work board", icon: "board", needs: "party:read" },
-      { href: "/work", label: "Jobs", icon: "engine", needs: "party:read" },
-      {
-        href: "/calendar",
-        label: "Compliance calendar",
-        icon: "calendar",
-        needs: "party:read",
-      },
-      // T6.8 — work that arrived from the OTHER direction. It sits in Delivery
-      // rather than Commercial because a client asking for a copy of something
-      // is asking the firm to DO something, which is what this section is; and
-      // it is a top-level screen rather than a panel on the client page because
-      // there is no routing — nobody is assigned one, so a firm-wide list IS
-      // the screen.
-      {
-        href: "/client-requests",
-        label: "Client requests",
-        icon: "inbox",
-        needs: "party:read",
-      },
-    ],
-  },
-  {
     label: "Record",
     icon: "audit",
+    divider: true,
     items: [{ href: "/audit", label: "Audit trail", icon: "audit", needs: "ledger:read" }],
+  },
+  {
+    /* ONE LINK for every settings screen (2026-10-10). Sixteen admin screens
+       in three groups made the sidebar a column to read top to bottom; they
+       are SETTINGS_GROUPS now, and the sidebar shows them only once Settings
+       is open. Offered to everybody: Your account is a setting too. */
+    label: "Settings",
+    icon: "settings",
+    divider: true,
+    items: [{ href: "/settings", label: "Settings", icon: "settings" }],
+  },
+];
+
+/**
+ * THE SETTINGS SCREENS, shown in the sidebar in place of the main map while
+ * one of them is open (the Linear / Vercel shape): the page keeps its full
+ * width, which the wide admin tables need, and every `/admin/*` link still
+ * lands where it did. The search box still finds them from anywhere.
+ */
+const SETTINGS_GROUPS: NavGroup[] = [
+  {
+    label: "You",
+    icon: "lock",
+    items: [
+      { href: "/account", label: "Your account", icon: "lock" },
+      { href: "/notifications", label: "Notifications", icon: "bell" },
+    ],
   },
   {
     /*
@@ -449,6 +481,14 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+/** True on /settings and on every screen the settings sidebar lists. */
+function inSettings(pathname: string): boolean {
+  return (
+    pathname === "/settings" ||
+    SETTINGS_GROUPS.some((g) => g.items.some((i) => isCurrent(pathname, i.href)))
+  );
+}
+
 /** The reported count for a sidebar link, or undefined: nothing reported yet,
  *  or nothing on the reader's desk there (a 0 is not drawn). */
 function countFor(counts: NavCounts, href: string): number | undefined {
@@ -461,17 +501,6 @@ function visible(item: NavItem, p: Principal): boolean {
   if (item.when !== undefined && !item.when(p)) return false;
   return true;
 }
-
-/**
- * The screens reached from the foot of the sidebar rather than from the nav.
- * They are two, and they are named here rather than being added to `GROUPS`,
- * which is the MAP of the product: a link to "Your account" in the Delivery
- * section would be a worse answer than a short list.
- */
-const OUTSIDE_NAV: readonly { href: string; section: string; label: string }[] = [
-  { href: "/account", section: "You", label: "Your account" },
-  { href: "/notifications", section: "You", label: "Notifications" },
-];
 
 /**
  * Where the reader is: the nav section and the screen, for the top bar.
@@ -504,7 +533,11 @@ function trail(pathname: string, p: Principal | null): { section: string; page: 
       consider(allowed.length === 1 ? item.label : group.label, item.label, item.href);
     }
   }
-  for (const item of OUTSIDE_NAV) consider(item.section, item.label, item.href);
+  // Every settings screen reads "Settings / <screen>": the sidebar names it
+  // under Settings, and so does the bar.
+  for (const group of SETTINGS_GROUPS) {
+    for (const item of group.items.filter((i) => visible(i, p))) consider("Settings", item.label, item.href);
+  }
   if (best === null) return null;
   const { section, page } = best;
   return { section, page };
@@ -527,15 +560,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   /** Bumped to ask again: by the backoff timer, or by "Try now". */
   const [retryTick, setRetryTick] = useState(0);
   /**
-   * What the sidebar's search box holds.
-   *
-   * It filters the map of the product rather than searching the firm's DATA —
-   * this is "where is the screen that does X", which is the question twenty-six
-   * links in a column cannot answer. A client, a filing or an invoice is found
-   * on the screen that lists them.
-   */
-  const [query, setQuery] = useState("");
-  /**
    * Groups the reader has opened or closed BY HAND, keyed by label.
    *
    * Absent means "not touched", which is not the same as closed: an untouched
@@ -549,7 +573,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const reportCounts = useCallback((next: NavCounts) => {
     setCounts((was) => ({ ...was, ...next }));
   }, []);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const bare = isBare(pathname);
 
@@ -656,21 +679,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (signedOut) router.replace("/login");
   }, [signedOut, router]);
 
-  /* Ctrl/Cmd+K puts the cursor in the search box from anywhere in the product.
-     The shortcut is in the placeholder rather than only here, because a
-     shortcut nobody is told about is one nobody uses. */
-  useEffect(() => {
-    function onKey(e: KeyboardEvent): void {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); };
-  }, []);
-
   const signOut = useCallback(async (): Promise<void> => {
     await api.POST("/api/v1/auth/logout", {});
     router.push("/login");
@@ -754,52 +762,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const firmName = principal?.tenantName ?? PRODUCT_NAME;
   const firmMark = firmInitials(principal?.tenantName);
   /* Where the reader is, for the top bar. Read off GROUPS rather than off
-     `groups` below, which the search box filters: typing in it must not
-     empty the bar. */
+     `groups` below, which holds only the map the sidebar is drawing. */
   const here = trail(pathname, principal);
 
-  const needle = query.trim().toLowerCase();
-  const groups = principal === null ? [] : GROUPS.map((g) => {
+  /* NO SEARCH BOX (2026-10-10): with Settings out of it the map is five
+     rows, and every settings screen is listed under Settings. On a settings
+     screen the sidebar IS the settings menu, drawn by the SAME code as the
+     main map: its groups fold, and the one holding the current page opens on
+     its own, so eighteen links never stand open at once. */
+  const settingsMode = inSettings(pathname);
+  const source = settingsMode ? SETTINGS_GROUPS : GROUPS;
+  const groups = principal === null ? [] : source.map((g) => {
     const allowed = g.items.filter((i) => visible(i, principal));
     return {
       label: g.label,
       icon: g.icon,
+      divider: g.divider === true,
       openByDefault: g.openByDefault === true,
-      /**
-       * How many screens this section holds for this reader, BEFORE the search.
-       *
-       * The search must not restructure the sidebar. Deciding "is this a
-       * dropdown or a plain link" from the FILTERED count did exactly that:
-       * typing "escal" turned Administration into a top-level "Escalation
-       * ladder" link, so the one thing a result should tell you — which
-       * section it lives in — was the thing the search removed. Found by
-       * typing into it.
-       */
       size: allowed.length,
-      items: allowed.filter(
-        (i) =>
-          needle === "" ||
-          i.label.toLowerCase().includes(needle) ||
-          // THE PATH IS A NAME TOO, and matching it costs no data to keep in
-          // step. Renaming the sections left "admin" finding NOTHING while
-          // thirteen screens still lived at /admin/*, which is the word half
-          // the firm will reach for first; "obligation" likewise finds
-          // Calendar words, whose label says nothing about obligations.
-          i.href.toLowerCase().includes(needle) ||
-          // The GROUP's name matches too, so typing "admin" finds the whole of
-          // Administration rather than the two screens whose own labels happen
-          // to contain the word.
-          //
-          // BUT ONLY WHERE THE NAME IS ON SCREEN. A one-screen group renders as
-          // a plain link and its label is never drawn, so matching it produced
-          // a result the reader could not account for: typing "work" returned
-          // Home, because Home lives in a section called "Workspace". A search
-          // hit that cannot explain itself is the same fault as one that moves
-          // the furniture.
-          (allowed.length > 1 && g.label.toLowerCase().includes(needle)),
-      ),
+      items: allowed,
     };
-  }).filter((g) => g.items.length > 0);
+  }).filter((g) => g.items.length > 0)
+    /* ONE rule above the block, however many of it this login sees: an
+       associate has no Audit trail, so Settings carries the rule then. */
+    .map((g, i, all) => ({ ...g, divider: g.divider && !(all[i - 1]?.divider ?? false) }));
 
   /*
    * THE PAGE MOUNTS ONCE.
@@ -853,30 +839,28 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
-          <div className="nav-search">
-            <Icon name="search" size={15} aria-hidden="true" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); }}
-              placeholder="Search menu…  Ctrl+K"
-              aria-label="Search the menu"
-            />
-          </div>
-
           {principal !== null && (
             <>
               <nav className="nav" aria-label="Sections">
+                {/* THE SETTINGS MENU, in the sidebar's own place: a way back
+                    and its name above the settings groups, which fold like
+                    the main map's. */}
+                {settingsMode && (
+                  <>
+                    {/* "← Settings": the menu's name and the way out in one
+                        row, as Linear draws it, so the groups start a row
+                        higher on a laptop. */}
+                    <Link href="/" className="nav-link nav-back" aria-label="Settings, back to the workspace">
+                      <Icon name="arrowLeft" className="nav-icon" />
+                      <span className="label">Settings</span>
+                    </Link>
+                  </>
+                )}
                 {groups.map((group) => {
                   const here = group.items.some((i) => isCurrent(pathname, i.href));
-                  /* A SEARCH OPENS EVERYTHING, and it has to: a result hidden
-                     inside a collapsed group is a search that answered and did not
-                     show you. Otherwise the reader's own choice wins, and where
-                     they have not made one, the group holding the current page is
-                     open. */
-                  const expanded =
-                    needle !== "" || (toggled[group.label] ?? (here || group.openByDefault));
+                  /* The reader's own choice wins, and where they have not
+                     made one, the group holding the current page is open. */
+                  const expanded = toggled[group.label] ?? (here || group.openByDefault);
 
                   /* A group with ONE screen is not a dropdown. Home behind a
                      chevron is a click added to reach the thing a sidebar is most
@@ -889,6 +873,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         key={group.label}
                         href={solo.href}
                         className="nav-link nav-top"
+                        data-divider={group.divider || undefined}
                         {...(isCurrent(pathname, solo.href)
                           ? { "aria-current": "page" as const }
                           : {})}
@@ -901,7 +886,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   }
 
                   return (
-                    <div key={group.label} className="nav-group" data-here={here || undefined}>
+                    <div
+                      key={group.label}
+                      className="nav-group"
+                      data-here={here || undefined}
+                      data-divider={group.divider || undefined}
+                    >
                       <button
                         type="button"
                         className="nav-link nav-top nav-group-head"
@@ -941,13 +931,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </div>
                   );
                 })}
-                {/* A search that found nothing has to SAY so. An empty column reads
-                    as a sidebar that broke. */}
-                {groups.length === 0 && (
-                  <p className="nav-empty">
-                    No screen matches <b>{query.trim()}</b>.
-                  </p>
-                )}
               </nav>
 
               <div className="sidebar-foot">
@@ -987,47 +970,36 @@ export function AppShell({ children }: { children: ReactNode }) {
                     is nullable and genuinely empty at real firms), and the ROLE
                     moves to the second line where it belongs — it is a fact about
                     this membership, and it is what the second line was for. */}
-                <div className="who">
-                  <span className="avatar" aria-hidden="true">
-                    {initials(principal.displayName ?? principal.email ?? principal.role)}
-                  </span>
-                  <span className="who-id">
-                    <span className="n">
-                      {principal.displayName ?? principal.email ?? "Signed in"}
+                {/* WHO IS SIGNED IN, and only that (2026-10-10): the name and
+                    the role. Your account and Sign out are one click away in
+                    its menu (Notifications is a setting), rather than lines under
+                    it on every screen. The name first, the email when there is
+                    none (`displayName` is nullable at real firms). */}
+                <Menu
+                  align="left"
+                  className="who-menu"
+                  trigger={
+                    <span className="who">
+                      <span className="avatar" aria-hidden="true">
+                        {initials(principal.displayName ?? principal.email ?? principal.role)}
+                      </span>
+                      <span className="who-id">
+                        <span className="n">
+                          {principal.displayName ?? principal.email ?? "Signed in"}
+                        </span>
+                        <span className="r">
+                          {principal.tenantId === null
+                            ? "No firm selected"
+                            : (principal.role ?? "No role")}
+                        </span>
+                      </span>
+                      <Icon name="chevronDown" size={14} className="nav-chevron" />
                     </span>
-                    <span className="r">
-                      {principal.tenantId === null
-                        ? "No firm selected"
-                        : (principal.role ?? "No role")}
-                    </span>
-                  </span>
-                </div>
-                {/* YOUR account, not the firm's roster. Everything about a person
-                    that the FIRM decides — role, grade, reporting line, access —
-                    is /admin/people behind `tenant:admin`. A password is the one
-                    fact about a login that belongs to the person holding it, so it
-                    is reached from here rather than from the map of the product,
-                    and it needs no permission at all. */}
-                <Button
-                  variant="link"
-                  icon={<Icon name="lock" size={15} />}
-                  onClick={() => {
-                    router.push("/account");
-                  }}
+                  }
                 >
-                  Your account
-                </Button>
-                <Button
-                  variant="link"
-                  icon={<Icon name="signout" size={15} />}
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </Button>
-                {/* THE ONE PLACE IN THE WORKSPACE THE PRODUCT NAMES ITSELF
-                    (CA#40). It was under the firm's name at the head of this
-                    column, where it read as a second name for the firm. */}
-                <p className="brand-foot">{PRODUCT_NAME}</p>
+                  <MenuItem onClick={() => { router.push("/account"); }}>Your account</MenuItem>
+                  <MenuItem onClick={() => void signOut()}>Sign out</MenuItem>
+                </Menu>
               </div>
             </>
           )}

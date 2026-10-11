@@ -277,6 +277,15 @@ const PATHS = {
       <path d="M9 20.5h6M12 16.5v4" />
     </>
   ),
+  /* Settings: two sliders. Drawn as controls being set rather than a cog,
+     whose teeth do not survive this stroke at 20px. */
+  settings: (
+    <>
+      <path d="M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9" />
+      <circle cx="15" cy="7.5" r="2" />
+      <circle cx="9" cy="16.5" r="2" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

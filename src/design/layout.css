@@ -189,54 +189,6 @@ html {
   display: none;
 }
 
-/* ── The search box ─────────────────────────────────────────────────────── */
-
-.nav-search {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.625rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--glass-field);
-  color: var(--faint);
-  transition: border-color var(--dur-fast) var(--ease);
-}
-/* THE RING GOES ON THE BOX, because the input inside it clears its own.
-   `.nav-search input` sets `outline: 0` so the text field brings none of its
-   own chrome into the bordered box — but that rule and `input:focus-visible`
-   in base.css have the SAME specificity (one class + one type against one type
-   + one pseudo-class), and this file loads later, so `outline: 0` won and the
-   search box was the one control in the app a keyboard user could not see
-   themselves land on. The border-colour change alone is not a replacement: it
-   is a 1px shift on a colour, and the app's rule is one ring, learnt once. */
-.nav-search:focus-within {
-  border-color: var(--brand);
-  color: var(--brand);
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.nav-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  padding: 0.45rem 0;
-  font: inherit;
-  font-size: var(--t-sm);
-  color: var(--ink);
-}
-.nav-search input::placeholder {
-  color: var(--faint);
-}
-/* Safari draws its own clear button and it lands on top of the placeholder. */
-.nav-search input::-webkit-search-cancel-button {
-  appearance: none;
-}
-
-/* ── Rows ───────────────────────────────────────────────────────────────── */
-
 .nav-link {
   display: flex;
   align-items: center;
@@ -299,7 +251,17 @@ html {
   width: 1.25rem;
   height: 1.25rem;
 }
+/* THE FORM LABEL'S CLASS IS ALSO `.label`, and `components.css` gives it a
+   bottom margin, weight 600, a size and a colour. All four landed on every
+   sidebar row: each was 8px taller than its padding says, every link was
+   bold, and the current page's brand colour never reached its words. Found
+   by measuring a row at 40px that should have been 32 (2026-10-10). The
+   sidebar's label takes its link's type and colour. */
 .nav-link .label {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -337,6 +299,56 @@ html {
   padding-top: 0.3rem;
   padding-bottom: 0.3rem;
   font-size: var(--t-sm);
+}
+
+/* ── Dividers and the settings menu (2026-10-10) ────────────────────────────
+   A thin rule above the rarely used screens (Audit trail, Settings), so the
+   daily ones read as one block. Drawn by the row itself, so the search can
+   drop it with the row. */
+.nav > [data-divider] {
+  position: relative;
+  margin-top: var(--s-4);
+}
+.nav > [data-divider]::before {
+  content: "";
+  position: absolute;
+  left: var(--s-2);
+  right: var(--s-2);
+  top: calc(-0.5 * var(--s-4));
+  border-top: 1px solid var(--line);
+}
+/* While a settings screen is open the sidebar is the settings menu: one row,
+   "← Settings", that is its name and the way back, above the settings groups,
+   which fold like the main map's groups. */
+.nav-back {
+  margin-bottom: var(--s-2);
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* The person at the foot is one button: the name and role, opening a menu
+   with Your account, Notifications and Sign out. Full width, so the whole
+   block is the target. */
+.who-menu,
+.who-menu > .menu-trigger {
+  display: flex;
+  width: 100%;
+}
+.who-menu > .menu-trigger {
+  border-radius: var(--r-sm);
+  padding: var(--s-2) 0;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.who-menu > .menu-trigger:hover {
+  background: var(--glass-hover);
+}
+.who-menu .who {
+  flex: 1;
+}
+.who-menu .who .nav-chevron {
+  margin-left: auto;
 }
 
 .nav-empty {
@@ -732,7 +744,6 @@ html {
      of each other — which is exactly what it did. */
   .sidebar > *,
   .brand,
-  .nav-search,
   .nav-link {
     flex: none;
   }
@@ -769,10 +780,16 @@ html {
   .nav-children {
     display: contents;
   }
-  .nav-search {
-    /* It cannot flex in a scroller full of `flex: none` items, so it is given
-       a width rather than collapsing to its placeholder. */
-    width: 13rem;
+  /* In the strip a rule and a label would be furniture between links. */
+  .nav > [data-divider] {
+    margin-top: 0;
+  }
+  .nav > [data-divider]::before {
+    display: none;
+  }
+  .who-menu,
+  .who-menu > .menu-trigger {
+    width: auto;
   }
   .brand span {
     display: none;
