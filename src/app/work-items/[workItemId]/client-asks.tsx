@@ -34,6 +34,17 @@
  * so the row says which template it came from instead of "somebody who has
  * since left".
  *
+ * ── FILES THE CLIENT EMAILED: "Upload for the client" (F1.6) ─────────────
+ *
+ * A client asked for their statements often emails them instead of opening the
+ * portal. On a document ask still open, "Upload for the client" takes those
+ * files (several at once) and the API stores them exactly as the client's own
+ * upload would be, answering the ask, so the reminders stop and FinCompliance
+ * takes them in. The reply is recorded as yours and marked as added for the
+ * client (`onBehalf`): this panel says "added ... for the client", and the
+ * client's page says the firm added it, naming nobody. The files are
+ * client-visible, as their own upload is; the Documents panel can change that.
+ *
  * ── AND A CLIENT'S ANSWER DOES NOT CLOSE IT ─────────────────────────────
  *
  * `answered` and `closed` are different, and this panel is where the second one
@@ -63,6 +74,7 @@ import {
 } from "@/components/ui";
 import { Stack } from "@/components/layout";
 import { browserDay, longDay, longInstant } from "@/lib/day";
+import { plural } from "@/lib/plural";
 // The three kinds the API accepts and what an upload may be filed as, said the
 // same way here and on a request template's items (F1.7): one list, in the
 // module that types the template.
@@ -157,6 +169,26 @@ export function ClientAsks({
     await load();
   }
 
+  /** Files the client sent another way, uploaded on the ask for them (F1.6).
+   *  One request, each file its own `file` part. True when it went through;
+   *  a refusal is the panel's ErrorNotice, in the API's words. */
+  const uploadFor = async (askId: string, files: readonly File[], note: string): Promise<boolean> => {
+    let ok = false;
+    await act(askId, async () => {
+      const payload = new FormData();
+      for (const file of files) payload.append("file", file);
+      if (note.trim().length > 0) payload.set("note", note);
+      const result = await api.POST("/api/v1/asks/{askId}/documents", {
+        params: { path: { askId } },
+        body: payload as unknown as never,
+        bodySerializer: (b: unknown) => b as FormData,
+      });
+      ok = !result.error;
+      return result;
+    });
+    return ok;
+  };
+
   const raise = () => {
     if (kind === "document" && documentKind === "") {
       setError("Choose how to file what the client sends.");
@@ -248,6 +280,7 @@ export function ClientAsks({
                 }),
               )
             }
+            onUpload={(files, note) => uploadFor(ask.askId, files, note)}
           />
         ))}
 
@@ -371,6 +404,7 @@ function AskLine({
   busy,
   onClose,
   onWithdraw,
+  onUpload,
 }: {
   ask: ClientAsk;
   /** The reader's calendar day, `YYYY-MM-DD`, that lateness is judged on. */
@@ -381,8 +415,28 @@ function AskLine({
   busy: string | null;
   onClose?: () => void;
   onWithdraw?: () => void;
+  /** Upload files the client sent another way (F1.6); true when it worked. */
+  onUpload?: (files: readonly File[], note: string) => Promise<boolean>;
 }) {
   const late = ask.status === "open" && ask.dueOn !== null && ask.dueOn < today;
+  /** The "Upload for the client" form, closed until somebody means to use it. */
+  const [uploading, setUploading] = useState(false);
+  const [files, setFiles] = useState<readonly File[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
+  /** "2 files added for the client.", once they are. */
+  const [added, setAdded] = useState<string | null>(null);
+  const mayUpload = canWrite && onUpload !== undefined && ask.askKind === "document";
+
+  async function sendUpload(): Promise<void> {
+    if (onUpload === undefined || files.length === 0) return;
+    const count = files.length;
+    if (await onUpload(files, uploadNote)) {
+      setAdded(`${plural(count, "file")} added for the client.`);
+      setUploading(false);
+      setFiles([]);
+      setUploadNote("");
+    }
+  }
   return (
     <div className="notice">
       {/* `.notice` is a flex ROW — it is built for one `.notice-body` and,
@@ -468,10 +522,14 @@ function AskLine({
 
         {ask.responses.map((r) => (
           <p key={r.responseId} className="text-ink-2">
-            <strong>{r.respondedByName ?? "Their contact"}</strong>{" "}
+            {/* A file a colleague added for the client (F1.6) names the
+                colleague, and says it was added for them rather than sent. */}
+            <strong>{r.respondedByName ?? (r.onBehalf ? "Somebody at the firm" : "Their contact")}</strong>{" "}
             {r.document !== null ? (
               <>
-                sent {r.document.filename} ({Math.max(1, Math.round(r.document.byteSize / 1024))} KB)
+                {r.onBehalf ? "added" : "sent"} {r.document.filename} (
+                {Math.max(1, Math.round(r.document.byteSize / 1024))} KB)
+                {r.onBehalf && " for the client"}
                 {/* SAID, NOT IMPLIED. There is no virus scanner in this product
                     and no agent runtime to run one, so a file arrives exactly as
                     the client sent it. The download route serves it as an
@@ -501,6 +559,8 @@ function AskLine({
           </p>
         ))}
 
+        {added !== null && <p className="tone-ok">{added}</p>}
+
         {canWrite && onClose !== undefined && onWithdraw !== undefined && (
           <div className="cluster">
             <Button size="sm" variant="secondary" onClick={onClose} disabled={busy === ask.askId}>
@@ -514,7 +574,61 @@ function AskLine({
             >
               No longer needed
             </Button>
+            {mayUpload && !uploading && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setUploading(true);
+                  setAdded(null);
+                }}
+              >
+                Upload for the client
+              </Button>
+            )}
           </div>
+        )}
+
+        {/* FILES THE CLIENT EMAILED (F1.6). Stored as their own upload would
+            be and recorded as yours; see the header. */}
+        {mayUpload && uploading && (
+          <Stack gap="tight">
+            <Field label="Files they sent you" hint="For files that came by email. The client sees them.">
+              <Input
+                type="file"
+                multiple
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              />
+            </Field>
+            <Field label="How they arrived" optional>
+              <Input
+                value={uploadNote}
+                onChange={(e) => setUploadNote(e.target.value)}
+                placeholder="e.g. Emailed by the client on 3 Nov"
+              />
+            </Field>
+            <div className="cluster">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void sendUpload()}
+                disabled={busy === ask.askId || files.length === 0}
+              >
+                {files.length > 1 ? `Upload ${plural(files.length, "file")}` : "Upload the file"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setUploading(false);
+                  setFiles([]);
+                  setUploadNote("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </Stack>
         )}
       </div>
     </div>

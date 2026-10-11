@@ -6299,6 +6299,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/asks/{askId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload files the client sent another way, on their behalf
+         * @description For files the client emailed (or handed over) instead of using the portal. Each file is stored exactly as the client's own upload would be: filed under the document kind chosen when the ask was raised, as the CLIENT's document, against the task, one reply per file, and the ask turns answered, so reminders stop. FinCompliance takes a client's books files (`books_input`) in whichever way they arrived. What differs is who: the replies are recorded as yours, marked `onBehalf`, and the client sees that the firm added them. The files are client-visible, as their own upload is; the document's own switch can change that. Repeat the `file` part for several, at most 20; they land together or not at all. The same kinds of file the portal accepts, and only those: the file came from outside the firm and is not scanned for viruses.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    askId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": components["schemas"]["ClientAskOnBehalfForm"];
+                };
+            };
+            responses: {
+                /** @description Added, and the ask is answered */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientAsk"];
+                    };
+                };
+                /** @description Empty file, an unusable filename, a kind of file the portal does not accept, or more than 20 files at once (ASK_FILE_COUNT) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org chosen, or the role may not write work */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such ask at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The ask is already closed or withdrawn */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A file, or the whole request, is larger than this firm's upload limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/client-requests": {
         parameters: {
             query?: never;
@@ -7005,8 +7104,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the file the firm asked for
-         * @description Multipart, because base64 in a JSON body inflates a scanned PDF by a third. The file is filed against the task the ask was raised from, under the document kind the FIRM chose when it asked — you do not choose where in their store it lands. It is stored exactly as it arrives: there is no virus scanner in this product today, so the KINDS of file this route accepts are an allowlist — PDFs, photographs and scans, spreadsheets, Word and OpenDocument files, plain text and CSV. Anything else is refused rather than filed for a colleague to open.
+         * Send the file (or files) the firm asked for
+         * @description Multipart, because base64 in a JSON body inflates a scanned PDF by a third. Repeat the `file` part to send several at once, at most 20; each is its own document and its own reply, and they arrive together or not at all. Each file is held to the firm's upload limit, and so is the whole request: send a large batch in more than one go. Every file is filed against the task the ask was raised from, under the document kind the FIRM chose when it asked — you do not choose where in their store it lands. It is stored exactly as it arrives: there is no virus scanner in this product today, so the KINDS of file this route accepts are an allowlist — PDFs, photographs and scans, spreadsheets, Word and OpenDocument files, plain text and CSV. Anything else is refused rather than filed for a colleague to open, and one refused file refuses the whole upload.
          */
         post: {
             parameters: {
@@ -7032,7 +7131,7 @@ export interface paths {
                         "application/json": components["schemas"]["PortalAsk"];
                     };
                 };
-                /** @description Empty file, an unusable filename, or a kind of file this route does not accept */
+                /** @description Empty file, an unusable filename, a kind of file this route does not accept, or more than 20 files at once (ASK_FILE_COUNT) */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -7077,7 +7176,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
-                /** @description The file is larger than this firm's upload limit */
+                /** @description A file, or the whole request, is larger than this firm's upload limit */
                 413: {
                     headers: {
                         [name: string]: unknown;
@@ -24536,6 +24635,16 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description FinCompliance's database did not answer in time or could not be reached (code UNAVAILABLE, reason FIN_UNAVAILABLE). Nothing is wrong with the request and the rest of BiB is working: show fin as unreachable and ask again after `Retry-After` seconds. */
+                503: {
+                    headers: {
+                        "Retry-After": string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         put?: never;
@@ -24616,6 +24725,16 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
+                /** @description FinCompliance's database did not answer in time or could not be reached (code UNAVAILABLE, reason FIN_UNAVAILABLE). Nothing is wrong with the request and the rest of BiB is working: show fin as unreachable and ask again after `Retry-After` seconds. */
+                503: {
+                    headers: {
+                        "Retry-After": string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
             };
         };
         put?: never;
@@ -24671,7 +24790,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "VALIDATION" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "RATE_LIMITED" | "NOT_IMPLEMENTED" | "INTERNAL" | "PAYLOAD_TOO_LARGE" | "UPSTREAM_FAILURE";
+                code: "VALIDATION" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "RATE_LIMITED" | "NOT_IMPLEMENTED" | "INTERNAL" | "PAYLOAD_TOO_LARGE" | "UPSTREAM_FAILURE" | "UNAVAILABLE";
                 message: string;
                 reason?: string;
             };
@@ -25963,8 +26082,10 @@ export interface components {
             answerText: string | null;
             /** @enum {string|null} */
             decision: "approved" | "declined" | null;
-            /** @description The CLIENT's own person who replied. Null when their account has been erased — a real answer, the same shape the ledger's actor join has. */
+            /** @description The CLIENT's own person who replied, or, when `onBehalf` is true, the colleague who added it for them. Null when the account has been erased — a real answer, the same shape the ledger's actor join has. */
             respondedByName: string | null;
+            /** @description True when somebody at the firm added this for the client: files the client sent another way (by email), uploaded on the ask (0390). The client sees that the firm added it and is never told who. */
+            onBehalf: boolean;
             respondedAt: string;
             /** @description The file, when one was sent. IT HAS NOT BEEN SCANNED: there is no virus scanner in this product and no agent runtime to run one, so a client-supplied file is stored exactly as it arrived. It is served with `content-disposition: attachment` and never `inline`, which is the one protection that does exist, and the screen says so beside the link rather than leaving somebody to assume otherwise. */
             document: {
@@ -26037,6 +26158,12 @@ export interface components {
             documentKind?: "proposal" | "engagement_letter" | "invoice" | "credit_note" | "identity_proof" | "statutory_filing" | "working_paper" | "correspondence" | "brand_asset" | "other" | "books_input" | null;
             /** @description The day you want it by, as YYYY-MM-DD. Optional: leave it out and the ask has no due day, as every ask did before. A day that does not exist, or one before today on your firm's calendar (your firm's time zone, not the browser's), is 400 INVALID_DUE_DATE. The client sees it. Reminders still count from when you asked. */
             dueOn?: string | null;
+        };
+        ClientAskOnBehalfForm: {
+            /** @description One file, or several: repeat the `file` part, at most 20 in one request. */
+            file?: unknown;
+            /** @description Anything to say about what arrived, e.g. how it was sent. Once per upload. The client sees it beside the files. */
+            note?: string;
         };
         ClientRequestReply: {
             /** Format: uuid */
@@ -26119,8 +26246,10 @@ export interface components {
             answerText: string | null;
             /** @enum {string|null} */
             decision: "approved" | "declined" | null;
-            /** @description Which of YOUR people replied. A company with two directors needs to know which of them sent it. Nobody at the firm is named anywhere on this surface. */
+            /** @description Which of YOUR people replied. A company with two directors needs to know which of them sent it. Nobody at the firm is named anywhere on this surface, so this is null when `onBehalf` is true. */
             respondedByName: string | null;
+            /** @description True when the firm added this for you: files you sent them another way (by email), which they put on this request so it shows as sent. The firm's person is not named. */
+            onBehalf: boolean;
             respondedAt: string;
             /** @description What you sent, so you can see it arrived. The bytes are not readable back through this surface — that would be a download route with a path parameter and more surface than showing you the filename needs. */
             document: {
@@ -26173,7 +26302,9 @@ export interface components {
             note?: string | null;
         };
         PortalUploadForm: {
+            /** @description One file, or several: repeat the `file` part, at most 20 in one request. Each becomes its own document and its own reply on the request. */
             file?: unknown;
+            /** @description Anything to say about what you sent. Once per upload, however many files. */
             note?: string;
         };
         PortalDocument: {

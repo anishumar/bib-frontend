@@ -69,6 +69,19 @@
  * line, because a client sending their books somewhere is entitled to know what
  * happens to them — and because a page that quietly implied otherwise would be
  * the lie the backend refused to write as a `scan()` returning "clean".
+ *
+ * ── SEVERAL FILES AT ONCE, AND WHAT THE FIRM ADDED FOR THEM (F1.6) ──────
+ *
+ * A month's records are several files, so the picker takes several and sends
+ * them in ONE request (repeated `file` parts): the API stores each as its own
+ * document and reply, all of them or none, at most twenty, the whole request
+ * held to the firm's upload limit. Its refusals are shown as they come. Once
+ * sent, a line at the top says how many went, because the card itself moves
+ * to "Sent to the firm" and would take any message inside it along.
+ *
+ * A client who emailed their files instead may find them here anyway: the firm
+ * can upload them on the ask for them (`onBehalf`). Those read "The firm added
+ * statement.pdf for you", and never name the firm's person (T6.5's rule).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -85,6 +98,7 @@ import {
 import { Card, Pill, Section } from "@/components/tw";
 import { usePortalSession } from "./portal-frame";
 import { longDay, longInstant } from "@/lib/day";
+import { plural } from "@/lib/plural";
 
 /** What the firm wants, in one word, above the prompt. */
 const KIND_LABEL: Record<string, string> = {
@@ -98,6 +112,9 @@ export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
   const [centre, setCentre] = useState<PortalActionCentre | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  /** "3 files sent to the firm.", after an upload. Here and not on the card,
+   *  which moves to "Sent to the firm" on the reload and forgets its state. */
+  const [sent, setSent] = useState<string | null>(null);
 
   // A PERMISSION DECIDES WHAT TO OFFER. `/auth/me` reports what this contact
   // actually holds — which, since T6.6, is a real answer for a portal session
@@ -124,7 +141,8 @@ export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
     })();
   }, [load]);
 
-  async function refresh(): Promise<void> {
+  async function refresh(message?: string): Promise<void> {
+    setSent(message ?? null);
     await load();
     onChanged?.();
   }
@@ -143,6 +161,7 @@ export function ActionCentre({ onChanged }: { onChanged?: () => void }) {
 
   return (
     <>
+      {sent !== null && <UiNotice tone="ok">{sent}</UiNotice>}
       {/* `level={2}` on both sections below: since these moved off the status
           home onto `/portal/requests` they ARE that page's top-level structure,
           and a card inside one ranks `h3`. The portal's outline was measured
@@ -206,12 +225,15 @@ function AskCard({
 }: {
   ask: PortalAsk;
   mayRespond: boolean;
-  onDone: () => Promise<void>;
+  /** Reload the page; `message` is what to say at the top once it has. */
+  onDone: (message?: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  /** How many files are chosen, so the button says what it will send. */
+  const [chosen, setChosen] = useState(0);
 
   /**
    * WHAT THIS CARD IS ABOUT, and every control on it is named by it.
@@ -233,7 +255,7 @@ function AskCard({
   const kind = KIND_LABEL[ask.askKind] ?? "A request";
   const about = `${kind}: ${ask.workItemTitle}`;
 
-  async function run(send: () => Promise<{ error?: unknown }>): Promise<void> {
+  async function run(send: () => Promise<{ error?: unknown }>, done?: string): Promise<void> {
     setBusy(true);
     setError(null);
     const result = await send();
@@ -245,8 +267,9 @@ function AskCard({
       return;
     }
     setNote("");
+    setChosen(0);
     if (fileInput.current) fileInput.current.value = "";
-    await onDone();
+    await onDone(done);
   }
 
   const answer = () =>
@@ -265,23 +288,28 @@ function AskCard({
       }),
     );
 
+  // ONE request for every chosen file, each its own `file` part (F1.6): the
+  // API stores them together or not at all, so a half-sent month cannot happen.
   const upload = () => {
-    const file = fileInput.current?.files?.[0];
-    if (!file) {
+    const files = Array.from(fileInput.current?.files ?? []);
+    if (files.length === 0) {
       setError("Choose a file first.");
       return;
     }
     const payload = new FormData();
-    payload.set("file", file);
+    for (const file of files) payload.append("file", file);
     if (note.trim().length > 0) payload.set("note", note);
-    return run(() =>
-      api.POST("/api/v1/portal/asks/{askId}/documents", {
-        params: { path: { askId: ask.askId } },
-        body: payload as unknown as never,
-        bodySerializer: (b: unknown) => b as FormData,
-      }),
+    return run(
+      () =>
+        api.POST("/api/v1/portal/asks/{askId}/documents", {
+          params: { path: { askId: ask.askId } },
+          body: payload as unknown as never,
+          bodySerializer: (b: unknown) => b as FormData,
+        }),
+      `${plural(files.length, "file")} sent to the firm.`,
     );
   };
+  const sendLabel = chosen > 1 ? `Send ${plural(chosen, "file")}` : "Send the file";
 
   return (
     <Card className="p-4">
@@ -335,13 +363,20 @@ function AskCard({
           <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0" aria-label={about}>
             {ask.askKind === "document" && (
               <>
-                <Field label="The file" hint="Files are not scanned for viruses before they reach the firm.">
+                <Field label="Files" hint="Choose one or more. They are not scanned for viruses.">
                   {/* `Input`, not a bare `<input>`. `Field` generates an id and
                       puts it on its <label>'s `for`; a raw control never
                       receives it, so the label pointed at nothing and the only
                       file control a CLIENT ever touches had no name and no
-                      hint. It also wore the operating system's own chrome. */}
-                  <Input ref={fileInput} type="file" name="file" />
+                      hint. It also wore the operating system's own chrome.
+                      `multiple` since F1.6: a month's records are several. */}
+                  <Input
+                    ref={fileInput}
+                    type="file"
+                    name="file"
+                    multiple
+                    onChange={(e) => setChosen(e.target.files?.length ?? 0)}
+                  />
                 </Field>
                 <Field
                   label="Anything to say about it (optional)"
@@ -355,11 +390,11 @@ function AskCard({
                 </Field>
                 <div className="cluster">
                   <Button
-                    aria-label={`Send the file for ${about}`}
+                    aria-label={`${sendLabel} for ${about}`}
                     onClick={() => void upload()}
                     disabled={busy}
                   >
-                    Send the file
+                    {sendLabel}
                   </Button>
                   <Button
                     variant="ghost"
@@ -422,12 +457,15 @@ function AskCard({
 }
 
 /** What was already sent, so a client can see it arrived — and see WHICH of
- *  their own people sent it. Nobody at the firm is named anywhere here. */
+ *  their own people sent it. Nobody at the firm is named anywhere here: a file
+ *  the firm added for them (`onBehalf`, F1.6) says "The firm". */
 function SentLine({ response }: { response: PortalAskResponse }) {
-  const who = response.respondedByName ?? "Somebody at your company";
+  const who = response.onBehalf ? "The firm" : (response.respondedByName ?? "Somebody at your company");
   const what =
     response.document !== null
-      ? `sent ${response.document.filename}`
+      ? response.onBehalf
+        ? `added ${response.document.filename} for you`
+        : `sent ${response.document.filename}`
       : response.decision !== null
         ? response.decision === "approved"
           ? "approved this"
