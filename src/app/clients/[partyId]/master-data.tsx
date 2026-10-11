@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { api, apiError } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
-import { Button, Card, CardTitle, ErrorNotice, Field, FieldRow, Input, Textarea } from "@/components/ui";
+import { Button, Card, CardTitle, Dialog, ErrorNotice, Field, FieldRow, Input, Textarea } from "@/components/ui";
 import { countryName } from "@/lib/country";
 import { ConfirmAction } from "@/components/confirm-action";
 import { CountrySelect } from "@/components/country-select";
@@ -11,6 +11,7 @@ import { StateSelect } from "@/components/state-select";
 import { EntityKindSelect } from "@/components/entity-kind-select";
 import { YearEndField } from "@/components/year-end-field";
 import { keepTyped } from "@/lib/ui/keep-typed";
+import { FormOrButton } from "./client-sections";
 
 /**
  * CORRECTING A CLIENT'S MASTER DATA (V2.5): the name, the company's facts and
@@ -30,6 +31,7 @@ export function EditDetails({
   kind,
   current,
   onSaved,
+  archive,
 }: {
   partyId: string;
   kind: "organization" | "person";
@@ -40,9 +42,19 @@ export function EditDetails({
     readonly website: string | null;
   };
   onSaved: () => Promise<void>;
+  /** Archive, shown apart at the foot of the dialog: rare, and not an edit.
+   *  Given `close`, so archiving does not leave the dialog over the page. */
+  archive?: ((close: () => void) => ReactNode) | undefined;
 }) {
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
+
+  function close(): void {
+    setOpen(false);
+    setError(null);
+  }
 
   async function save(form: FormData): Promise<void> {
     const text = (k: string): string => String(form.get(k) ?? "").trim();
@@ -72,45 +84,73 @@ export function EditDetails({
       return;
     }
     await onSaved();
+    close();
   }
 
   return (
-    <details className="disclosure">
-      <summary>Edit details</summary>
-      <form
-        className="stack"
-        onSubmit={(event) => keepTyped(event, (form) => {
-          void save(form);
-        })}
+    <>
+      <Button
+        variant="secondary"
+        aria-haspopup="dialog"
+        onClick={() => {
+          setOpen(true);
+        }}
       >
-        <FieldRow>
-          <Field label="Name on screens and new documents">
-            <Input name="displayName" required defaultValue={current.displayName} placeholder="e.g. Kaveri Foods" />
-          </Field>
-          {kind === "organization" && (
-            <Field label="Trade name" optional>
-              <Input name="tradeName" defaultValue={current.tradeName ?? ""} placeholder="e.g. Kaveri" />
-            </Field>
-          )}
-        </FieldRow>
-        {kind === "organization" && (
+        Edit details
+      </Button>
+      <Dialog
+        open={open}
+        onClose={close}
+        title="Edit details"
+        footer={
+          <>
+            {/* Archive at the far left, away from Save: the destructive act
+                is never where the eye goes to confirm an edit. */}
+            {archive !== undefined && <span className="mr-auto">{archive(close)}</span>}
+            {/* Kept together, so a narrow screen wraps Archive away from them
+                rather than leaving Save alone on its own line. */}
+            <span className="cluster">
+              <Button variant="secondary" onClick={close}>
+                Cancel
+              </Button>
+              <Button type="submit" form={formId} loading={busy}>
+                Save
+              </Button>
+            </span>
+          </>
+        }
+      >
+        <form
+          id={formId}
+          className="stack"
+          onSubmit={(event) => keepTyped(event, (form) => {
+            void save(form);
+          })}
+        >
           <FieldRow>
-            <Field label="Industry" optional>
-              <Input name="industry" defaultValue={current.industry ?? ""} placeholder="e.g. Retail" />
+            <Field label="Display name">
+              <Input name="displayName" required defaultValue={current.displayName} placeholder="e.g. Kaveri Foods" />
             </Field>
-            <Field label="Website" optional>
-              <Input name="website" defaultValue={current.website ?? ""} placeholder="e.g. kaverifoods.in" />
-            </Field>
+            {kind === "organization" && (
+              <Field label="Trade name" optional>
+                <Input name="tradeName" defaultValue={current.tradeName ?? ""} placeholder="e.g. Kaveri" />
+              </Field>
+            )}
           </FieldRow>
-        )}
-        <ErrorNotice error={error} />
-        <div className="cluster">
-          <Button type="submit" variant="secondary" loading={busy}>
-            Save
-          </Button>
-        </div>
-      </form>
-    </details>
+          {kind === "organization" && (
+            <FieldRow>
+              <Field label="Industry" optional>
+                <Input name="industry" defaultValue={current.industry ?? ""} placeholder="e.g. Retail" />
+              </Field>
+              <Field label="Website" optional>
+                <Input name="website" defaultValue={current.website ?? ""} placeholder="e.g. kaverifoods.in" />
+              </Field>
+            </FieldRow>
+          )}
+          <ErrorNotice error={error} />
+        </form>
+      </Dialog>
+    </>
   );
 }
 
@@ -212,7 +252,7 @@ export function CorrectEntity({
   const [error, setError] = useState<string | null>(null);
   const [country, setCountry] = useState(current.jurisdiction);
 
-  async function save(form: FormData): Promise<void> {
+  async function save(form: FormData): Promise<boolean> {
     const jurisdiction = String(form.get("jurisdiction") ?? "");
     const entityType = String(form.get("entityType") ?? "").trim();
     const yearEnd = String(form.get("financialYearEnd") ?? "");
@@ -222,7 +262,7 @@ export function CorrectEntity({
     if (jurisdiction !== "IN" && yearEnd !== "" && yearEnd !== current.financialYearEnd) body.financialYearEnd = yearEnd;
     if (Object.keys(body).length === 0) {
       setError("Nothing changed.");
-      return;
+      return false;
     }
     setBusy(true);
     setError(null);
@@ -233,18 +273,21 @@ export function CorrectEntity({
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
     await onSaved();
+    return true;
   }
 
   return (
-    <details className="card-foot">
-      <summary>Correct the country, kind or year end</summary>
+    <FormOrButton folded label="Change country, kind or year end">
+      {({ done, cancel }) => (
       <form
         className="stack"
         onSubmit={(event) => keepTyped(event, (form) => {
-          void save(form);
+          void save(form).then((ok) => {
+            if (ok) done();
+          });
         })}
       >
         <FieldRow>
@@ -267,9 +310,11 @@ export function CorrectEntity({
           <Button type="submit" variant="secondary" loading={busy}>
             Save
           </Button>
+          {cancel}
         </div>
       </form>
-    </details>
+      )}
+    </FormOrButton>
   );
 }
 
@@ -303,17 +348,22 @@ export function BillingAddressCard({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   const [country, setCountry] = useState(current?.country ?? "IN");
   const india = country === "IN";
 
-  async function save(form: FormData): Promise<void> {
+  async function save(form: FormData): Promise<boolean> {
     const text = (k: string): string => String(form.get(k) ?? "").trim();
     const lines = text("lines")
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter((l) => l !== "");
     const empty = lines.length === 0 && text("region") === "" && text("postalCode") === "";
+    // Said here: the API's answer to clearing an address that was never set
+    // is "Nothing changed: every field already says that".
+    if (empty && current === null) {
+      setError("Type the address first.");
+      return false;
+    }
     const body = {
       billingAddress: empty
         ? null
@@ -330,10 +380,10 @@ export function BillingAddressCard({
     setBusy(false);
     if (result.error) {
       setError(apiError(result.error).message);
-      return;
+      return false;
     }
-    setOpen(false);
     await onSaved();
+    return true;
   }
 
   const place = current === null
@@ -364,19 +414,15 @@ export function BillingAddressCard({
         already issued keeps the address it went out with.
       </p>
       {canWrite && (
-        <details
-          className="card-foot"
-          open={open}
-          onToggle={(e) => {
-            setOpen(e.currentTarget.open);
-          }}
-        >
-          <summary>{current === null ? "Add the address" : "Change the address"}</summary>
+        <FormOrButton folded={current !== null} label="Change the address">
+          {({ done, cancel }) => (
           <form
             className="stack"
             onSubmit={(e) => {
               e.preventDefault();
-              void save(new FormData(e.currentTarget));
+              void save(new FormData(e.currentTarget)).then((ok) => {
+                if (ok) done();
+              });
             }}
           >
             <Field label="Address" hint="One line per row, as it should print. Clear everything to remove it.">
@@ -417,9 +463,11 @@ export function BillingAddressCard({
               <Button type="submit" variant="secondary" loading={busy}>
                 Save the address
               </Button>
+              {cancel}
             </div>
           </form>
-        </details>
+          )}
+        </FormOrButton>
       )}
     </Card>
   );

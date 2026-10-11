@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { api, apiError } from "@/lib/api/client";
-import { Button, ErrorNotice, Field, Select } from "@/components/ui";
+import { Button, Card, CardTitle, ErrorNotice, Field, Select } from "@/components/ui";
 import { keepTyped } from "@/lib/ui/keep-typed";
 import { zoneForCountry } from "@/lib/ui/time-zone";
 
@@ -89,8 +89,8 @@ export function EntityClock({
   }
 
   return (
-    <details className="card-foot">
-      <summary>Filing clock</summary>
+    <Card>
+      <CardTitle level={2}>Filing clock</CardTitle>
       <form
         className="stack"
         onSubmit={(event) =>
@@ -116,6 +116,6 @@ export function EntityClock({
           </Button>
         </div>
       </form>
-    </details>
+    </Card>
   );
 }

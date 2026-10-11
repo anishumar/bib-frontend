@@ -1,7 +1,7 @@
 "use client";
 
 import { TdsCard } from "./tds-card";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
@@ -25,6 +25,7 @@ import { ClientAdvancesPanel } from "./advances";
 import { BillingAddressCard, CorrectEntity, EditDetails, IdentifierActions } from "./master-data";
 import { clockLabel, EntityClock } from "./entity-clock";
 import { ReturnPeriods } from "./return-periods";
+import { ClientSectionNav, FormOrButton, useClientSection, useFillWindow, type ClientSectionGroup } from "./client-sections";
 import {
   Button,
   Card,
@@ -42,6 +43,7 @@ import {
   Select,
   Table,
   TableWrap,
+  scrollBelowBar,
   Td,
   Th,
 } from "@/components/ui";
@@ -370,6 +372,62 @@ export default function PartyPage() {
     relCardRef.current?.focus();
   }
 
+  // The page's sections, grouped like a settings page. Built before the early
+  // returns (a hook reads it), so it copes with no profile yet.
+  const ownCompany = profile?.party.isOwnCompany === true;
+  const isCompany = profile?.party.kind === "organization";
+  const unregistered = isCompany && profile?.legalEntities.length === 0;
+  const sectionGroups: ClientSectionGroup[] = [
+    {
+      label: "Client",
+      items: [
+        { key: "team", label: "Account team" },
+        { key: "engagements", label: "Engagements" },
+      ],
+    },
+    {
+      label: "Billing",
+      items: ownCompany
+        ? []
+        : [
+            { key: "advances", label: "Advances" },
+            { key: "billing", label: "Address and TDS" },
+          ],
+    },
+    {
+      label: "Client portal",
+      items: [
+        { key: "portal", label: "Portal access" },
+        { key: "reminders", label: "Reminders" },
+      ],
+    },
+    {
+      label: "Records",
+      items: [
+        ...(isCompany
+          ? [{ key: "registration", label: "Registration", ...(unregistered ? { flag: "To do" } : {}) }]
+          : []),
+        { key: "identifiers", label: "Identifiers" },
+        { key: "relationships", label: "Relationships" },
+        { key: "files", label: "Files" },
+      ],
+    },
+  ].filter((g) => g.items.length > 0);
+  const { section, choose } = useClientSection(sectionGroups);
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // On a wide screen the sections area is exactly the window's height left,
+  // and only the content inside it scrolls: the name and buttons stay put.
+  const fill = useFillWindow(sectionsRef, profile !== null);
+  /** Change section, starting at its top: the content scrolls by itself on a
+   *  wide screen, the window does on a narrow one. */
+  function openSection(key: string): void {
+    choose(key);
+    if (contentRef.current !== null) contentRef.current.scrollTop = 0;
+    const top = sectionsRef.current?.getBoundingClientRect().top ?? 0;
+    if (sectionsRef.current !== null && top < 0) scrollBelowBar(sectionsRef.current);
+  }
+
   if (!loaded) return <Loading />;
   if (profile === null) {
     return (
@@ -406,25 +464,45 @@ export default function PartyPage() {
                 Archived
               </Pill>
             )}
-            {/* Archive is confirmed (V1.3); Restore puts it back and is not. */}
-            {canWrite && profile.party.archivedAt === null && (
-              <ConfirmAction
-                variant="destructive-quiet"
-                loading={archiving}
-                title={`Archive ${profile.party.displayName}?`}
-                confirmLabel="Archive"
-                destructive
-                consequence={
-                  <p>
-                    {profile.party.displayName} leaves every list and picker, and no new work
-                    is created for it. Everything already done stays on file. You can restore
-                    it later.
-                  </p>
+            {/* Archive lives in Edit details: rare, and not something to sit
+                beside the screen's main action. Restore stays out here, since
+                for an archived client it IS the main action. */}
+            {canWrite && (
+              <EditDetails
+                partyId={partyId}
+                kind={profile.party.kind}
+                current={{
+                  displayName: profile.party.displayName,
+                  tradeName: profile.organization?.tradeName ?? null,
+                  industry: profile.organization?.industry ?? null,
+                  website: profile.organization?.website ?? null,
+                }}
+                onSaved={load}
+                archive={
+                  profile.party.archivedAt === null ? (close) => (
+                    <ConfirmAction
+                      variant="destructive-quiet"
+                      loading={archiving}
+                      title={`Archive ${profile.party.displayName}?`}
+                      confirmLabel="Archive"
+                      destructive
+                      consequence={
+                        <p>
+                          {profile.party.displayName} leaves every list and picker, and no new work
+                          is created for it. Everything already done stays on file. You can restore
+                          it later.
+                        </p>
+                      }
+                      onConfirm={() => {
+                        close();
+                        void setArchived(true);
+                      }}
+                    >
+                      Archive this client
+                    </ConfirmAction>
+                  ) : undefined
                 }
-                onConfirm={() => void setArchived(true)}
-              >
-                Archive
-              </ConfirmAction>
+              />
             )}
             {canWrite && profile.party.archivedAt !== null && (
               <Button variant="secondary" loading={archiving} onClick={() => void setArchived(false)}>
@@ -478,21 +556,6 @@ export default function PartyPage() {
         </p>
       </PageHeader>
 
-      {/* Correct the name and company facts in place (V2.5). */}
-      {canWrite && (
-        <EditDetails
-          partyId={partyId}
-          kind={profile.party.kind}
-          current={{
-            displayName: profile.party.displayName,
-            tradeName: profile.organization?.tradeName ?? null,
-            industry: profile.organization?.industry ?? null,
-            website: profile.organization?.website ?? null,
-          }}
-          onSaved={load}
-        />
-      )}
-
       <ErrorNotice error={error} />
 
       {/* Opened by a link or a bookmark: the page still reads, and says why it
@@ -512,18 +575,43 @@ export default function PartyPage() {
         </Notice>
       )}
 
+      {/* Said above the sections, not only inside Registration: an
+          unregistered company is why its calendar is empty, and a section
+          nobody opens would hide that. */}
+      {unregistered && section !== "registration" && (
+        <Notice tone="warn">
+          <div className="cluster">
+            <p className="m-0">Not registered yet, so the calendar shows no filings for it.</p>
+            <Button variant="secondary" size="sm" onClick={() => openSection("registration")}>
+              Register it
+            </Button>
+          </div>
+        </Notice>
+      )}
+
+      <div
+        ref={sectionsRef}
+        className="grid items-start gap-6 lg:h-[var(--sections-h)] lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-stretch"
+        style={fill === null ? undefined : ({ "--sections-h": `${String(fill)}px` } as CSSProperties)}
+      >
+      <ClientSectionNav groups={sectionGroups} section={section} onChoose={openSection} />
+      {/* The scroller. `p-1` keeps the focus ring and a card's edge inside it. */}
+      <div ref={contentRef} className="flex min-w-0 flex-col gap-6 lg:min-h-0 lg:overflow-y-auto lg:p-1">
+
       {/* First, because "who at the firm looks after this client" is the
           question somebody opening a client page most often has, and until
           G3.2 nothing in this product could answer it. */}
-      <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
+      {section === "team" && (
+        <AccountTeamPanel partyId={partyId} clientName={profile.party.displayName} />
+      )}
 
       {/* What the firm does for this client, and End / Pause / Resume on each
           (V2.3). A client who leaves is ended here, then archived above. */}
-      <EngagementsPanel partyId={partyId} canWrite={canWrite} />
+      {section === "engagements" && <EngagementsPanel partyId={partyId} canWrite={canWrite} />}
 
       {/* Money the client paid before a letter (0363): until it is mapped to
           the services above, it is on this list. */}
-      {!profile.party.isOwnCompany && (
+      {section === "advances" && !profile.party.isOwnCompany && (
         <ClientAdvancesPanel partyId={partyId} clientName={profile.party.displayName} />
       )}
 
@@ -532,6 +620,7 @@ export default function PartyPage() {
           this client, this one is who at the CLIENT can see us. Neither is
           derivable from the other, and until now only the first had a screen —
           `/admin/people` pointed at this one and it did not exist. */}
+      {section === "portal" && (
       <PortalContactsPanel
         partyId={partyId}
         clientName={profile.party.displayName}
@@ -544,6 +633,7 @@ export default function PartyPage() {
            down yet. */
         group={groupCompanies(profile, today)}
       />
+      )}
 
       {/* THE THIRD THING ABOUT TALKING TO THIS CLIENT, after who owns them and
           who at their end can see us: whether the product is reminding them
@@ -551,16 +641,18 @@ export default function PartyPage() {
           "freeze the client" stops the outward reminder ladder and nothing
           else — so the card states what it does not do above the control that
           does it. */}
-      <ChasingPanel
-        partyId={partyId}
-        clientName={profile.party.displayName}
-        canFreeze={permissions.includes("tenant:admin")}
-        rungs={rungs}
-      />
+      {section === "reminders" && (
+        <ChasingPanel
+          partyId={partyId}
+          clientName={profile.party.displayName}
+          canFreeze={permissions.includes("tenant:admin")}
+          rungs={rungs}
+        />
+      )}
 
       {/* CA#22 (audit 2026-10-03): where the client is billed. Not for one
           of the firm's own companies, whose address is on Your firm. */}
-      {!profile.party.isOwnCompany && (
+      {section === "billing" && !profile.party.isOwnCompany && (
         <BillingAddressCard
           partyId={partyId}
           current={profile.party.billingAddress}
@@ -570,7 +662,7 @@ export default function PartyPage() {
       )}
 
       {/* Q057: the TDS the client deducts, which its invoices print. */}
-      {!profile.party.isOwnCompany && (
+      {section === "billing" && !profile.party.isOwnCompany && (
         <TdsCard partyId={partyId} canWrite={canWrite && profile.party.archivedAt === null} />
       )}
 
@@ -578,7 +670,7 @@ export default function PartyPage() {
           company is not a blank space on this page — it is the reason its
           compliance calendar is empty, and the empty state is the only place
           anybody would find that out. */}
-      {profile.party.kind === "organization" && (
+      {section === "registration" && profile.party.kind === "organization" && (
         <Card>
           <CardTitle level={2}>Registered</CardTitle>
           {profile.legalEntities.length === 0 ? (
@@ -646,24 +738,6 @@ export default function PartyPage() {
               onSaved={load}
             />
           )}
-          {profile.legalEntities[0] !== undefined && (
-            <ReturnPeriods
-              partyId={partyId}
-              periods={profile.returnPeriods}
-              canWrite={canWrite}
-              onSaved={load}
-            />
-          )}
-          {canWrite && profile.legalEntities[0] !== undefined && (
-            <EntityClock
-              partyId={partyId}
-              current={{
-                jurisdiction: profile.legalEntities[0].jurisdiction,
-                timeZone: profile.legalEntities[0].timeZone,
-              }}
-              onSaved={load}
-            />
-          )}
 
           {/* The write that had no caller. Offered on `party:write`, the same
               permission the identifier form below takes — registering a company
@@ -678,10 +752,8 @@ export default function PartyPage() {
             </p>
           )}
           {permissions.includes("party:write") && profile.legalEntities.length === 0 && (
-            <details className="card-foot" open>
-              <summary>Register it</summary>
+            <div className="card-foot">
             <form
-              style={{ marginTop: "var(--s-3)" }}
               onSubmit={(event) => keepTyped(event, (form) => registerEntity(form))}
             >
               <FieldStack>
@@ -718,11 +790,33 @@ export default function PartyPage() {
                 </div>
               </FieldStack>
             </form>
-            </details>
+            </div>
           )}
         </Card>
       )}
 
+      {/* Beside the registration as cards of their own, at the same level as
+          the rest of the page, rather than folds inside the Registered card. */}
+      {section === "registration" && profile.legalEntities[0] !== undefined && (
+        <ReturnPeriods
+          partyId={partyId}
+          periods={profile.returnPeriods}
+          canWrite={canWrite}
+          onSaved={load}
+        />
+      )}
+      {section === "registration" && canWrite && profile.legalEntities[0] !== undefined && (
+        <EntityClock
+          partyId={partyId}
+          current={{
+            jurisdiction: profile.legalEntities[0].jurisdiction,
+            timeZone: profile.legalEntities[0].timeZone,
+          }}
+          onSaved={load}
+        />
+      )}
+
+      {section === "identifiers" && (
       <Card>
         <CardTitle level={2}>Identifiers</CardTitle>
         {profile.identifiers.length === 0 ? (
@@ -797,8 +891,8 @@ export default function PartyPage() {
         {/* One card for the list and the form that adds to it (Wave 4): the
             form was a card of its own, titled, at the foot of the page. */}
         {canWrite && (
-          <details className="card-foot" open={profile.identifiers.length === 0}>
-            <summary>Add an identifier</summary>
+          <FormOrButton folded={profile.identifiers.length > 0} label="Add an identifier">
+            {({ cancel }) => (
             <form
               // Remounted after each add, so the phone box empties with the rest.
               key={profile.identifiers.length}
@@ -858,13 +952,17 @@ export default function PartyPage() {
                   <Button type="submit" variant="secondary" loading={busy}>
                     {busy ? "Adding…" : "Add it"}
                   </Button>
+                  {cancel}
                 </div>
               </FieldStack>
             </form>
-          </details>
+            )}
+          </FormOrButton>
         )}
       </Card>
+      )}
 
+      {section === "relationships" && (
       <Card>
         {/* `tabIndex={-1}` so it can be FOCUSED without becoming a tab stop —
             the same half-fix the skip link needed. It is where focus goes when
@@ -1017,13 +1115,8 @@ export default function PartyPage() {
         )}
 
         {canWrite && types.length > 0 && (
-          <details className="card-foot">
-            {/* THE DISCLOSURE AND THE BUTTON INSIDE IT ARE TWO ACTIONS, and
-                naming both "Record a relationship" only moves the collision.
-                The summary opens a form; the button writes the row. */}
-            <summary aria-label="The form for a new relationship">
-              Record a relationship
-            </summary>
+          <FormOrButton folded={profile.relationships.length > 0} label="Record a relationship">
+            {({ cancel }) => (
             <form
               style={{ marginTop: "var(--s-3)" }}
               onSubmit={(event) => keepTyped(event, (form) => addRelationship(form))}
@@ -1117,24 +1210,31 @@ export default function PartyPage() {
                   <Button type="submit" variant="secondary" loading={relBusy}>
                     {relBusy ? "Recording…" : "Record it"}
                   </Button>
+                  {cancel}
                 </div>
               </FieldStack>
               </fieldset>
             </form>
-          </details>
+            )}
+          </FormOrButton>
         )}
       </Card>
+      )}
 
       {/* The client's file. `partyId` is passed so every document carries the
           column the client portal's record scope (Gate 4) will filter on —
           adding it later would mean backfilling a fact nobody recorded. */}
-      <Documents
-        subjectKind="party"
-        subjectRef={partyId}
-        partyId={partyId}
-        canWrite={canWrite}
-        emptyHint="Upload a PAN card, incorporation certificate or board resolution."
-      />
+      {section === "files" && (
+        <Documents
+          subjectKind="party"
+          subjectRef={partyId}
+          partyId={partyId}
+          canWrite={canWrite}
+          emptyHint="Upload a PAN card, incorporation certificate or board resolution."
+        />
+      )}
+      </div>
+      </div>
     </Page>
   );
 }
