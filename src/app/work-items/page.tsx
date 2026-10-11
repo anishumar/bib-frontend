@@ -150,7 +150,10 @@ function WorkBoardPage() {
    * different QUESTIONS, this is the same question drawn two ways, and a tab
    * would have left "Mine, as a board" nowhere to live. The LIST by default.
    */
-  const [view, setView] = useState<BoardView>(() => (params.get("view") === "board" ? "board" : "list"));
+  // THE BOARD BY DEFAULT (2026-10-10): every column now fits the screen, which
+  // is what made the list the default (V1.2). A view picked by hand rides in
+  // the URL, so Back from a task still lands on the list if that was chosen.
+  const [view, setView] = useState<BoardView>(() => (params.get("view") === "list" ? "list" : "board"));
   /** All tasks of one person (a user id), of nobody (`""`), or everybody
    *  (null). CA#32: picked from By person or the filter on All tasks. */
   const [person, setPerson] = useState<string | null>(() => params.get("person"));
@@ -250,7 +253,6 @@ function WorkBoardPage() {
   const mine = items.filter((i) => i.assignee !== null && i.assignee.userId === me?.userId);
   // The viewer's own share of the check queue. The queue itself is never
   // filtered by this, but the notice has to say what waits on the reader.
-  const mineToCheck = checks.filter((c) => c.viewer.eligible).length;
   const unassigned = items.filter((i) => i.assignee === null);
   // All tasks, narrowed to one person when one is picked (CA#32).
   const everyone =
@@ -289,28 +291,10 @@ function WorkBoardPage() {
 
       <ErrorNotice error={error} />
 
-      {/* Not on the To check tab itself, where it would repeat the tab. */}
-      {checks.length > 0 && tab !== "checks" && (
-        <Notice tone="warn">
-          <p>
-            <strong>{checks.length}</strong>{" "}
-            {checks.length === 1 ? "task is" : "tasks are"} waiting to be checked
-            {mineToCheck > 0 && <>, {mineToCheck} of them yours</>}.{" "}
-            {/* It used to link to `checks[0]`, the oldest, and there was no way
-                to reach the second: the tab is the list. */}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                setTab("checks");
-              }}
-            >
-              Open the queue
-            </Button>
-          </p>
-        </Notice>
-      )}
-
+      {/* NO "N TASKS WAITING TO BE CHECKED" BANNER (2026-10-10). It showed on
+          every tab but To check, so moving to To check and back jumped the
+          tabs and the board 100px each way. The To check count says the same
+          thing in the warn tone, from every tab. */}
       <Tabs
         id={tabsId}
         label="Work board views"
@@ -319,7 +303,12 @@ function WorkBoardPage() {
         tabs={[
           { value: "mine", label: "Mine", count: mine.length },
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
-          { value: "checks", label: "To check", count: checks.length },
+          {
+            value: "checks",
+            label: "To check",
+            count: checks.length,
+            ...(checks.length > 0 ? { tone: "warn" as const } : {}),
+          },
           // Pieces of WORK, like every other tab, not notices (F28).
           { value: "escalated", label: "Escalated", count: escalatedSubjects(escalations) },
           { value: "people", label: "By person" },

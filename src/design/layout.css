@@ -61,6 +61,27 @@ html {
 .textarea:focus-within {
   scrollbar-color: var(--line) transparent;
 }
+/* THE BOARD'S BAR IS ALWAYS DRAWN (2026-10-10). Hidden until hovered, nothing
+   said there were columns past the window's edge. `::-webkit-scrollbar` is
+   what makes Safari draw a bar it would otherwise show only while scrolling;
+   Chrome follows `scrollbar-color` and ignores it. */
+.board,
+.board:hover,
+.board:focus-within {
+  scrollbar-color: var(--faint) transparent;
+}
+.board::-webkit-scrollbar {
+  height: 10px;
+}
+/* `--faint`, not a line colour: `--line-strong` measured almost white on the
+   light ground, a bar nobody would notice. */
+.board::-webkit-scrollbar-thumb {
+  background: var(--faint);
+  border-radius: 999px;
+}
+.board::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 /* ── Shell ────────────────────────────────────────────────────────────────
    A sidebar. Navigation used to be repeated inline at the top of every page,

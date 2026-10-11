@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkItem, WorkItemState } from "@/lib/api/client";
 import { Card, NotSet, Pill } from "@/components/ui";
 import { Empty } from "@/components/states";
@@ -70,6 +71,31 @@ export function WorkBoard({
   today: string;
   includeDone: boolean;
 }) {
+  /* MORE COLUMNS THAN THE SCREEN HOLDS IS SAID, not hidden (2026-10-10).
+     Every column is one width, so a firm with many states scrolls sideways;
+     the edge with more columns beyond it fades, and the scrollbar is always
+     drawn, so a reader can tell the board does not end where the window
+     does. `more` names the side(s) with more to see. */
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState<"left" | "right" | "both" | null>(null);
+  const measure = useCallback((): void => {
+    const el = boardRef.current;
+    if (el === null) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore(left && right ? "both" : left ? "left" : right ? "right" : null);
+  }, []);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (el === null) return;
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, [measure, includeDone, states.length, items.length]);
+
   const held = new Set(items.map((i) => i.state.id));
 
   const columns = states
@@ -93,7 +119,14 @@ export function WorkBoard({
   }
 
   return (
-    <div className="board" role="list" aria-label="Work board, one column per state">
+    <div
+      ref={boardRef}
+      className="board"
+      role="list"
+      aria-label="Work board, one column per state"
+      data-more={more ?? undefined}
+      onScroll={measure}
+    >
       {columns.map((state) => {
         const inColumn = items.filter((i) => i.state.id === state.id);
         // The tone is read off the FLAG, never a branch on the code — a firm
@@ -113,9 +146,13 @@ export function WorkBoard({
                 number ended up disconnected from the thing it counts — found by
                 looking at the board, which is the only way this shows. */}
             <header className="board-col-head">
-              <span className="board-col-dot" aria-hidden="true" />
-              {/* The NAME the firm chose. */}
-              <h2 className="board-col-name">{state.name}</h2>
+              {/* The dot rides the name's first line, so a name wrapped in a
+                  narrow column never leaves it alone on a line of its own. */}
+              <span className="board-col-title">
+                <span className="board-col-dot" aria-hidden="true" />
+                {/* The NAME the firm chose. */}
+                <h2 className="board-col-name">{state.name}</h2>
+              </span>
               {/* THE DOT IS NEVER ALONE. What it means is also here in words,
                   because a board whose only signal is a hue fails the reader it
                   most needs to reach. */}
