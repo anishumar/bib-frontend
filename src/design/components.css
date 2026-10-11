@@ -383,9 +383,15 @@
    stretched over the whole row, so a click anywhere on the row opens the
    item, while the link stays ONE link to a keyboard and a screen reader
    (a row with an onClick would be neither). Any other control in the row sits
-   above the stretched link, or it could never be clicked. */
+   above the stretched link, or it could never be clicked.
+
+   SAFARI IGNORES `position: relative` ON A TABLE ROW, so without the
+   transform every row's `::after` stretched over the whole table and the LAST
+   row's sat on top: a click on any row opened the last item. A transform makes
+   the row the containing block in every engine. */
 .table tbody tr[data-linked="true"] {
   position: relative;
+  transform: translate(0);
   cursor: pointer;
 }
 .table tbody tr[data-linked="true"]:focus-within td {
