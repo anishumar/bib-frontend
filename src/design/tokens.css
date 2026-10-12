@@ -107,6 +107,9 @@
      it is clipped to it (see `.topbar::after`). */
   --topbar-h: 3.5rem;
   --main-w: 78rem;
+  /* The sidebar's foot (its rule to the window's edge less the column's
+     bottom padding). A builder's footer is drawn to the same line. */
+  --foot-h: 4.75rem;
   --main-w-narrow: 46rem;
 
   /* ── Motion ──────────────────────────────────────────────────────────────
@@ -114,6 +117,9 @@
      a delay, not a delight. All of it is disabled under reduced-motion. */
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
+  /* The sidebar folding to its icon rail and back: long enough to see where
+     the labels went, short enough not to wait for. */
+  --dur-panel: 200ms;
   --dur: 140ms;
   /* THE ONE LONGER DURATION, and it is deliberate (Wave 5): a headline figure
      counting up from nothing once, when it first appears. `<CountUp>` reads
@@ -160,11 +166,14 @@
      every screen, and that is a decision to make with somebody's eye on it
      rather than a measurement. */
   --faint: #62727c;
-  --line: #e4e8ea;
-  --line-soft: #eef1f2;
+  /* A step firmer since 2026-10-10: on the flat white page panel a card's
+     edge no longer has the aurora behind it to separate it, and #e4e8ea all
+     but vanished. */
+  --line: #d6dcdf;
+  --line-soft: #e4e9eb;
   /* The rule under a table's head row: one step firmer than a row rule, so
      the head reads as a head without a grey band behind it. */
-  --line-strong: #d3d9dc;
+  --line-strong: #c4ccd0;
   /* The ground of a NEUTRAL pill: a state that is not good or bad ("New",
      "Draft"). A wash, not a border, so it reads from across the room. */
   --neutral-wash: #eef1f2;
@@ -359,14 +368,15 @@
     radial-gradient(55% 55% at 100% 100%, #ffb893 0%, transparent 70%),
     radial-gradient(50% 50% at 0% 100%, #b7cbff 0%, transparent 72%),
     radial-gradient(34% 34% at 56% 62%, #fff0c4 0%, transparent 70%);
-  --glass-side: linear-gradient(180deg, rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.54));
-  --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.55), transparent 60%);
-  --glass-rim: rgb(255 255 255 / 0.72);
-  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(15 26 32 / 0.05), 0 24px 48px -30px rgb(15 26 32 / 0.42);
-  --glass-hover: rgb(255 255 255 / 0.62);
-  --glass-current: rgb(255 255 255 / 0.94);
-  --glass-current-shadow: inset 0 1px 0 #ffffff, 0 6px 16px -10px rgb(15 26 32 / 0.45);
-  --glass-field: rgb(255 255 255 / 0.6);
+  /* FLAT SINCE 2026-10-10 (the user: "the floating glass looks old"). The
+     names stay so every rule using them follows: a row under the pointer is a
+     faint ink wash, the page you are on a white pill with a hairline ring, as
+     a sidebar on a plain grey ground draws them. --glass-side, -sheen, -rim
+     and -shadow are no longer used; --aurora is no longer painted. */
+  --glass-hover: rgb(15 26 32 / 0.05);
+  --glass-current: var(--surface);
+  --glass-current-shadow: 0 0 0 1px var(--line), 0 1px 2px rgb(15 26 32 / 0.06);
+  --glass-field: var(--surface);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -472,14 +482,10 @@
       radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
       radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
       radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
-    --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
-    --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
-    --glass-rim: rgb(255 255 255 / 0.08);
-    --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
-    --glass-hover: rgb(255 255 255 / 0.06);
-    --glass-current: rgb(255 255 255 / 0.1);
-    --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);
-    --glass-field: rgb(0 0 0 / 0.2);
+    --glass-hover: rgb(255 255 255 / 0.05);
+    --glass-current: var(--surface);
+    --glass-current-shadow: 0 0 0 1px var(--line);
+    --glass-field: var(--surface);
   }
 }
 
@@ -559,12 +565,8 @@
     radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
     radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
     radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
-  --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
-  --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
-  --glass-rim: rgb(255 255 255 / 0.08);
-  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
-  --glass-hover: rgb(255 255 255 / 0.06);
-  --glass-current: rgb(255 255 255 / 0.1);
-  --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);
-  --glass-field: rgb(0 0 0 / 0.2);
+  --glass-hover: rgb(255 255 255 / 0.05);
+  --glass-current: var(--surface);
+  --glass-current-shadow: 0 0 0 1px var(--line);
+  --glass-field: var(--surface);
 }

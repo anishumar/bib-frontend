@@ -33,6 +33,7 @@ export {
   type InputProps,
   type SelectProps,
   type TextareaProps,
+  useFieldWiring,
 } from "./field";
 export { AmountInput, isTypedAmount, type AmountInputProps } from "./amount-input";
 export { Icon, type IconName } from "./icon";

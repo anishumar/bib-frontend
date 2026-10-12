@@ -314,19 +314,25 @@
    is the one box and its title sits directly above the table. The first and
    last columns take the card's padding, which keeps them in line with the
    title. A table nested deeper than a direct child keeps its frame: it is in
-   some other container, and that one may not be a card. */
-.card:not([data-flush="true"]) > .tablewrap {
+   some other container, and that one may not be a card. The one exception is
+   a tab panel straight in the card (My day, 2026-10-10): the tabs are the
+   card's own head, so its table is the card's table. */
+.card:not([data-flush="true"]) > .tablewrap,
+.card:not([data-flush="true"]) > [role="tabpanel"] > .tablewrap {
   border: 0;
   border-radius: 0;
   margin-inline: calc(-1 * var(--card-pad));
 }
-.card:not([data-flush="true"]) > .tablewrap:last-child {
+.card:not([data-flush="true"]) > .tablewrap:last-child,
+.card:not([data-flush="true"]) > [role="tabpanel"]:last-child > .tablewrap:last-child {
   margin-bottom: calc(var(--s-2) - var(--card-pad));
 }
-.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):first-child {
+.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):first-child,
+.card:not([data-flush="true"]) > [role="tabpanel"] > .tablewrap .table :is(th, td):first-child {
   padding-left: var(--card-pad);
 }
-.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):last-child {
+.card:not([data-flush="true"]) > .tablewrap .table :is(th, td):last-child,
+.card:not([data-flush="true"]) > [role="tabpanel"] > .tablewrap .table :is(th, td):last-child {
   padding-right: var(--card-pad);
 }
 
@@ -444,7 +450,8 @@
   display: inline-block;
   vertical-align: middle;
 }
-.card:not([data-flush="true"]) > .tablewrap .table .row-chevron:last-child {
+.card:not([data-flush="true"]) > .tablewrap .table .row-chevron:last-child,
+.card:not([data-flush="true"]) > [role="tabpanel"] > .tablewrap .table .row-chevron:last-child {
   padding-right: var(--s-3);
 }
 /* A quiet second line under something — an email under a name, a code under a
@@ -821,6 +828,20 @@
   color: var(--muted);
   margin: var(--s-1) 0 0;
 }
+/* A FORM CARD (2026-10-12): a soft edge and a shadow, the panel's own large
+   corner, more room inside. The plain card's hard border read as a box. */
+.form-card {
+  border-color: var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: var(--s-6);
+}
+/* Hints only for the field being filled in: the rest keep their space, so
+   nothing moves as focus goes from box to box, and stay in the accessible
+   description (visibility, not display). */
+.hints-on-focus .field:not(:focus-within) > .field-hint {
+  visibility: hidden;
+}
 .field-error {
   font-size: var(--t-sm);
   color: var(--danger);
@@ -866,6 +887,109 @@
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--s-4);
   align-items: start;
+}
+/* THE BUILDERS' FOOTER STAYS AT THE FOOT (2026-10-10). On a short step (a
+   country with one service) it rode up under the list, so Next moved from
+   tab to tab. The page and the step fill the panel's height and the footer
+   takes the space left above it. */
+/* The step holding the footer grows to fill the page (a flex column); its
+   own column then gives the footer the space left. */
+:has(> .builder-footer) {
+  flex: 1 0 auto;
+}
+/* No room under the footer: the page's 5rem bottom padding left a short
+   step's footer 80px above where a long step's sticks (the window's edge). */
+main:has(> * > .builder-footer) {
+  padding-bottom: 0;
+}
+/* THE FOOTER IS THE PANEL'S OWN FOOT (2026-10-12). It was a grey strip 8px
+   narrower than the panel on each side, stuck 9px above the window's edge, so
+   the page scrolled past in the gap under it and its ends met no border. Now
+   it runs border to border: `.main` is a size container, so 100cqw is the
+   panel's inside width whatever the page's max-width leaves, and the footer
+   bleeds out to it (and 1px more, over the panel's own side borders).
+   ::before draws the white panel bottom (a hairline on top, the panel's
+   rounded corners below); the footer's own ground is the window's grey, which
+   is what shows outside those corners; ::after covers the gutter under it. */
+.main {
+  container-type: inline-size;
+}
+.builder-footer {
+  position: sticky;
+  bottom: var(--s-2);
+  margin-top: auto;
+  margin-bottom: -1px;
+  margin-inline: calc((100% - 100cqw) / 2 - 1px);
+  padding-inline: calc((100cqw - 100%) / 2);
+  background: var(--paper);
+  border: 0;
+  /* Its top rule on the sidebar foot's: the foot's height plus the column's
+     bottom padding, less the gutter under the panel. */
+  box-sizing: border-box;
+  min-height: calc(var(--foot-h) + var(--s-4) - var(--s-2));
+  display: flex;
+  align-items: center;
+}
+.builder-footer > * {
+  flex: 1;
+}
+.builder-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.builder-footer::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--s-2);
+  background: var(--paper);
+}
+
+/* A builder's services: rows with a hairline between them, no box
+   (2026-10-12; a bordered box per team read as boxes inside the card). */
+.service-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.service-list > li {
+  padding: var(--s-2) var(--s-3);
+}
+.service-list > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+/* THE DEPT'S TINT: the chip on its heading, and a ticked box in the Dept's
+   ink. A category tint says which GROUP,
+   never good or bad, so nothing here is green or red. */
+[data-cat="1"] { --dept: var(--cat-1); --dept-wash: var(--cat-1-wash); --dept-ink: var(--cat-1-ink); }
+[data-cat="2"] { --dept: var(--cat-2); --dept-wash: var(--cat-2-wash); --dept-ink: var(--cat-2-ink); }
+[data-cat="3"] { --dept: var(--cat-3); --dept-wash: var(--cat-3-wash); --dept-ink: var(--cat-3-ink); }
+[data-cat="4"] { --dept: var(--cat-4); --dept-wash: var(--cat-4-wash); --dept-ink: var(--cat-4-ink); }
+/* A selected row says so with its tick alone (2026-10-12): no wash. */
+.service-list > li[data-open] + li,
+.service-list > li + li[data-open] {
+  border-top-color: transparent;
+}
+[data-cat] .service-list input[type="checkbox"] {
+  accent-color: var(--dept-ink);
+}
+.service-list > li[data-open] {
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  padding-bottom: var(--s-4);
+}
+
+/* A service's Edit in the builders: currency, fee, how often, how many and
+   discount on ONE line (2026-10-10), so the columns may be narrower. */
+.service-edit .field-row {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }
 
 /* A BUTTON IN A ROW OF FIELDS, level with the controls rather than with the
@@ -1077,6 +1201,48 @@
 /* ── Stat strip ───────────────────────────────────────────────────────────
    Counts, in one band rather than four hero tiles. The number is the loud part
    and the word is small, because the number is what changes. */
+
+/* MY DAY (2026-10-10): the work on the left, the latest updates in a
+   column beside it once the window is wide enough for both; stacked below. */
+.day-grid {
+  display: grid;
+  gap: var(--s-5);
+  align-items: start;
+}
+@media (min-width: 88rem) {
+  .day-grid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+/* Beside the updates column the list has ~46rem: its two free-text columns
+   wrap a little sooner so Due and Whose turn stay on screen. */
+.day-grid .cell-text:not([data-size]) {
+  max-width: 18rem;
+}
+.day-grid .cell-text[data-size="narrow"] {
+  max-width: 12rem;
+}
+/* MINIMAL (the user, 2026-10-10: "too many boxes, lines and colours").
+   The list's rows are told apart by space
+   and the hover ground, not a rule under every row, and the head has no
+   rule of its own under the tabs' line. */
+.day-grid .table th {
+  border-bottom: 0;
+}
+.day-grid .table td {
+  border-bottom: 0;
+}
+.day-grid .table tbody tr:hover td:first-child {
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+.day-grid .table tbody tr:hover td:last-child {
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.day-updates {
+  display: flex;
+  flex-direction: column;
+  margin: 0 calc(-1 * var(--s-2));
+}
 
 .strip {
   display: grid;

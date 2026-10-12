@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, apiError } from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import { Button, Card, CardTitle, Dialog, ErrorNotice, Field, FieldRow, Input, Textarea } from "@/components/ui";
@@ -50,6 +50,17 @@ export function EditDetails({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const opener = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  /* Focus goes back to "Edit details" however the dialog closed (Save,
+     Cancel, Escape, or an archive done from inside it): the dialog's content
+     is unmounted with it, so nothing else would hand focus back, and it fell
+     to <body> (review, PR #2). */
+  useEffect(() => {
+    if (wasOpen.current && !open) opener.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
 
   function close(): void {
     setOpen(false);
@@ -90,6 +101,7 @@ export function EditDetails({
   return (
     <>
       <Button
+        ref={opener}
         variant="secondary"
         aria-haspopup="dialog"
         onClick={() => {

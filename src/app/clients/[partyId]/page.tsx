@@ -493,9 +493,11 @@ export default function PartyPage() {
                           it later.
                         </p>
                       }
+                      /* The dialog stays open, the button busy, until the
+                         archive and the reload have settled; then it closes
+                         and focus returns to Edit details (review, PR #2). */
                       onConfirm={() => {
-                        close();
-                        void setArchived(true);
+                        void setArchived(true).then(close);
                       }}
                     >
                       Archive this client

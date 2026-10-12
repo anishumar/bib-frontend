@@ -7,7 +7,8 @@ import { api, apiError } from "@/lib/api/client";
 import type { LetterRecord, ServiceAxis } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { Card, CardTitle } from "@/components/tw";
-import { Button, Field, LinkButton, Select, TabPanel, Tabs } from "@/components/ui";
+import { Button, Pill, Field, LinkButton, Select, TabPanel, Tabs } from "@/components/ui";
+import { deptTint } from "@/app/catalogue/service";
 import { countryName } from "@/lib/country";
 import { StickyFooter } from "@/components/proposal-builder/frame";
 import { catalogueCountries, groupByDept, offeredIn } from "@/components/proposal-builder/data";
@@ -230,7 +231,7 @@ export function LetterServicesStep({
         editable={editable}
         onChanged={onChanged}
       />
-      <Card>
+      <Card className="form-card">
         <CardTitle level={2}>Services</CardTitle>
         {choosing && (
           <div className="mt-3 max-w-md">
@@ -276,21 +277,21 @@ export function LetterServicesStep({
               {groups.length === 0 ? (
                 <p className="mt-4 text-muted">Nothing in the catalogue is offered in {countryName(country)}.</p>
               ) : (
-                <div className="mt-2 flex flex-col gap-6">
+                <div className="mt-4 flex flex-col gap-5">
                   {groups.map((g) => (
-                    <section key={g.code ?? "none"} aria-label={g.name}>
-                      <h3 className="border-b border-line pb-2 pt-3 text-md font-semibold text-ink">
+                    <section key={g.code ?? "none"} aria-label={g.name} data-cat={deptTint(axes, g.code) ?? undefined}>
+                      <h3 className="flex items-center gap-2 text-md font-semibold text-ink">
                         {g.code !== null && g.code !== g.name && (
-                          <span className="mr-2 text-sm text-ink-2">{g.code}</span>
+                          <Pill cat={deptTint(axes, g.code) ?? 4}>{g.code}</Pill>
                         )}
                         {g.name}
                       </h3>
                       {g.teams.map((t) => (
                         <div key={t.code ?? "none"}>
                           {t.name !== null && (
-                            <h4 className="pt-3 text-sm font-semibold text-ink-2">{t.name}</h4>
+                            <h4 className="pb-1 pt-2 text-sm font-semibold text-ink-2">{t.name}</h4>
                           )}
-                          <ul>
+                          <ul className="service-list">
                             {t.services.map((s) => {
                               const mine = linesOf(s).map((l) => rowLineOf(l, feeGroups));
                               const first = mine[0];

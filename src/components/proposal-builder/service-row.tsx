@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { formatCount } from "@/lib/api/client";
 import { Button, Field, FieldRow, FieldStack, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { cleanAmount } from "@/lib/money";
+import { cleanAmount, convertAmount } from "@/lib/money";
+import { longDay } from "@/lib/day";
 import { FREQUENCY_WORDS, pdfMoney } from "@/components/proposal-document";
 import { FREQUENCIES } from "./data";
 import { useSeesFees } from "@/components/fees";
@@ -101,6 +102,9 @@ export function ServiceRow<L extends RowLine>({
   extra,
   noun = "proposal",
   blocked = null,
+  autoRate = false,
+  rateOf,
+  onRate,
 }: {
   service: CatalogueService;
   /** The live lines of this document pinned to this service. Normally one. */
@@ -123,6 +127,17 @@ export function ServiceRow<L extends RowLine>({
   /** Why a tick cannot be taken yet: the checkbox waits. The caller says why,
    *  once, where the missing answer is asked for. */
   blocked?: string | null;
+  /** A list price in a currency the document holds no rate for still reads
+   *  as that price, and ticking it adds it: the caller adds the rate first
+   *  (the proposal builder, 2026-10-10). */
+  autoRate?: boolean;
+  /** A currency's rate in the firm's own currency, the main one included;
+   *  null when not known. Given, the row offers to switch a fee between the
+   *  catalogue's currency and the document's main one, and Edit shows the
+   *  rate (the proposal builder, 2026-10-10). */
+  rateOf?: (currency: string) => { rate: string; on: string; books: string } | null;
+  /** Sets a currency's rate from Edit; the API's refusal, or null. */
+  onRate?: (currency: string, rate: string) => Promise<string | null>;
 }) {
   const detailsId = useId();
   // B09: a login that cannot see fees reads every list price and every line's
@@ -139,7 +154,9 @@ export function ServiceRow<L extends RowLine>({
   const line = lines[0] ?? null;
   const added = line !== null;
   const priced =
-    service.listPrice !== null && currencies.includes(service.listPrice.currency) ? service.listPrice : null;
+    service.listPrice !== null && (autoRate || currencies.includes(service.listPrice.currency))
+      ? service.listPrice
+      : null;
   const [feeCurrency, setFeeCurrency] = useState(priced?.currency ?? currency);
 
   const standard: LineTerms = {
@@ -189,10 +206,28 @@ export function ServiceRow<L extends RowLine>({
 
   const label = [service.ref, service.name].filter(Boolean).join(" ");
 
+  /* SWITCH THE QUOTE'S CURRENCY (2026-10-10). A line in another currency can
+     be quoted in the document's main one instead, converted at the rate it
+     holds; a line in the main one whose catalogue price is in another goes
+     back to that list price. Offered only where both halves are known. */
+  const switchTo = ((): { currency: string; amount: string } | null => {
+    if (rateOf === undefined || line === null || line.unitAmount === null || blind) return null;
+    if (line.currency !== currency) {
+      const from = rateOf(line.currency);
+      const to = rateOf(currency);
+      if (from === null || to === null) return null;
+      const amount = convertAmount(line.unitAmount, from.rate, to.rate);
+      return amount === null ? null : { currency, amount };
+    }
+    const list = service.listPrice;
+    if (list === null || list.currency === currency) return null;
+    return { currency: list.currency, amount: list.amount };
+  })();
+
   return (
-    <li className="border-b border-line-soft py-3 last:border-b-0">
+    <li data-open={open ? "" : undefined} data-added={added ? "" : undefined}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+        <label className="flex min-w-0 flex-1 basis-60 cursor-pointer items-start gap-3">
           <input
             type="checkbox"
             className="mt-1 shrink-0"
@@ -206,8 +241,28 @@ export function ServiceRow<L extends RowLine>({
           <span className="w-12 shrink-0 pt-px text-md tabular-nums text-ink-2">{service.ref ?? ""}</span>
           <span className="min-w-0 flex-1 text-md text-ink">{service.name}</span>
         </label>
-        <span className="ml-auto text-right text-md">
-          <PriceLabel service={service} line={line} currencies={currencies} blind={blind} />
+        <span className="ml-auto flex items-center gap-1 text-right text-md">
+          <PriceLabel
+            service={service}
+            line={line}
+            currencies={autoRate && priced !== null ? [...currencies, priced.currency] : currencies}
+            blind={blind}
+          />
+          {switchTo !== null && editable && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              title={`Quote it in ${switchTo.currency} instead`}
+              aria-label={`Quote ${label} in ${switchTo.currency}`}
+              onClick={() => {
+                if (line !== null) void onSave(line, { ...termsOf(line), currency: switchTo.currency, unitAmount: switchTo.amount });
+              }}
+            >
+              ⇄ {switchTo.currency}
+            </Button>
+          )}
         </span>
         <Button
           type="button"
@@ -215,12 +270,12 @@ export function ServiceRow<L extends RowLine>({
           size="sm"
           aria-expanded={open}
           aria-controls={detailsId}
-          aria-label={`Details of ${label}`}
+          aria-label={`Edit ${label}`}
           onClick={() => {
             setOpen(!open);
           }}
         >
-          Details
+          {open ? "Close" : "Edit"}
         </Button>
       </div>
 
@@ -341,6 +396,9 @@ export function ServiceRow<L extends RowLine>({
             noun={noun}
             blind={blind}
             initial={line === null ? standard : termsOf(line)}
+            {...(rateOf === undefined ? {} : { rateOf })}
+            {...(onRate === undefined ? {} : { onRate })}
+            anyCurrency={autoRate}
             onSubmit={async (terms) => {
               const ok = line === null ? await onAdd(terms) : await onSave(line, terms);
               if (ok) setOpen(false);
@@ -439,11 +497,18 @@ function Details({
   blind,
   initial,
   onSubmit,
+  rateOf,
+  onRate,
+  anyCurrency = false,
 }: {
   service: CatalogueService;
   line: RowLine | null;
   currency: string;
   currencies: readonly string[];
+  rateOf?: (currency: string) => { rate: string; on: string; books: string } | null;
+  onRate?: (currency: string, rate: string) => Promise<string | null>;
+  /** Any currency may be chosen; the caller adds its rate on save. */
+  anyCurrency?: boolean;
   editable: boolean;
   busy: boolean;
   noun: "proposal" | "letter";
@@ -465,6 +530,11 @@ function Details({
   const [frequency, setFrequency] = useState<Recurrence | "">(initial.billingFrequency ?? "");
   const [note, setNote] = useState(initial.pricingNote ?? "");
   const [overrides, setOverrides] = useState<Overrides>(initial.overrides);
+  /** The wording is folded until asked for, unless this line has its own. */
+  const [wording, setWording] = useState(Object.values(initial.overrides).some((v) => v !== null));
+  const [rateEdit, setRateEdit] = useState<string | null>(null);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const known = feeCurrency !== currency && rateOf !== undefined ? rateOf(feeCurrency) : null;
 
   // For an added line the API says what "standard" is: the words of the
   // catalogue version the line is pinned to, which may be older than today's.
@@ -473,7 +543,7 @@ function Details({
 
   return (
     <form
-      className="rounded-md border border-line bg-surface-sunk p-4"
+      className="service-edit"
       onSubmit={(e) => {
         e.preventDefault();
         void onSubmit({
@@ -531,10 +601,10 @@ function Details({
           )}
           {section === null && !blind && (
           <FieldRow>
-            {choices.length > 1 && (
+            {(anyCurrency || choices.length > 1) && (
               <Field label="Currency">
                 <CurrencySelect
-                  only={choices}
+                  {...(anyCurrency ? {} : { only: choices })}
                   value={feeCurrency}
                   onChange={(e) => {
                     setFeeCurrency(e.target.value);
@@ -546,10 +616,8 @@ function Details({
               label={`Fee (${feeCurrency})`}
               hint={
                 service.listPrice === null
-                  ? "No list price. Empty means no fixed fee; say why below."
-                  : service.listPrice.currency === feeCurrency
-                    ? `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}.`
-                    : `The catalogue lists ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}, in another currency.`
+                  ? "No list price. Leave empty for no fixed fee."
+                  : `Catalogue: ${pdfMoney(service.listPrice.amount, service.listPrice.currency)}.`
               }
             >
               <AmountInput
@@ -598,7 +666,77 @@ function Details({
             </Field>
           </FieldRow>
           )}
-          {section === null && !blind && (
+          {/* THE RATE, where the fee in another currency is (2026-10-10):
+              one line, and Change opens one box. The rates card is gone. */}
+          {section === null && !blind && known !== null && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {rateEdit === null ? (
+                <>
+                  <span className="text-ink-2">
+                    1 {feeCurrency} = {Number(Number(known.rate).toFixed(4))} {known.books}{" "}
+                    <span className="text-muted">· {longDay(known.on)}</span>
+                  </span>
+                  {onRate !== undefined && editable && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={() => {
+                        setRateEdit(String(Number(Number(known.rate).toFixed(4))));
+                        setRateError(null);
+                      }}
+                    >
+                      Change rate
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-ink-2">1 {feeCurrency} in {known.books} =</span>
+                  <span className="w-32">
+                    <AmountInput
+                      decimals={10}
+                      aria-label={`Rate for ${feeCurrency}`}
+                      value={rateEdit}
+                      onChange={(e) => {
+                        setRateEdit(e.target.value);
+                      }}
+                    />
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (onRate === undefined || rateEdit.trim() === "") return;
+                      void onRate(feeCurrency, cleanAmount(rateEdit)).then((refused) => {
+                        if (refused === null) setRateEdit(null);
+                        else setRateError(refused);
+                      });
+                    }}
+                  >
+                    Save rate
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setRateEdit(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+              {rateError !== null && (
+                <span role="alert" className="text-danger">
+                  {rateError}
+                </span>
+              )}
+            </div>
+          )}
+          {section === null && !blind && (fee.trim() === "" || note !== "") && (
           <Field
             label="Pricing note"
             optional={fee.trim() !== ""}
@@ -618,7 +756,7 @@ function Details({
           </Field>
           )}
 
-          {SCOPE_FIELDS.map((f) => {
+          {wording && SCOPE_FIELDS.map((f) => {
             const std = standardText(f.key);
             const own = overrides[f.key];
             return (
@@ -669,11 +807,25 @@ function Details({
             );
           })}
 
-          {editable && (
+          {(editable || !wording) && (
             <div className="cluster">
-              <Button type="submit" variant="secondary" size="sm" loading={busy}>
-                {line === null ? "Add with these details" : "Save changes"}
-              </Button>
+              {editable && (
+                <Button type="submit" variant="secondary" size="sm" loading={busy}>
+                  {line === null ? "Add with these details" : "Save changes"}
+                </Button>
+              )}
+              {!wording && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setWording(true);
+                  }}
+                >
+                  Edit the wording for this {noun}
+                </Button>
+              )}
             </div>
           )}
         </FieldStack>

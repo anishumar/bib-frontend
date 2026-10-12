@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
@@ -13,17 +13,19 @@ import type {
   ClientRequest,
   Escalation,
   MyStep,
+  NotificationItem,
   Readiness,
   SentBack,
   StepCheck,
   WorkItem,
   WorkItemCheckRow,
 } from "@/lib/api/client";
-import { Page, PageHeader, Section, useNavCounts, useSession } from "@/components/layout";
+import { Page, PageHeader, useNavCounts, useSession } from "@/components/layout";
+import { NotificationRow } from "@/components/notify/bell";
 import { Empty, Loading } from "@/components/states";
 import {
-  Button,
   Card,
+  CardHead,
   ErrorNotice,
   NotSet,
   Notice,
@@ -31,8 +33,10 @@ import {
   RowChevron,
   RowLink,
   Sub,
+  TabPanel,
   Table,
   TableWrap,
+  Tabs,
   Td,
   Th,
   ThChevron,
@@ -79,7 +83,7 @@ import { readinessCount } from "@/lib/ui/readiness";
  * (a check to decide, a client request to answer, an escalation to chase) is
  * Today unless it is already late, whatever the work's own date: a check due
  * next week is still a check somebody is waiting on. Other work with no due day
- * goes to Later. Later starts closed.
+ * goes to Later. One bucket is on screen at a time, in tabs (2026-10-10).
  *
  * ── WHOSE TURN ─────────────────────────────────────────────────────────────
  *
@@ -132,6 +136,14 @@ const TURN_WORDS: Readonly<Record<Turn, string>> = {
   earlier: "An earlier step",
 };
 
+/** What an empty tab says. */
+const EMPTY_WORDS: Readonly<Record<Bucket, string>> = {
+  overdue: "Nothing overdue.",
+  today: "Nothing due today.",
+  week: "Nothing due in the next seven days.",
+  later: "Nothing further out.",
+};
+
 const BUCKETS: readonly { readonly key: Bucket; readonly title: string }[] = [
   { key: "overdue", title: "Overdue" },
   { key: "today", title: "Today" },
@@ -182,7 +194,11 @@ export default function MyDayPage() {
   const reportCounts = useNavCounts();
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showLater, setShowLater] = useState(false);
+  /** The bucket on screen; null until the reader picks one (then the first
+   *  that holds anything). */
+  const [picked, setPicked] = useState<Bucket | null>(null);
+  const tabsId = useId();
+  const [updates, setUpdates] = useState<readonly NotificationItem[] | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const userId = session?.userId ?? null;
   // Only an administrator sees the firm's setup (the API refuses anybody else).
@@ -253,6 +269,18 @@ export default function MyDayPage() {
     };
   }, [userId, admin, issuer, router, reportCounts]);
 
+  // Latest updates: the reader's newest notifications, the bell's own read.
+  useEffect(() => {
+    if (userId === null) return;
+    let live = true;
+    void api.GET("/api/v1/notifications", { params: { query: { limit: 6 } } }).then(({ data }) => {
+      if (live) setUpdates(data?.rows ?? []);
+    });
+    return () => {
+      live = false;
+    };
+  }, [userId]);
+
   if (session === null || rows === null) return <Loading label="Loading your day" />;
 
   const today = browserDay();
@@ -266,6 +294,8 @@ export default function MyDayPage() {
   // "Nothing due" with a filing legally due in eight days read as "you are up
   // to date" (CA#11). With nothing this week, the next dated thing is named.
   const next = grouped.get("later")?.find((r) => r.dueOn !== null) ?? null;
+  const count = (key: Bucket): number => grouped.get(key)?.length ?? 0;
+  const bucket: Bucket = picked ?? BUCKETS.find((b) => count(b.key) > 0)?.key ?? "overdue";
 
   return (
     <Page>
@@ -287,46 +317,53 @@ export default function MyDayPage() {
         </Card>
       )}
 
-      {BUCKETS.map(({ key, title }) => {
-        const list = grouped.get(key) ?? [];
-        if (list.length === 0) return null;
-        const later = key === "later";
-        return (
-          <Section
-            key={key}
+      {/* AN OVERVIEW, NOT ONE LONG LIST (2026-10-10): ONE bucket at a time in
+          a card with tabs (their counts are the summary), and the latest
+          updates beside it. Overdue alone used to fill the screen and push Today and
+          This week out of sight. */}
+      <div className="day-grid">
+        <div className="stack">
+          <Card>
+            <Tabs
+              id={tabsId}
+              label="When it is due"
+              value={bucket}
+              onChange={setPicked}
+              tabs={BUCKETS.map(({ key, title }) => ({
+                value: key,
+                label: title,
+                count: count(key),
+              }))}
+            />
+            <TabPanel tabsId={tabsId} value={bucket}>
+              {(grouped.get(bucket) ?? []).length === 0 ? (
+                <p className="muted mt-4">{EMPTY_WORDS[bucket]}</p>
+              ) : (
+                <DayTable rows={grouped.get(bucket) ?? []} today={today} />
+              )}
+            </TabPanel>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHead
             level={2}
-            title={
-              <>
-                {title}{" "}
-                <Pill tone={key === "overdue" ? "danger" : key === "today" ? "warn" : "neutral"}>
-                  {list.length}
-                </Pill>
-              </>
-            }
-            aside={
-              later ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-expanded={showLater}
-                  aria-controls="my-day-later"
-                  onClick={() => {
-                    setShowLater((v) => !v);
-                  }}
-                >
-                  {showLater ? "Hide" : "Show"}
-                </Button>
-              ) : undefined
-            }
-          >
-            {(!later || showLater) && (
-              <div id={later ? "my-day-later" : undefined}>
-                <DayTable rows={list} today={today} />
-              </div>
-            )}
-          </Section>
-        );
-      })}
+            title="Latest updates"
+            aside={<Link href={"/notifications" as Route}>See all</Link>}
+          />
+          {updates === null ? (
+            <p className="muted">Loading…</p>
+          ) : updates.length === 0 ? (
+            <p className="muted">Nothing new.</p>
+          ) : (
+            <div className="day-updates">
+              {updates.map((n) => (
+                <NotificationRow key={n.id} n={n} />
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </Page>
   );
 }

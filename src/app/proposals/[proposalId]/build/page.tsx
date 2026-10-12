@@ -1,8 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
-import type { Route } from "next";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api, PROPOSAL_STATUS_WORDS } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
@@ -10,7 +8,7 @@ import { Notice, Pill } from "@/components/ui";
 import { Page, PageHeader } from "@/components/tw";
 import { useSession } from "@/components/layout";
 import { putProposal, useProposal } from "@/components/proposal-document";
-import { Stepper } from "@/components/proposal-builder/frame";
+import { BuilderFacts, Stepper } from "@/components/proposal-builder/frame";
 import { ClientStep } from "@/components/proposal-builder/client-step";
 import { ServicesStep } from "@/components/proposal-builder/services-step";
 import { PreviewStep } from "@/components/proposal-builder/preview-step";
@@ -89,18 +87,18 @@ function Builder() {
       <PageHeader
         title={proposal.title}
         lede={
-          <span>
-            {record.party.displayName} · {proposal.ref} · issued by{" "}
-            {record.issuingEntity.displayName} in {proposal.currency}.{" "}
-            {!isDraft && (
-              <>
+          <BuilderFacts
+            reference={proposal.ref}
+            issuer={record.issuingEntity.displayName}
+            currency={proposal.currency}
+            status={
+              !isDraft && (
                 <Pill dot tone={proposal.deletedAt === null ? "neutral" : "danger"}>
                   {proposal.deletedAt === null ? PROPOSAL_STATUS_WORDS[proposal.status] : "Deleted"}
-                </Pill>{" "}
-              </>
-            )}
-            <Link href={`/proposals/${proposal.id}` as Route}>Open the proposal page</Link>
-          </span>
+                </Pill>
+              )
+            }
+          />
         }
       />
       <Stepper current={step} proposalId={isDraft ? proposal.id : null} />

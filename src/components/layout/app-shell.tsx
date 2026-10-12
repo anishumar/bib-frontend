@@ -172,9 +172,12 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    /* The book, the pipeline, what the firm has quoted and what it has agreed. */
+    /* The book, the pipeline, what the firm has quoted and what it has agreed.
+       Open by default like Work (2026-10-10): every screen in sight on first
+       look, closing it is the reader's choice. */
     label: "Commercial",
     icon: "pipeline",
+    openByDefault: true,
     items: [
       { href: "/clients", label: "Clients", icon: "clients", needs: "party:read" },
       { href: "/leads", label: "Pipeline", icon: "pipeline", needs: "party:read" },
@@ -393,6 +396,9 @@ const SETTINGS_GROUPS: NavGroup[] = [
   },
 ];
 
+/** Where the sidebar's folded or open state is kept, per browser. */
+const SIDEBAR_KEY = "bib.sidebar";
+
 /** Routes that get no frame: nobody is signed in, or nobody needs to be. */
 function isBare(pathname: string): boolean {
   // `/p/[token]` is the client-facing proposal view. It has no session at all
@@ -568,6 +574,32 @@ export function AppShell({ children }: { children: ReactNode }) {
    * without being told to, and stops guessing the moment you disagree with it.
    */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  /**
+   * The sidebar folded to its icon rail (2026-10-10). A per-browser choice,
+   * kept in localStorage and read after mount, so the server's render and the
+   * browser's first one agree. Storage can be refused (a private window, site
+   * data blocked); the sidebar then simply opens expanded.
+   */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- storage is only readable here
+      setCollapsed(window.localStorage.getItem(SIDEBAR_KEY) === "collapsed");
+    } catch {
+      /* storage refused: stay expanded */
+    }
+  }, []);
+  const toggleSidebar = useCallback((): void => {
+    setCollapsed((was) => {
+      const next = !was;
+      try {
+        window.localStorage.setItem(SIDEBAR_KEY, next ? "collapsed" : "expanded");
+      } catch {
+        /* storage refused: the choice lasts for this page only */
+      }
+      return next;
+    });
+  }, []);
   /** What the pages last reported is on the reader's desk (V2.1). */
   const [counts, setCounts] = useState<NavCounts>({});
   const reportCounts = useCallback((next: NavCounts) => {
@@ -803,7 +835,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SessionContext.Provider value={principal}>
       <NavCountsContext.Provider value={reportCounts}>
-      <div className="shell">
+      <div className="shell" data-collapsed={collapsed || undefined}>
         {/* TWENTY-ONE TAB STOPS STOOD BETWEEN THE PAGE AND THE KEYBOARD.
             Measured: the sidebar is 14 to 21 stops depending on which
             groups are open, and every one of them came before `<main>` on
@@ -817,7 +849,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         <a href="#page" className="skip-link">
           Skip to the page
         </a>
-        <aside className="sidebar">
+        {/* FOLDED, THE WHOLE RAIL OPENS IT (2026-10-10): a click on its empty
+            space expands the sidebar, so the toggle is not drawn on the rail.
+            A click on an icon still does that icon's job (a link, or a group's
+            menu); the toggle stays reachable by keyboard and shows on focus. */}
+        <aside
+          className="sidebar"
+          title={collapsed ? "Expand the sidebar" : undefined}
+          onClick={(event) => {
+            if (!collapsed) return;
+            const target = event.target as HTMLElement;
+            if (target.closest("a, button, input, select, [popover]") !== null) return;
+            toggleSidebar();
+          }}
+        >
           {/* THE FIRM'S OWN MARK (CA#40), AND ONE LINE OF IT. CA#40 fixed the
               badge, which read "10x" on every firm's workspace, and put the
               product's name under the firm's - so the head of the sidebar
@@ -830,14 +875,29 @@ export function AppShell({ children }: { children: ReactNode }) {
               `data-chars` is the mark's length: `firmInitials` keeps a name
               that leads with a figure whole ("10x Global" -> "10x"), and three
               characters did not fit the disc at the body size. */}
-          <Link href="/" className="brand" title={firmName}>
-            <span className="mark" data-chars={firmMark.length} aria-hidden="true">
-              {firmMark}
-            </span>
-            <span className="brand-id">
-              <b>{firmName}</b>
-            </span>
-          </Link>
+          <div className="sidebar-head">
+            <Link href="/" className="brand" title={firmName}>
+              <span className="mark" data-chars={firmMark.length} aria-hidden="true">
+                {firmMark}
+              </span>
+              <span className="brand-id">
+                <b>{firmName}</b>
+              </span>
+            </Link>
+            {/* EXPAND / COLLAPSE (2026-10-10): the sidebar folds to a rail of
+                icons, each named by a tooltip, and Work and Commercial open
+                their screens in a menu beside it. */}
+            <button
+              type="button"
+              className="sidebar-toggle"
+              onClick={toggleSidebar}
+              aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+              aria-pressed={collapsed}
+              title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+            >
+              <Icon name="sidebar" size={18} />
+            </button>
+          </div>
 
           {principal !== null && (
             <>
@@ -850,7 +910,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {/* "← Settings": the menu's name and the way out in one
                         row, as Linear draws it, so the groups start a row
                         higher on a laptop. */}
-                    <Link href="/" className="nav-link nav-back" aria-label="Settings, back to the workspace">
+                    <Link
+                      href="/"
+                      className="nav-link nav-back"
+                      aria-label="Settings, back to the workspace"
+                      title={collapsed ? "Back to the workspace" : undefined}
+                    >
                       <Icon name="arrowLeft" className="nav-icon" />
                       <span className="label">Settings</span>
                     </Link>
@@ -874,6 +939,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         href={solo.href}
                         className="nav-link nav-top"
                         data-divider={group.divider || undefined}
+                        title={collapsed ? solo.label : undefined}
                         {...(isCurrent(pathname, solo.href)
                           ? { "aria-current": "page" as const }
                           : {})}
@@ -882,6 +948,43 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <span className="label">{solo.label}</span>
                         {solo.note !== undefined && <span className="count">{solo.note}</span>}
                       </Link>
+                    );
+                  }
+
+                  /* FOLDED, a group is its icon, and its screens open in a menu
+                     beside the rail rather than unfolding the whole sidebar. */
+                  if (collapsed) {
+                    return (
+                      <div
+                        key={group.label}
+                        className="nav-group"
+                        data-here={here || undefined}
+                        data-divider={group.divider || undefined}
+                      >
+                        <Menu
+                          align="left"
+                          className="nav-flyout"
+                          trigger={
+                            <span className="nav-link nav-top nav-group-head" title={group.label}>
+                              <Icon name={group.icon} className="nav-icon" />
+                              <span className="label">{group.label}</span>
+                            </span>
+                          }
+                        >
+                          {group.items.map((item) => (
+                            <MenuItem
+                              key={item.href}
+                              onClick={() => {
+                                router.push(item.href);
+                              }}
+                            >
+                              {isCurrent(pathname, item.href) ? "✓ " : ""}
+                              {item.label}
+                              {countFor(counts, item.href) !== undefined ? ` · ${String(countFor(counts, item.href))}` : ""}
+                            </MenuItem>
+                          ))}
+                        </Menu>
+                      </div>
                     );
                   }
 

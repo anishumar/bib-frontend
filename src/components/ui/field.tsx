@@ -36,7 +36,7 @@ interface FieldWiring {
 const FieldContext = createContext<FieldWiring | null>(null);
 
 /** What a control needs from its field. Empty when it is standalone. */
-function useFieldWiring(): Partial<FieldWiring> {
+export function useFieldWiring(): Partial<FieldWiring> {
   return useContext(FieldContext) ?? {};
 }
 

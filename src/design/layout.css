@@ -82,6 +82,19 @@ html {
 .board::-webkit-scrollbar-track {
   background: transparent;
 }
+/* The client picker's list: its bar always drawn too, so a long book of
+   clients is visibly a list that scrolls (2026-10-10). */
+.client-picker-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--faint) transparent;
+}
+.client-picker-list::-webkit-scrollbar {
+  width: 8px;
+}
+.client-picker-list::-webkit-scrollbar-thumb {
+  background: var(--faint);
+  border-radius: 999px;
+}
 
 /* ── Shell ────────────────────────────────────────────────────────────────
    A sidebar. Navigation used to be repeated inline at the top of every page,
@@ -93,28 +106,140 @@ html {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns var(--dur-panel) var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }
 
-/* FROSTED GLASS, floating a step in from the window's edge (Wave 5): the
-   aurora shows through it, blurred, and its bright rim and top-left sheen are
-   what make it read as glass rather than as a tinted panel. The column stays
-   `--sidebar-w`; the margin comes out of the sidebar, never out of the page. */
+/* FLAT ON THE GROUND (2026-10-10), the way current products draw it: no
+   panel, rim or shadow, the full height of the window, its rows on the grey.
+   It replaced the floating frosted glass of Wave 5, which the user found
+   dated. The page beside it is the white panel (`.main`). */
 .sidebar {
   position: sticky;
-  top: var(--s-3);
-  height: calc(100vh - 2 * var(--s-3));
-  margin: var(--s-3) 0 var(--s-3) var(--s-3);
+  top: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--s-5);
-  padding: var(--s-5) var(--s-4);
-  background: var(--glass-sheen), var(--glass-side);
-  border: 1px solid var(--glass-rim);
-  border-radius: var(--r-lg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  /* Tight (s-3): with Work and Commercial both open on arrival, every row
+     has to fit an 800px window without a scroll. */
+  gap: var(--s-3);
+  padding: var(--s-5) var(--s-3) var(--s-4) var(--s-4);
   overflow-y: auto;
+}
+
+/* ── The head: the firm's mark and the expand / collapse toggle ─────────── */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.sidebar-head .brand {
+  flex: 1 1 auto;
+}
+.sidebar-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.sidebar-toggle:hover {
+  background: var(--glass-hover);
+  color: var(--ink);
+}
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── FOLDED TO A RAIL OF ICONS (2026-10-10) ─────────────────────────────────
+   Wide screens only: below 60rem the sidebar is already a strip. Every label
+   stays in the page as screen-reader text, so a link keeps its name; the
+   tooltip (`title`) is what a pointer gets. */
+@media (min-width: 60.0625rem) {
+  /* The page takes the room the sidebar gave up: its cap grows by exactly
+     the difference (15.5rem - 4.75rem), so folding the sidebar widens the
+     content rather than only the white margin around it. */
+  .shell[data-collapsed] {
+    --sidebar-w: 4.75rem;
+    --main-w: calc(78rem + 10.75rem);
+  }
+  .shell[data-collapsed] .sidebar {
+    padding: var(--s-4) var(--s-2);
+  }
+  .shell[data-collapsed] .sidebar-head {
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+  .shell[data-collapsed] .brand {
+    padding: 0;
+    justify-content: center;
+  }
+  /* The rail itself is the way to open it. */
+  .shell[data-collapsed] .sidebar {
+    cursor: pointer;
+  }
+  /* Not drawn on the rail (a click anywhere on it expands the sidebar), but
+     still a tab stop, shown when the keyboard reaches it. */
+  .shell[data-collapsed] .sidebar-toggle:not(:focus-visible) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .shell[data-collapsed] .brand-id,
+  .shell[data-collapsed] .nav-chevron,
+  .shell[data-collapsed] .nav-link .count,
+  .shell[data-collapsed] .who-id {
+    display: none;
+  }
+  .shell[data-collapsed] .nav-link .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .shell[data-collapsed] .nav-link {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .shell[data-collapsed] .nav > [data-divider]::before {
+    left: var(--s-1);
+    right: var(--s-1);
+  }
+  .shell[data-collapsed] .who {
+    justify-content: center;
+    padding: 0;
+  }
+}
+/* A folded group's icon opens its screens in a menu beside the rail. */
+.nav-flyout,
+.nav-flyout > .menu-trigger {
+  display: flex;
+  width: 100%;
+}
+/* The row inside the menu's button fills it, so a folded group's icon sits on
+   the rail's centre line with the plain links' icons. */
+.nav-flyout > .menu-trigger > .nav-link {
+  flex: 1;
+}
+.nav-group[data-here] .nav-flyout .nav-group-head {
+  color: var(--brand-ink);
 }
 
 .brand {
@@ -317,8 +442,8 @@ html {
   border-left: 1px solid var(--line);
 }
 .nav-children .nav-link {
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
+  padding-top: 0.22rem;
+  padding-bottom: 0.22rem;
   font-size: var(--t-sm);
 }
 
@@ -328,14 +453,14 @@ html {
    drop it with the row. */
 .nav > [data-divider] {
   position: relative;
-  margin-top: var(--s-4);
+  margin-top: var(--s-3);
 }
 .nav > [data-divider]::before {
   content: "";
   position: absolute;
   left: var(--s-2);
   right: var(--s-2);
-  top: calc(-0.5 * var(--s-4));
+  top: calc(-0.5 * var(--s-3));
   border-top: 1px solid var(--line);
 }
 /* While a settings screen is open the sidebar is the settings menu: one row,
@@ -382,6 +507,8 @@ html {
 
 .sidebar-foot {
   margin-top: auto;
+  box-sizing: border-box;
+  min-height: var(--foot-h);
   border-top: 1px solid var(--line);
   padding-top: var(--s-4);
   display: flex;
@@ -458,26 +585,24 @@ html {
 
 /* ── Main column ────────────────────────────────────────────────────────── */
 
+/* THE PAGE IS A WHITE PANEL beside the sidebar (2026-10-10): one step in
+   from the window's top, right and bottom, rounded, with a hairline edge. The
+   top bar is its first row rather than a bar of its own. */
 .main {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  margin: var(--s-2) var(--s-2) var(--s-2) 0;
+  min-height: calc(100vh - 2 * var(--s-2));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
 }
 
-/* THE TOP BAR IS GLASS TOO, on the sidebar's line. A full-width band from the
-   window's top edge met a sidebar floating a step in and a step down in a
-   notch: the band's square corner sat in the sidebar's gutter, above its
-   rounded top. Now both panes start at the same height, with the same radius
-   and the same glass, and the gap between them is the gutter around them.
-
-   The header stays sticky at 0, one gutter plus `--topbar-h` tall; the bar is
-   its `::before`, and its `::after` is the page's own ground laid back over
-   the gutter, so a scrolled page never shows above or beside the bar. That
-   ground is the body's exactly, by construction: the same fixed, full-window
-   box with the same background, clipped to the header's corner of the window.
-   Not `background-attachment: fixed`, for the reasons the ground itself gives
-   (base.css). The side padding puts the crumb on the page's own left edge
-   (12px of gutter + 28px = the page's 2.5rem). */
+/* The panel's head: where you are on the left, the bell and the theme on the
+   right, a hairline under it. Sticky, on the panel's own white, so a scrolled
+   page passes under it. The side padding lines the crumb up with the page's
+   own left edge (2.5rem). */
 .topbar {
   position: sticky;
   top: 0;
@@ -486,31 +611,11 @@ html {
   align-items: center;
   justify-content: space-between;
   gap: var(--s-4);
-  height: calc(var(--s-3) + var(--topbar-h));
-  padding: var(--s-3) calc(var(--s-3) + 1.75rem) 0;
-}
-.topbar::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  background-color: var(--paper);
-  background-image: var(--aurora);
-  background-size: cover;
-  clip-path: inset(0 0 calc(100% - var(--s-3) - var(--topbar-h)) var(--sidebar-w));
-}
-.topbar::before {
-  content: "";
-  position: absolute;
-  inset: var(--s-3) var(--s-3) 0;
-  z-index: -1;
-  background: var(--glass-sheen), var(--glass-side);
-  border: 1px solid var(--glass-rim);
-  border-radius: var(--r-lg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  height: var(--topbar-h);
+  padding: 0 2.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 .crumb {
   font-size: var(--t-sm);
@@ -742,8 +847,8 @@ html {
     gap: var(--s-4);
     overflow-x: auto;
     overflow-y: visible;
-    /* Folded, the glass is a strip floating under the window's top edge. */
-    margin: var(--s-3) var(--s-3) 0;
+    /* Folded, the sidebar is a flat strip across the window's top. */
+    margin: 0;
     padding: var(--s-3) 1.25rem;
     /*
      * Without this the bar does not scroll — it STRETCHES THE PAGE.
@@ -812,10 +917,15 @@ html {
   .who-menu > .menu-trigger {
     width: auto;
   }
+  /* The strip has no rail to fold to. */
+  .sidebar-toggle {
+    display: none;
+  }
   .brand span {
     display: none;
   }
   .sidebar-foot {
+    min-height: 0;
     margin-top: 0;
     margin-left: auto;
     border-top: none;
@@ -831,17 +941,16 @@ html {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
   }
-  /* Folded, the bar is a second strip under the first and scrolls away with
-     it. Held at the top it would need its ground laid over the strip above it
-     to hide what passes through the gutter, and on a phone the window's height
-     is the scarce thing anyway. The crumb lines up with the strip's contents. */
+  /* Folded, the panel runs the window's width under the strip, and its bar
+     scrolls away with it: on a phone the window's height is the scarce
+     thing. The crumb lines up with the page's 1.25rem edge. */
+  .main {
+    margin: 0 var(--s-2) var(--s-2);
+  }
   .topbar {
     position: relative;
-    padding-left: calc(var(--s-3) + 1.25rem);
-    padding-right: calc(var(--s-3) + 1.25rem);
-  }
-  .topbar::after {
-    content: none;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
   .main > main,
   .page {
