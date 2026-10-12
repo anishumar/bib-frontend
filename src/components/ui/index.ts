@@ -16,6 +16,7 @@ export {
   type ButtonSize,
 } from "./button";
 export { Card, CardHead, CardTitle, CardFoot } from "./card";
+export { Compose } from "./compose";
 export { Dialog } from "./dialog";
 export {
   Field,

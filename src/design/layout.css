@@ -136,6 +136,9 @@ html {
   display: flex;
   align-items: center;
   gap: var(--s-2);
+  /* Room under the firm's mark (2026-10-13): at the column's 12px gap the
+     first link sat against the logo. */
+  margin-bottom: var(--s-2);
 }
 .sidebar-head .brand {
   flex: 1 1 auto;

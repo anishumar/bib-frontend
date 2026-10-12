@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "next";
 import { api, apiError } from "@/lib/api/client";
 import type { LetterRouting } from "@/lib/api/client";
-import { Button, Field, FieldRow, Input, LinkButton, Notice } from "@/components/ui";
+import { Button, Field, FieldRow, Icon, Input, LinkButton, Notice } from "@/components/ui";
 import { Card, CardTitle } from "@/components/tw";
 import { useSession } from "@/components/layout";
 import { RoutingWarning } from "./routing-warning";
@@ -159,7 +159,12 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
               </p>
             )}
             <div className="cluster">
-              <Button type="submit" loading={busy} disabled={busy || missing.length > 0}>
+              <Button
+                type="submit"
+                icon={<Icon name={signing.sends ? "letters" : "lock"} size={16} />}
+                loading={busy}
+                disabled={busy || missing.length > 0}
+              >
                 {signing.sends ? `Send with ${providerName}` : "Lock it as sent"}
               </Button>
             </div>
@@ -180,7 +185,11 @@ export function LetterSendPanel({ letterId, onSent }: { letterId: string; onSent
 
         {!isDraft && (
           <div className="cluster mt-3">
-            <LinkButton variant="secondary" href={`/engagement-letters/${letterId}` as Route}>
+            <LinkButton
+              variant="secondary"
+              href={`/engagement-letters/${letterId}` as Route}
+              iconAfter={<Icon name="arrowRight" size={16} />}
+            >
               Open the letter page
             </LinkButton>
           </div>

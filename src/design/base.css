@@ -37,10 +37,11 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* A plain grey ground since 2026-10-10: the sidebar sits flat on it and
-     the page is a white panel beside it (layout.css). The aurora is no longer
-     painted. */
+  /* The aurora again since 2026-10-13: the frosted sidebar and page panel
+     sit on it (layout.css). */
   background-color: var(--paper);
+  background-image: var(--aurora);
+  background-size: cover;
 }
 
 /* ── Headings ─────────────────────────────────────────────────────────────

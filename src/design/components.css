@@ -2861,3 +2861,73 @@ main:has(> * > .builder-footer) {
 .notify-hour {
   max-width: 14rem;
 }
+
+/* COMPOSE (2026-10-13): a panel docked bottom right, Gmail's "New Message".
+   Not modal: the page behind it stays usable. Above the builders' footer and
+   the top bar, below a real dialog. */
+.compose {
+  position: fixed;
+  right: var(--s-6);
+  /* A page with a sticky footer sets this so the panel rises above it. */
+  bottom: var(--compose-bottom, var(--s-2));
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  width: min(34rem, calc(100vw - 2 * var(--s-4)));
+  max-height: calc(100vh - var(--topbar-h) - var(--s-6));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow), 0 0 0 1px var(--line-soft);
+}
+.compose-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.compose-small .compose-head {
+  border-bottom: 0;
+  border-radius: var(--r-lg);
+}
+/* Over a builder's footer: the panel sits on its top edge, a gutter up. */
+main:has(> * > .builder-footer) {
+  --compose-bottom: calc(var(--foot-h) + var(--s-4) + var(--s-2));
+}
+.compose-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+.compose-chrome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.compose-chrome:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.compose-body {
+  overflow-y: auto;
+  padding: var(--s-4);
+}
+@media (max-width: 40rem) {
+  .compose {
+    right: var(--s-2);
+    left: var(--s-2);
+    width: auto;
+  }
+}

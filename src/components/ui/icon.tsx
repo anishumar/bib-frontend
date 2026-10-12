@@ -302,6 +302,15 @@ const PATHS = {
       <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
     </>
   ),
+  /* A message sent in a chat (WhatsApp and the like): a bubble with a tail. */
+  chat: <path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4.5 19.5l1.4-4.2A7.5 7.5 0 1 1 20 11.5Z" />,
+  /* A link to share: two links of a chain. */
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
   /* Not included: a circle struck through. */
   ban: (
     <>
