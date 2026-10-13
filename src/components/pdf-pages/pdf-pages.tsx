@@ -122,7 +122,9 @@ export function PdfPages({
   const total = pages.length;
   return (
     <section aria-label={label} aria-busy={updating || total === 0} className="relative flex w-full flex-col gap-2">
-      <div ref={frame} className="w-full" />
+      {/* Measures the width only; out of the flow, so the first page starts at
+          the top of the column, level with the Edit panel. */}
+      <div ref={frame} className="absolute inset-x-0 top-0" aria-hidden="true" />
       {failure !== null && total === 0 && (
         <p role="alert" className="text-sm text-danger">
           The PDF could not be drawn here: {failure}

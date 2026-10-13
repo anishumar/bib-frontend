@@ -1,19 +1,21 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, apiError } from "@/lib/api/client";
 import type { ProposalLine, ProposalRecord, ServiceAxis } from "@/lib/api/client";
 import { Card, CardTitle } from "@/components/tw";
-import { Button, LinkButton, TabPanel, Tabs } from "@/components/ui";
+import { Button, Pill, LinkButton, TabPanel, Tabs } from "@/components/ui";
+import { deptTint } from "@/app/catalogue/service";
 import { countryName } from "@/lib/country";
 import { StickyFooter } from "./frame";
 import { catalogueCountries, groupByDept, offeredIn } from "./data";
 import type { CatalogueService } from "./data";
 import { ServiceRow } from "./service-row";
 import { FrequencyTotals } from "./totals";
-import { CurrencyRates } from "@/components/currency-rates";
+import { fxSuggestion } from "@/lib/fx";
+import { browserDay } from "@/lib/day";
 import type { LineTerms } from "./service-row";
 
 /**
@@ -48,6 +50,33 @@ export function ServicesStep({
   const tabsId = useId();
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
+  const [reportingCurrency, setReportingCurrency] = useState<string | null>(null);
+  useEffect(() => {
+    void api.GET("/api/v1/firm-entities", {}).then((r) => {
+      setReportingCurrency(r.data?.reportingCurrency ?? null);
+    });
+  }, []);
+
+  /* NO RATES CARD (2026-10-10): a rate is added when a fee in another
+     currency is, shown and changed inside that service's Edit, and taken off
+     with its last fee. These two are what the rows need for it. */
+  function rateOf(c: string): { rate: string; on: string; books: string } | null {
+    if (reportingCurrency === null) return null;
+    if (c === proposal.currency) {
+      return proposal.fxRate === null ? null : { rate: proposal.fxRate, on: proposal.fxRateDate, books: reportingCurrency };
+    }
+    const r = proposal.rates.find((x) => x.currency === c);
+    return r === undefined || r.fxRate === null ? null : { rate: r.fxRate, on: r.fxRateDate, books: reportingCurrency };
+  }
+  async function setRate(c: string, rate: string): Promise<string | null> {
+    const put = await api.PUT("/api/v1/proposals/{proposalId}/rates/{currency}", {
+      params: { path: { proposalId, currency: c } },
+      body: { fxRate: rate, fxRateDate: browserDay() },
+    });
+    if (put.error) return apiError(put.error).message;
+    await onChanged();
+    return null;
+  }
 
   const { proposal, lines } = record;
   const proposalId = proposal.id;
@@ -118,8 +147,42 @@ export function ServicesStep({
     };
   }
 
+  /**
+   * A service priced in a currency this proposal holds no rate for: the rate
+   * is added first, from the same feed "Add a currency" uses, so ticking a
+   * UAE service on an INR proposal adds it at its AED list price with no
+   * detour (2026-10-10). The firm's own currency is 1. Null when it worked;
+   * the sentence to show when no rate could be found.
+   */
+  async function ensureRate(currency: string): Promise<string | null> {
+    if (currencies.includes(currency)) return null;
+    let reporting = reportingCurrency;
+    if (reporting === null) {
+      const firm = await api.GET("/api/v1/firm-entities", {});
+      reporting = firm.data?.reportingCurrency ?? null;
+      setReportingCurrency(reporting);
+    }
+    const today = browserDay();
+    const feed = currency === reporting ? null : await fxSuggestion(currency, today);
+    if (currency !== reporting && feed === null) {
+      return `No exchange rate for ${currency} today. Add it under Exchange rates below, then tick again.`;
+    }
+    const put = await api.PUT("/api/v1/proposals/{proposalId}/rates/{currency}", {
+      params: { path: { proposalId, currency } },
+      body:
+        feed === null
+          ? { fxRate: "1", fxRateDate: today }
+          : { fxRate: feed.rate, fxRateDate: feed.on, source: feed.source },
+    });
+    return put.error ? apiError(put.error).message : null;
+  }
+
   async function add(s: CatalogueService, t: LineTerms): Promise<boolean> {
     return act(s.key, async () => {
+      if (t.feesUnchanged !== true) {
+        const missing = await ensureRate(t.currency);
+        if (missing !== null) return missing;
+      }
       const result = await api.POST("/api/v1/proposals/{proposalId}/lines", {
         params: { path: { proposalId } },
         body: bodyOf(s, t, country),
@@ -130,11 +193,22 @@ export function ServicesStep({
 
   async function remove(s: CatalogueService): Promise<boolean> {
     return act(s.key, async () => {
-      for (const l of linesOf(s)) {
+      const going = linesOf(s);
+      for (const l of going) {
         const result = await api.DELETE("/api/v1/proposals/{proposalId}/lines/{lineId}", {
           params: { path: { proposalId, lineId: l.id } },
         });
         if (result.error) return apiError(result.error).message;
+      }
+      /* A rate added for this service goes with its last fee (2026-10-10),
+         so "Exchange rates" never lists a currency nothing is priced in.
+         Best effort: a rate that stays can still be removed by hand. */
+      const left = lines.filter((l) => !going.includes(l));
+      for (const c of new Set(going.map((l) => l.currency))) {
+        if (c === proposal.currency || left.some((l) => l.currency === c)) continue;
+        await api.DELETE("/api/v1/proposals/{proposalId}/rates/{currency}", {
+          params: { path: { proposalId, currency: c } },
+        });
       }
       return null;
     });
@@ -148,6 +222,10 @@ export function ServicesStep({
    */
   async function save(s: CatalogueService, line: ProposalLine, t: LineTerms): Promise<boolean> {
     return act(s.key, async () => {
+      if (t.feesUnchanged !== true) {
+        const missing = await ensureRate(t.currency);
+        if (missing !== null) return missing;
+      }
       const result = await api.PATCH("/api/v1/proposals/{proposalId}/lines/{lineId}", {
         params: { path: { proposalId, lineId: line.id } },
         body: {
@@ -169,7 +247,15 @@ export function ServicesStep({
           exclusionsOverride: t.overrides.exclusions,
         },
       });
-      return result.error ? apiError(result.error).message : null;
+      if (result.error) return apiError(result.error).message;
+      // The currency it left, if nothing else is priced in it now.
+      const was = line.currency;
+      if (was !== t.currency && was !== proposal.currency && !lines.some((l) => l.id !== line.id && l.currency === was)) {
+        await api.DELETE("/api/v1/proposals/{proposalId}/rates/{currency}", {
+          params: { path: { proposalId, currency: was } },
+        });
+      }
+      return null;
     });
   }
 
@@ -179,16 +265,7 @@ export function ServicesStep({
 
   return (
     <div className="flex flex-col gap-6">
-      <CurrencyRates
-        kind="proposal"
-        documentId={proposalId}
-        main={proposal.currency}
-        rates={proposal.rates}
-        inUse={(c) => lines.filter((l) => l.currency === c).length}
-        editable={editable}
-        onChanged={onChanged}
-      />
-      <Card>
+      <Card className="form-card">
         <CardTitle level={2}>Services</CardTitle>
         {/* One line (Wave 4). A service priced in another currency, or with
             no list price, asks for the fee first; Details changes the fee,
@@ -221,23 +298,23 @@ export function ServicesStep({
                   Nothing in the catalogue is offered in {countryName(country)}.
                 </p>
               ) : (
-                <div className="mt-2 flex flex-col gap-6">
+                <div className="mt-4 flex flex-col gap-5">
                   {groups.map((g) => (
-                    <section key={g.code ?? "none"} aria-label={g.name}>
-                      <h3 className="border-b border-line pb-2 pt-3 text-md font-semibold text-ink">
+                    <section key={g.code ?? "none"} aria-label={g.name} data-cat={deptTint(axes, g.code) ?? undefined}>
+                      <h3 className="flex items-center gap-2 text-md font-semibold text-ink">
                         {g.code !== null && g.code !== g.name && (
-                          <span className="mr-2 text-sm text-ink-2">{g.code}</span>
+                          <Pill cat={deptTint(axes, g.code) ?? 4}>{g.code}</Pill>
                         )}
                         {g.name}
                       </h3>
                       {g.teams.map((t) => (
                         <div key={t.code ?? "none"}>
                           {t.name !== null && (
-                            <h4 className="pt-3 text-sm font-semibold text-ink-2">
+                            <h4 className="pb-1 pt-2 text-sm font-semibold text-ink-2">
                               {t.name}
                             </h4>
                           )}
-                          <ul>
+                          <ul className="service-list">
                             {t.services.map((s) => (
                               <ServiceRow
                                 key={s.key}
@@ -245,6 +322,9 @@ export function ServicesStep({
                                 lines={linesOf(s)}
                                 currency={proposal.currency}
                                 currencies={currencies}
+                                autoRate
+                                rateOf={rateOf}
+                                onRate={setRate}
                                 editable={editable}
                                 busy={busy === s.key}
                                 error={errors[s.key] === "" ? null : (errors[s.key] ?? null)}
@@ -264,6 +344,7 @@ export function ServicesStep({
           </div>
         )}
       </Card>
+
 
       <StickyFooter
         summary={<FrequencyTotals record={record} />}

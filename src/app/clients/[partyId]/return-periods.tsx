@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { api, apiError } from "@/lib/api/client";
-import { Button, ErrorNotice, Field, FieldRow, Input, Select } from "@/components/ui";
+import { Button, Card, CardTitle, ErrorNotice, Field, FieldRow, Input, Select } from "@/components/ui";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
 /**
@@ -77,8 +77,8 @@ export function ReturnPeriods({
 
   if (!canWrite && periods.length === 0) return null;
   return (
-    <details className="card-foot" open={periods.length > 0}>
-      <summary>Tax return periods</summary>
+    <Card>
+      <CardTitle level={2}>Tax return periods</CardTitle>
       {periods.length > 0 && (
         <ul className="stack tight" style={{ marginTop: "var(--s-2)" }}>
           {periods.map((p) => (
@@ -146,6 +146,6 @@ export function ReturnPeriods({
           </div>
         </form>
       )}
-    </details>
+    </Card>
   );
 }

@@ -92,11 +92,11 @@ import { keepTyped } from "@/lib/ui/keep-typed";
  *
  * It opened as the board, one column per state, and at 1440 the fifth column
  * (Blocked) was off the right edge: the walk found a critical, late GSTR-3B
- * waiting on the client in exactly that column. So it opens as the LIST now,
- * overdue first and then by due date, and being stuck is a flag on the row
- * (the state in danger tone with its reason, or "Waiting on" another task),
- * never a column somebody has to scroll to. The board is one click away.
- * `?tab=&view=` hold the place, so Back from a task lands where you were.
+ * waiting on the client in exactly that column. It opened as the LIST for that
+ * reason, overdue first and then by due date. Since 2026-10-10 every column
+ * fits (or the board says there are more), so it ALWAYS opens as the BOARD,
+ * whatever view was used last; the list is one click away. `?tab=` holds the
+ * place, so Back from a task lands on the same tab.
  *
  * ── BY PERSON, AND COUNTS THAT SAY WHAT THEY COUNT (audit 2026-10-03) ───────
  *
@@ -142,7 +142,6 @@ function WorkBoardPage() {
   const tabsId = useId();
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [staff, setStaff] = useState<Colleague[]>([]);
-  const [includeDone, setIncludeDone] = useState(false);
   /** The firm's own states, which are the board's COLUMNS. */
   const [states, setStates] = useState<WorkItemState[]>([]);
   /**
@@ -150,12 +149,20 @@ function WorkBoardPage() {
    * different QUESTIONS, this is the same question drawn two ways, and a tab
    * would have left "Mine, as a board" nowhere to live. The LIST by default.
    */
-  const [view, setView] = useState<BoardView>(() => (params.get("view") === "board" ? "board" : "list"));
+  // ALWAYS THE BOARD FIRST (the user, 2026-10-10): the view is not kept in the
+  // URL, so every arrival, a reload, or Back from a task, opens the board.
+  const [view, setView] = useState<BoardView>("board");
+  // Opened again from the sidebar while already here (`/work-items`, no tab):
+  // the page is not rebuilt, so the board has to be chosen again by hand.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a fresh arrival is only visible in the URL
+    if (params.get("tab") === null) setView("board");
+  }, [params]);
   /** All tasks of one person (a user id), of nobody (`""`), or everybody
    *  (null). CA#32: picked from By person or the filter on All tasks. */
   const [person, setPerson] = useState<string | null>(() => params.get("person"));
   /**
-   * Tab and view, written into the URL with `history.replaceState`: not a
+   * Tab and person, written into the URL with `history.replaceState`: not a
    * history entry of its own, so Back from a task returns to this exact place.
    * `router.replace` was the first version, and it is a transition: pressing
    * Everything and then Board quickly wrote `?tab=mine&view=board`, because
@@ -163,13 +170,13 @@ function WorkBoardPage() {
    */
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    if (q.get("tab") === tab && q.get("view") === view && q.get("person") === person) return;
+    if (q.get("tab") === tab && !q.has("view") && q.get("person") === person) return;
     q.set("tab", tab);
-    q.set("view", view);
+    q.delete("view");
     if (person === null) q.delete("person");
     else q.set("person", person);
     window.history.replaceState(null, "", `${pathname}?${q.toString()}`);
-  }, [tab, view, person, pathname]);
+  }, [tab, person, pathname]);
   const [raising, setRaising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -186,7 +193,10 @@ function WorkBoardPage() {
     // used for the same reason: three queries disagree while one is in flight.
     const [board, queue, principal, book, roster, vocabulary, escalated] = await Promise.all([
       api.GET("/api/v1/work-items", {
-        params: { query: { asOf, includeDone: includeDone ? "true" : "false" } },
+        // FINISHED WORK IS ALWAYS READ (2026-10-10): the board draws Completed
+        // and Cancelled as columns of their own, so there is no switch for
+        // it. Every count and the list still read open work only.
+        params: { query: { asOf, includeDone: "true" } },
       }),
       api.GET("/api/v1/work-item-checks", {}),
       api.GET("/api/v1/auth/me", {}),
@@ -218,9 +228,11 @@ function WorkBoardPage() {
     setItems(board.data.items);
     setMe(principal.error ? null : principal.data);
     // The sidebar's count is what is on YOUR desk (V2.1), as the Mine tab says.
-    if (!principal.error && !includeDone) {
+    if (!principal.error) {
       reportCounts({
-        "/work-items": board.data.items.filter((i) => i.assignee?.userId === principal.data.userId).length,
+        "/work-items": board.data.items.filter(
+          (i) => !i.state.isTerminal && i.assignee?.userId === principal.data.userId,
+        ).length,
       });
     }
     setParties(book.data?.parties ?? []);
@@ -232,7 +244,7 @@ function WorkBoardPage() {
     setLadderPublished(escalated.error ? false : escalated.data.ladderPublished);
     setError(null);
     setLoaded(true);
-  }, [router, includeDone, reportCounts]);
+  }, [router, reportCounts]);
 
   useEffect(() => {
     void (async () => {
@@ -247,18 +259,25 @@ function WorkBoardPage() {
   const now = new Date();
   const localToday = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const mine = items.filter((i) => i.assignee !== null && i.assignee.userId === me?.userId);
+  // Open work: what every count, the list and the empty states read. The
+  // board alone also draws finished work, in its Completed / Cancelled columns.
+  const open = items.filter((i) => !i.state.isTerminal);
+  const isMine = (i: WorkItem): boolean => i.assignee !== null && i.assignee.userId === me?.userId;
+  const mine = open.filter(isMine);
   // The viewer's own share of the check queue. The queue itself is never
   // filtered by this, but the notice has to say what waits on the reader.
-  const mineToCheck = checks.filter((c) => c.viewer.eligible).length;
-  const unassigned = items.filter((i) => i.assignee === null);
+  const unassigned = open.filter((i) => i.assignee === null);
   // All tasks, narrowed to one person when one is picked (CA#32).
-  const everyone =
-    person === null
-      ? items
-      : items.filter((i) => (person === "" ? i.assignee === null : i.assignee?.userId === person));
+  const ofPerson = (i: WorkItem): boolean =>
+    person === null || (person === "" ? i.assignee === null : i.assignee?.userId === person);
+  const everyone = open.filter(ofPerson);
   const shown = datedOrder(
     tab === "mine" ? mine : tab === "unassigned" ? unassigned : everyone,
+    localToday,
+  );
+  // The board's cards: the same tab, finished work included.
+  const onBoard = datedOrder(
+    items.filter(tab === "mine" ? isMine : tab === "unassigned" ? (i) => i.assignee === null : ofPerson),
     localToday,
   );
   // Rank -> the firm's name for it, from the grades its active staff hold.
@@ -289,28 +308,10 @@ function WorkBoardPage() {
 
       <ErrorNotice error={error} />
 
-      {/* Not on the To check tab itself, where it would repeat the tab. */}
-      {checks.length > 0 && tab !== "checks" && (
-        <Notice tone="warn">
-          <p>
-            <strong>{checks.length}</strong>{" "}
-            {checks.length === 1 ? "task is" : "tasks are"} waiting to be checked
-            {mineToCheck > 0 && <>, {mineToCheck} of them yours</>}.{" "}
-            {/* It used to link to `checks[0]`, the oldest, and there was no way
-                to reach the second: the tab is the list. */}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => {
-                setTab("checks");
-              }}
-            >
-              Open the queue
-            </Button>
-          </p>
-        </Notice>
-      )}
-
+      {/* NO "N TASKS WAITING TO BE CHECKED" BANNER (2026-10-10). It showed on
+          every tab but To check, so moving to To check and back jumped the
+          tabs and the board 100px each way. The To check count says the same
+          thing in the warn tone, from every tab. */}
       <Tabs
         id={tabsId}
         label="Work board views"
@@ -319,26 +320,25 @@ function WorkBoardPage() {
         tabs={[
           { value: "mine", label: "Mine", count: mine.length },
           { value: "unassigned", label: "Unassigned", count: unassigned.length },
-          { value: "checks", label: "To check", count: checks.length },
+          {
+            value: "checks",
+            label: "To check",
+            count: checks.length,
+            ...(checks.length > 0 ? { tone: "warn" as const } : {}),
+          },
           // Pieces of WORK, like every other tab, not notices (F28).
           { value: "escalated", label: "Escalated", count: escalatedSubjects(escalations) },
           { value: "people", label: "By person" },
-          { value: "all", label: "All tasks", count: items.length },
+          { value: "all", label: "All tasks", count: open.length },
         ]}
       />
 
-      {/* Neither control means anything on the two QUEUES: neither has a board
-          shape, and neither lists finished work. */}
+      {/* No "Include finished work" switch (2026-10-10): the board always draws
+          Completed and Cancelled as columns of their own. Neither control here
+          means anything on the two QUEUES: neither has a board shape. */}
       {tab !== "escalated" && tab !== "checks" && tab !== "people" && (
         <div className="row">
           <span className="cluster">
-            <Checkbox
-              label="Include finished work"
-              checked={includeDone}
-              onChange={(e) => {
-                setIncludeDone(e.target.checked);
-              }}
-            />
             {/* WHOSE TASKS (CA#32), on All tasks: Mine and Unassigned are
                 already one desk each. */}
             {tab === "all" && staff.length > 0 && (
@@ -411,14 +411,14 @@ function WorkBoardPage() {
               setTab("all");
             }}
           />
-        ) : shown.length === 0 ? (
+        ) : (view === "board" ? onBoard : shown).length === 0 ? (
           <Card>
             <Empty title={emptyTitle(tab)} icon="board">
               {emptyMessage(tab)}
             </Empty>
           </Card>
         ) : view === "board" ? (
-          <WorkBoard items={shown} states={states} today={localToday} includeDone={includeDone} />
+          <WorkBoard items={onBoard} states={states} today={localToday} />
         ) : (
           <TableWrap>
             <Table>

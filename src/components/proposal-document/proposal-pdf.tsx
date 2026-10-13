@@ -30,6 +30,7 @@ import { api, apiError } from "@/lib/api/client";
 import type { ProposalLine, ProposalRecord } from "@/lib/api/client";
 import type { paths } from "@/lib/api/schema";
 import { Icon, Notice, NotSet, cx } from "@/components/ui";
+import type { IconName } from "@/components/ui";
 import { useSession } from "@/components/layout";
 import { longDay } from "@/lib/day";
 import { PdfWorkspace, usePreview, useStoredPdf } from "@/components/pdf-pages";
@@ -54,17 +55,19 @@ interface Choice {
 }
 
 /** The Notes, in the order and under the headings the PDF prints them. */
-const NOTES: readonly { kind: NoteKind; title: string; noun: string; example: string }[] = [
-  { kind: "team", title: "Team Deployment", noun: "team", example: "e.g. Priya Shah leads the engagement." },
+const NOTES: readonly { kind: NoteKind; title: string; icon: IconName; noun: string; example: string }[] = [
+  { kind: "team", title: "Team Deployment", icon: "people", noun: "team", example: "e.g. Priya Shah leads the engagement." },
   {
     kind: "exclusion",
     title: "General scope exclusions",
+    icon: "ban",
     noun: "exclusion",
     example: "e.g. Statutory fees and penalties are not included.",
   },
   {
     kind: "commercial",
     title: "Commercials",
+    icon: "receivables",
     noun: "commercial",
     example: "e.g. Invoices are payable within 15 days of issue.",
   },
@@ -75,19 +78,21 @@ export const TERMS: readonly {
   key: TermKey;
   override: "scopeOverride" | "volumeLimitsOverride" | "clientObligationsOverride" | "exclusionsOverride";
   heading: string;
+  icon: IconName;
   noun: string;
   example: string;
 }[] = [
-  { key: "scope", override: "scopeOverride", heading: "Scope of work", noun: "scope of work", example: "e.g. Monthly books and GST returns for one GSTIN." },
-  { key: "volumeLimits", override: "volumeLimitsOverride", heading: "Volume limits", noun: "volume limits", example: "e.g. Up to 300 invoices a month." },
+  { key: "scope", override: "scopeOverride", heading: "Scope of work", icon: "verification", noun: "scope of work", example: "e.g. Monthly books and GST returns for one GSTIN." },
+  { key: "volumeLimits", override: "volumeLimitsOverride", heading: "Volume limits", icon: "grades", noun: "volume limits", example: "e.g. Up to 300 invoices a month." },
   {
     key: "clientObligations",
     override: "clientObligationsOverride",
     heading: "Client's responsibilities",
+    icon: "clients",
     noun: "client's responsibilities",
     example: "e.g. Bank statements by the 5th of each month.",
   },
-  { key: "exclusions", override: "exclusionsOverride", heading: "Exclusions", noun: "exclusions", example: "e.g. Statutory audit and historical clean-up." },
+  { key: "exclusions", override: "exclusionsOverride", heading: "Exclusions", icon: "ban", noun: "exclusions", example: "e.g. Statutory audit and historical clean-up." },
 ];
 
 export function ProposalPdf({
@@ -228,10 +233,13 @@ export function ProposalPdf({
     : [
         {
           title: "Cover",
+          icon: "proposals",
           pieces: [
             textPiece({
               key: "proposal.title",
               noun: "the title",
+              heading: "Title",
+              icon: "heading",
               value: proposal.title,
               multiline: false,
               required: true,
@@ -241,6 +249,8 @@ export function ProposalPdf({
             choicePiece({
               key: "proposal.preparedFor",
               noun: "who it is prepared for",
+              heading: "Prepared for",
+              icon: "user",
               value: record.addressee?.id ?? "",
               options: addresseeChoices,
               shown: record.addressee?.displayName ?? record.party.displayName,
@@ -249,6 +259,8 @@ export function ProposalPdf({
             choicePiece({
               key: "proposal.preparedBy",
               noun: "who prepared it",
+              heading: "Prepared by",
+              icon: "pencil",
               value: record.preparedBy?.userId ?? "",
               options: preparerChoices,
               shown: record.preparedBy === null ? null : (record.preparedBy.displayName ?? record.preparedBy.email),
@@ -258,10 +270,12 @@ export function ProposalPdf({
         },
         {
           title: "Background",
+          icon: "prose",
           pieces: [
             textPiece({
               key: "proposal.background",
               noun: "the Background",
+              heading: null,
               value: proposal.background,
               maxLength: 4000,
               placeholder: "e.g. Kaveri Foods makes packaged snacks and sells across India.",
@@ -272,15 +286,18 @@ export function ProposalPdf({
         ...planSections(record).map(
           (s): PieceGroup => ({
             title: `${s.code}. ${s.title}`,
+            icon: "structure",
             pieces: s.items.flatMap((item) => servicePieces(item.code, item.line, item.line.currency, reviseLine)),
           }),
         ),
         {
           title: "Valid until",
+          icon: "calendar",
           pieces: [
             textPiece({
               key: "proposal.validUntil",
               noun: "the date it is valid until",
+              heading: null,
               value: proposal.validUntil,
               multiline: false,
               inputType: "date",
@@ -292,6 +309,7 @@ export function ProposalPdf({
         ...NOTES.map(
           (n): PieceGroup => ({
             title: n.title,
+            icon: n.icon,
             pieces: [
               ...blocksOf(n.kind).map((b) => blockPiece(b, n.noun, "proposal", editBlock, strikeBlock)),
               addPiece({ kind: n.kind, title: n.title, noun: n.noun, example: n.example, onAdd: (body) => addBlock(n.kind, body) }),
@@ -380,9 +398,31 @@ function Shown({ text }: { text: string | null }) {
   );
 }
 
+/** A piece's label in the Edit list: a small mark and a short name. The
+ *  noun (who it is prepared for, the scope of work of A1) still names it to a
+ *  screen reader and in the popover; the list shows the short name, because
+ *  the group heading above it already says which service. Left out where the
+ *  group holds one piece and its heading is the label. */
+function PieceLabel({ icon, text }: { icon?: IconName | undefined; text: string | null }) {
+  if (text === null) return null;
+  return (
+    <p className="flex items-center gap-2 text-sm font-semibold text-ink-2">
+      {icon !== undefined && (
+        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm bg-surface-sunk text-ink-2">
+          <Icon name={icon} size={14} />
+        </span>
+      )}
+      {text}
+    </p>
+  );
+}
+
 export function textPiece(opts: {
   key: string;
   noun: string;
+  /** The short name in the list, and its mark; null hides the label. */
+  heading?: string | null;
+  icon?: IconName;
   value: string | null;
   onSave: (next: string) => Promise<SaveOutcome>;
   multiline?: boolean;
@@ -411,7 +451,7 @@ export function textPiece(opts: {
     label: `Edit ${opts.noun}`,
     listed: (
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-muted">{capitalise(opts.noun)}</p>
+        <PieceLabel icon={opts.icon} text={opts.heading === undefined ? capitalise(opts.noun) : opts.heading} />
         <EditableText {...common}>
           <Shown text={opts.shown === undefined ? opts.value : opts.shown} />
         </EditableText>
@@ -429,6 +469,8 @@ export function textPiece(opts: {
 export function choicePiece(opts: {
   key: string;
   noun: string;
+  heading?: string | null;
+  icon?: IconName;
   value: string;
   options: readonly Choice[];
   shown: string | null;
@@ -440,7 +482,7 @@ export function choicePiece(opts: {
     label: `Change ${opts.noun}`,
     listed: (
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-muted">{capitalise(opts.noun)}</p>
+        <PieceLabel icon={opts.icon} text={opts.heading === undefined ? capitalise(opts.noun) : opts.heading} />
         <EditableChoice {...common}>
           <Shown text={opts.shown} />
         </EditableChoice>
@@ -467,6 +509,8 @@ function servicePieces(
     textPiece({
       key: `line:${line.id}.name`,
       noun: `the name of ${code}`,
+      heading: `${code} · Service`,
+      icon: "board",
       value: name,
       multiline: false,
       required: true,
@@ -494,6 +538,8 @@ function servicePieces(
       textPiece({
         key: `line:${line.id}.${t.key}`,
         noun: `the ${t.noun} of ${code}`,
+        heading: t.heading,
+        icon: t.icon,
         value: term.text,
         placeholder: t.example,
         onSave,
@@ -527,7 +573,7 @@ function servicePieces(
     label: `Edit the fee for ${code}`,
     listed: (
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-muted">Fee for {code}</p>
+        <PieceLabel icon="receivables" text="Fee" />
         {fee(false)}
       </div>
     ),
@@ -627,11 +673,12 @@ function AddText({
   return (
     <button
       type="button"
-      className="self-start text-sm text-brand underline"
+      className="inline-flex items-center gap-1.5 self-start rounded-sm text-sm font-semibold text-ink-2 hover:text-ink hover:underline"
       onClick={() => {
         setAdding(true);
       }}
     >
+      <Icon name="plus" size={14} />
       {label}
     </button>
   );

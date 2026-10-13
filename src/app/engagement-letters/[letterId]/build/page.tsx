@@ -1,15 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
-import type { Route } from "next";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api, codeLabel } from "@/lib/api/client";
 import type { ServiceAxis } from "@/lib/api/client";
 import { Notice, Pill } from "@/components/ui";
 import { Page, PageHeader } from "@/components/tw";
 import { useSession } from "@/components/layout";
-import { Stepper } from "@/components/proposal-builder/frame";
+import { BuilderFacts, Stepper } from "@/components/proposal-builder/frame";
 import { readCatalogue, readStep } from "@/components/proposal-builder/data";
 import type { CatalogueService } from "@/components/proposal-builder/data";
 import { LetterClientStep } from "@/components/letter-builder/client-step";
@@ -85,18 +83,18 @@ function Builder() {
       <PageHeader
         title={letter.title}
         lede={
-          <span>
-            {record.party.displayName} · {letter.ref} · issued by {record.issuer.name} in{" "}
-            {letter.currency}.{" "}
-            {!isDraft && (
-              <>
+          <BuilderFacts
+            reference={letter.ref}
+            issuer={record.issuer.name}
+            currency={letter.currency}
+            status={
+              !isDraft && (
                 <Pill dot tone={letter.deletedAt === null ? "neutral" : "danger"}>
                   {letter.deletedAt === null ? codeLabel(letter.status) : "Deleted"}
-                </Pill>{" "}
-              </>
-            )}
-            <Link href={`/engagement-letters/${letter.id}` as Route}>Open the letter page</Link>
-          </span>
+                </Pill>
+              )
+            }
+          />
         }
       />
       <Stepper current={step} proposalId={isDraft ? letter.id : null} kind={LETTER_BUILDER} />

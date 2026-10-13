@@ -1,16 +1,17 @@
 "use client";
 
 import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { api, apiError, CONTACT_ROLE_OPTIONS, formatCount, LEAD_SOURCES } from "@/lib/api/client";
 import type { ContactRole, LeadSource, ProposalRecord } from "@/lib/api/client";
-import { Card, CardTitle } from "@/components/tw";
+import { Card } from "@/components/tw";
 import {
   Button,
+  Dialog,
   ErrorNotice,
   Field,
   FieldRow,
@@ -157,6 +158,7 @@ export function ClientStep({
       : formatCount(draft.proposal.fxRate),
   );
   const [datePick, setDatePick] = useState<string | null>(draft?.proposal.fxRateDate ?? null);
+  const [rateOpen, setRateOpen] = useState(false);
   const [titlePick, setTitlePick] = useState<string | null>(draft?.proposal.title ?? null);
   const [addresseeId, setAddresseeId] = useState<string>(draft?.proposal.addressedToPartyId ?? "");
   const [validUntil, setValidUntil] = useState<string>(draft?.proposal.validUntil ?? "");
@@ -354,6 +356,15 @@ export function ClientStep({
   const fromLead = draft === null && prefillLeadId !== null && leadId !== null;
   /** Recording a person at the client takes party:write. */
   const canAddPeople = session?.permissions.includes("party:write") === true;
+  /** "+ Add a person" picked in Prepared for: a small dialog, so adding the
+   *  addressee never spreads a form across the step (CA#43, 2026-10-10). */
+  const [personOpen, setPersonOpen] = useState(false);
+  const personName = useRef<HTMLInputElement>(null);
+  // A native dialog focuses its first control, the close button; the name is
+  // what the reader came to type.
+  useEffect(() => {
+    if (personOpen) requestAnimationFrame(() => personName.current?.focus());
+  }, [personOpen]);
 
   const people: readonly Contact[] =
     who === "prospect" && draft === null
@@ -420,6 +431,7 @@ export function ClientStep({
     setClient({ ...client, people: [...client.people, added] });
     setAddresseeId(added.id);
     setNewPerson({ name: "", role: "" });
+    setPersonOpen(false);
   }
 
   async function captureLead(): Promise<{ id: string; partyId: string; matched: string | null } | null> {
@@ -610,20 +622,22 @@ export function ClientStep({
     >
       <ErrorNotice error={error} />
 
-      {/* ── Who it is for ─────────────────────────────────────────────── */}
-      <Card>
-        <CardTitle level={2}>Who is it for?</CardTitle>
+      {/* ONE FORM, ONE CARD (2026-10-10): who it is for, who issues it and
+          the cover, without a card and a heading each, so step 1 fits a
+          laptop's screen without a scroll. */}
+      <Card className="form-card hints-on-focus">
+        <div className="flex flex-col gap-5">
         {draft !== null ? (
-          <div className="mt-3 flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <p className="text-lg font-semibold">{draft.party.displayName}</p>
             {/* A draft stays with the client it was started for. */}
             <p className="text-sm text-muted">
-              For someone else, <Link href="/proposals/new">start a new proposal</Link>.
+              Wrong client? <Link href="/proposals/new">Start a new proposal</Link>.
             </p>
           </div>
         ) : (
-          <div className="mt-3 flex flex-col gap-4">
-            <fieldset className="m-0 grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            <fieldset className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
               <legend className="sr-only">Existing client or new prospect</legend>
               {/* Opened from a LEAD, the company is the lead's prospect, not
                   somebody "already in your client list" (CA#43). */}
@@ -650,89 +664,24 @@ export function ClientStep({
             </fieldset>
 
             {who === "existing" ? (
-              client === null ? (
-                <Field label="Client">
-                  <ClientPicker
-                    clients={book}
-                    autoFocus={prefillClientId === null && prefillLeadId === null}
-                    onPick={(c) => {
-                      void choose(c.id, c.name, null);
-                    }}
-                  />
-                </Field>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-sunk px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold">{client.name}</p>
-                    <p className="text-sm text-muted">
-                      {client.registeredIn === null
-                        ? "No registration recorded on the client's page."
-                        : `Registered in ${countryName(client.registeredIn)}.`}{" "}
-                      {client.people.length === 0
-                        ? "Nobody recorded at the client yet."
-                        : `${String(client.people.length)} ${client.people.length === 1 ? "person" : "people"} on file.`}
-                    </p>
-                    {/* Add the person the proposal is for, here (CA#43), rather
-                        than leaving for the client page and coming back. */}
-                    {canAddPeople && (
-                      <details className="mt-2" open={client.people.length === 0}>
-                        <summary className="cursor-pointer text-sm">Add a person at {client.name}</summary>
-                        <div className="mt-2 flex flex-wrap items-end gap-3">
-                          <Field label="Name">
-                            <Input
-                              value={newPerson.name}
-                              placeholder="e.g. Ravi Kumar"
-                              onChange={(e) => {
-                                setNewPerson({ ...newPerson, name: e.target.value });
-                              }}
-                            />
-                          </Field>
-                          <Field label="Their role">
-                            <Select
-                              value={newPerson.role}
-                              onChange={(e) => {
-                                setNewPerson({ ...newPerson, role: e.target.value as ContactRole });
-                              }}
-                            >
-                              <option value="">Choose…</option>
-                              {CONTACT_ROLE_OPTIONS.map((r) => (
-                                <option key={r.code} value={r.code}>
-                                  {r.label}
-                                </option>
-                              ))}
-                            </Select>
-                          </Field>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            loading={addingPerson}
-                            onClick={() => void addPerson()}
-                          >
-                            Add
-                          </Button>
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setClient(null);
-                      setLeadId(null);
-                      setAddresseeId("");
-                    }}
-                  >
-                    Change
-                  </Button>
-                </div>
-              )
+              /* ONE BOX (2026-10-10): the chosen client's name sits in the
+                 picker itself, and a click on it lists the others. There was
+                 a summary panel with a Change button. */
+              <Field label="Client" hint="Type a name to find them in your clients.">
+                <ClientPicker
+                  clients={book}
+                  selected={client?.name}
+                  autoFocus={client === null && prefillClientId === null && prefillLeadId === null}
+                  onPick={(c) => {
+                    if (client !== null && c.id !== client.id) setLeadId(null);
+                    void choose(c.id, c.name, null);
+                  }}
+                />
+              </Field>
             ) : (
               <FieldStack>
                 <FieldRow>
-                  <Field label="Company">
+                  <Field label="Company" hint="Their registered company name.">
                     <Input
                       value={prospect.company}
                       required
@@ -743,7 +692,7 @@ export function ClientStep({
                       }}
                     />
                   </Field>
-                  <Field label="Country">
+                  <Field label="Country" hint="Where their company is registered.">
                     <CountrySelect
                       value={country}
                       onChange={(e) => {
@@ -753,7 +702,7 @@ export function ClientStep({
                   </Field>
                 </FieldRow>
                 <FieldRow>
-                  <Field label="Contact person">
+                  <Field label="Contact person" hint="Who you deal with at the company.">
                     <Input
                       value={prospect.contact}
                       required
@@ -763,7 +712,7 @@ export function ClientStep({
                       }}
                     />
                   </Field>
-                  <Field label="Designation" optional>
+                  <Field label="Designation" optional hint="Their role at the company.">
                     <Input
                       value={prospect.designation}
                       placeholder="e.g. Finance Director"
@@ -774,7 +723,7 @@ export function ClientStep({
                   </Field>
                 </FieldRow>
                 <FieldRow>
-                  <Field label="Email">
+                  <Field label="Email" hint="The proposal is emailed here.">
                     <Input
                       type="email"
                       value={prospect.email}
@@ -785,7 +734,7 @@ export function ClientStep({
                       }}
                     />
                   </Field>
-                  <Field label="Phone" optional>
+                  <Field label="Phone" optional hint="For calls and WhatsApp.">
                     <PhoneInput
                       value={prospect.phone}
                       country={whereKey}
@@ -795,7 +744,7 @@ export function ClientStep({
                       }}
                     />
                   </Field>
-                  <Field label="How they came to you">
+                  <Field label="How they came to you" hint="Shows you which channels bring in work.">
                     <Select
                       value={prospect.source}
                       required
@@ -817,7 +766,7 @@ export function ClientStep({
                 </FieldRow>
                 {/* A known email or phone reuses the lead they already have (the
                     Notice below says so when it happens). */}
-                <p className="text-sm text-muted">Next adds them to the pipeline as a lead.</p>
+                <p className="text-sm text-muted">They join your pipeline as a new lead.</p>
                 {who === "prospect" && landed?.matched !== null && landed !== null && (
                   <Notice tone="warn" eyebrow="Already on file">
                     <p>
@@ -831,15 +780,16 @@ export function ClientStep({
               </FieldStack>
             )}
 
+          </div>
+        )}
+
+        {/* Where the client is, who offers it, and in what money: one row,
+            since the first decides the other two. */}
+        <div>
+          <FieldStack>
+            <FieldRow>
             {who === "existing" && client !== null && (
-              <Field
-                label="Where the client is"
-                hint={
-                  client.registeredIn === null
-                    ? "Decides which company issues it, and its wording."
-                    : "From the client's registration. Decides the issuer."
-                }
-              >
+              <Field label="Where the client is" hint="Decides which of your companies sends it.">
                 <CountrySelect
                   value={country}
                   onChange={(e) => {
@@ -848,28 +798,18 @@ export function ClientStep({
                 />
               </Field>
             )}
-          </div>
-        )}
-      </Card>
-
-      {/* ── Who offers it, and in what money ─────────────────────────── */}
-      <Card>
-        <CardTitle level={2}>Issued by</CardTitle>
-        <div className="mt-3">
-          <FieldStack>
-            <FieldRow>
               <Field
                 label="Your company"
                 hint={
                   draft !== null
                     ? issuerChanged
-                      ? "Next swaps in this company's standard wording."
-                      : "Changing it brings that company's standard wording."
+                      ? "Its standard wording comes in when you click Next."
+                      : "Sends the proposal and sets its standard wording."
                     : issuerPick !== null
-                      ? "Chosen by you."
+                      ? "You picked this one."
                       : whereKey !== null && firm?.routes.has(whereKey) === true
-                        ? `Your rule for clients in ${countryName(whereKey)}.`
-                        : "Your rule for every other country."
+                        ? `Your usual company for ${countryName(whereKey)}.`
+                        : "Your usual company for other countries."
                 }
               >
                 <Select
@@ -898,7 +838,7 @@ export function ClientStep({
                 label="Currency"
                 hint={
                   currencyLocked
-                    ? `Its services are priced in ${currency}. Remove them to change it.`
+                    ? `Locked to ${currency} while services are priced in it.`
                     : issuer === null
                       ? undefined
                       : currency === issuer.defaultCurrency
@@ -924,15 +864,35 @@ export function ClientStep({
               </Field>
             </FieldRow>
 
-            {foreign && (
+            {/* ONE LINE WHEN THE RATE IS KNOWN (2026-10-12): the feed's or the
+                last one used fills it, so the two boxes open only on Change. */}
+            {foreign && fxRate !== "" && !rateOpen && (
+              <p className="m-0 flex flex-wrap items-center gap-x-2 text-sm">
+                <span className="text-ink-2">
+                  1 {currency} = <span className="tabular-nums">{shortRate(fxRate)}</span> {reporting}
+                </span>
+                <span className="text-muted">· {longDay(fxRateDate)}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRateOpen(true);
+                  }}
+                >
+                  Change rate
+                </Button>
+              </p>
+            )}
+            {foreign && (fxRate === "" || rateOpen) && (
               <FieldRow>
                 <Field
                   label={`1 ${currency} is how many ${reporting}`}
                   hint={
                     draft !== null && !moneyChanged
-                      ? "The rate it was quoted at."
+                      ? "The rate this proposal was quoted at."
                       : known === undefined
-                        ? `Your books are in ${reporting}.`
+                        ? `Your books are kept in ${reporting}.`
                         : "feed" in known
                           ? `${known.ref} rate, ${longDay(known.on)}.`
                           : `Your last rate, on ${known.ref} (${longDay(known.on)}).`
@@ -996,33 +956,32 @@ export function ClientStep({
             )}
           </FieldStack>
         </div>
-      </Card>
 
-      {/* ── The cover ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardTitle level={2}>The proposal</CardTitle>
-        <div className="mt-3">
+        {/* The cover. */}
+        <div>
           <FieldStack>
-            <Field label="Title">
-              <Input
-                value={title}
-                required
-                maxLength={300}
-                placeholder="e.g. Monthly books and GST"
-                onChange={(e) => {
-                  setTitlePick(e.target.value);
-                }}
-              />
-            </Field>
             <FieldRow>
+              <Field label="Title" hint="The heading on the proposal's cover.">
+                <Input
+                  value={title}
+                  required
+                  maxLength={300}
+                  placeholder="e.g. Monthly books and GST"
+                  onChange={(e) => {
+                    setTitlePick(e.target.value);
+                  }}
+                />
+              </Field>
               <Field
                 label="Prepared for"
                 hint={
                   who === "prospect" && draft === null
-                    ? "The contact person above."
+                    ? "The contact you typed above."
                     : people.length === 0
-                      ? "Nobody on file, so the cover names the company."
-                      : "Printed on the cover. Send emails them."
+                      ? canAddPeople
+                        ? "Nobody on file yet. Add someone from the list."
+                        : "Nobody on file, so the cover shows the company name."
+                      : "Named on the cover and emailed."
                 }
               >
                 {who === "prospect" && draft === null ? (
@@ -1031,6 +990,10 @@ export function ClientStep({
                   <Select
                     value={addresseeId}
                     onChange={(e) => {
+                      if (e.target.value === ADD_PERSON) {
+                        setPersonOpen(true);
+                        return;
+                      }
                       setAddresseeId(e.target.value);
                     }}
                   >
@@ -1040,10 +1003,11 @@ export function ClientStep({
                         {p.name}
                       </option>
                     ))}
+                    {canAddPeople && client !== null && <option value={ADD_PERSON}>+ Add a person…</option>}
                   </Select>
                 )}
               </Field>
-              <Field label="Valid until" optional hint="Empty if the offer has no end date.">
+              <Field label="Valid until" optional hint="Leave empty if the offer does not expire.">
                 <Input
                   type="date"
                   value={validUntil}
@@ -1054,15 +1018,72 @@ export function ClientStep({
               </Field>
             </FieldRow>
             <p className="text-sm text-muted">
-              Prepared by you
-              {session?.displayName === null || session?.displayName === undefined
-                ? ""
-                : `, ${session.displayName}`}
-              .
+              Prepared by{" "}
+              <span className="font-semibold text-ink">
+                {session?.displayName === null || session?.displayName === undefined
+                  ? "you"
+                  : `${session.displayName} (you)`}
+              </span>
             </p>
           </FieldStack>
         </div>
+        </div>
       </Card>
+
+      {client !== null && (
+        <Dialog
+          open={personOpen}
+          onClose={() => {
+            setPersonOpen(false);
+          }}
+          title={`Add a person at ${client.name}`}
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setPersonOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="button" loading={addingPerson} onClick={() => void addPerson()}>
+                Add
+              </Button>
+            </>
+          }
+        >
+          <FieldRow>
+            <Field label="Name">
+              <Input
+                ref={personName}
+                value={newPerson.name}
+                placeholder="e.g. Ravi Kumar"
+                onChange={(e) => {
+                  setNewPerson({ ...newPerson, name: e.target.value });
+                }}
+              />
+            </Field>
+            <Field label="Their role">
+              <Select
+                value={newPerson.role}
+                onChange={(e) => {
+                  setNewPerson({ ...newPerson, role: e.target.value as ContactRole });
+                }}
+              >
+                <option value="">Choose…</option>
+                {CONTACT_ROLE_OPTIONS.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FieldRow>
+          {personOpen && <ErrorNotice error={error} />}
+        </Dialog>
+      )}
 
       <StickyFooter
         summary={
@@ -1097,7 +1118,10 @@ export function ClientStep({
   );
 }
 
-/** One of two large choices, a real radio underneath. */
+/** The "Prepared for" option that opens the add-a-person dialog. */
+const ADD_PERSON = "__add_person";
+
+/** One of two choices, a real radio underneath. */
 function Choice({
   name,
   checked,
@@ -1112,17 +1136,17 @@ function Choice({
   note: string;
 }) {
   return (
+    /* A compact choice (2026-10-10): the title on a pill, what it means in
+       its tooltip. It was a large card with a sentence under each title. */
     <label
+      title={note}
       className={cn(
-        "flex cursor-pointer gap-3 rounded-md border p-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring",
-        checked ? "border-ring bg-surface-sunk" : "border-line hover:bg-surface-hover",
+        "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring",
+        checked ? "border-ink bg-surface-sunk font-semibold text-ink" : "border-line text-ink-2 hover:bg-surface-hover",
       )}
     >
-      <input type="radio" name={name} checked={checked} onChange={onChange} className="mt-1" />
-      <span className="flex flex-col gap-1">
-        <span className="font-semibold text-ink">{title}</span>
-        <span className="text-sm text-muted">{note}</span>
-      </span>
+      <input type="radio" name={name} checked={checked} onChange={onChange} />
+      <span>{title}</span>
     </label>
   );
 }
@@ -1132,4 +1156,12 @@ function dayBefore(day: string): string {
   const [y, m, d] = day.split("-").map((n) => Number.parseInt(n, 10));
   const utc = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) - 1));
   return utc.toISOString().slice(0, 10);
+}
+
+/** A rate for reading: four places at most, trailing zeros dropped. Split as
+ *  a string, so nothing is rounded through a float. */
+function shortRate(rate: string): string {
+  const [whole, frac = ""] = rate.split(".");
+  const cut = frac.slice(0, 4).replace(/0+$/, "");
+  return cut === "" ? (whole ?? rate) : `${whole ?? ""}.${cut}`;
 }

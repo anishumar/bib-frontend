@@ -91,6 +91,26 @@ export function fromScaledUnits(units: bigint, scale: number): string {
 }
 
 /**
+ * An amount in one currency, in another, through both currencies' rates to
+ * the firm's own (`amount × fromRate ÷ toRate`), to two places, half up. On
+ * bigint throughout: 4000 AED at 26.3345541348 is 105338.22 INR exactly as a
+ * person would work it out, never a float's neighbour of it. Null if any of
+ * the three is not a plain decimal or `toRate` is zero.
+ */
+export function convertAmount(amount: string, fromRate: string, toRate: string): string | null {
+  const a = scaledUnits(amount);
+  const f = scaledUnits(fromRate);
+  const t = scaledUnits(toRate);
+  if (a === null || f === null || t === null || t.units === BigInt(0)) return null;
+  const ten = BigInt(10);
+  const num = a.units * f.units * ten ** BigInt(t.scale) * BigInt(100);
+  const den = t.units * ten ** BigInt(a.scale + f.scale);
+  const half = den / BigInt(2);
+  const units = num >= BigInt(0) ? (num + half) / den : (num - half) / den;
+  return fromScaledUnits(units, 2);
+}
+
+/**
  * Several amounts on ONE scale, so they can be compared and summed exactly:
  * `["1.5", "20"]` -> `{ units: [15n, 200n], scale: 1 }`. Null if any is not a
  * plain decimal.

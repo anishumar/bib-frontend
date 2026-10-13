@@ -181,7 +181,10 @@ export function QuantityField({
       label={quantityLabel(freq)}
       hint={
         <>
-          {summary === null ? QUANTITY_HINT : `${summary}. ${QUANTITY_HINT}`}
+          {/* The sum says it once there is one (2026-10-10): the reason
+              sentence beside it doubled the hint's height, and a wrong
+              quantity still gets its warning below. */}
+          {summary === null ? QUANTITY_HINT : `${summary}.`}
           {warning !== null && (
             <strong role="status" className="mt-1 block font-semibold text-danger">
               {warning}

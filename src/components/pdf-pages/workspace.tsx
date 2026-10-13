@@ -18,6 +18,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Button, Dialog, Icon, cx } from "@/components/ui";
+import type { IconName } from "@/components/ui";
 import { PdfPages } from "./pdf-pages";
 import type { PageAnchor } from "./pdf-pages";
 
@@ -36,6 +37,8 @@ export interface Piece {
 
 export interface PieceGroup {
   readonly title: string;
+  /** A mark beside the title, so the list can be scanned by shape. */
+  readonly icon?: IconName;
   readonly pieces: readonly Piece[];
   /** Anything else the group offers (adding a line). */
   readonly extra?: ReactNode;
@@ -112,28 +115,30 @@ export function PdfWorkspace({
         editable ? "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]" : "grid-cols-1",
       )}
     >
+      {/* The line over the pages spans both columns, so the first page and
+          the Edit panel start on one line (it pushed only the pages down). */}
+      {(above !== undefined || editable) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
+          <div className="text-sm text-ink-2">{above}</div>
+          {editable && (
+            // On a WRAPPER: `.btn` declares its own display, and an unlayered
+            // class beats the `xl:hidden` utility on the property it sets.
+            <span className="xl:hidden">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setDrawer(true);
+                }}
+              >
+                <Icon name="pencil" size={16} /> Edit
+              </Button>
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex min-w-0 max-w-[900px] flex-col gap-3">
-        {(above !== undefined || editable) && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-ink-2">{above}</div>
-            {editable && (
-              // On a WRAPPER: `.btn` declares its own display, and an unlayered
-              // class beats the `xl:hidden` utility on the property it sets.
-              <span className="xl:hidden">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setDrawer(true);
-                  }}
-                >
-                  <Icon name="pencil" size={16} /> Edit
-                </Button>
-              </span>
-            )}
-          </div>
-        )}
         <PdfPages
           data={data}
           label={label}
@@ -176,19 +181,23 @@ export function PdfWorkspace({
                 }
           }
         />
-        {below !== undefined && <div className="text-sm text-muted">{below}</div>}
       </div>
 
       {editable && (
+        // The card runs the full height of the pages, so the two columns end on
+        // one line; what is inside it stays in view as the pages scroll.
         <aside
           ref={list}
           aria-label="Edit"
-          className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-md border border-line bg-surface p-4 xl:block"
+          className="mb-[calc(var(--s-2)+var(--t-sm)*var(--leading))] hidden self-stretch rounded-[var(--r-lg)] border border-line-soft bg-surface shadow-md xl:block"
         >
-          <h2 className="mb-3 text-lg font-semibold">Edit</h2>
-          {listed}
+          <div className="sticky top-[calc(var(--topbar-h)+var(--s-4))] max-h-[calc(100vh-var(--topbar-h)-2rem)] overflow-y-auto p-6">
+            <h2 className="mb-3 text-lg font-semibold">Edit</h2>
+            {listed}
+          </div>
         </aside>
       )}
+      {below !== undefined && <div className="text-sm text-muted xl:col-span-2">{below}</div>}
       {editable && (
         <Dialog
           open={drawer}
@@ -216,10 +225,17 @@ function PieceList({
   onLeave: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="piece-list flex flex-col gap-5">
       {groups.map((g) => (
         <section key={g.title} className="flex flex-col gap-2">
-          <h3 className="text-md font-semibold text-brand-ink">{g.title}</h3>
+          <h3 className="flex items-center gap-2 text-md font-semibold text-ink">
+            {g.icon !== undefined && (
+              <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm bg-surface-sunk text-ink-2">
+                <Icon name={g.icon} size={16} />
+              </span>
+            )}
+            {g.title}
+          </h3>
           {g.pieces.map((p) => (
             <div
               key={p.key}

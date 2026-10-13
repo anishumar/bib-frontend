@@ -58,8 +58,16 @@ export function EngagementsPanel({
     })();
   }, [load]);
 
-  // Nothing signed yet: no card, the letters section says what to do.
-  if (rows !== null && rows.length === 0) return null;
+  // Nothing signed yet. Said in words: the section is opened on its own now,
+  // and a blank one reads as broken.
+  if (rows !== null && rows.length === 0) {
+    return (
+      <Card>
+        <CardHead title="Engagements" level={2} />
+        <p className="muted">None yet. They appear once an engagement letter is signed.</p>
+      </Card>
+    );
+  }
 
   return (
     <Card>

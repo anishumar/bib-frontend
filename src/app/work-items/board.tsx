@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkItem, WorkItemState } from "@/lib/api/client";
 import { Card, NotSet, Pill } from "@/components/ui";
 import { Empty } from "@/components/states";
@@ -63,24 +64,56 @@ export function WorkBoard({
    *  UTC day calls work due today "late" west of Greenwich and "not yet" east,
    *  and this board's whole job is saying what is late. */
   today,
-  includeDone,
 }: {
   items: WorkItem[];
   states: WorkItemState[];
   today: string;
-  includeDone: boolean;
 }) {
-  const held = new Set(items.map((i) => i.state.id));
+  /* MORE COLUMNS THAN THE SCREEN HOLDS IS SAID, not hidden (2026-10-10).
+     Every column is one width, so a firm with many states scrolls sideways;
+     the edge with more columns beyond it fades, and the scrollbar is always
+     drawn, so a reader can tell the board does not end where the window
+     does. `more` names the side(s) with more to see. */
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState<"left" | "right" | "both" | null>(null);
+  const measure = useCallback((): void => {
+    const el = boardRef.current;
+    if (el === null) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore(left && right ? "both" : left ? "left" : right ? "right" : null);
+  }, []);
+
+  /* FINISHED WORK, RECENT ONLY. Completed and Cancelled are columns of their
+     own now (no "Include finished work" switch), and a firm's whole history
+     would bury the board within a month, so they hold the last 30 days. */
+  const since = recentSince(today, 30);
+  const recent = (i: WorkItem): boolean =>
+    !i.state.isTerminal || (i.completedAt ?? i.createdAt).slice(0, 10) >= since;
+  const cards = items.filter(recent);
+  const held = new Set(cards.map((i) => i.state.id));
 
   const columns = states
     .filter((s) => {
-      // Terminal states are hidden with the same switch that hides finished
-      // work from the list — otherwise "Completed" is the widest column on
-      // every board and the work in hand is squeezed out of view.
-      if (s.isTerminal && !includeDone) return false;
       return s.isActive || held.has(s.id);
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  /* Measured again whenever the COLUMNS drawn change, not only the counts:
+     a task moving into a retired state, or finished work leaving the 30-day
+     window, adds or drops a column with every count the same, and the
+     observer sees the board's own box, not its scroll width (review, PR #2). */
+  const drawn = columns.map((s) => s.id).join(",");
+  useEffect(() => {
+    const el = boardRef.current;
+    if (el === null) return;
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, [measure, drawn, cards.length]);
 
   if (columns.length === 0) {
     return (
@@ -93,9 +126,16 @@ export function WorkBoard({
   }
 
   return (
-    <div className="board" role="list" aria-label="Work board, one column per state">
+    <div
+      ref={boardRef}
+      className="board"
+      role="list"
+      aria-label="Work board, one column per state"
+      data-more={more ?? undefined}
+      onScroll={measure}
+    >
       {columns.map((state) => {
-        const inColumn = items.filter((i) => i.state.id === state.id);
+        const inColumn = cards.filter((i) => i.state.id === state.id);
         // The tone is read off the FLAG, never a branch on the code — a firm
         // that renames "Blocked" keeps the red dot, which is the whole reason
         // the flag exists.
@@ -113,9 +153,13 @@ export function WorkBoard({
                 number ended up disconnected from the thing it counts — found by
                 looking at the board, which is the only way this shows. */}
             <header className="board-col-head">
-              <span className="board-col-dot" aria-hidden="true" />
-              {/* The NAME the firm chose. */}
-              <h2 className="board-col-name">{state.name}</h2>
+              {/* The dot rides the name's first line, so a name wrapped in a
+                  narrow column never leaves it alone on a line of its own. */}
+              <span className="board-col-title">
+                <span className="board-col-dot" aria-hidden="true" />
+                {/* The NAME the firm chose. */}
+                <h2 className="board-col-name">{state.name}</h2>
+              </span>
               {/* THE DOT IS NEVER ALONE. What it means is also here in words,
                   because a board whose only signal is a hue fails the reader it
                   most needs to reach. */}
@@ -128,6 +172,7 @@ export function WorkBoard({
               {!state.isActive && (
                 <p className="wcard-note">Retired. Nothing new goes here.</p>
               )}
+              {state.isTerminal && <p className="wcard-note">Last 30 days</p>}
               {inColumn.length === 0 ? (
                 // Said, not blank. An empty column is an ANSWER — "nothing is
                 // under review" — and a blank space reads as a rendering fault.
@@ -291,4 +336,11 @@ function WorkCard({ item, today }: { item: WorkItem; today: string }) {
       )}
     </article>
   );
+}
+
+/** The day `days` before `today` (YYYY-MM-DD), counted on the calendar. */
+function recentSince(today: string, days: number): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const at = new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) - days);
+  return `${String(at.getFullYear())}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
 }

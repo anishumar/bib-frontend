@@ -5,6 +5,7 @@ import { api, apiError } from "@/lib/api/client";
 import type { ClientTds } from "@/lib/api/client";
 import { AmountInput, Button, Card, CardTitle, ErrorNotice, Field, FieldRow, Input } from "@/components/ui";
 import { cleanAmount } from "@/lib/money";
+import { FormOrButton } from "./client-sections";
 
 /**
  * THE TDS THIS CLIENT DEDUCTS (Q057): the section and the rate.
@@ -18,7 +19,6 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
   const [tds, setTds] = useState<ClientTds | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     const r = await api.GET("/api/v1/clients/{partyId}/tds", { params: { path: { partyId } } });
@@ -35,17 +35,17 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
     })();
   }, [load]);
 
-  async function save(next: { section: string; percent: string } | null): Promise<void> {
+  async function save(next: { section: string; percent: string } | null): Promise<boolean> {
     setBusy(true);
     setError(null);
     const r = await api.PUT("/api/v1/clients/{partyId}/tds", { params: { path: { partyId } }, body: { tds: next } });
     setBusy(false);
     if (r.error) {
       setError(apiError(r.error).message);
-      return;
+      return false;
     }
     setTds(r.data.tds);
-    setOpen(false);
+    return true;
   }
 
   return (
@@ -66,14 +66,10 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
       </p>
       <ErrorNotice error={error} />
       {canWrite && tds !== undefined && (
-        <details
-          className="card-foot"
-          open={open}
-          onToggle={(e) => {
-            setOpen(e.currentTarget.open);
-          }}
-        >
-          <summary>{tds === null ? "Set the TDS it deducts" : "Change or stop"}</summary>
+        // While it deducts nothing, the form is the card; once it does, the
+        // rate reads as a sentence and the form waits behind Change.
+        <FormOrButton folded={tds !== null} label="Change or stop">
+          {({ done, cancel }) => (
           <form
             className="stack"
             onSubmit={(e) => {
@@ -82,6 +78,8 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
               void save({
                 section: String(form.get("section") ?? "").trim(),
                 percent: cleanAmount(String(form.get("percent") ?? "")),
+              }).then((ok) => {
+                if (ok) done();
               });
             }}
           >
@@ -102,15 +100,19 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
                   variant="ghost"
                   disabled={busy}
                   onClick={() => {
-                    void save(null);
+                    void save(null).then((ok) => {
+                      if (ok) done();
+                    });
                   }}
                 >
                   It no longer deducts TDS
                 </Button>
               )}
+              {cancel}
             </div>
           </form>
-        </details>
+          )}
+        </FormOrButton>
       )}
     </Card>
   );

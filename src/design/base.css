@@ -37,6 +37,8 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* The aurora again since 2026-10-13: the frosted sidebar and page panel
+     sit on it (layout.css). */
   background-color: var(--paper);
   background-image: var(--aurora);
   background-size: cover;

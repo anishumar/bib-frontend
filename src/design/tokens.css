@@ -107,6 +107,9 @@
      it is clipped to it (see `.topbar::after`). */
   --topbar-h: 3.5rem;
   --main-w: 78rem;
+  /* The sidebar's foot (its rule to the window's edge less the column's
+     bottom padding). A builder's footer is drawn to the same line. */
+  --foot-h: 4.75rem;
   --main-w-narrow: 46rem;
 
   /* ── Motion ──────────────────────────────────────────────────────────────
@@ -114,6 +117,9 @@
      a delay, not a delight. All of it is disabled under reduced-motion. */
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
+  /* The sidebar folding to its icon rail and back: long enough to see where
+     the labels went, short enough not to wait for. */
+  --dur-panel: 200ms;
   --dur: 140ms;
   /* THE ONE LONGER DURATION, and it is deliberate (Wave 5): a headline figure
      counting up from nothing once, when it first appears. `<CountUp>` reads
@@ -141,6 +147,21 @@
      rather than beside it — a pure grey reads as unchosen. */
   --paper: #f6f7f8;
   --surface: #ffffff;
+  /* THE PAGE PANEL'S GROUND (2026-10-13): the surface at 40% over
+     the aurora, so the gradient shows through faintly and the cards, inputs
+     and the Compose panel stay solid white against it. Mixed from --surface,
+     so it follows into dark on its own. (It was the brand's maroon at 7% for
+     a day; the user then asked for the gradient instead.) */
+  --panel: color-mix(in oklab, var(--surface) 40%, transparent);
+  /* The panel's top bar and a builder's footer: a page scrolls UNDER them,
+     so they are frosted, in the panel's own tint (2026-10-13, the user: a
+     bar of another colour "looks bad"): the blur, not a denser fill, is what
+     keeps the page under them unreadable. That only works because
+     `.main` itself has no backdrop-filter: inside one, a child's blur samples
+     only the panel and the title read through the bar. */
+  --panel-bar: var(--panel);
+  /* How much the frosted panes blur what is behind them. */
+  --glass-blur: blur(28px) saturate(1.5);
   --surface-sunk: #fafbfb;
   --surface-hover: #f6f7f8;
   --ink: #0f1a20;
@@ -160,11 +181,14 @@
      every screen, and that is a decision to make with somebody's eye on it
      rather than a measurement. */
   --faint: #62727c;
-  --line: #e4e8ea;
-  --line-soft: #eef1f2;
+  /* A step firmer since 2026-10-10: on the flat white page panel a card's
+     edge no longer has the aurora behind it to separate it, and #e4e8ea all
+     but vanished. */
+  --line: #d6dcdf;
+  --line-soft: #e4e9eb;
   /* The rule under a table's head row: one step firmer than a row rule, so
      the head reads as a head without a grey band behind it. */
-  --line-strong: #d3d9dc;
+  --line-strong: #c4ccd0;
   /* The ground of a NEUTRAL pill: a state that is not good or bad ("New",
      "Draft"). A wash, not a border, so it reads from across the room. */
   --neutral-wash: #eef1f2;
@@ -354,15 +378,23 @@
   --aurora:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.15  0 0 0 0 0.3  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
     linear-gradient(118deg, transparent 26%, rgb(255 255 255 / 0.5) 41%, transparent 55%),
-    radial-gradient(50% 45% at 0% 0%, #8dbbff 0%, transparent 70%),
-    radial-gradient(45% 45% at 100% 4%, #8ee4cb 0%, transparent 70%),
-    radial-gradient(55% 55% at 100% 100%, #ffb893 0%, transparent 70%),
-    radial-gradient(50% 50% at 0% 100%, #b7cbff 0%, transparent 72%),
-    radial-gradient(34% 34% at 56% 62%, #fff0c4 0%, transparent 70%);
-  --glass-side: linear-gradient(180deg, rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.54));
+    /* THE BRAND'S AURORA (2026-10-13, the user: "brown gradient of our
+       logo"): the logo's maroon and the warm sand and rose around it, on a
+       warm paper. Atmosphere only, behind the frosted panes: nothing a person
+       reads takes its colour from it. */
+    radial-gradient(55% 50% at 0% 0%, #ecc3cc 0%, transparent 70%),
+    radial-gradient(55% 60% at 100% 0%, rgb(150 70 60 / 0.38) 0%, transparent 70%),
+    radial-gradient(45% 45% at 70% 20%, #f0cdb8 0%, transparent 70%),
+    radial-gradient(60% 60% at 100% 100%, rgb(122 35 56 / 0.42) 0%, transparent 70%),
+    radial-gradient(55% 55% at 0% 100%, #f1cdd5 0%, transparent 72%),
+    radial-gradient(40% 40% at 50% 65%, rgb(196 120 100 / 0.22) 0%, transparent 70%),
+    linear-gradient(160deg, #f8ece8, #f1ddd8);
+  /* GLASS AGAIN (2026-10-13, the user: "make gradient color also left
+     sidebar should look glassy"), on the full-height sidebar: it stays where
+     it is and folds as before, only its fill is frosted over the aurora. */
+  --glass-side: linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.32));
   --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.55), transparent 60%);
   --glass-rim: rgb(255 255 255 / 0.72);
-  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(15 26 32 / 0.05), 0 24px 48px -30px rgb(15 26 32 / 0.42);
   --glass-hover: rgb(255 255 255 / 0.62);
   --glass-current: rgb(255 255 255 / 0.94);
   --glass-current-shadow: inset 0 1px 0 #ffffff, 0 6px 16px -10px rgb(15 26 32 / 0.45);
@@ -468,14 +500,13 @@
     /* The aurora at night: the same four lights, low and cool, on the ink
        ground, and smoked glass for the sidebar. */
     --aurora:
-      radial-gradient(50% 45% at 0% 0%, rgb(64 110 210 / 0.26) 0%, transparent 70%),
-      radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
-      radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
-      radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
-    --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
+      radial-gradient(55% 50% at 0% 0%, rgb(201 107 135 / 0.24) 0%, transparent 70%),
+      radial-gradient(50% 50% at 100% 0%, rgb(200 140 100 / 0.16) 0%, transparent 70%),
+      radial-gradient(60% 60% at 100% 100%, rgb(150 50 80 / 0.3) 0%, transparent 70%),
+      radial-gradient(55% 55% at 0% 100%, rgb(180 90 110 / 0.16) 0%, transparent 72%);
+    --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.6), rgb(20 31 36 / 0.42));
     --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
     --glass-rim: rgb(255 255 255 / 0.08);
-    --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
     --glass-hover: rgb(255 255 255 / 0.06);
     --glass-current: rgb(255 255 255 / 0.1);
     --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);
@@ -555,14 +586,13 @@
   /* The aurora at night: the same four lights, low and cool, on the ink
      ground, and smoked glass for the sidebar. */
   --aurora:
-    radial-gradient(50% 45% at 0% 0%, rgb(64 110 210 / 0.26) 0%, transparent 70%),
-    radial-gradient(45% 45% at 100% 4%, rgb(60 140 200 / 0.18) 0%, transparent 70%),
-    radial-gradient(55% 55% at 100% 100%, rgb(200 128 84 / 0.18) 0%, transparent 70%),
-    radial-gradient(50% 50% at 0% 100%, rgb(90 110 200 / 0.16) 0%, transparent 72%);
-  --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.72), rgb(20 31 36 / 0.6));
+    radial-gradient(55% 50% at 0% 0%, rgb(201 107 135 / 0.24) 0%, transparent 70%),
+    radial-gradient(50% 50% at 100% 0%, rgb(200 140 100 / 0.16) 0%, transparent 70%),
+    radial-gradient(60% 60% at 100% 100%, rgb(150 50 80 / 0.3) 0%, transparent 70%),
+    radial-gradient(55% 55% at 0% 100%, rgb(180 90 110 / 0.16) 0%, transparent 72%);
+  --glass-side: linear-gradient(180deg, rgb(28 41 49 / 0.6), rgb(20 31 36 / 0.42));
   --glass-sheen: radial-gradient(120% 50% at 0% 0%, rgb(255 255 255 / 0.05), transparent 60%);
   --glass-rim: rgb(255 255 255 / 0.08);
-  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 48px -30px rgb(0 0 0 / 0.8);
   --glass-hover: rgb(255 255 255 / 0.06);
   --glass-current: rgb(255 255 255 / 0.1);
   --glass-current-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 6px 16px -10px rgb(0 0 0 / 0.6);

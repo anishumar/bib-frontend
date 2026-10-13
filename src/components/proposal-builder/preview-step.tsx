@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { Route } from "next";
 import type { ProposalRecord } from "@/lib/api/client";
-import { Button, LinkButton } from "@/components/ui";
+import { Button, Compose, Icon, LinkButton } from "@/components/ui";
 import { ProposalPdf, ProposalSendPanel } from "@/components/proposal-document";
 import { StickyFooter } from "./frame";
 import { FrequencyTotals } from "./totals";
@@ -17,22 +18,39 @@ import { FrequencyTotals } from "./totals";
  * downloads the PDF. Both read the builder's one record, so a fee changed in
  * the document is in the footer's total and in the PDF the panel sends.
  *
- * The footer's Send does not send. It takes the reader to the panel with the
- * address box focused: the address, the note and the choice of channel are
- * the panel's, and one button deciding all three for them would be a send
- * nobody saw coming.
+ * SENDING IS A COMPOSE PANEL (2026-10-13), docked bottom right like Gmail's
+ * "New Message", opened by the footer's Send. It was a card at the foot of
+ * the three pages, so the page had two Sends, and the footer's only scrolled
+ * to the other. The footer's Send still does not send: the address, the note
+ * and the channel are the panel's. The panel is not modal, so the PDF stays
+ * readable while the email is written. Once sent, it shows the link and where
+ * the proposal stands; closed, that moves under the pages as before.
  */
 export function PreviewStep({ record }: { record: ProposalRecord }) {
   const { proposal } = record;
   const proposalId = proposal.id;
   const isDraft = proposal.status === "draft" && proposal.deletedAt === null;
 
+  const [composing, setComposing] = useState(false);
+
   return (
     <div className="flex flex-col gap-6">
       <ProposalPdf proposalId={proposalId} editable />
-      <div className="w-full max-w-[900px]">
-        <ProposalSendPanel proposalId={proposalId} />
-      </div>
+      {!isDraft && !composing && (
+        <div className="w-full max-w-[900px]">
+          <ProposalSendPanel proposalId={proposalId} />
+        </div>
+      )}
+
+      <Compose
+        open={composing}
+        title={isDraft ? `Send ${proposal.ref}` : `${proposal.ref} sent`}
+        onClose={() => {
+          setComposing(false);
+        }}
+      >
+        <ProposalSendPanel proposalId={proposalId} bare />
+      </Compose>
 
       <StickyFooter summary={<FrequencyTotals record={record} />}>
         {isDraft && (
@@ -46,10 +64,10 @@ export function PreviewStep({ record }: { record: ProposalRecord }) {
         {isDraft && (
           <Button
             type="button"
+            icon={<Icon name="letters" size={16} />}
+            aria-expanded={composing}
             onClick={() => {
-              const panel = document.getElementById(`send-${proposalId}`);
-              panel?.scrollIntoView({ behavior: "smooth", block: "start" });
-              panel?.querySelector<HTMLElement>("input, button")?.focus({ preventScroll: true });
+              setComposing(true);
             }}
           >
             Send

@@ -16,6 +16,7 @@ export {
   type ButtonSize,
 } from "./button";
 export { Card, CardHead, CardTitle, CardFoot } from "./card";
+export { Compose } from "./compose";
 export { Dialog } from "./dialog";
 export {
   Field,
@@ -33,6 +34,7 @@ export {
   type InputProps,
   type SelectProps,
   type TextareaProps,
+  useFieldWiring,
 } from "./field";
 export { AmountInput, isTypedAmount, type AmountInputProps } from "./amount-input";
 export { Icon, type IconName } from "./icon";

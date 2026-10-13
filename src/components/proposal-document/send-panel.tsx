@@ -30,6 +30,7 @@
  */
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { api, apiError, downloadDocument } from "@/lib/api/client";
 import type { ProposalEmailOutcome, ProposalRecord } from "@/lib/api/client";
 import {
@@ -40,6 +41,7 @@ import {
   Field,
   FieldStack,
   Icon,
+  type IconName,
   Input,
   Notice,
   Skeleton,
@@ -64,10 +66,14 @@ interface Issued {
 export function ProposalSendPanel({
   proposalId,
   onChanged,
+  bare = false,
 }: {
   proposalId: string;
   /** Told after anything here changes the proposal. */
   onChanged?: () => void;
+  /** Inside a frame that already titles it (the builder's Compose panel): no
+   *  card and no heading of its own. */
+  bare?: boolean;
 }) {
   const { record, loaded } = useProposal(proposalId);
   const session = useSession();
@@ -179,9 +185,33 @@ export function ProposalSendPanel({
       }),
     );
 
-  return (
-    <Card id={`send-${proposalId}`}>
-      <CardTitle level={2}>{isDraft ? "Send it" : "Where it stands"}</CardTitle>
+  /** WhatsApp, the bare link and the PDF. In the Compose panel they are
+   *  icons on the Send row (each named for a screen reader and in its
+   *  tooltip); on a page they keep their words. */
+  const otherWays = (compact: boolean): ReactNode => {
+    const ways: { key: string; icon: IconName; label: string; onClick: () => void }[] = [
+      { key: "whatsapp", icon: "chat", label: "Send on WhatsApp", onClick: () => void send(null, "whatsapp") },
+      { key: "link", icon: "link", label: "Just give me the link", onClick: () => void send(null, "link") },
+      ...(seesFees ? [{ key: "pdf", icon: "download" as IconName, label: "Download PDF", onClick: downloadPdf }] : []),
+    ];
+    return ways.map((w) => (
+      <Button
+        key={w.key}
+        type="button"
+        variant="secondary"
+        icon={<Icon name={w.icon} size={compact ? 18 : 16} />}
+        loading={busy === w.key}
+        disabled={busy !== null}
+        onClick={w.onClick}
+        {...(compact ? { "aria-label": w.label, title: w.label } : {})}
+      >
+        {compact ? undefined : w.label}
+      </Button>
+    ));
+  };
+
+  const body = (
+    <>
       <ErrorNotice error={error} />
 
       {!isDraft && <Standing record={record} />}
@@ -229,40 +259,9 @@ export function ProposalSendPanel({
             busy={busy}
             submitLabel="Send by email"
             onSend={(email) => send(email, "email")}
+            {...(bare ? { extra: otherWays(true) } : {})}
           />
-          <div className="cluster">
-            <Button
-              variant="secondary"
-              loading={busy === "whatsapp"}
-              disabled={busy !== null}
-              onClick={() => {
-                void send(null, "whatsapp");
-              }}
-            >
-              Send on WhatsApp
-            </Button>
-            <Button
-              variant="secondary"
-              loading={busy === "link"}
-              disabled={busy !== null}
-              onClick={() => {
-                void send(null, "link");
-              }}
-            >
-              Just give me the link
-            </Button>
-            {seesFees && (
-              <Button
-                variant="secondary"
-                icon={<Icon name="download" size={16} />}
-                loading={busy === "pdf"}
-                disabled={busy !== null}
-                onClick={downloadPdf}
-              >
-                Download PDF
-              </Button>
-            )}
-          </div>
+          {!bare && <div className="cluster">{otherWays(false)}</div>}
           {/* WhatsApp and the link both SEND it (marked sent, and a link the
               client opens to accept or decline), and where WhatsApp opens is
               the addressee's phone, else the company's, else a chat you pick. */}
@@ -316,6 +315,14 @@ export function ProposalSendPanel({
           />
         </>
       )}
+    </>
+  );
+
+  if (bare) return <div id={`send-${proposalId}`}>{body}</div>;
+  return (
+    <Card id={`send-${proposalId}`}>
+      <CardTitle level={2}>{isDraft ? "Send it" : "Where it stands"}</CardTitle>
+      {body}
     </Card>
   );
 }
@@ -463,6 +470,7 @@ function IssuedLink({
           target="_blank"
           rel="noopener noreferrer"
         >
+          <Icon name="chat" size={16} />
           Open WhatsApp
         </a>
         <Button
@@ -501,12 +509,15 @@ function EmailForm({
   busy,
   submitLabel,
   onSend,
+  extra,
 }: {
   defaultTo: string;
   replyTo: string | null;
   busy: string | null;
   submitLabel: string;
   onSend: (email: { to: string; note: string }) => Promise<boolean>;
+  /** More ways out, on the same row as Send (the Compose panel's icons). */
+  extra?: ReactNode;
 }) {
   return (
     <form
@@ -538,9 +549,15 @@ function EmailForm({
           />
         </Field>
         <div className="cluster">
-          <Button type="submit" loading={busy === "email"} disabled={busy !== null}>
+          <Button
+            type="submit"
+            icon={<Icon name="letters" size={16} />}
+            loading={busy === "email"}
+            disabled={busy !== null}
+          >
             {submitLabel}
           </Button>
+          {extra}
         </div>
       </FieldStack>
     </form>

@@ -277,6 +277,47 @@ const PATHS = {
       <path d="M9 20.5h6M12 16.5v4" />
     </>
   ),
+  /* The sidebar toggle: a panel with its left column ruled off. */
+  sidebar: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M9.5 4v16" />
+    </>
+  ),
+  /* Settings: two sliders. Drawn as controls being set rather than a cog,
+     whose teeth do not survive this stroke at 20px. */
+  settings: (
+    <>
+      <path d="M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9" />
+      <circle cx="15" cy="7.5" r="2" />
+      <circle cx="9" cy="16.5" r="2" />
+    </>
+  ),
+  /* A document's title: a T. */
+  heading: <path d="M5 6.5V5h14v1.5M12 5v14M9 19h6" />,
+  /* One person, where `clients` and `people` are a group. */
+  user: (
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
+    </>
+  ),
+  /* A message sent in a chat (WhatsApp and the like): a bubble with a tail. */
+  chat: <path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4.5 19.5l1.4-4.2A7.5 7.5 0 1 1 20 11.5Z" />,
+  /* A link to share: two links of a chain. */
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  /* Not included: a circle struck through. */
+  ban: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="m6.5 17.5 11-11" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;
