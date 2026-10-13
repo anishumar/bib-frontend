@@ -2752,7 +2752,10 @@ main:has(> * > .builder-footer) {
   place-items: center;
   padding: var(--s-5);
 }
+/* Positioned so the rows' .sr-only labels (absolute) stay inside its clip;
+   unpositioned, they stretched the popover and it scrolled as well. */
 .notify-panel .notify-list {
+  position: relative;
   max-height: min(28rem, 70vh);
   overflow-y: auto;
 }
