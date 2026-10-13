@@ -17263,6 +17263,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/firm-entities/numbering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the firm's proposal and letter numbers start */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The setting */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentNumbering"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        /**
+         * Change where the firm's proposal and letter numbers start
+         * @description A run already past the new first number carries on; one below it moves up to it at its next number. Numbers already given are never changed.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DocumentNumbering"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentNumbering"];
+                    };
+                };
+                /** @description Not a whole number from 1 to 999999 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/document-blocks/standard": {
         parameters: {
             query?: never;
@@ -27452,6 +27560,13 @@ export interface components {
             jurisdiction: string | null;
             /** @enum {string|null} */
             billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /**
+             * @description When the fee is invoiced (0393): `arrears` (each period's last day), `advance` (its first) or `on_date` (from `billingOn`). Carried to the letter; printed on neither document. Null: not chosen.
+             * @enum {string|null}
+             */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            /** @description The first invoice date, with `on_date` only. */
+            billingOn: string | null;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["OutOfPocketEstimate"];
         };
@@ -27665,6 +27780,9 @@ export interface components {
             jurisdiction?: string;
             /** @enum {string} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string} */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
             scopeOverride?: string;
             clientObligationsOverride?: string;
             volumeLimitsOverride?: string;
@@ -27682,6 +27800,9 @@ export interface components {
             jurisdiction?: string | null;
             /** @enum {string|null} */
             billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
             scopeOverride?: string | null;
             clientObligationsOverride?: string | null;
             volumeLimitsOverride?: string | null;
@@ -28613,6 +28734,13 @@ export interface components {
             /** Format: uuid */
             firmEntityPartyId: string;
             note?: string;
+        };
+        DocumentNumbering: {
+            /**
+             * @description Where every country's run of proposal and letter numbers starts each financial year (`27IN501`, `PL27IN501`). 1 until the firm says otherwise.
+             * @example 501
+             */
+            firstNumber: number;
         };
         StandardDocumentBlock: {
             /** Format: uuid */

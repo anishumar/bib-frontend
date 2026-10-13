@@ -139,6 +139,8 @@ export function LetterServicesStep({
           ...(t.unitAmount === null || t.feesUnchanged === true ? {} : { unitAmount: t.unitAmount }),
           ...(t.pricingNote === null || t.feesUnchanged === true ? {} : { pricingNote: t.pricingNote }),
           ...(t.billingFrequency === null ? {} : { billingFrequency: t.billingFrequency }),
+          ...(t.billingTiming === null ? {} : { billingTiming: t.billingTiming }),
+          ...(t.billingOn === null ? {} : { billingOn: t.billingOn }),
           ...(country === "" ? {} : { jurisdiction: country }),
           ...(t.overrides.scope === null ? {} : { scopeOverride: t.overrides.scope }),
           ...(t.overrides.clientObligations === null
@@ -170,6 +172,8 @@ export function LetterServicesStep({
     const body: LineChange = {
       quantity: t.quantity,
       billingFrequency: t.billingFrequency,
+      // A line a section pays for is invoiced with its section (0319).
+      ...(grouped ? {} : { billingTiming: t.billingTiming, billingOn: t.billingOn }),
       scopeOverride: t.overrides.scope,
       clientObligationsOverride: t.overrides.clientObligations,
       volumeLimitsOverride: t.overrides.volumeLimits,
