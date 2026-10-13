@@ -404,7 +404,11 @@ function DayTable({ rows, today }: { rows: readonly Row[]; today: string }) {
                   <span className="cell-text">
                     <RowLink href={row.href}>{row.what}</RowLink>
                   </span>
-                  <Sub>{row.kind}</Sub>
+                  {/* Capped like the title: one long line ("signed 7 days ago ·
+                      you are the Key Manager") pushed Whose turn off the card. */}
+                  <Sub>
+                    <span className="cell-text">{row.kind}</span>
+                  </Sub>
                   {row.flags.map((f) => (
                     <Sub key={f.text}>
                       <span className={`cell-text tone-${f.tone}`}>{f.text}</span>

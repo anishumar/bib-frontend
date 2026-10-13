@@ -196,12 +196,14 @@ export default function FirmPage() {
   const [timeZone, setTimeZone] = useState<string | null>(null);
   /** The domains client email may be sent from (Q059, 0350); null when refused. */
   const [sendDomains, setSendDomains] = useState<string[] | null>(null);
+  /** Where each year's proposal and letter numbers start (0392); null when refused. */
+  const [firstNumber, setFirstNumber] = useState<number | null>(null);
 
   /** What "Same as the firm" means for a company's year and clock (0337). */
   const firmCalendar: FirmCalendar = { timeZone, fiscalYearStartMonth: policy?.fiscalYearStartMonth ?? null };
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure, senders] = await Promise.all([
+    const [list, prefs, sig, roster, compliance, policies, ready, billed, ladder, structure, senders, numbering] = await Promise.all([
       api.GET("/api/v1/firm-entities", {}),
       api.GET("/api/v1/firm-entities/preferences", {}),
       api.GET("/api/v1/tenancy/signatories", {}),
@@ -216,6 +218,7 @@ export default function FirmPage() {
       // The time zone lives on this page (CA#16); Structure no longer has it.
       api.GET("/api/v1/tenancy/structure", {}),
       api.GET("/api/v1/tenancy/mail-senders", {}),
+      api.GET("/api/v1/firm-entities/numbering", {}),
     ]);
     if (list.response.status === 401) {
       router.push("/login");
@@ -247,6 +250,7 @@ export default function FirmPage() {
     setGrades(ladder.data?.grades ?? []);
     setTimeZone(structure.data?.timeZone ?? null);
     setSendDomains(senders.data?.sendFromDomains ?? null);
+    setFirstNumber(numbering.data?.firstNumber ?? null);
     setLoaded(true);
   }, [router]);
 
@@ -455,6 +459,21 @@ export default function FirmPage() {
           )
         }
       />
+
+      {firstNumber !== null && (
+        <NumberingCard
+          firstNumber={firstNumber}
+          fiscalYearStartMonth={policy?.fiscalYearStartMonth ?? null}
+          busy={busy === "numbering"}
+          onSave={(first) =>
+            act(
+              "numbering",
+              () => api.PUT("/api/v1/firm-entities/numbering", { body: { firstNumber: first } }),
+              `Each year's numbers now start at ${String(first)}.`,
+            )
+          }
+        />
+      )}
 
       {adding && (
         <AddCompany
@@ -1826,3 +1845,63 @@ function DiscountCard({
     />
   );
 }
+
+// ── Document numbers (0392) ─────────────────────────────────────────────────
+
+/**
+ * Where each year's proposal and letter numbers start. A number is the
+ * financial year by the year it ends, the issuing company's country and the
+ * run: 27IN501 for a letter, PL27IN501 for a proposal.
+ */
+function NumberingCard({
+  firstNumber,
+  fiscalYearStartMonth,
+  busy,
+  onSave,
+}: {
+  firstNumber: number;
+  fiscalYearStartMonth: number | null;
+  busy: boolean;
+  onSave: (first: number) => Promise<boolean>;
+}) {
+  const [y, m] = browserDay().split("-").map(Number);
+  const start = fiscalYearStartMonth ?? 4;
+  const startYear = (m ?? 1) >= start ? (y ?? 2000) : (y ?? 2000) - 1;
+  const yy = String((start === 1 ? startYear : startYear + 1) % 100).padStart(2, "0");
+  const n = String(firstNumber).padStart(3, "0");
+  return (
+    <SetOnce
+      title="Document numbers"
+      isSet
+      view={
+        <Meta layout="list">
+          <MetaItem label="Each year starts at">{String(firstNumber)}</MetaItem>
+          <MetaItem label="For example">{`Letter ${yy}IN${n} · Proposal PL${yy}IN${n}`}</MetaItem>
+        </Meta>
+      }
+      form={(close) => (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            void (async () => {
+              const ok = await onSave(Number(String(form.get("firstNumber") ?? "").trim()));
+              if (ok) close?.();
+            })();
+          }}
+        >
+          <FieldRow>
+            <Field
+              label="Each year starts at"
+              hint="Every company's numbers restart here each financial year. Numbers already given never change."
+            >
+              <Input name="firstNumber" type="number" min={1} max={999999} step={1} required defaultValue={firstNumber} />
+            </Field>
+            <SaveCancel busy={busy} close={close} />
+          </FieldRow>
+        </form>
+      )}
+    />
+  );
+}
+

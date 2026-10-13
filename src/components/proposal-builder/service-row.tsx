@@ -13,6 +13,12 @@ import { useSeesFees } from "@/components/fees";
 import { QuantityField } from "@/components/quantity-field";
 import { CurrencySelect } from "@/components/currency-select";
 import type { CatalogueService, Recurrence } from "./data";
+import { billingTimingWords } from "@/components/billing-timing";
+import type { BillingTiming } from "@/components/billing-timing";
+
+/** The period a fee billed per period is invoiced in (0393). */
+const INVOICE_SPAN: Readonly<Record<string, string>> = { monthly: "month", quarterly: "quarter", annually: "year" };
+const INVOICE_TIMINGS: readonly BillingTiming[] = ["advance", "on_date"];
 
 /** The four scope blocks, as the catalogue screen names them. */
 export const SCOPE_FIELDS = [
@@ -39,6 +45,9 @@ export interface RowLine {
   readonly quantity: string;
   readonly discountPercent: string | null;
   readonly billingFrequency: Recurrence | null;
+  /** When the fee is invoiced (0393), for the firm only. */
+  readonly billingTiming?: BillingTiming | null;
+  readonly billingOn?: string | null;
   readonly pricingNote: string | null;
   readonly terms: Readonly<
     Record<ScopeKey, { readonly text: string | null; readonly tailored: boolean; readonly standard: string | null }>
@@ -56,6 +65,9 @@ export interface LineTerms {
   readonly quantity: string;
   readonly discountPercent: string;
   readonly billingFrequency: Recurrence | null;
+  /** When the invoice is raised (0393): never printed on the proposal or letter. */
+  readonly billingTiming: BillingTiming | null;
+  readonly billingOn: string | null;
   readonly pricingNote: string | null;
   readonly overrides: Overrides;
   /**
@@ -166,6 +178,8 @@ export function ServiceRow<L extends RowLine>({
     quantity: "1",
     discountPercent: "0",
     billingFrequency: service.recurrence,
+    billingTiming: null,
+    billingOn: null,
     pricingNote: null,
     overrides: NO_OVERRIDES,
   };
@@ -468,6 +482,8 @@ export function termsOf(line: RowLine): LineTerms {
     quantity: formatCount(line.quantity),
     discountPercent: line.discountPercent === null ? "0" : formatCount(line.discountPercent),
     billingFrequency: line.billingFrequency,
+    billingTiming: line.billingTiming ?? null,
+    billingOn: line.billingOn ?? null,
     pricingNote: line.pricingNote,
     overrides: {
       scope: own(line.terms.scope),
@@ -528,6 +544,10 @@ function Details({
   const [quantity, setQuantity] = useState(initial.quantity);
   const [discount, setDiscount] = useState(initial.discountPercent);
   const [frequency, setFrequency] = useState<Recurrence | "">(initial.billingFrequency ?? "");
+  const [timing, setTiming] = useState<BillingTiming | "">(initial.billingTiming ?? "");
+  const [timingOn, setTimingOn] = useState(initial.billingOn ?? "");
+  const effectiveFrequency = frequency === "" ? service.recurrence : frequency;
+  const span = INVOICE_SPAN[effectiveFrequency ?? ""];
   const [note, setNote] = useState(initial.pricingNote ?? "");
   const [overrides, setOverrides] = useState<Overrides>(initial.overrides);
   /** The wording is folded until asked for, unless this line has its own. */
@@ -552,6 +572,9 @@ function Details({
           quantity: cleanAmount(quantity) === "" ? "1" : cleanAmount(quantity),
           discountPercent: cleanAmount(discount) === "" ? "0" : cleanAmount(discount),
           billingFrequency: frequency === "" ? null : frequency,
+          // Only a fee billed per period has a day in the period (0393).
+          billingTiming: span === undefined || timing === "" ? null : timing,
+          billingOn: span !== undefined && timing === "on_date" ? timingOn : null,
           pricingNote: note.trim() === "" ? null : note.trim(),
           overrides,
           ...(blind ? { feesUnchanged: true } : {}),
@@ -665,6 +688,37 @@ function Details({
               />
             </Field>
           </FieldRow>
+          )}
+          {/* WHEN THE INVOICE IS RAISED (0393), chosen with the service rather
+              than on the letter's draft; carried to the letter, printed on neither. */}
+          {section === null && span !== undefined && (
+            <FieldRow>
+              <Field label="Invoice raised" hint="For your team. Not printed on the proposal or the letter.">
+                <Select
+                  value={timing}
+                  onChange={(e) => {
+                    const t = INVOICE_TIMINGS.find((x) => x === e.target.value);
+                    setTiming(t ?? "");
+                  }}
+                >
+                  <option value="">{billingTimingWords(effectiveFrequency, null, null)}</option>
+                  <option value="advance">{billingTimingWords(effectiveFrequency, "advance", null)}</option>
+                  <option value="on_date">On a date I choose</option>
+                </Select>
+              </Field>
+              {timing === "on_date" && (
+                <Field label="First invoice on" hint={`Then every ${span} after it.`}>
+                  <Input
+                    type="date"
+                    required
+                    value={timingOn}
+                    onChange={(e) => {
+                      setTimingOn(e.target.value);
+                    }}
+                  />
+                </Field>
+              )}
+            </FieldRow>
           )}
           {/* THE RATE, where the fee in another currency is (2026-10-10):
               one line, and Change opens one box. The rates card is gone. */}

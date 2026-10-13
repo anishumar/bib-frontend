@@ -134,6 +134,10 @@ export default function PeoplePage() {
   };
 
   function changeRole(membershipId: string, role: string): void {
+    // Role and fees are separate settings: say so, or a promotion reads as
+    // having shown them fees (QA 2026-10-13).
+    const hidden =
+      members.find((x) => x.membership.id === membershipId)?.membership.commercialVisibility === false;
     void act(
       membershipId,
       () =>
@@ -141,7 +145,19 @@ export default function PeoplePage() {
           params: { path: { membershipId } },
           body: { role },
         }),
-      `Saved. ${who(membershipId)} role is changed.`,
+      `Saved. ${who(membershipId)} role is changed.${hidden ? " Fees are still hidden for them; change that under Fees." : ""}`,
+    );
+  }
+
+  function changeFees(membershipId: string, commercialVisibility: boolean): void {
+    void act(
+      membershipId,
+      () =>
+        api.PUT("/api/v1/tenancy/members/{membershipId}/fees", {
+          params: { path: { membershipId } },
+          body: { commercialVisibility },
+        }),
+      `Saved. ${who(membershipId)} fees are now ${commercialVisibility ? "visible" : "hidden"}.`,
     );
   }
 
@@ -399,7 +415,27 @@ export default function PeoplePage() {
                   </Td>
                   </>
                   )}
-                  <Td>{m.membership.commercialVisibility ? "Visible" : "Hidden"}</Td>
+                  <Td>
+                    {m.membership.audience !== "STAFF" ? (
+                      <span className="muted">Not for clients</span>
+                    ) : (
+                      <span className="inline-block max-w-32 align-middle">
+                        <Select
+                          variant="quiet"
+                          className="min-w-28"
+                          aria-label={`Fees for ${m.displayName ?? m.email}`}
+                          value={m.membership.commercialVisibility ? "visible" : "hidden"}
+                          disabled={busy === m.membership.id}
+                          onChange={(e) => {
+                            changeFees(m.membership.id, e.target.value === "visible");
+                          }}
+                        >
+                          <option value="visible">Visible</option>
+                          <option value="hidden">Hidden</option>
+                        </Select>
+                      </span>
+                    )}
+                  </Td>
                   <Td align="right">
                     {/* IN A MENU (Wave 4): the one press here that takes
                         somebody's access away, one click deeper and 90px back

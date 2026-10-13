@@ -24,6 +24,8 @@ import {
 } from "@/components/ui";
 import { useSession } from "@/components/layout";
 import { CountrySelect } from "@/components/country-select";
+import { EntityKindSelect } from "@/components/entity-kind-select";
+import { YearEndField } from "@/components/year-end-field";
 import { PhoneInput } from "@/components/phone-input";
 import { countryName } from "@/lib/country";
 import { browserDay, longDay } from "@/lib/day";
@@ -55,6 +57,7 @@ interface ChosenClient {
   readonly name: string;
   /** Where the client is registered, when its page records it. */
   readonly registeredIn: string | null;
+  readonly kind: "organization" | "person";
   readonly people: readonly Contact[];
 }
 
@@ -249,6 +252,7 @@ export function ClientStep({
       id,
       name: profile.data.party.displayName || name,
       registeredIn: registered === null ? null : registered.toUpperCase(),
+      kind: profile.data.party.kind,
       people,
     };
     setClient(chosen);
@@ -352,6 +356,9 @@ export function ClientStep({
     return [...set].sort();
   }, [firm, reporting, currency]);
 
+  /** A chosen company with no country or kind on file: registered on Next. */
+  const unregistered =
+    draft === null && who === "existing" && client?.kind === "organization" && client.registeredIn === null;
   /** Opened from a lead, and still on that lead's company (CA#43). */
   const fromLead = draft === null && prefillLeadId !== null && leadId !== null;
   /** Recording a person at the client takes party:write. */
@@ -432,6 +439,40 @@ export function ClientStep({
     setAddresseeId(added.id);
     setNewPerson({ name: "", role: "" });
     setPersonOpen(false);
+  }
+
+  /**
+   * A company is quoted only once its country and kind are on file (Q076), and
+   * a lead records neither. So the step registers it here, from the fields
+   * beside the name, rather than sending the reader to the client page.
+   */
+  async function ensureRegistered(partyId: string, form: FormData): Promise<boolean> {
+    const profile = await api.GET("/api/v1/parties/{partyId}", { params: { path: { partyId } } });
+    if (profile.error) {
+      setError(apiError(profile.error).message);
+      return false;
+    }
+    if (profile.data.party.kind !== "organization" || profile.data.legalEntities.length > 0) return true;
+    const entityType = String(form.get("entityType") ?? "").trim();
+    const financialYearEnd = String(form.get("financialYearEnd") ?? "").trim();
+    if (whereKey === null || entityType === "") {
+      setError(`Choose the country ${profile.data.party.displayName} is registered in and its kind of company.`);
+      return false;
+    }
+    const registered = await api.POST("/api/v1/parties/organizations/{partyId}/legal-entities", {
+      params: { path: { partyId } },
+      body: {
+        jurisdiction: whereKey,
+        entityType,
+        ...(financialYearEnd === "" ? {} : { financialYearEnd }),
+      },
+    });
+    if (registered.error) {
+      setError(apiError(registered.error).message);
+      return false;
+    }
+    if (client?.id === partyId) setClient({ ...client, registeredIn: whereKey });
+    return true;
   }
 
   async function captureLead(): Promise<{ id: string; partyId: string; matched: string | null } | null> {
@@ -555,8 +596,9 @@ export function ClientStep({
     router.push(`/proposals/${draft.proposal.id}/build?step=services` as Route);
   }
 
-  async function next(e: FormEvent): Promise<void> {
+  async function next(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
+    const form = new FormData(e.currentTarget);
     setBusy(true);
     setError(null);
     try {
@@ -586,6 +628,7 @@ export function ClientStep({
         }
         partyId = client.id;
       }
+      if (!(await ensureRegistered(partyId, form))) return;
 
       const drafted = await api.POST("/api/v1/proposals", {
         body: {
@@ -695,11 +738,18 @@ export function ClientStep({
                   <Field label="Country" hint="Where their company is registered.">
                     <CountrySelect
                       value={country}
+                      required
                       onChange={(e) => {
                         setCountry(e.target.value);
                       }}
                     />
                   </Field>
+                </FieldRow>
+                <FieldRow>
+                  <Field label="Company type">
+                    <EntityKindSelect name="entityType" required />
+                  </Field>
+                  <YearEndField country={country} />
                 </FieldRow>
                 <FieldRow>
                   <Field label="Contact person" hint="Who you deal with at the company.">
@@ -792,11 +842,20 @@ export function ClientStep({
               <Field label="Where the client is" hint="Decides which of your companies sends it.">
                 <CountrySelect
                   value={country}
+                  required={unregistered}
                   onChange={(e) => {
                     setCountry(e.target.value);
                   }}
                 />
               </Field>
+            )}
+            {unregistered && (
+              <>
+                <Field label="Company type">
+                  <EntityKindSelect name="entityType" required />
+                </Field>
+                <YearEndField country={country} />
+              </>
             )}
               <Field
                 label="Your company"

@@ -36,6 +36,8 @@ export function rowLineOf(line: LetterLine, groups: readonly FeeGroup[]): RowLin
     quantity: line.quantity,
     discountPercent: line.discountPercent,
     billingFrequency: line.billingFrequency,
+    billingTiming: line.billingTiming,
+    billingOn: line.billingOn,
     pricingNote: line.pricingNote,
     terms: {
       scope: { ...line.terms.scope, standard: standard("scope") },
