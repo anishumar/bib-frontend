@@ -1364,6 +1364,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenancy/members/{membershipId}/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Show a member fees, or hide them
+         * @description The fee axis, separate from role: promoting somebody does not show them fees, and an associate may be shown them. Takes effect on their next request.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    membershipId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetMemberFeesRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed. Idempotent. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Membership"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The session has not selected an org, or the role may not administer the firm */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such membership at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A client contact, whose access has no fee setting */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenancy/members/{membershipId}/grade": {
         parameters: {
             query?: never;
@@ -24733,6 +24814,10 @@ export interface components {
         SetMemberActiveRequest: {
             /** @description False revokes access — the person's next request is refused, not their next login. */
             isActive: boolean;
+        };
+        SetMemberFeesRequest: {
+            /** @description True shows this member fees, rates and amounts; false hides them. Role is unchanged. */
+            commercialVisibility: boolean;
         };
         ChangeMemberGradeRequest: {
             /**
