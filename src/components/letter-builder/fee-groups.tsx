@@ -32,10 +32,10 @@
 
 import { CurrencySelect } from "@/components/currency-select";
 import { BillingTimingControl } from "@/components/billing-timing";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { api, BILLING_FREQUENCY_LABELS, PER_PERIOD, formatCount, formatMoney } from "@/lib/api/client";
 import type { FeeGroup, LetterLine } from "@/lib/api/client";
-import { Button, Field, Input, Select, Textarea, AmountInput } from "@/components/ui";
+import { Button, Checkbox, Field, Input, Select, Textarea, AmountInput } from "@/components/ui";
 import { Card, CardTitle, Pill } from "@/components/tw";
 import { cleanAmount } from "@/lib/money";
 import { plural } from "@/lib/plural";
@@ -60,6 +60,28 @@ export function groupFee(g: FeeGroup): string {
   return g.amount === null
     ? "fee hidden"
     : `${formatMoney(g.amount, g.currency)}${PER_PERIOD[g.billingFrequency]}`;
+}
+
+/** A service as a section names it: with its company when the letter has several. */
+function lineLabel(l: LetterLine): string {
+  return l.entity === null ? l.description : `${l.description} (${l.entity.displayName})`;
+}
+
+/** Puts each ticked service in the section, in order. The first refusal stops
+ *  it; the ones already moved stay moved. */
+async function moveInto(
+  letterId: string,
+  groupId: string,
+  lineIds: readonly string[],
+): Promise<{ error?: unknown }> {
+  for (const lineId of lineIds) {
+    const moved = await api.PUT("/api/v1/engagement-letters/{letterId}/lines/{lineId}/pricing", {
+      params: { path: { letterId, lineId } },
+      body: { feeGroupId: groupId },
+    });
+    if (moved.error) return { error: moved.error };
+  }
+  return {};
 }
 
 export function FeeGroups({
@@ -106,22 +128,24 @@ export function FeeGroups({
             <GroupForm
               key={g.id}
               group={g}
+              groups={groups}
+              lines={lines}
               main={main}
               currencies={currencies}
               busy={busy}
               onCancel={() => {
                 setEditing(null);
               }}
-              onSubmit={(body) =>
-                act(`group:${g.id}`, () =>
+              onSubmit={async ({ lineIds, ...body }) => {
+                const ok = await act(`group:${g.id}`, () =>
                   api.PATCH("/api/v1/engagement-letters/{letterId}/fee-groups/{groupId}", {
                     params: { path: { letterId, groupId: g.id } },
                     body,
                   }),
-                ).then((ok) => {
-                  if (ok) setEditing(null);
-                })
-              }
+                );
+                if (ok) setEditing(null);
+                if (ok && lineIds.length > 0) await act(`group:${g.id}`, () => moveInto(letterId, g.id, lineIds));
+              }}
             />
           );
         }
@@ -164,12 +188,7 @@ export function FeeGroups({
                 <Pill tone="warn">Covers no services yet</Pill>
               ) : (
                 <>
-                  Covers {plural(covered.length, "service")}:{" "}
-                  {covered
-                    .map((l) =>
-                      l.entity === null ? l.description : `${l.description} (${l.entity.displayName})`,
-                    )
-                    .join("; ")}
+                  Covers {plural(covered.length, "service")}: {covered.map(lineLabel).join("; ")}
                 </>
               )}
             </div>
@@ -238,12 +257,17 @@ export function FeeGroups({
           <summary>Add a section</summary>
         <GroupForm
           group={null}
+          groups={groups}
+          lines={lines}
           main={main}
           currencies={currencies}
           busy={busy}
-          onSubmit={(body) =>
-            act("group:new", () =>
-              api.POST("/api/v1/engagement-letters/{letterId}/fee-groups", {
+          onSubmit={async ({ lineIds, ...body }) => {
+            // `act` says only whether it held, so the new section's id is
+            // read off the POST here.
+            const added: { id?: string } = {};
+            const ok = await act("group:new", async () => {
+              const result = await api.POST("/api/v1/engagement-letters/{letterId}/fee-groups", {
                 params: { path: { letterId } },
                 body: {
                   title: body.title ?? "",
@@ -264,9 +288,18 @@ export function FeeGroups({
                     ? {}
                     : { clientObligations: body.clientObligations }),
                 },
-              }),
-            )
-          }
+              });
+              if (result.data) added.id = result.data.id;
+              return result;
+            });
+            // The section exists now, so the form clears even if a service
+            // will not move; the refusal says why.
+            const id = added.id;
+            if (ok && id !== undefined && lineIds.length > 0) {
+              await act("group:new", () => moveInto(letterId, id, lineIds));
+            }
+            return ok;
+          }}
         />
         </details>
       )}
@@ -285,6 +318,8 @@ interface GroupBody {
   intro?: string;
   deliverables?: string;
   clientObligations?: string;
+  /** Services ticked to move INTO the section; never part of the section's own body. */
+  lineIds: string[];
 }
 
 /**
@@ -295,6 +330,8 @@ interface GroupBody {
  */
 function GroupForm({
   group,
+  groups,
+  lines,
   main,
   currencies,
   busy,
@@ -302,12 +339,16 @@ function GroupForm({
   onCancel,
 }: {
   group: FeeGroup | null;
+  groups: readonly FeeGroup[];
+  /** The letter's services, offered as ticks so none has to be written again. */
+  lines: readonly LetterLine[];
   main: string;
   currencies: readonly string[];
   busy: string | null;
   onSubmit: (body: GroupBody) => Promise<unknown>;
   onCancel?: () => void;
 }) {
+  const hintId = useId();
   const adding = group === null;
   const current = group?.currency ?? main;
   // A currency taken off the letter since stays listed, so the form says what
@@ -333,6 +374,7 @@ function GroupForm({
           intro: text("groupIntro"),
           deliverables: text("groupDeliverables"),
           clientObligations: text("groupClientObligations"),
+          lineIds: form.getAll("groupLines").map(String),
         }).then((done) => done === true);
       })}
     >
@@ -387,6 +429,43 @@ function GroupForm({
             />
           </Field>
         </div>
+        {/* The letter's own services, ticked in rather than written again. One
+            already here stays fixed: out of a section it needs a price, which
+            its own row asks for ("Priced on its own"). */}
+        {lines.length > 0 && (
+          // The margin sits on a wrapper: `.fieldset` zeroes its own.
+          <div className="mb-4">
+            <fieldset className="fieldset" aria-label="Services in this section" aria-describedby={hintId}>
+              <div className="label">Services in this section</div>
+              <div className="flex flex-col gap-1">
+                {lines.map((l) => {
+                  const here = group !== null && l.feeGroupId === group.id;
+                  const elsewhere = here ? undefined : groups.find((g) => g.id === l.feeGroupId);
+                  return (
+                    <Checkbox
+                      key={l.id}
+                      name="groupLines"
+                      value={l.id}
+                      label={lineLabel(l)}
+                      defaultChecked={here}
+                      disabled={here}
+                      note={
+                        here
+                          ? "in this section. To take it out, choose Priced on its own under the service"
+                          : elsewhere === undefined
+                            ? "priced on its own"
+                            : `now in section ${elsewhere.code}`
+                      }
+                    />
+                  );
+                })}
+              </div>
+              <p id={hintId} className="field-hint">
+                Tick what this fee pays for. A ticked service drops its own price.
+              </p>
+            </fieldset>
+          </div>
+        )}
         <div className="field-row mb-4">
           <Field
             label="In the Summary of Fees"
