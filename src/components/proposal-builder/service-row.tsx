@@ -52,7 +52,7 @@ export interface RowLine {
   readonly terms: Readonly<
     Record<ScopeKey, { readonly text: string | null; readonly tailored: boolean; readonly standard: string | null }>
   >;
-  /** "B": a letter's section pays for this line, so it has no price of its own. */
+  /** "B": a section pays for this line, so it has no price of its own. */
   readonly inSection?: string | null;
 }
 
@@ -588,7 +588,9 @@ function Details({
       >
         <FieldStack>
           {section !== null && (
-            <p className="text-sm text-muted">Paid by section {section}. Move it out of the section on the letter page.</p>
+            <p className="text-sm text-muted">
+              Paid by section {section}. To price it on its own, choose that under the service.
+            </p>
           )}
           {section === null && blind && (
           <FieldRow>

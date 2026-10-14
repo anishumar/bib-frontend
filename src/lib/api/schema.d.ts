@@ -14180,6 +14180,329 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/proposals/{proposalId}/fee-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a section — one fee for several services
+         * @description 0394. Services are put in it when added (`feeGroupId`) or afterwards (`PUT …/lines/{lineId}/pricing`), and then carry no price of their own. The letter drafted from the proposal copies it. Draft only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProposalFeeGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Added */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalFeeGroup"];
+                    };
+                };
+                /** @description No title, an amount that is not one, or an unknown billing frequency or timing */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft, or has no rate for the currency */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/fee-groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Strike a section off a draft */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Struck off */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal, or no such live section on it */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft, or the section still covers services */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Change a section on a draft */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditProposalFeeGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Changed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalFeeGroup"];
+                    };
+                };
+                /** @description A blank title, an amount that is not one, or an unknown billing frequency or timing */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal, or no such live section on it */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft, or has no rate for the currency */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/proposals/{proposalId}/lines/{lineId}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Price a service by a section, or on its own */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposalId: string;
+                    lineId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProposalLinePricingRequest"];
+                };
+            };
+            responses: {
+                /** @description Repriced */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalLine"];
+                    };
+                };
+                /** @description Into a section with a price, or on its own with neither a price nor a reason */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not permit it */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such proposal, line or section at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The proposal is no longer a draft */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/proposals/{proposalId}/discount-approval": {
         parameters: {
             query?: never;
@@ -27556,6 +27879,22 @@ export interface components {
         ProposalsResponse: {
             proposals: components["schemas"]["ProposalSummary"][];
         };
+        ProposalFeeGroup: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            position: number;
+            title: string;
+            /** @enum {string} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming: "arrears" | "advance" | "on_date" | null;
+            billingOn: string | null;
+            amount: string | null;
+            currency: string;
+            paymentTerms: string | null;
+            lineIds: string[];
+        };
         ProposalFrequencyTotal: {
             currency: string;
             /** @enum {string|null} */
@@ -27574,6 +27913,7 @@ export interface components {
                     code: string;
                     description: string;
                     subject: string | null;
+                    includedIn: string | null;
                 }[];
             }[];
         };
@@ -27654,6 +27994,8 @@ export interface components {
             billingOn: string | null;
             pricingNote: string | null;
             oopEstimate: components["schemas"]["OutOfPocketEstimate"];
+            /** Format: uuid */
+            feeGroupId: string | null;
         };
         ProposalBlock: {
             /** Format: uuid */
@@ -27726,6 +28068,7 @@ export interface components {
         } | null;
         ProposalRecord: {
             proposal: components["schemas"]["Proposal"];
+            feeGroups: components["schemas"]["ProposalFeeGroup"][];
             party: {
                 /** Format: uuid */
                 id: string;
@@ -27876,6 +28219,11 @@ export interface components {
             pricingNote?: string;
             /** @description What this line is priced in (0344). Absent: the list price's currency when the fee is taken from it and the proposal holds a rate for it, else the main currency. Any other than the main currency needs its rate first (CURRENCY_NEEDS_A_RATE). */
             currency?: string;
+            /**
+             * Format: uuid
+             * @description The section whose fee pays for this service (0394). Send no `unitAmount`, `pricingNote` or discount with it: the section's fee is the price.
+             */
+            feeGroupId?: string;
         };
         UpdateProposalLineRequest: {
             description?: string;
@@ -27895,6 +28243,37 @@ export interface components {
             oopEstimate?: components["schemas"]["OutOfPocketEstimate"];
             pricingNote?: string | null;
             currency?: string;
+        };
+        ProposalFeeGroupRequest: {
+            title: string;
+            currency?: string;
+            /** @enum {string} */
+            billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string} */
+            billingTiming?: "arrears" | "advance" | "on_date";
+            billingOn?: string;
+            amount: string;
+            paymentTerms?: string;
+        };
+        EditProposalFeeGroupRequest: {
+            title?: string;
+            currency?: string;
+            /** @enum {string} */
+            billingFrequency?: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+            /** @enum {string|null} */
+            billingTiming?: "arrears" | "advance" | "on_date" | null;
+            billingOn?: string | null;
+            amount?: string;
+            paymentTerms?: string;
+        };
+        ProposalLinePricingRequest: {
+            /**
+             * Format: uuid
+             * @description The section to price this service, or null to price it on its own. Into a section the service gives up its price, discount and note; on its own it needs `unitAmount` or a `pricingNote` saying why it has none.
+             */
+            feeGroupId: string | null;
+            unitAmount?: string;
+            pricingNote?: string;
         };
         ProposalEmailOutcome: {
             /** @enum {string} */
@@ -27948,6 +28327,16 @@ export interface components {
                 /** @enum {string|null} */
                 billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom" | null;
                 oopEstimate: components["schemas"]["OutOfPocketEstimate"];
+                feeGroupCode: string | null;
+            }[];
+            feeGroups: {
+                code: string;
+                title: string;
+                amount: string;
+                currency: string;
+                /** @enum {string} */
+                billingFrequency: "one_time" | "monthly" | "quarterly" | "annually" | "custom";
+                paymentTerms: string | null;
             }[];
             totals: {
                 gross: string;

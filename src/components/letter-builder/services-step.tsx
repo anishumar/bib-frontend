@@ -319,7 +319,7 @@ export function LetterServicesStep({
                                   extra={
                                     first !== undefined && feeGroups.length > 0 && editable ? (
                                       <LineFee
-                                        letterId={letterId}
+                                        doc={{ kind: "letter", id: letterId }}
                                         line={first.source}
                                         groups={feeGroups}
                                         currency={first.source.currency}
@@ -353,7 +353,7 @@ export function LetterServicesStep({
             </p>
           ))}
           <FeeGroups
-            letterId={letterId}
+            doc={{ kind: "letter", id: letterId }}
             groups={feeGroups}
             lines={lines}
             main={letter.currency}

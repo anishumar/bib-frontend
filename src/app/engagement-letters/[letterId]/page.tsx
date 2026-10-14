@@ -661,7 +661,7 @@ export default function LetterPage() {
           Before the services, because a service is put INTO a section. */}
       {(letter.layout === "annexure" || feeGroups.length > 0) && (
         <FeeGroups
-          letterId={letterId}
+          doc={{ kind: "letter", id: letterId }}
           groups={feeGroups}
           lines={lines}
           main={letter.currency}
@@ -838,7 +838,7 @@ export default function LetterPage() {
                     <Td align="right">
                       {permissions.includes("party:write") && (
                         <LineFee
-                          letterId={letterId}
+                          doc={{ kind: "letter", id: letterId }}
                           line={l}
                           groups={feeGroups}
                           currency={l.currency}
