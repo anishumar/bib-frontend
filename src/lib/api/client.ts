@@ -1134,6 +1134,14 @@ export type WorkBilling =
 export type WorkBillingRow = WorkBilling["rows"][number];
 export type WorkBillingFlag = WorkBillingRow["flags"][number];
 
+/** The client summary: per client and service, billed, received and pending,
+ *  with the Key Manager and the SPOCs. Behind the fee axis. */
+export type ClientSummary =
+  paths["/api/v1/dashboard/client-summary"]["get"]["responses"][200]["content"]["application/json"];
+export type ClientSummaryClient = ClientSummary["clients"][number];
+export type ClientSummaryLine = ClientSummaryClient["lines"][number];
+export type SummaryFigures = ClientSummary["currencies"][number];
+
 /** A bill in words: "Bookkeeping, Oct 2026", "Statutory audit, final bill",
  *  "Advance, EL-2026-0007" or "Advance for Statutory audit". */
 export function billLabel(d: Pick<BillingDue, "kind" | "serviceName" | "periodLabel" | "engagementId" | "letter">): string {

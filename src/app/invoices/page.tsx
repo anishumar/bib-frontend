@@ -55,6 +55,7 @@ import { NotSetUpTab } from "./not-set-up";
 import { AdvancesTab } from "./advances";
 import { AdjustTab } from "./adjust";
 import { WorkVsBillingTab } from "./work-vs-billing";
+import { ClientSummaryTab } from "./client-summary";
 import { keepTyped } from "@/lib/ui/keep-typed";
 import { CurrencySelect } from "@/components/currency-select";
 import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
@@ -62,7 +63,7 @@ import { fxSuggestion, type FxSuggestion } from "@/lib/fx";
 /** The views, the current one in the URL (`?tab=`) so a link from My day or
  *  Your firm lands on it. Advances (0320): every advance and where it stands.
  *  To adjust (0363): advances taken before a letter, until mapped. */
-const TABS = ["invoices", "raise", "work", "advances", "adjust", "setup"] as const;
+const TABS = ["invoices", "raise", "work", "summary", "advances", "adjust", "setup"] as const;
 type TabKey = (typeof TABS)[number];
 
 /**
@@ -341,7 +342,11 @@ function Invoices() {
 
   const billing = dues !== null;
   const askedTab = search.get("tab");
-  const tab: TabKey = billing ? (TABS.find((t) => t === askedTab) ?? "invoices") : "invoices";
+  // The client summary is all money, so a login without fees is not offered it.
+  const summaryShown = session?.commercialVisibility === true;
+  const tab: TabKey = billing
+    ? (TABS.find((t) => t === askedTab && (t !== "summary" || summaryShown)) ?? "invoices")
+    : "invoices";
   function showTab(next: TabKey): void {
     const q = new URLSearchParams(search.toString());
     if (next === "invoices") q.delete("tab");
@@ -388,6 +393,8 @@ function Invoices() {
         parties={parties}
         colleagues={colleagues}
       />
+    ) : tab === "summary" ? (
+      <ClientSummaryTab parties={parties} colleagues={colleagues} />
     ) : tab === "advances" ? (
       <AdvancesTab advances={advances} />
     ) : tab === "adjust" ? (
@@ -547,6 +554,7 @@ function Invoices() {
               count: needsAttention,
               ...(needsAttention > 0 ? { tone: "danger" as const } : {}),
             },
+            ...(summaryShown ? [{ value: "summary" as const, label: "Client summary" }] : []),
             {
               value: "advances",
               label: "Advances",
