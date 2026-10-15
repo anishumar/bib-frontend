@@ -56,6 +56,7 @@ import {
 } from "@/components/proposal-document";
 import { cleanAmount } from "@/lib/money";
 import { Money } from "@/components/fees";
+import { groupFee } from "@/components/letter-builder/fee-groups";
 import { keepTyped } from "@/lib/ui/keep-typed";
 
 /** Somebody at the client a letter may be addressed to. */
@@ -515,10 +516,18 @@ function ServicesAndPrices({
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l) => (
+                {lines.map((l) => {
+                  // A service in a section (0394) has no price of its own.
+                  const section = record.feeGroups.find((g) => g.id === l.feeGroupId);
+                  return (
                   <tr key={l.id}>
                     <Td>
                       {l.description}
+                      {section !== undefined && (
+                        <Sub>
+                          In section {section.code} · {section.title} ({groupFee(section)})
+                        </Sub>
+                      )}
                       {/* The firm's own code and the catalogue version the line
                           is pinned to, never the service's system key. */}
                       {l.service !== null && (
@@ -542,13 +551,21 @@ function ServicesAndPrices({
                       )}
                     </Td>
                     <Td align="right" className="nowrap">
-                      <Money amount={l.unitAmount} currency={l.currency} />
+                      {section !== undefined ? (
+                        <span className="text-muted">In {section.code}</span>
+                      ) : (
+                        <Money amount={l.unitAmount} currency={l.currency} />
+                      )}
                     </Td>
                     <Td align="right">
                       {l.discountPercent === null ? <Money amount={null} currency={l.currency} unset="None" /> : `${formatCount(l.discountPercent)}%`}
                     </Td>
                     <Td align="right" className="nowrap">
-                      <Money amount={l.net} currency={l.currency} />
+                      {section !== undefined ? (
+                        <span className="text-muted">In {section.code}</span>
+                      ) : (
+                        <Money amount={l.net} currency={l.currency} />
+                      )}
                     </Td>
                     <Td align="right">
                       {isDraft && (
@@ -567,7 +584,8 @@ function ServicesAndPrices({
                       )}
                     </Td>
                   </tr>
-                ))}
+                  );
+                })}
                 {lines.length === 0 && (
                   <tr>
                     <Td colSpan={7} className="muted">

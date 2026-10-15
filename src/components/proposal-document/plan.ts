@@ -22,6 +22,8 @@ export interface PlannedItem {
   readonly code: string;
   /** The company, when the proposal should say so; null means "do not print". */
   readonly subject: string | null;
+  /** "A1" when this service reads "Included in A1" (0394). */
+  readonly includedIn: string | null;
   readonly line: ProposalLine;
 }
 
@@ -42,7 +44,7 @@ export function planSections(record: ProposalRecord): PlannedSection[] {
     // read builds both); skipping it keeps the page drawable if it ever did.
     items: s.items.flatMap((i) => {
       const line = lines.get(i.lineId);
-      return line === undefined ? [] : [{ code: i.code, subject: i.subject, line }];
+      return line === undefined ? [] : [{ code: i.code, subject: i.subject, includedIn: i.includedIn, line }];
     }),
   }));
 }

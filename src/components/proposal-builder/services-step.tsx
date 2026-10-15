@@ -17,6 +17,7 @@ import { FrequencyTotals } from "./totals";
 import { fxSuggestion } from "@/lib/fx";
 import { browserDay } from "@/lib/day";
 import type { LineTerms } from "./service-row";
+import { FeeGroups, LineFee } from "@/components/letter-builder/fee-groups";
 
 /**
  * STEP 2: which services, at what fee, with what scope. Services ONLY: the
@@ -78,8 +79,9 @@ export function ServicesStep({
     return null;
   }
 
-  const { proposal, lines } = record;
+  const { proposal, lines, feeGroups } = record;
   const proposalId = proposal.id;
+  const doc = { kind: "proposal" as const, id: proposalId };
   const editable = proposal.status === "draft" && proposal.deletedAt === null && canWrite;
   // What a service may be priced in (0344): the main currency and each one
   // this proposal holds a rate for.
@@ -103,8 +105,14 @@ export function ServicesStep({
     router.replace(`${pathname}?${params.toString()}` as Route, { scroll: false });
   }
 
-  const linesOf = (s: CatalogueService): ProposalLine[] =>
-    lines.filter((l) => l.service?.key === s.key);
+  // A service in a section shows "In section A" where its fee would be (0394).
+  const linesOf = (s: CatalogueService) =>
+    lines
+      .filter((l) => l.service?.key === s.key)
+      .map((l) => ({
+        ...l,
+        inSection: l.feeGroupId === null ? null : (feeGroups.find((g) => g.id === l.feeGroupId)?.code ?? "?"),
+      }));
 
   /** One place owns the busy flag, the row's error and the reload. */
   async function act(key: string, call: () => Promise<string | null>): Promise<boolean> {
@@ -205,9 +213,11 @@ export function ServicesStep({
       /* A rate added for this service goes with its last fee (2026-10-10),
          so "Exchange rates" never lists a currency nothing is priced in.
          Best effort: a rate that stays can still be removed by hand. */
-      const left = lines.filter((l) => !going.includes(l));
+      const gone = new Set(going.map((l) => l.id));
+      const left = lines.filter((l) => !gone.has(l.id));
       for (const c of new Set(going.map((l) => l.currency))) {
-        if (c === proposal.currency || left.some((l) => l.currency === c)) continue;
+        // A section's currency stays while the section does (0394).
+        if (c === proposal.currency || left.some((l) => l.currency === c) || feeGroups.some((g) => g.currency === c)) continue;
         await api.DELETE("/api/v1/proposals/{proposalId}/rates/{currency}", {
           params: { path: { proposalId, currency: c } },
         });
@@ -223,8 +233,10 @@ export function ServicesStep({
    * scope block prints the catalogue's words again.
    */
   async function save(s: CatalogueService, line: ProposalLine, t: LineTerms): Promise<boolean> {
+    // A service in a section has no money of its own to send (0394).
+    const grouped = line.feeGroupId !== null;
     return act(s.key, async () => {
-      if (t.feesUnchanged !== true) {
+      if (t.feesUnchanged !== true && !grouped) {
         const missing = await ensureRate(t.currency);
         if (missing !== null) return missing;
       }
@@ -234,7 +246,7 @@ export function ServicesStep({
           quantity: t.quantity,
           // B09: what a login that cannot see fees never saw, it does not send;
           // left out, the line keeps its fee, discount and note.
-          ...(t.feesUnchanged === true
+          ...(t.feesUnchanged === true || grouped
             ? {}
             : {
                 unitAmount: t.unitAmount,
@@ -254,7 +266,7 @@ export function ServicesStep({
       if (result.error) return apiError(result.error).message;
       // The currency it left, if nothing else is priced in it now.
       const was = line.currency;
-      if (was !== t.currency && was !== proposal.currency && !lines.some((l) => l.id !== line.id && l.currency === was)) {
+      if (!grouped && was !== t.currency && was !== proposal.currency && !lines.some((l) => l.id !== line.id && l.currency === was)) {
         await api.DELETE("/api/v1/proposals/{proposalId}/rates/{currency}", {
           params: { path: { proposalId, currency: was } },
         });
@@ -263,9 +275,27 @@ export function ServicesStep({
     });
   }
 
+  /** The sections card's own `act`: reload after, report whether it took. */
+  async function groupAct(key: string, call: () => Promise<{ error?: unknown }>): Promise<boolean> {
+    setBusy(key);
+    setErrors((e) => ({ ...e, [key]: "" }));
+    const result = await call();
+    if (result.error) {
+      setErrors((e) => ({ ...e, [key]: apiError(result.error).message }));
+      setBusy(null);
+      return false;
+    }
+    await onChanged();
+    setBusy(null);
+    return true;
+  }
+
   const shown = offeredIn(catalogue, country);
   const groups = groupByDept(shown, axes);
   const count = lines.length;
+  const groupErrors = Object.entries(errors).filter(
+    ([k, v]) => v !== "" && (k.startsWith("group") || k.startsWith("fee:") || k.startsWith("rm-group") || k.startsWith("timing:")),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -324,6 +354,19 @@ export function ServicesStep({
                                 key={s.key}
                                 service={s}
                                 lines={linesOf(s)}
+                                extra={(() => {
+                                  const first = linesOf(s)[0];
+                                  return first !== undefined && feeGroups.length > 0 && editable ? (
+                                    <LineFee
+                                      doc={doc}
+                                      line={first}
+                                      groups={feeGroups}
+                                      currency={first.currency}
+                                      busy={busy}
+                                      act={groupAct}
+                                    />
+                                  ) : undefined;
+                                })()}
                                 currency={proposal.currency}
                                 currencies={currencies}
                                 autoRate
@@ -349,6 +392,27 @@ export function ServicesStep({
         )}
       </Card>
 
+      {/* ONE FEE FOR SEVERAL SERVICES (0394), the letter's card as it is. */}
+      <details className="rounded-md border border-line bg-surface px-4 py-3" open={feeGroups.length > 0}>
+        <summary className="cursor-pointer text-md font-semibold">One fee for several services</summary>
+        <div className="mt-3">
+          {groupErrors.map(([k, v]) => (
+            <p key={k} role="alert" className="mb-2 text-sm text-danger">
+              {v}
+            </p>
+          ))}
+          <FeeGroups
+            doc={doc}
+            groups={feeGroups}
+            lines={lines}
+            main={proposal.currency}
+            currencies={currencies}
+            editable={editable}
+            busy={busy}
+            act={groupAct}
+          />
+        </div>
+      </details>
 
       <StickyFooter
         summary={<FrequencyTotals record={record} />}

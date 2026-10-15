@@ -40,6 +40,8 @@ import type { SaveOutcome } from "./editable";
 import { EditableFee } from "./fee";
 import { BackToStandard } from "./back-to-standard";
 import { planSections } from "./plan";
+import type { PlannedItem } from "./plan";
+import { groupFee } from "@/components/letter-builder/fee-groups";
 import { useProposal, putProposal } from "./store";
 import { feeWords } from "./words";
 
@@ -287,7 +289,9 @@ export function ProposalPdf({
           (s): PieceGroup => ({
             title: `${s.code}. ${s.title}`,
             icon: "structure",
-            pieces: s.items.flatMap((item) => servicePieces(item.code, item.line, item.line.currency, reviseLine)),
+            pieces: s.items.flatMap((item) =>
+              servicePieces(item.code, item.line, item.line.currency, reviseLine, sectionFee(record, item)),
+            ),
           }),
         ),
         {
@@ -496,6 +500,18 @@ export function choicePiece(opts: {
   };
 }
 
+/**
+ * What a service in a section prints for its fee, as the PDF does (0394): the
+ * section's fee on its first service, "Included in A1" on the rest. Null for a
+ * service priced on its own. Changed in "One fee for several services".
+ */
+function sectionFee(record: ProposalRecord, item: PlannedItem): string | null {
+  const g = record.feeGroups.find((x) => x.id === item.line.feeGroupId);
+  if (g === undefined) return null;
+  if (item.includedIn !== null) return `Included in ${item.includedIn}`;
+  return g.amount === null ? `${g.title}: fee not shown to you` : `${groupFee(g)} (${g.title})`;
+}
+
 /** A service's name, its texts (those the catalogue or this proposal gives
  *  it; an empty one is added from the list) and its fee. */
 function servicePieces(
@@ -503,6 +519,7 @@ function servicePieces(
   line: ProposalLine,
   currency: string,
   reviseLine: (lineId: string, change: LineChange) => Promise<SaveOutcome>,
+  inSection: string | null,
 ): Piece[] {
   const name = line.description;
   const pieces: Piece[] = [
@@ -553,6 +570,20 @@ function servicePieces(
         ) : undefined,
       }),
     );
+  }
+  if (inSection !== null) {
+    pieces.push({
+      key: `fee:line:${line.id}`,
+      label: `The fee for ${code}`,
+      listed: (
+        <div className="flex flex-col gap-1">
+          <PieceLabel icon="receivables" text="Fee" />
+          <p>{inSection}</p>
+        </div>
+      ),
+      editor: () => <p>{inSection}</p>,
+    });
+    return pieces;
   }
   const withheld = line.priced && line.net === null;
   const words = withheld ? "Fee not shown to you" : feeWords(line.net, line.billingFrequency, line.pricingNote, currency);

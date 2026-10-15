@@ -339,7 +339,14 @@ export default function SharedProposalPage() {
  * frequency the API's own total stands, with its discount note.
  */
 function FrequencyTotals({ shared }: { shared: SharedProposal }) {
-  const groups = totalsByFrequency(shared.lines, shared.currency);
+  // Each section's fee counts once; its services carry none (0394).
+  const groups = totalsByFrequency(
+    [
+      ...shared.lines,
+      ...shared.feeGroups.map((g) => ({ net: g.amount, currency: g.currency, billingFrequency: g.billingFrequency })),
+    ],
+    shared.currency,
+  );
   const [one] = shared.totals;
   // ONE PER CURRENCY (0344): two currencies are never added, so a proposal in
   // dollars and dirhams shows each, and the label names which.
@@ -415,7 +422,7 @@ const FREQUENCY_ORDER = ["monthly", "quarterly", "annually", "one_time", "custom
  * decimal (the page then falls back to the API's one total rather than guess).
  */
 function totalsByFrequency(
-  lines: SharedProposal["lines"],
+  lines: readonly Pick<SharedProposal["lines"][number], "net" | "currency" | "billingFrequency">[],
   main: string,
 ): { currency: string; frequency: SharedProposal["lines"][number]["billingFrequency"]; net: string }[] | null {
   // Per currency, then per frequency: one currency's nets added as exact
