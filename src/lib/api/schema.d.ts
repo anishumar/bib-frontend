@@ -24218,6 +24218,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/client-summary/projection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The fees each client's services will be billed in the coming months
+         * @description The billing sweep's own rule run forward: for every scheduled service (or section), the bills that will fall due in the rest of this month and the `months` months after it, at the letter's price, a part period priced as the sweep prices it, before tax, by the month the bill falls due. A service runs on until it is ended; an ended or paused one bills nothing past it. Bills already written are left out. Per CURRENCY, never converted. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    months?: number;
+                    partyId?: string;
+                    keyManagerUserId?: string;
+                    spocUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The projection */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientProjection"];
+                    };
+                };
+                /** @description Months outside 1 to 12, or a malformed id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/originator": {
         parameters: {
             query?: never;
@@ -30565,6 +30636,71 @@ export interface components {
                     invoices: number;
                 }[];
             }[];
+        };
+        ClientProjection: {
+            today: string;
+            months: {
+                /** @description YYYY-MM */
+                key: string;
+                label: string;
+                /** @description The first month starts today. */
+                from: string;
+                to: string;
+            }[];
+            /** @description The firm's whole, one per currency: every client's totals of that currency add up to it. */
+            currencies: {
+                /** @description Every amount on this row is in this currency, never converted. */
+                currency: string;
+                /** @description Fees to be billed, before tax, one per month of `months`. */
+                months: string[];
+                /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                total: string;
+            }[];
+            clients: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                keyManager: {
+                    /** Format: uuid */
+                    userId: string;
+                    name: string;
+                } | null;
+                totals: {
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Fees to be billed, before tax, one per month of `months`. */
+                    months: string[];
+                    /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                    total: string;
+                }[];
+                lines: {
+                    /** @enum {string} */
+                    kind: "service" | "section";
+                    key: string;
+                    name: string;
+                    services: string[];
+                    depts: {
+                        code: string;
+                        name: string;
+                    }[];
+                    spocs: {
+                        /** Format: uuid */
+                        userId: string;
+                        name: string;
+                        deptCode: string;
+                    }[];
+                    /** @description Bills in the window whose letter named no price. */
+                    unpriced: number;
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Fees to be billed, before tax, one per month of `months`. */
+                    months: string[];
+                    /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                    total: string;
+                }[];
+            }[];
+            /** @description Quarterly or yearly services left out: the firm has not said when its year starts. */
+            awaitingFiscalYear: number;
         };
         LetterOriginator: {
             /** Format: uuid */

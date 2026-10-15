@@ -3,7 +3,8 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { api, apiError, colleagueLabel, formatMoney } from "@/lib/api/client";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { api, apiError, colleagueLabel } from "@/lib/api/client";
 import type {
   ClientSummary,
   ClientSummaryClient,
@@ -35,10 +36,12 @@ import {
   Td,
   Th,
 } from "@/components/ui";
-import { DeptChip } from "@/app/catalogue/parts";
+import { ComingMonths } from "./client-projection";
+import { FoldToggle, Spocs, isZero, money, plural, spocWords } from "./summary-parts";
 
 type PeriodKey = "default" | "last_fy" | "last_12" | "this_month" | "last_month";
 type SortKey = "overdue" | "pending" | "billed" | "name";
+type View = "so_far" | "coming";
 
 /** Up to this many clients open with their services showing; more start folded. */
 const OPEN_UP_TO = 6;
@@ -61,6 +64,18 @@ export function ClientSummaryTab({
   const [client, setClient] = useState("");
   const [keyManager, setKeyManager] = useState("");
   const [spoc, setSpoc] = useState("");
+  // The view is in the URL (`?view=coming`), so a link can open the projection.
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const view: View = search.get("view") === "coming" ? "coming" : "so_far";
+  const showView = (next: View) => {
+    const q = new URLSearchParams(search.toString());
+    if (next === "coming") q.set("view", "coming");
+    else q.delete("view");
+    router.replace(`${pathname}?${q.toString()}` as Route, { scroll: false });
+  };
+  const [ahead, setAhead] = useState(3);
   const [period, setPeriod] = useState<PeriodKey>("default");
   const [sort, setSort] = useState<SortKey>("overdue");
   /** Clients opened or folded by hand; the rest follow `OPEN_UP_TO`. */
@@ -86,6 +101,7 @@ export function ClientSummaryTab({
   }, []);
 
   useEffect(() => {
+    if (view !== "so_far") return;
     const ask = ++asked.current;
     const range = periodRange(period, browserDay(), fy.current);
     void (async () => {
@@ -110,7 +126,7 @@ export function ClientSummaryTab({
       fy.current = result.data.financialYearStartMonth;
       setFyStart(result.data.financialYearStartMonth);
     })();
-  }, [client, keyManager, spoc, period]);
+  }, [client, keyManager, spoc, period, view]);
 
   const clients = parties.filter((p) => !p.isOwnCompany);
   const filtered = client !== "" || keyManager !== "" || spoc !== "";
@@ -121,6 +137,14 @@ export function ClientSummaryTab({
 
   return (
     <Stack>
+      <div className="cs-views" role="group" aria-label="What to show">
+        <button type="button" aria-pressed={view === "so_far"} onClick={() => showView("so_far")}>
+          So far
+        </button>
+        <button type="button" aria-pressed={view === "coming"} onClick={() => showView("coming")}>
+          Coming months
+        </button>
+      </div>
       <form onSubmit={(e) => e.preventDefault()}>
         <FieldRow>
           <Field label="Key Manager">
@@ -153,188 +177,209 @@ export function ClientSummaryTab({
               ))}
             </Select>
           </Field>
-          <Field label="Period">
-            <Select value={period} onChange={(e) => setPeriod(e.target.value as PeriodKey)}>
-              {periodOptions(fyStart).map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {view === "so_far" ? (
+            <Field label="Period">
+              <Select value={period} onChange={(e) => setPeriod(e.target.value as PeriodKey)}>
+                {periodOptions(fyStart).map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Months ahead">
+              <Select value={String(ahead)} onChange={(e) => setAhead(Number(e.target.value))}>
+                <option value="3">This month and the next 3</option>
+                <option value="6">This month and the next 6</option>
+              </Select>
+            </Field>
+          )}
         </FieldRow>
       </form>
 
-      <ErrorNotice error={error} />
-
-      {answer !== null && (
-        <>
-          {answer.currencies.map((c) => {
-            const owing = clientsWith(answer, c.currency, (f) => f.pending);
-            const late = clientsWith(answer, c.currency, (f) => f.overdue);
-            const suffix = answer.currencies.length > 1 ? ` (${c.currency})` : "";
-            return (
-              <Strip key={c.currency}>
-                <Stat label={`Billed${suffix}`} value={money(c.billed, c.currency)} note={plural(c.invoices, "invoice")} />
-                <Stat
-                  label={`Received${suffix}`}
-                  value={money(c.received, c.currency)}
-                  {...(isZero(c.tds) ? {} : { note: `TDS ${money(c.tds, c.currency)}` })}
-                />
-                <Stat
-                  label={`Pending${suffix}`}
-                  value={money(c.pending, c.currency)}
-                  {...(owing === 0 ? {} : { note: plural(owing, "client"), tone: "warn" as const })}
-                />
-                <Stat
-                  label={`Overdue${suffix}`}
-                  value={money(c.overdue, c.currency)}
-                  {...(late === 0 ? {} : { note: plural(late, "client"), tone: "danger" as const })}
-                />
-              </Strip>
-            );
-          })}
-          <div className="cs-period">
-            <p>
-              <strong>
-                {longDay(answer.from)} to {longDay(answer.to)}
-              </strong>
-              <span className="muted"> · Pending as on {longDay(answer.asOf)}</span>
-            </p>
-            <details className="disclosure cs-how">
-              <summary>How these figures are counted</summary>
-              <ul>
-                <li>Billed and Received are for the period. Billed includes tax, less credit notes.</li>
-                <li>Pending is everything still owed on {longDay(answer.asOf)}, whenever it was billed.</li>
-                <li>When one invoice covers several services, its payments are shared by each service&apos;s part of it.</li>
-                <li>Work not yet billed is on Work vs Billing.</li>
-              </ul>
-            </details>
-          </div>
-        </>
-      )}
-
-      {answer === null ? (
-        <p className="muted">{loading ? "Loading…" : ""}</p>
-      ) : shown.length === 0 ? (
-        <Card>
-          <Empty title="Nothing billed or owed" icon="invoices">
-            {filtered ? "No client matches these filters in this period." : "No invoice was issued or paid in this period, and nothing is owed."}
-          </Empty>
-        </Card>
+      {view === "coming" ? (
+        <ComingMonths client={client} keyManager={keyManager} spoc={spoc} ahead={ahead} axes={axes} />
       ) : (
-        <Stack>
-          <Row className="cs-toolbar">
-            <span className="muted">
-              {plural(shown.length, "client")}, {plural(services, "service")}
-            </span>
-            <div className="cluster">
-              <label className="cs-sort">
-                <span>Sort</span>
-                <Select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-                  <option value="overdue">Most overdue first</option>
-                  <option value="pending">Most pending first</option>
-                  <option value="billed">Most billed first</option>
-                  <option value="name">Name, A to Z</option>
-                </Select>
-              </label>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-controls={tableId}
-                onClick={() => setOpened(Object.fromEntries(shown.map((c) => [c.partyId, !allOpen])))}
-              >
-                {allOpen ? "Fold all" : "Show all services"}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Icon name="download" size={16} />}
-                disabled={loading}
-                onClick={() => downloadCsv(`client-summary-${answer.from}-to-${answer.to}.csv`, csvRows(answer))}
-              >
-                Download CSV
-              </Button>
-            </div>
-          </Row>
-          <TableWrap>
-            <Table id={tableId} aria-busy={loading} className="cs-table">
-              <thead>
-                <tr>
-                  <Th>Client and service</Th>
-                  <Th>Key Manager / SPOC</Th>
-                  <Th align="right">Billed</Th>
-                  <Th align="right">Received</Th>
-                  <Th align="right">Pending</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((c) => {
-                  const open = isOpen(c.partyId);
-                  return (
-                    <Fragment key={c.partyId}>
-                      <tr data-client={c.partyId}>
-                        <Td>
-                          <div className="cs-client">
-                            <button
-                              type="button"
-                              className="cs-toggle"
-                              aria-expanded={open}
-                              aria-label={`${open ? "Fold" : "Show"} the services of ${c.name}`}
-                              onClick={() => setOpened((o) => ({ ...o, [c.partyId]: !open }))}
-                            >
-                              <Icon name="chevronDown" size={18} />
-                            </button>
-                            <span className="cell-text" data-size="narrow">
-                              <Link href={`/clients/${c.partyId}` as Route}>{c.name}</Link>
-                            </span>
-                            <ClientState client={c} />
-                          </div>
-                          <span className="sub">
-                            {plural(c.lines.length, "service")} ·{" "}
-                            <Link href={`/invoices?tab=work&client=${c.partyId}` as Route}>Month by month</Link>
-                          </span>
-                          <span className="sub cs-narrow">
-                            {c.keyManager === null ? "No Key Manager" : `KM ${c.keyManager.name}`} · {owedWords(c.totals)}
-                          </span>
-                        </Td>
-                        <Td>
-                          <span className="cell-text" data-size="narrow">
-                            {c.keyManager === null ? <NotSet>No Key Manager</NotSet> : c.keyManager.name}
-                          </span>
-                          <span className="sub">Key Manager</span>
-                        </Td>
-                        <Figures rows={c.totals} strong />
-                      </tr>
-                      {open &&
-                        c.lines.map((l) => (
-                          <tr key={`${l.kind}:${l.key}:${l.currency}`} data-line={l.kind} className="cs-line">
+        <>
+          <ErrorNotice error={error} />
+
+          {answer !== null && (
+            <>
+              {answer.currencies.map((c) => {
+                const owing = clientsWith(answer, c.currency, (f) => f.pending);
+                const late = clientsWith(answer, c.currency, (f) => f.overdue);
+                const suffix = answer.currencies.length > 1 ? ` (${c.currency})` : "";
+                return (
+                  <Strip key={c.currency}>
+                    <Stat
+                      label={`Billed${suffix}`}
+                      value={money(c.billed, c.currency)}
+                      note={plural(c.invoices, "invoice")}
+                    />
+                    <Stat
+                      label={`Received${suffix}`}
+                      value={money(c.received, c.currency)}
+                      {...(isZero(c.tds) ? {} : { note: `TDS ${money(c.tds, c.currency)}` })}
+                    />
+                    <Stat
+                      label={`Pending${suffix}`}
+                      value={money(c.pending, c.currency)}
+                      {...(owing === 0 ? {} : { note: plural(owing, "client"), tone: "warn" as const })}
+                    />
+                    <Stat
+                      label={`Overdue${suffix}`}
+                      value={money(c.overdue, c.currency)}
+                      {...(late === 0 ? {} : { note: plural(late, "client"), tone: "danger" as const })}
+                    />
+                  </Strip>
+                );
+              })}
+              <div className="cs-period">
+                <p>
+                  <strong>
+                    {longDay(answer.from)} to {longDay(answer.to)}
+                  </strong>
+                  <span className="muted"> · Pending as on {longDay(answer.asOf)}</span>
+                </p>
+                <details className="disclosure cs-how">
+                  <summary>How these figures are counted</summary>
+                  <ul>
+                    <li>Billed and Received are for the period. Billed includes tax, less credit notes.</li>
+                    <li>Pending is everything still owed on {longDay(answer.asOf)}, whenever it was billed.</li>
+                    <li>
+                      When one invoice covers several services, its payments are shared by each service&apos;s part of
+                      it.
+                    </li>
+                    <li>Work not yet billed is on Work vs Billing.</li>
+                  </ul>
+                </details>
+              </div>
+            </>
+          )}
+
+          {answer === null ? (
+            <p className="muted">{loading ? "Loading…" : ""}</p>
+          ) : shown.length === 0 ? (
+            <Card>
+              <Empty title="Nothing billed or owed" icon="invoices">
+                {filtered
+                  ? "No client matches these filters in this period."
+                  : "No invoice was issued or paid in this period, and nothing is owed."}
+              </Empty>
+            </Card>
+          ) : (
+            <Stack>
+              <Row className="cs-toolbar">
+                <span className="muted">
+                  {plural(shown.length, "client")}, {plural(services, "service")}
+                </span>
+                <div className="cluster">
+                  <label className="cs-sort">
+                    <span>Sort</span>
+                    <Select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                      <option value="overdue">Most overdue first</option>
+                      <option value="pending">Most pending first</option>
+                      <option value="billed">Most billed first</option>
+                      <option value="name">Name, A to Z</option>
+                    </Select>
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-controls={tableId}
+                    onClick={() => setOpened(Object.fromEntries(shown.map((c) => [c.partyId, !allOpen])))}
+                  >
+                    {allOpen ? "Fold all" : "Show all services"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Icon name="download" size={16} />}
+                    disabled={loading}
+                    onClick={() => downloadCsv(`client-summary-${answer.from}-to-${answer.to}.csv`, csvRows(answer))}
+                  >
+                    Download CSV
+                  </Button>
+                </div>
+              </Row>
+              <TableWrap>
+                <Table id={tableId} aria-busy={loading} className="cs-table">
+                  <thead>
+                    <tr>
+                      <Th>Client and service</Th>
+                      <Th>Key Manager / SPOC</Th>
+                      <Th align="right">Billed</Th>
+                      <Th align="right">Received</Th>
+                      <Th align="right">Pending</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((c) => {
+                      const open = isOpen(c.partyId);
+                      return (
+                        <Fragment key={c.partyId}>
+                          <tr data-client={c.partyId}>
+                            <Td>
+                              <div className="cs-client">
+                                <FoldToggle
+                                  open={open}
+                                  client={c.name}
+                                  onToggle={() => setOpened((o) => ({ ...o, [c.partyId]: !open }))}
+                                />
+                                <span className="cell-text" data-size="narrow">
+                                  <Link href={`/clients/${c.partyId}` as Route}>{c.name}</Link>
+                                </span>
+                                <ClientState client={c} />
+                              </div>
+                              <span className="sub">
+                                {plural(c.lines.length, "service")} ·{" "}
+                                <Link href={`/invoices?tab=work&client=${c.partyId}` as Route}>Month by month</Link>
+                              </span>
+                              <span className="sub cs-narrow">
+                                {c.keyManager === null ? "No Key Manager" : `KM ${c.keyManager.name}`} ·{" "}
+                                {owedWords(c.totals)}
+                              </span>
+                            </Td>
                             <Td>
                               <span className="cell-text" data-size="narrow">
-                                {lineName(l)}
+                                {c.keyManager === null ? <NotSet>No Key Manager</NotSet> : c.keyManager.name}
                               </span>
-                              {lineNote(l) !== null && (
-                                <span className="cell-text sub" data-size="narrow">
-                                  {lineNote(l)}
-                                </span>
-                              )}
-                              <span className="sub cs-narrow">
-                                {[spocWords(l), owedWords([l])].filter((x) => x !== null).join(" · ")}
-                              </span>
+                              <span className="sub">Key Manager</span>
                             </Td>
-                            <Td>
-                              <Spocs line={l} axes={axes} />
-                            </Td>
-                            <Figures rows={[l]} />
+                            <Figures rows={c.totals} strong />
                           </tr>
-                        ))}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </TableWrap>
-        </Stack>
+                          {open &&
+                            c.lines.map((l) => (
+                              <tr key={`${l.kind}:${l.key}:${l.currency}`} data-line={l.kind} className="cs-line">
+                                <Td>
+                                  <span className="cell-text" data-size="narrow">
+                                    {lineName(l)}
+                                  </span>
+                                  {lineNote(l) !== null && (
+                                    <span className="cell-text sub" data-size="narrow">
+                                      {lineNote(l)}
+                                    </span>
+                                  )}
+                                  <span className="sub cs-narrow">
+                                    {[spocWords(l), owedWords([l])].filter((x) => x !== null).join(" · ")}
+                                  </span>
+                                </Td>
+                                <Td>
+                                  <Spocs line={l} axes={axes} />
+                                </Td>
+                                <Figures rows={[l]} />
+                              </tr>
+                            ))}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </TableWrap>
+            </Stack>
+          )}
+        </>
       )}
     </Stack>
   );
@@ -401,41 +446,16 @@ function Figures({ rows, strong = false }: { rows: readonly SummaryFigures[]; st
   );
 }
 
-/** Each Dept of the work as its tinted chip (the Catalogue's), with its SPOCs. */
-function Spocs({ line: l, axes }: { line: ClientSummaryLine; axes: readonly ServiceAxis[] }) {
-  if (l.depts.length === 0) return <span className="muted">No Dept</span>;
-  return (
-    <div className="cs-spocs">
-      {l.depts.map((d) => {
-        const people = l.spocs.filter((s) => s.deptCode === d.code);
-        return (
-          <span key={d.code} className="cs-spoc">
-            {axes.length === 0 ? <Pill tone="code">{d.code}</Pill> : <DeptChip axes={axes} code={d.code} />}
-            {people.length === 0 ? <NotSet>No SPOC</NotSet> : <span>{people.map((p) => p.name).join(", ")}</span>}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
 /** On a phone the figure columns fold away; this line carries what is owed. */
 function owedWords(rows: readonly SummaryFigures[]): string {
   const owed = rows.filter((f) => !isZero(f.pending));
   if (owed.length === 0) return "Nothing pending";
   return owed
-    .map((f) => `Pending ${money(f.pending, f.currency)}${isZero(f.overdue) ? "" : `, ${money(f.overdue, f.currency)} overdue`}`)
+    .map(
+      (f) =>
+        `Pending ${money(f.pending, f.currency)}${isZero(f.overdue) ? "" : `, ${money(f.overdue, f.currency)} overdue`}`,
+    )
     .join("; ");
-}
-
-function spocWords(l: ClientSummaryLine): string | null {
-  if (l.depts.length === 0) return null;
-  return l.depts
-    .map((d) => {
-      const people = l.spocs.filter((s) => s.deptCode === d.code).map((s) => s.name);
-      return `${d.code} ${people.length === 0 ? "no SPOC" : people.join(", ")}`;
-    })
-    .join(", ");
 }
 
 function lineName(l: ClientSummaryLine): string {
@@ -495,18 +515,6 @@ function sortClients(answer: ClientSummary, sort: SortKey): ClientSummaryClient[
 
 function clientsWith(answer: ClientSummary, currency: string, pick: (f: SummaryFigures) => string): number {
   return answer.clients.filter((c) => c.totals.some((t) => t.currency === currency && !isZero(pick(t)))).length;
-}
-
-function money(amount: string, currency: string): string {
-  return formatMoney(amount, currency);
-}
-
-function isZero(amount: string): boolean {
-  return /^-?0*(\.0*)?$/.test(amount.trim());
-}
-
-function plural(n: number, word: string): string {
-  return `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 }
 
 // ── The period ──────────────────────────────────────────────────────────────

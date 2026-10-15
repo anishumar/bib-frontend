@@ -3022,6 +3022,35 @@ main:has(> * > .builder-footer) {
   color: var(--ink-2);
   font-size: var(--t-sm);
 }
+/* So far / Coming months: one control, two states, the chosen one raised. */
+.cs-views {
+  display: inline-flex;
+  width: fit-content;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-sunk);
+}
+.cs-views > button {
+  min-height: 36px;
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: calc(var(--r) - 3px);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cs-views > button:hover {
+  color: var(--ink);
+}
+.cs-views > button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-xs);
+}
 /* On a phone the people and figure columns fold away and one line under each
    name says what is owed, rather than the money scrolling off the side. */
 .cs-narrow {
