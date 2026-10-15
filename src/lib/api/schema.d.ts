@@ -24467,6 +24467,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/client-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Billed, received and pending per client and service, with its Key Manager and SPOCs
+         * @description Per client and per what each invoice line was for (a service, a section, an advance, or nothing), per CURRENCY: amounts in two currencies are never added or converted. A line takes its share of its invoice's credit notes, money and balance by its share of the invoice total. Drafts and cancelled invoices count nowhere. `keyManagerUserId` keeps the clients that person is the Key Manager of; `spocUserId` the rows that person is a SPOC for. The period defaults to this financial year to date. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    partyId?: string;
+                    issuerPartyId?: string;
+                    currency?: string;
+                    keyManagerUserId?: string;
+                    spocUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The summary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientSummary"];
+                    };
+                };
+                /** @description A malformed day, a period that ends before it starts, or more than three years */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/client-summary/projection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The fees each client's services will be billed in the coming months
+         * @description The billing sweep's own rule run forward: for every scheduled service (or section), the bills that will fall due in the rest of this month and the `months` months after it, at the letter's price, a part period priced as the sweep prices it, before tax, by the month the bill falls due. A service runs on until it is ended; an ended or paused one bills nothing past it. Bills already written are left out. Per CURRENCY, never converted. Requires commercial visibility.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    months?: number;
+                    partyId?: string;
+                    keyManagerUserId?: string;
+                    spocUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The projection */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ClientProjection"];
+                    };
+                };
+                /** @description Months outside 1 to 12, or a malformed id */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the caller does not have commercial visibility */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engagement-letters/{letterId}/originator": {
         parameters: {
             query?: never;
@@ -30793,6 +30938,158 @@ export interface components {
                 /** @description Invoices issued in the period that count here. */
                 invoices: number;
             }[];
+        };
+        ClientSummary: {
+            from: string;
+            to: string;
+            /** @description The day pending is owed at: `to`, or today if sooner. */
+            asOf: string;
+            financialYearStartMonth: number | null;
+            /** @description The firm's whole, one per currency: every client's totals of that currency add up to it. */
+            currencies: {
+                /** @description Every amount on this row is in this currency, never converted. */
+                currency: string;
+                /** @description Issued in the period, with tax, less credit notes issued in the period. */
+                billed: string;
+                /** @description Money received in the period (the revenue report's collected). */
+                received: string;
+                /** @description Tax the client deducted on those payments: settled, not received. */
+                tds: string;
+                /** @description Still owed at the close of `asOf`, whenever it was billed. */
+                pending: string;
+                /** @description The part of pending past its due date. */
+                overdue: string;
+                /** @description Invoices issued in the period that count here. */
+                invoices: number;
+            }[];
+            clients: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                /** @description In force today. */
+                keyManager: {
+                    /** Format: uuid */
+                    userId: string;
+                    name: string;
+                } | null;
+                totals: {
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Issued in the period, with tax, less credit notes issued in the period. */
+                    billed: string;
+                    /** @description Money received in the period (the revenue report's collected). */
+                    received: string;
+                    /** @description Tax the client deducted on those payments: settled, not received. */
+                    tds: string;
+                    /** @description Still owed at the close of `asOf`, whenever it was billed. */
+                    pending: string;
+                    /** @description The part of pending past its due date. */
+                    overdue: string;
+                    /** @description Invoices issued in the period that count here. */
+                    invoices: number;
+                }[];
+                lines: {
+                    /**
+                     * @description `service`: one catalogue service; `section`: one fee for several services; `advance`: money taken ahead of the work and not yet mapped to a service; `other`: invoice lines raised by hand with no service.
+                     * @enum {string}
+                     */
+                    kind: "service" | "section" | "advance" | "other";
+                    key: string;
+                    name: string | null;
+                    /** @description A section's services. */
+                    services: string[];
+                    depts: {
+                        code: string;
+                        name: string;
+                    }[];
+                    /** @description The client's SPOCs (in force today) for the Depts of this work. */
+                    spocs: {
+                        /** Format: uuid */
+                        userId: string;
+                        name: string;
+                        deptCode: string;
+                    }[];
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Issued in the period, with tax, less credit notes issued in the period. */
+                    billed: string;
+                    /** @description Money received in the period (the revenue report's collected). */
+                    received: string;
+                    /** @description Tax the client deducted on those payments: settled, not received. */
+                    tds: string;
+                    /** @description Still owed at the close of `asOf`, whenever it was billed. */
+                    pending: string;
+                    /** @description The part of pending past its due date. */
+                    overdue: string;
+                    /** @description Invoices issued in the period that count here. */
+                    invoices: number;
+                }[];
+            }[];
+        };
+        ClientProjection: {
+            today: string;
+            months: {
+                /** @description YYYY-MM */
+                key: string;
+                label: string;
+                /** @description The first month starts today. */
+                from: string;
+                to: string;
+            }[];
+            /** @description The firm's whole, one per currency: every client's totals of that currency add up to it. */
+            currencies: {
+                /** @description Every amount on this row is in this currency, never converted. */
+                currency: string;
+                /** @description Fees to be billed, before tax, one per month of `months`. */
+                months: string[];
+                /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                total: string;
+            }[];
+            clients: {
+                /** Format: uuid */
+                partyId: string;
+                name: string;
+                keyManager: {
+                    /** Format: uuid */
+                    userId: string;
+                    name: string;
+                } | null;
+                totals: {
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Fees to be billed, before tax, one per month of `months`. */
+                    months: string[];
+                    /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                    total: string;
+                }[];
+                lines: {
+                    /** @enum {string} */
+                    kind: "service" | "section";
+                    key: string;
+                    name: string;
+                    services: string[];
+                    depts: {
+                        code: string;
+                        name: string;
+                    }[];
+                    spocs: {
+                        /** Format: uuid */
+                        userId: string;
+                        name: string;
+                        deptCode: string;
+                    }[];
+                    /** @description Bills in the window whose letter named no price. */
+                    unpriced: number;
+                    /** @description Every amount on this row is in this currency, never converted. */
+                    currency: string;
+                    /** @description Fees to be billed, before tax, one per month of `months`. */
+                    months: string[];
+                    /** @description A decimal STRING in the currency named on this response, never a number — a float cannot hold 1499.50 exactly and the error is invisible in one line and material in a total. */
+                    total: string;
+                }[];
+            }[];
+            /** @description Quarterly or yearly services left out: the firm has not said when its year starts. */
+            awaitingFiscalYear: number;
         };
         LetterOriginator: {
             /** Format: uuid */
