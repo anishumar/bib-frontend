@@ -27,6 +27,7 @@ export function ClientPicker({
   onPick,
   autoFocus,
   selected,
+  notFound = "No client by that name. Choose New prospect to add them.",
 }: {
   clients: readonly PickableClient[];
   onPick: (client: PickableClient) => void;
@@ -35,6 +36,8 @@ export function ClientPicker({
   autoFocus?: boolean;
   /** The chosen client's name, shown on the button. */
   selected?: string | undefined;
+  /** What an empty search says: where to add a client this page cannot find. */
+  notFound?: string | undefined;
 }) {
   const field = useFieldWiring();
   const listId = useId();
@@ -154,7 +157,7 @@ export function ClientPicker({
           />
           {matches.length === 0 ? (
             <p className="m-0 px-2 pt-3 pb-1 text-sm text-muted" role="status">
-              No client by that name. Choose New prospect to add them.
+              {notFound}
             </p>
           ) : (
             <>

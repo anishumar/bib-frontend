@@ -25,6 +25,7 @@ import {
 } from "@/components/ui";
 import { Empty, Loading } from "@/components/states";
 import { Page, PageHeader } from "@/components/layout";
+import { useSession } from "@/components/layout/app-shell";
 
 /**
  * Engagement letters — what the firm has AGREED, as opposed to what it offered.
@@ -43,6 +44,10 @@ import { Page, PageHeader } from "@/components/layout";
  */
 export default function LettersPage() {
   const router = useRouter();
+  const session = useSession();
+  // The short letter signs and starts work, so it is offered only to who may record a yes (0317).
+  const recordsAgreed =
+    session?.permissions.includes("acceptance:record") === true && session.permissions.includes("party:write");
   const [letters, setLetters] = useState<LetterSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -79,9 +84,16 @@ export default function LettersPage() {
       <PageHeader
         title="Engagement letters"
         aside={
-          <LinkButton href="/engagement-letters/new" variant="primary">
-            New engagement letter
-          </LinkButton>
+          <>
+            {recordsAgreed && (
+              <LinkButton href="/engagement-letters/agreed" variant="secondary">
+                Agreed by email
+              </LinkButton>
+            )}
+            <LinkButton href="/engagement-letters/new" variant="primary">
+              New engagement letter
+            </LinkButton>
+          </>
         }
       />
       <ErrorNotice error={error} />

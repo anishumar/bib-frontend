@@ -2934,3 +2934,11 @@ main:has(> * > .builder-footer) {
     width: auto;
   }
 }
+
+/* THE SHORT LETTER's service rows (2026-10-15): company, fee and how often
+   side by side, wrapping one under another on a phone. */
+.agreed-row-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s-3);
+}

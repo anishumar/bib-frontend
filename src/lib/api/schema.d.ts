@@ -17014,6 +17014,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/engagement-letters/{letterId}/agreed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a draft the client already agreed to, without sending it
+         * @description The short letter: the client agreed to these services and fees by email or on a call, so nothing is sent for signature. Needs `acceptance:record`, and the body and evidence rules of `/acceptance` (the client's email uploaded and attached to THIS letter). Only while the letter is a draft. A draft with no terms gets the firm's standard terms. The letter is then signed as `/acceptance` signs one, under `recorded_acceptance`; no envelope is raised and no cover page is needed. A refusal leaves it a draft.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    asOf?: string;
+                };
+                header?: never;
+                path: {
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordAcceptanceRequest"];
+                };
+            };
+            responses: {
+                /** @description Signed as agreed, with the engagements it created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedEngagementLetter"];
+                    };
+                };
+                /** @description A field is missing or impossible, no evidence, or asOf is not today anywhere */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, or the role does not hold acceptance:record */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such letter at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not a draft, no services or terms, or the file is not attached to this letter */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/firm-entities": {
         parameters: {
             query?: never;
