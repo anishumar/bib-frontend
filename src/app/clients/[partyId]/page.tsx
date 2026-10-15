@@ -513,6 +513,14 @@ export default function PartyPage() {
             )}
             {/* An archived client is refused a proposal by the API (0305), and
                 so is one of the firm's own companies, so neither is offered one. */}
+            {canWrite &&
+              permissions.includes("acceptance:record") &&
+              profile.party.archivedAt === null &&
+              !profile.party.isOwnCompany && (
+                <LinkButton variant="secondary" href={`/engagement-letters/agreed?clientPartyId=${partyId}`}>
+                  Agreed by email
+                </LinkButton>
+              )}
             {canWrite && profile.party.archivedAt === null && !profile.party.isOwnCompany && (
               <LinkButton
                 variant="secondary"

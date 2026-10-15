@@ -1690,6 +1690,13 @@ export default function LetterPage() {
             </div>
           )}
 
+          {/* It stood empty on every signed letter, and the short letter lands here. */}
+          {isSigned && (
+            <p className="text-md text-muted">
+              Signed{signatureDay === null ? "" : ` on ${longDay(signatureDay)}`}. The work it started is under
+              Engagements above.
+            </p>
+          )}
           {letter.status === "withdrawn" && (
             <p className="text-md text-muted">
               This letter was withdrawn on{" "}

@@ -26,9 +26,9 @@ import { ConfirmAction } from "@/components/confirm-action";
 import { browserDay, longDay, longInstant } from "@/lib/day";
 
 type RecordedAcceptance = NonNullable<components["schemas"]["RecordedAcceptance"]>;
-type Channel = RecordedAcceptance["channel"];
+export type Channel = RecordedAcceptance["channel"];
 
-const CHANNELS: readonly { value: Channel; label: string }[] = [
+export const CHANNELS: readonly { value: Channel; label: string }[] = [
   { value: "email", label: "Email" },
   { value: "call", label: "Phone call" },
   { value: "meeting", label: "Meeting" },
