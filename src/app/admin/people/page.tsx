@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, apiError, readRoleBody } from "@/lib/api/client";
-import type { ConfigEntry, Member, StaffGrade } from "@/lib/api/client";
+import type { ConfigEntry, Member, PortalGrant, StaffGrade } from "@/lib/api/client";
 import { Page, PageHeader, Stack, useSession } from "@/components/layout";
-import { Loading } from "@/components/states";
+import { Empty, Loading } from "@/components/states";
 import { ConfirmDialog } from "@/components/confirm-action";
 import {
   Button,
@@ -15,12 +16,15 @@ import {
   Field,
   FieldRow,
   FieldStack,
+  LinkButton,
   Notice,
   Pill,
   Select,
   Sub,
+  TabPanel,
   Table,
   TableWrap,
+  Tabs,
   Td,
   Th,
   Tr,
@@ -31,52 +35,52 @@ import {
 } from "@/components/ui";
 
 /**
- * The firm's roster.
+ * The firm's roster, in two views: the firm's own staff, and the logins its
+ * clients use for the portal. One table mixed both, and half its columns read
+ * "Not for clients" on every client row.
  *
  * Every action here is one API call and the API owns every rule — which roles
  * may be assigned, and whether the firm would be left with nobody able to
- * administer it. This screen does not reimplement either check; it shows what
- * the API says when it refuses, verbatim, because those messages are written to
- * be acted on and a friendlier local rewrite would lose the reason.
+ * administer it. Its refusals are shown verbatim.
  *
- * The role dropdown is fed from the firm's OWN published roles, not a hardcoded
- * list: a firm that invents "rm" sees it here without a deploy, and a role that
- * exists only as a draft is correctly absent.
- *
- * The grade dropdown works the same way and is a SEPARATE axis: the role says
- * what somebody may reach, the grade says how senior they are, and it is the
- * grade the firm's review rule ("Manager or above") compares. The ladder itself
- * is edited on /admin/grades; this screen only says who is on which rung.
+ * Roles and grades come from the firm's OWN published lists, not a hardcoded
+ * one. The grade is a separate axis from the role: the role says what somebody
+ * may reach, the grade how senior they are (edited on /admin/grades).
  */
+type View = "firm" | "clients";
+
 export default function PeoplePage() {
   const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<ConfigEntry[]>([]);
   const [grades, setGrades] = useState<StaffGrade[]>([]);
+  /** Grants in force today; null when this login may not read them (`portal:grant`). */
+  const [grants, setGrants] = useState<PortalGrant[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   /** The last row change that held, said in a live region (CA#45). */
   const [saved, setSaved] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  // "Add somebody" is the page's one brand button, top right, and opens a
-  // dialog (Wave 4). What came of the last add is said ON THE PAGE after the
-  // dialog closes: "was an email sent?" is asked straight after the press.
+  const [view, setView] = useState<View>("firm");
+  const tabsId = useId();
+  // What came of the last add is said ON THE PAGE after the dialog closes:
+  // "was an email sent?" is asked straight after the press.
   const [adding, setAdding] = useState(false);
   const [outcome, setOutcome] = useState<AddOutcome | null>(null);
   // Revoking access asks first (V1.3); restoring it does not.
   const [revoking, setRevoking] = useState<{ member: Member; from: HTMLElement | null } | null>(null);
   const { trigger: addTrigger } = useSwapFocus(adding);
   // F33 (audit 2026-10-03): somebody who reaches this page by its address
-  // without administering the firm was offered Add somebody over an empty
-  // table. They are shown the API's refusal and nothing to press.
+  // without administering the firm sees the API's refusal and nothing to press.
   const session = useSession();
   const administers = session?.permissions.includes("tenant:admin") === true;
 
   const load = useCallback(async (): Promise<void> => {
-    const [roster, published, ladder] = await Promise.all([
+    const [roster, published, ladder, access] = await Promise.all([
       api.GET("/api/v1/tenancy/members", {}),
       api.GET("/api/v1/config/{kind}", { params: { path: { kind: "role" } } }),
       api.GET("/api/v1/tenancy/grades", {}),
+      api.GET("/api/v1/portal-access", {}),
     ]);
     // A 401 mid-session is ordinary: expired, signed out elsewhere, or the
     // membership was revoked — the API re-checks it on every request.
@@ -92,18 +96,40 @@ export default function PeoplePage() {
     setMembers(roster.data.members);
     if (published.data) setRoles(published.data.entries.filter((e) => e.published !== null));
     if (ladder.data) setGrades(ladder.data.grades);
+    setGrants(access.data ? access.data.grants : null);
     setError(null);
     setLoaded(true);
   }, [router]);
 
   useEffect(() => {
-    // Wrapped rather than `void load()` so the await boundary is visible to the
-    // hooks lint: nothing here sets state synchronously, and the same shape is
-    // used on the workspace home page.
     void (async () => {
       await load();
     })();
   }, [load]);
+
+  // The view lives in the URL (`?view=clients`) so a link can open it; read
+  // after mount, because the server's render has no URL.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "clients") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL is only readable here
+      setView("clients");
+    }
+  }, []);
+
+  function showView(next: View): void {
+    setView(next);
+    setSaved(null);
+    setOutcome(null);
+    const q = new URLSearchParams(window.location.search);
+    if (next === "firm") q.delete("view");
+    else q.set("view", next);
+    const query = q.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query === "" ? window.location.pathname : `${window.location.pathname}?${query}`,
+    );
+  }
 
   /** Every mutation funnels through here so one place owns the busy flag, the
    *  error message and the reload. */
@@ -136,8 +162,8 @@ export default function PeoplePage() {
   function changeRole(membershipId: string, role: string): void {
     // Role and fees are separate settings: say so, or a promotion reads as
     // having shown them fees (QA 2026-10-13).
-    const hidden =
-      members.find((x) => x.membership.id === membershipId)?.membership.commercialVisibility === false;
+    const m = members.find((x) => x.membership.id === membershipId);
+    const hidden = m?.membership.audience === "STAFF" && !m.membership.commercialVisibility;
     void act(
       membershipId,
       () =>
@@ -161,9 +187,7 @@ export default function PeoplePage() {
     );
   }
 
-  /** `null` takes somebody off the ladder, which is a real answer rather than a
-   *  missing one — a client contact has no rung, and neither does somebody whose
-   *  designation the firm has never ranked. */
+  /** `null` takes somebody off the ladder: a real answer, not a missing one. */
   function changeGrade(membershipId: string, gradeId: string | null): void {
     void act(
       membershipId,
@@ -176,13 +200,8 @@ export default function PeoplePage() {
     );
   }
 
-  /**
-   * Who somebody reports to (T2.9).
-   *
-   * A FOURTH axis and it grants nothing either — one thing reads it, a
-   * reporting-line rule on `/admin/verification` deciding who may check this
-   * person's work. `null` is a real answer: a partner reports to nobody.
-   */
+  /** Who somebody reports to (T2.9). Grants nothing; a reporting-line rule on
+   *  `/admin/verification` reads it. `null` is real: a partner reports to nobody. */
   function changeReportsTo(membershipId: string, reportsToUserId: string | null): void {
     void act(
       membershipId,
@@ -214,290 +233,318 @@ export default function PeoplePage() {
     );
   }
 
+  const staff = members.filter((m) => m.membership.audience === "STAFF");
+  const contacts = sortByClient(
+    members.filter((m) => m.membership.audience !== "STAFF"),
+    grants ?? [],
+  );
+
+  const name = (m: Member): string => m.displayName ?? m.email;
+
+  /** One role select, offering only the roles for this person's side (F18). */
+  const roleSelect = (m: Member, wide = false) => (
+    // A wrapper caps the width (`.select` declares its own max-width); the
+    // floor stops the select measuring before the web font arrives (CA#46).
+    <span className={`inline-block align-middle ${wide ? "max-w-64" : "max-w-44"}`}>
+      <Select
+        variant="quiet"
+        className={wide ? "min-w-56" : "min-w-36"}
+        aria-label={`Role for ${name(m)}`}
+        value={m.membership.role}
+        disabled={busy === m.membership.id}
+        onChange={(e) => {
+          changeRole(m.membership.id, e.target.value);
+        }}
+      >
+        {/* The role they hold is always an option, even once unpublished. */}
+        {!roles.some((r) => r.entry.key === m.membership.role) && (
+          <option value={m.membership.role}>{m.membership.role} (not published)</option>
+        )}
+        {roles
+          .filter((r) => readRoleBody(r.published?.body).audience === m.membership.audience)
+          .map((r) => (
+            <option key={r.entry.key} value={r.entry.key}>
+              {readRoleBody(r.published?.body).label || r.entry.key}
+            </option>
+          ))}
+      </Select>
+    </span>
+  );
+
+  /** Revoke sits in a menu (Wave 4): the one press here that takes access away. */
+  const moreMenu = (m: Member) => (
+    <Menu
+      trigger={
+        <span className="btn" data-variant="ghost" data-size="sm" aria-label={`More for ${name(m)}`}>
+          {busy === m.membership.id ? "Saving" : "More"}
+        </span>
+      }
+    >
+      <MenuItem
+        {...(m.membership.isActive ? { tone: "danger" as const } : {})}
+        disabled={busy === m.membership.id}
+        onClick={() => {
+          if (m.membership.isActive) {
+            setRevoking({
+              member: m,
+              from: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            });
+            return;
+          }
+          setActive(m.membership.id, true);
+        }}
+      >
+        {m.membership.isActive ? "Revoke access" : "Restore access"}
+      </MenuItem>
+    </Menu>
+  );
+
+  /** Name, a state pill when it is not the ordinary case, and the email under it. */
+  const person = (m: Member, pill: ReactNode) => (
+    // Held to 12rem with the email free to break (Wave 4).
+    <span className="block max-w-48 [overflow-wrap:anywhere]">
+      {name(m)}
+      {!m.membership.isActive ? (
+        <>
+          {" "}
+          <Pill dot tone="danger">
+            Revoked
+          </Pill>
+        </>
+      ) : (
+        pill
+      )}
+      {m.displayName !== null && <Sub>{m.email}</Sub>}
+    </span>
+  );
+
+  const staffTable = (
+    <TableWrap>
+      <Table>
+        <thead>
+          <tr>
+            <Th>Person</Th>
+            <Th>Role</Th>
+            <Th>Grade</Th>
+            <Th>Reports to</Th>
+            <Th>Fees</Th>
+            <Th>
+              <span className="sr-only">Actions</span>
+            </Th>
+          </tr>
+        </thead>
+        <tbody>
+          {staff.map((m) => (
+            <Tr key={m.membership.id}>
+              <Td>{person(m, null)}</Td>
+              <Td>{roleSelect(m)}</Td>
+              <Td>
+                <span className="inline-block max-w-44 align-middle">
+                  <Select
+                    variant="quiet"
+                    className="min-w-36"
+                    aria-label={`Grade for ${name(m)}`}
+                    value={m.grade?.id ?? ""}
+                    disabled={busy === m.membership.id}
+                    onChange={(e) => {
+                      changeGrade(m.membership.id, e.target.value || null);
+                    }}
+                  >
+                    <option value="">Not graded</option>
+                    {/* A retired rung is offered only to the person already on it. */}
+                    {grades
+                      .filter((g) => g.isActive || g.id === m.grade?.id)
+                      .map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                          {g.isActive ? "" : " (retired)"}
+                        </option>
+                      ))}
+                  </Select>
+                </span>
+              </Td>
+              <Td>
+                <span className="inline-block max-w-56 align-middle">
+                  <Select
+                    variant="quiet"
+                    className="min-w-36"
+                    aria-label={`Reporting line for ${name(m)}`}
+                    value={m.membership.reportsToUserId ?? ""}
+                    disabled={busy === m.membership.id}
+                    onChange={(e) => {
+                      changeReportsTo(m.membership.id, e.target.value || null);
+                    }}
+                  >
+                    <option value="">Nobody</option>
+                    {/* Active staff only, never themselves: the API refuses both. */}
+                    {staff
+                      .filter((o) => o.membership.userId !== m.membership.userId && o.membership.isActive)
+                      .map((o) => (
+                        <option key={o.membership.id} value={o.membership.userId}>
+                          {name(o)}
+                        </option>
+                      ))}
+                  </Select>
+                </span>
+              </Td>
+              <Td>
+                <span className="inline-block max-w-32 align-middle">
+                  <Select
+                    variant="quiet"
+                    className="min-w-28"
+                    aria-label={`Fees for ${name(m)}`}
+                    value={m.membership.commercialVisibility ? "visible" : "hidden"}
+                    disabled={busy === m.membership.id}
+                    onChange={(e) => {
+                      changeFees(m.membership.id, e.target.value === "visible");
+                    }}
+                  >
+                    <option value="visible">Visible</option>
+                    <option value="hidden">Hidden</option>
+                  </Select>
+                </span>
+              </Td>
+              <Td align="right">{moreMenu(m)}</Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
+    </TableWrap>
+  );
+
+  const clientTable =
+    contacts.length === 0 ? (
+      <Empty title="No client logins yet" icon="clients">
+        Invite a client&rsquo;s people from that client&rsquo;s page, under Portal access.
+      </Empty>
+    ) : (
+      <TableWrap>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Person</Th>
+              {grants !== null && <Th>Client</Th>}
+              <Th>Role</Th>
+              <Th>
+                <span className="sr-only">Actions</span>
+              </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.map((m) => {
+              const sees = (grants ?? []).filter((g) => g.membershipId === m.membership.id);
+              const first = sees[0];
+              return (
+                <Tr key={m.membership.id}>
+                  <Td>
+                    {person(
+                      m,
+                      first !== undefined && !first.contactAccepted ? (
+                        <>
+                          {" "}
+                          <Pill dot tone="warn">
+                            Not signed in yet
+                          </Pill>
+                        </>
+                      ) : null,
+                    )}
+                  </Td>
+                  {grants !== null && (
+                    <Td>
+                      {sees.length === 0 ? (
+                        <span className="muted">No client yet</span>
+                      ) : (
+                        <span className="block max-w-64">
+                          {sees.map((g) => (
+                            <span key={g.id} className="block">
+                              <Link href={`/clients/${g.clientPartyId}?section=portal`}>{g.clientName}</Link>
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </Td>
+                  )}
+                  <Td>{roleSelect(m, true)}</Td>
+                  <Td align="right">{moreMenu(m)}</Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </TableWrap>
+    );
+
   return (
     <Page>
       <PageHeader
         title="People"
         aside={
-          <Button
-            ref={addTrigger}
-            onClick={() => {
-              setOutcome(null);
-              setAdding(true);
-            }}
-          >
-            Add somebody
-          </Button>
+          view === "firm" ? (
+            <Button
+              ref={addTrigger}
+              onClick={() => {
+                setOutcome(null);
+                setAdding(true);
+              }}
+            >
+              Add a colleague
+            </Button>
+          ) : (
+            <LinkButton href="/clients">Invite a client contact</LinkButton>
+          )
         }
+      />
+
+      <Tabs
+        id={tabsId}
+        label="People views"
+        value={view}
+        onChange={showView}
+        tabs={[
+          { value: "firm", label: "Our firm", count: staff.length },
+          { value: "clients", label: "Clients", count: contacts.length },
+        ]}
       />
 
       <ErrorNotice error={error} />
 
-      {/* A live region, so a change made in a row says it held (CA#45). */}
-      <p className="text-md" role="status" aria-live="polite">
-        {saved}
-      </p>
+      {view === "firm" && outcome !== null && <AddedNotice outcome={outcome} />}
 
-      {outcome !== null && <AddedNotice outcome={outcome} />}
+      <TabPanel tabsId={tabsId} value={view}>
+        <Stack gap="tight">
+          {/* A live region, so a change made in a row says it held (CA#45). */}
+          <p className="text-md" role="status" aria-live="polite">
+            {saved}
+          </p>
+          {view === "firm" ? staffTable : clientTable}
+          <p className="field-hint">
+            {view === "firm"
+              ? "Revoking access takes effect at once."
+              : "Invites are sent from the client's page, under Portal access. Revoking access takes effect at once."}
+          </p>
+        </Stack>
+      </TabPanel>
 
-      <Stack gap="tight">
-        <TableWrap>
-          <Table>
-            <thead>
-              <tr>
-                <Th>Person</Th>
-                <Th>Role</Th>
-                <Th>Grade</Th>
-                <Th>Reports to</Th>
-                <Th>Fees</Th>
-                {/* The actions column has no visible heading, but an empty one
-                    is announced as an empty column. This names it for anybody
-                    navigating the table by header. */}
-                <Th>
-                  <span className="sr-only">Actions</span>
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <Tr key={m.membership.id}>
-                  <Td>
-                    {/* The name when there is one; the email otherwise. Nobody
-                        is shown as a uuid. Held to 12rem with the email free
-                        to break (Wave 4): the roster hid 287px of columns at
-                        1280 behind one long address. */}
-                    <span className="block max-w-48 [overflow-wrap:anywhere]">
-                      {m.displayName ?? m.email}
-                      {/* ACCESS AS A PILL BESIDE THE NAME, only when it is not
-                          the ordinary case. It was a column that read "STAFF"
-                          on every row; a revoked login and a client-portal
-                          login are the two a reader needs to spot. */}
-                      {!m.membership.isActive ? (
-                        <>
-                          {" "}
-                          <Pill dot tone="danger">
-                            Revoked
-                          </Pill>
-                        </>
-                      ) : m.membership.audience !== "STAFF" ? (
-                        <>
-                          {" "}
-                          <Pill tone="neutral">
-                            {AUDIENCE_WORDS[m.membership.audience] ?? m.membership.audience}
-                          </Pill>
-                        </>
-                      ) : null}
-                      {m.displayName !== null && <Sub>{m.email}</Sub>}
-                    </span>
-                  </Td>
-                  <Td>
-                    {/* A WRAPPER caps it: one long role, grade or name in the
-                        firm's lists sets a select's width and pushed the last
-                        columns out of view. `.select` declares its own
-                        max-width, so the cap cannot sit on the select. */}
-                    {/* A FLOOR as well as a cap (CA#46): the select measured its
-                        width before the web font arrived and cut "Associate"
-                        and "Siddharth Rao" short by a few pixels. */}
-                    <span className="inline-block max-w-44 align-middle">
-                      <Select
-                        variant="quiet"
-                        className="min-w-36"
-                        aria-label={`Role for ${m.displayName ?? m.email}`}
-                        value={m.membership.role}
-                        disabled={busy === m.membership.id}
-                        onChange={(e) => { changeRole(m.membership.id, e.target.value); }}
-                      >
-                        {/* The role they hold is always an option, even if the firm
-                            has since unpublished it — otherwise the dropdown would
-                            silently show somebody as holding a different role. */}
-                        {!roles.some((r) => r.entry.key === m.membership.role) && (
-                          <option value={m.membership.role}>
-                            {m.membership.role} (not published)
-                          </option>
-                        )}
-                        {/* Only the roles for THIS person's surface (F18): a
-                            staff member was offered "Client contact", one
-                            mis-pick from becoming a portal login. */}
-                        {roles
-                          .filter((r) => readRoleBody(r.published?.body).audience === m.membership.audience)
-                          .map((r) => (
-                            <option key={r.entry.key} value={r.entry.key}>
-                              {readRoleBody(r.published?.body).label || r.entry.key}
-                            </option>
-                          ))}
-                      </Select>
-                    </span>
-                  </Td>
-                  {m.membership.audience !== "STAFF" ? (
-                    /* A client's login has no grade and reports to nobody at
-                       the firm (F18): no selects that mean nothing for them. */
-                    <>
-                      <Td>
-                        <span className="muted">Not for clients</span>
-                      </Td>
-                      <Td>
-                        <span className="muted">Not for clients</span>
-                      </Td>
-                    </>
-                  ) : (
-                  <>
-                  <Td>
-                    {/* A WRAPPER caps it: one long role, grade or name in the
-                        firm's lists sets a select's width and pushed the last
-                        columns out of view. `.select` declares its own
-                        max-width, so the cap cannot sit on the select. */}
-                    <span className="inline-block max-w-44 align-middle">
-                      <Select
-                        variant="quiet"
-                        className="min-w-36"
-                        aria-label={`Grade for ${m.displayName ?? m.email}`}
-                        value={m.grade?.id ?? ""}
-                        disabled={busy === m.membership.id}
-                        onChange={(e) => { changeGrade(m.membership.id, e.target.value || null); }}
-                      >
-                        {/* Ungraded is offered as a choice, not shown as an empty
-                            cell: taking somebody off the ladder is a decision, and a
-                            portal contact belongs on no rung at all. */}
-                        <option value="">Not graded</option>
-                        {/* A retired rung is offered only to the person already on
-                            it. The API refuses it for anybody else, and offering
-                            what will fail is just a slower error. */}
-                        {grades
-                          .filter((g) => g.isActive || g.id === m.grade?.id)
-                          .map((g) => (
-                            <option key={g.id} value={g.id}>
-                              {g.name}
-                              {g.isActive ? "" : " (retired)"}
-                            </option>
-                          ))}
-                      </Select>
-                    </span>
-                  </Td>
-                  <Td>
-                    {/* A WRAPPER caps it: one long role, grade or name in the
-                        firm's lists sets a select's width and pushed the last
-                        columns out of view. `.select` declares its own
-                        max-width, so the cap cannot sit on the select. */}
-                    <span className="inline-block max-w-56 align-middle">
-                      <Select
-                        variant="quiet"
-                        className="min-w-36"
-                        aria-label={`Reporting line for ${m.displayName ?? m.email}`}
-                        value={m.membership.reportsToUserId ?? ""}
-                        disabled={busy === m.membership.id}
-                        onChange={(e) => {
-                          changeReportsTo(m.membership.id, e.target.value || null);
-                        }}
-                      >
-                        {/* Nobody is a real answer, not a blank to be filled in
-                            later: a partner reports to nobody, and so does everybody
-                            at a firm that has not recorded this. */}
-                        <option value="">Nobody</option>
-                        {/* Active STAFF only, and never themselves. The API refuses
-                            both — a client contact in the firm's reporting line
-                            would make a client eligible to check the firm's work,
-                            and the database refuses the self-loop — so offering
-                            either would just be a slower error. */}
-                        {members
-                          .filter(
-                            (o) =>
-                              o.membership.userId !== m.membership.userId &&
-                              o.membership.audience === "STAFF" &&
-                              o.membership.isActive,
-                          )
-                          .map((o) => (
-                            <option key={o.membership.id} value={o.membership.userId}>
-                              {o.displayName ?? o.email}
-                            </option>
-                          ))}
-                      </Select>
-                    </span>
-                  </Td>
-                  </>
-                  )}
-                  <Td>
-                    {m.membership.audience !== "STAFF" ? (
-                      <span className="muted">Not for clients</span>
-                    ) : (
-                      <span className="inline-block max-w-32 align-middle">
-                        <Select
-                          variant="quiet"
-                          className="min-w-28"
-                          aria-label={`Fees for ${m.displayName ?? m.email}`}
-                          value={m.membership.commercialVisibility ? "visible" : "hidden"}
-                          disabled={busy === m.membership.id}
-                          onChange={(e) => {
-                            changeFees(m.membership.id, e.target.value === "visible");
-                          }}
-                        >
-                          <option value="visible">Visible</option>
-                          <option value="hidden">Hidden</option>
-                        </Select>
-                      </span>
-                    )}
-                  </Td>
-                  <Td align="right">
-                    {/* IN A MENU (Wave 4): the one press here that takes
-                        somebody's access away, one click deeper and 90px back
-                        in a table that hid its last columns at 1280. Named for
-                        the person, as the button was. */}
-                    <Menu
-                      trigger={
-                        <span
-                          className="btn"
-                          data-variant="ghost"
-                          data-size="sm"
-                          aria-label={`More for ${m.displayName ?? m.email}`}
-                        >
-                          {busy === m.membership.id ? "Saving" : "More"}
-                        </span>
-                      }
-                    >
-                      <MenuItem
-                        {...(m.membership.isActive ? { tone: "danger" as const } : {})}
-                        disabled={busy === m.membership.id}
-                        onClick={() => {
-                          if (m.membership.isActive) {
-                            setRevoking({
-                              member: m,
-                              from: document.activeElement instanceof HTMLElement ? document.activeElement : null,
-                            });
-                            return;
-                          }
-                          setActive(m.membership.id, true);
-                        }}
-                      >
-                        {m.membership.isActive ? "Revoke access" : "Restore access"}
-                      </MenuItem>
-                    </Menu>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableWrap>
-        <p className="field-hint">Revoking access takes effect at once.</p>
-        <ConfirmDialog
-          open={revoking !== null}
-          onClose={() => {
-            setRevoking(null);
-          }}
-          title={`Revoke ${revoking?.member.displayName ?? revoking?.member.email ?? ""}'s access?`}
-          confirmLabel="Revoke access"
-          destructive
-          consequence={
-            <p>
-              {revoking?.member.displayName ?? revoking?.member.email} is signed out at once and
-              cannot sign in to this firm. Their work stays where it is. You can restore access
-              later.
-            </p>
-          }
-          onConfirm={() => {
-            if (revoking !== null) setActive(revoking.member.membership.id, false);
-          }}
-          returnFocusTo={revoking?.from ?? null}
-        />
-      </Stack>
+      <ConfirmDialog
+        open={revoking !== null}
+        onClose={() => {
+          setRevoking(null);
+        }}
+        title={`Revoke ${revoking?.member.displayName ?? revoking?.member.email ?? ""}'s access?`}
+        confirmLabel="Revoke access"
+        destructive
+        consequence={
+          <p>
+            {revoking?.member.displayName ?? revoking?.member.email} is signed out at once and
+            cannot sign in to this firm. Their work stays where it is. You can restore access
+            later.
+          </p>
+        }
+        onConfirm={() => {
+          if (revoking !== null) setActive(revoking.member.membership.id, false);
+        }}
+        returnFocusTo={revoking?.from ?? null}
+      />
 
       {adding && (
         <AddMember
@@ -516,21 +563,26 @@ export default function PeoplePage() {
   );
 }
 
-const AUDIENCE_WORDS: Record<string, string> = {
-  STAFF: "Staff",
-  CLIENT_PORTAL: "Client portal",
-};
+/** Client logins A–Z by the first client they see; those who see none last. */
+function sortByClient(contacts: Member[], grants: readonly PortalGrant[]): Member[] {
+  const firstClient = (m: Member): string =>
+    grants.find((g) => g.membershipId === m.membership.id)?.clientName ?? "";
+  return [...contacts].sort((a, b) => {
+    const ca = firstClient(a);
+    const cb = firstClient(b);
+    if (ca === "" || cb === "") return ca === cb ? 0 : ca === "" ? 1 : -1;
+    return ca.localeCompare(cb) || (a.displayName ?? a.email).localeCompare(b.displayName ?? b.email);
+  });
+}
 
 interface AddOutcome {
   email: string;
   sent: boolean;
-  audience: string;
 }
 
 /**
- * What came of the LAST add, kept on the page rather than announced and
- * dismissed. `invitationSent: false` is an ordinary outcome, not a failure, and
- * it is reported rather than hidden: an admin who is not told will believe a
+ * What came of the LAST add, kept on the page. `invitationSent: false` is an
+ * ordinary outcome and is reported: an admin who is not told will believe a
  * letter arrived.
  */
 function AddedNotice({ outcome }: { outcome: AddOutcome }) {
@@ -542,11 +594,6 @@ function AddedNotice({ outcome }: { outcome: AddOutcome }) {
       <p>
         {outcome.sent ? (
           <>{outcome.email} has been emailed a sign-in link. It works once, for 72 hours.</>
-        ) : outcome.audience === "CLIENT_PORTAL" ? (
-          <>
-            A client-portal login sees nothing until it has a client. Invite a client&rsquo;s
-            people from that client&rsquo;s page.
-          </>
         ) : (
           <>
             {outcome.email} has access, but the email did not go out. Ask them to request a
@@ -558,6 +605,8 @@ function AddedNotice({ outcome }: { outcome: AddOutcome }) {
   );
 }
 
+/** Adds a colleague. A client's people are invited from the client's page,
+ *  where the invite also says which client they may see. */
 function AddMember({
   roles,
   onClose,
@@ -569,34 +618,26 @@ function AddMember({
 }) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // Nothing preselected (F13), and staff roles only (F18).
   const [role, setRole] = useState("");
-  const [audience, setAudience] = useState("STAFF");
   const [seesFees, setSeesFees] = useState(false);
   const [busy, setBusy] = useState(false);
   // The refusal is shown IN the dialog, beside the form that caused it.
   const [error, setError] = useState<string | null>(null);
-
-  // NOTHING PRESELECTED (F13): it was the first published role. And only the
-  // roles for the surface chosen (F18), so a staff member cannot be added as a
-  // client contact, or the other way round.
-  const chosenRole = role;
-  const offered = roles.filter((r) => readRoleBody(r.published?.body).audience === audience);
+  const offered = roles.filter((r) => readRoleBody(r.published?.body).audience === "STAFF");
 
   async function submit(): Promise<void> {
     setBusy(true);
-    // CLEARED BEFORE THE CALL. `ErrorNotice` moves focus when a message
-    // APPEARS, so a second identical refusal has to be a second absent →
-    // present transition or the press looks like it did nothing. It also
-    // stops a refusal from the LAST action sitting over this one.
+    // Cleared before the call: `ErrorNotice` moves focus when a message
+    // appears, so a repeat refusal must be a fresh absent → present change.
     setError(null);
     const result = await api.POST("/api/v1/tenancy/members", {
       body: {
         email,
-        audience,
-        role: chosenRole,
+        audience: "STAFF",
+        role,
         commercialVisibility: seesFees,
-        // Only sent when given: the API applies it to a NEW account and never
-        // renames somebody who already has one.
+        // The API applies a name only to a NEW account.
         ...(displayName === "" ? {} : { displayName }),
       },
     });
@@ -605,8 +646,7 @@ function AddMember({
       setError(apiError(result.error).message);
       return;
     }
-    // A member was created either way; see `AddedNotice`.
-    onAdded({ email, sent: result.data.invitationSent, audience: result.data.audience });
+    onAdded({ email, sent: result.data.invitationSent });
   }
 
   const formId = "add-member";
@@ -616,7 +656,7 @@ function AddMember({
       open
       size="lg"
       onClose={onClose}
-      title="Add somebody"
+      title="Add a colleague"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -660,21 +700,9 @@ function AddMember({
             </Field>
           </FieldRow>
           <FieldRow>
-            <Field label="Signs in to">
-              <Select
-                value={audience}
-                onChange={(e) => {
-                  setAudience(e.target.value);
-                  setRole("");
-                }}
-              >
-                <option value="STAFF">Staff workspace</option>
-                <option value="CLIENT_PORTAL">Client portal</option>
-              </Select>
-            </Field>
             <Field label="Role">
               <Select
-                value={chosenRole}
+                value={role}
                 required
                 onChange={(e) => {
                   setRole(e.target.value);
@@ -703,9 +731,7 @@ function AddMember({
 
           <ErrorNotice error={error} />
 
-          <p className="field-hint">
-            Staff get a sign-in link by email. Invite a client&rsquo;s people from their page.
-          </p>
+          <p className="field-hint">They get a sign-in link by email.</p>
         </FieldStack>
       </form>
     </Dialog>
