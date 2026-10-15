@@ -933,6 +933,14 @@ main:has(> * > .builder-footer) {
 .builder-footer > * {
   flex: 1;
 }
+
+/* THE SHORT LETTER's service rows (2026-10-15): company, fee and how often
+   side by side, wrapping one under another on a phone. */
+.agreed-row-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s-3);
+}
 .builder-footer::before {
   content: "";
   position: absolute;
@@ -2933,12 +2941,4 @@ main:has(> * > .builder-footer) {
     left: var(--s-2);
     width: auto;
   }
-}
-
-/* THE SHORT LETTER's service rows (2026-10-15): company, fee and how often
-   side by side, wrapping one under another on a phone. */
-.agreed-row-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: var(--s-3);
 }
