@@ -204,7 +204,7 @@ export function WorkVsBillingTab({
               {...(s.withProblems > 0 ? { tone: "danger" as const } : {})}
             />
             <Stat
-              label="Done, not billed"
+              label="Due, not billed"
               value={unbilled}
               note={ageNote(s.unbilledAge)}
               {...(unbilled > 0 ? { tone: "warn" as const } : {})}

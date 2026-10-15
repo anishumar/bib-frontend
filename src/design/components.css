@@ -2934,3 +2934,120 @@ main:has(> * > .builder-footer) {
     width: auto;
   }
 }
+
+/* ── Client summary (Invoices) ───────────────────────────────────────────
+   A client's row heads its group on the sunk ground; its services sit
+   indented under it, so the eye reads client, then what it is made of. */
+.cs-table tr[data-client] > td {
+  background: var(--surface-sunk);
+}
+.cs-table tr.cs-line > td:first-child {
+  padding-left: calc(var(--s-6) + var(--s-2));
+}
+.cs-client {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+/* Under the name, not under the toggle: 28px button, less its pull, plus the gap. */
+.cs-client ~ .sub {
+  padding-left: calc(28px - var(--s-1) + var(--s-2));
+}
+.cs-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-left: calc(-1 * var(--s-1));
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.cs-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.cs-toggle .icon {
+  transition: transform var(--dur-fast) var(--ease);
+}
+.cs-toggle[aria-expanded="false"] .icon {
+  transform: rotate(-90deg);
+}
+.cs-table .sub .icon {
+  vertical-align: -2px;
+}
+.cs-spocs {
+  display: grid;
+  gap: var(--s-1);
+}
+.cs-spoc {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.cs-toolbar {
+  align-items: center;
+}
+.cs-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+.cs-sort .select {
+  width: auto;
+}
+.cs-period {
+  display: grid;
+  gap: var(--s-1);
+}
+.cs-period p {
+  margin: 0;
+}
+.cs-how > summary {
+  width: fit-content;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.cs-how > summary + ul {
+  margin-top: var(--s-2);
+  padding-left: var(--s-5);
+  max-width: var(--measure);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+/* On a phone the people and figure columns fold away and one line under each
+   name says what is owed, rather than the money scrolling off the side. */
+.cs-narrow {
+  display: none;
+}
+@media (max-width: 40rem) {
+  .cs-table :is(th, td):not(:first-child) {
+    display: none;
+  }
+  .cs-narrow {
+    display: block;
+  }
+  /* One column left: let it take the width and wrap, not grow past it. */
+  .table.cs-table {
+    min-width: 0;
+    width: 100%;
+  }
+  .cs-table .cell-text[data-size="narrow"] {
+    max-width: none;
+  }
+  .cs-table tr.cs-line > td:first-child {
+    padding-left: var(--s-5);
+  }
+}
+/* A table waiting on a new answer dims, so the old figures are not read as the new ones. */
+.table[aria-busy="true"] tbody {
+  opacity: 0.55;
+  transition: opacity var(--dur) var(--ease);
+}

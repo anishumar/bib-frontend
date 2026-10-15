@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { api, apiError, colleagueLabel, formatMoney } from "@/lib/api/client";
-import type { ClientSummary, ClientSummaryLine, Colleague, PartySummary, SummaryFigures } from "@/lib/api/client";
+import type {
+  ClientSummary,
+  ClientSummaryClient,
+  ClientSummaryLine,
+  Colleague,
+  PartySummary,
+  ServiceAxis,
+  SummaryFigures,
+} from "@/lib/api/client";
 import { browserDay, longDay } from "@/lib/day";
 import { downloadCsv, type CsvCell } from "@/lib/csv";
+import { compareSigned } from "@/lib/money";
 import { Row, Stack } from "@/components/layout";
 import { Empty } from "@/components/states";
 import {
@@ -15,25 +24,31 @@ import {
   ErrorNotice,
   Field,
   FieldRow,
+  Icon,
   NotSet,
+  Pill,
   Select,
   Stat,
   Strip,
-  Sub,
   Table,
   TableWrap,
   Td,
   Th,
 } from "@/components/ui";
+import { DeptChip } from "@/app/catalogue/parts";
 
 type PeriodKey = "default" | "last_fy" | "last_12" | "this_month" | "last_month";
+type SortKey = "overdue" | "pending" | "billed" | "name";
+
+/** Up to this many clients open with their services showing; more start folded. */
+const OPEN_UP_TO = 6;
 
 /**
  * CLIENT SUMMARY: per client and per service, what was billed, what came in and
  * what is still owed, beside the client's Key Manager and the SPOC of each
  * service's Dept. The API adds it up (one invoice for several services is split
- * by each one's share); this file filters and words it. Only offered to a login
- * that sees fees.
+ * by each one's share); this file filters, orders and words it. Only offered to
+ * a login that sees fees.
  */
 export function ClientSummaryTab({
   parties,
@@ -42,13 +57,18 @@ export function ClientSummaryTab({
   parties: readonly PartySummary[];
   colleagues: readonly Colleague[];
 }) {
+  const tableId = useId();
   const [client, setClient] = useState("");
   const [keyManager, setKeyManager] = useState("");
   const [spoc, setSpoc] = useState("");
   const [period, setPeriod] = useState<PeriodKey>("default");
+  const [sort, setSort] = useState<SortKey>("overdue");
+  /** Clients opened or folded by hand; the rest follow `OPEN_UP_TO`. */
+  const [opened, setOpened] = useState<Readonly<Record<string, boolean>>>({});
   /** The firm's financial year, once the API has said; the periods need it. */
   const [fyStart, setFyStart] = useState<number | null>(null);
   const fy = useRef<number | null>(null);
+  const [axes, setAxes] = useState<ServiceAxis[]>([]);
   const [answer, setAnswer] = useState<ClientSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** The filters the shown answer is for: loading while they differ from now. */
@@ -57,6 +77,13 @@ export function ClientSummaryTab({
   const loading = answeredFor !== filters;
   /** The latest ask, so a slow answer to an earlier filter cannot land last. */
   const asked = useRef(0);
+
+  useEffect(() => {
+    void (async () => {
+      const result = await api.GET("/api/v1/tenancy/axes", {});
+      if (result.data) setAxes([...result.data.axes]);
+    })();
+  }, []);
 
   useEffect(() => {
     const ask = ++asked.current;
@@ -87,6 +114,10 @@ export function ClientSummaryTab({
 
   const clients = parties.filter((p) => !p.isOwnCompany);
   const filtered = client !== "" || keyManager !== "" || spoc !== "";
+  const shown = answer === null ? [] : sortClients(answer, sort);
+  const isOpen = (id: string) => opened[id] ?? shown.length <= OPEN_UP_TO;
+  const allOpen = shown.length > 0 && shown.every((c) => isOpen(c.partyId));
+  const services = shown.reduce((n, c) => n + c.lines.length, 0);
 
   return (
     <Stack>
@@ -132,158 +163,279 @@ export function ClientSummaryTab({
             </Select>
           </Field>
         </FieldRow>
-        <Row>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={answer === null || answer.clients.length === 0 || loading}
-            onClick={() => {
-              if (answer !== null) downloadCsv(`client-summary-${answer.from}-to-${answer.to}.csv`, csvRows(answer));
-            }}
-          >
-            Download CSV
-          </Button>
-        </Row>
       </form>
 
       <ErrorNotice error={error} />
 
       {answer !== null && (
         <>
-          {answer.currencies.map((c) => (
-            <Strip key={c.currency}>
-              <Stat label={`Billed${answer.currencies.length > 1 ? ` (${c.currency})` : ""}`} value={money(c.billed, c.currency)} note={invoicesNote(c.invoices)} />
-              <Stat label="Received" value={money(c.received, c.currency)} {...(isZero(c.tds) ? {} : { note: `TDS ${money(c.tds, c.currency)}` })} />
-              <Stat label="Pending" value={money(c.pending, c.currency)} {...(isZero(c.pending) ? {} : { tone: "warn" as const })} />
-              <Stat label="Overdue" value={money(c.overdue, c.currency)} {...(isZero(c.overdue) ? {} : { tone: "danger" as const })} />
-            </Strip>
-          ))}
-          <p className="muted">
-            Billed and received from {longDay(answer.from)} to {longDay(answer.to)}. Pending is what is still owed on{" "}
-            {longDay(answer.asOf)}, whenever it was billed. When one invoice covers several services, its payments are
-            shared by each service&apos;s part of the invoice.
-          </p>
+          {answer.currencies.map((c) => {
+            const owing = clientsWith(answer, c.currency, (f) => f.pending);
+            const late = clientsWith(answer, c.currency, (f) => f.overdue);
+            const suffix = answer.currencies.length > 1 ? ` (${c.currency})` : "";
+            return (
+              <Strip key={c.currency}>
+                <Stat label={`Billed${suffix}`} value={money(c.billed, c.currency)} note={plural(c.invoices, "invoice")} />
+                <Stat
+                  label={`Received${suffix}`}
+                  value={money(c.received, c.currency)}
+                  {...(isZero(c.tds) ? {} : { note: `TDS ${money(c.tds, c.currency)}` })}
+                />
+                <Stat
+                  label={`Pending${suffix}`}
+                  value={money(c.pending, c.currency)}
+                  {...(owing === 0 ? {} : { note: plural(owing, "client"), tone: "warn" as const })}
+                />
+                <Stat
+                  label={`Overdue${suffix}`}
+                  value={money(c.overdue, c.currency)}
+                  {...(late === 0 ? {} : { note: plural(late, "client"), tone: "danger" as const })}
+                />
+              </Strip>
+            );
+          })}
+          <div className="cs-period">
+            <p>
+              <strong>
+                {longDay(answer.from)} to {longDay(answer.to)}
+              </strong>
+              <span className="muted"> · Pending as on {longDay(answer.asOf)}</span>
+            </p>
+            <details className="disclosure cs-how">
+              <summary>How these figures are counted</summary>
+              <ul>
+                <li>Billed and Received are for the period. Billed includes tax, less credit notes.</li>
+                <li>Pending is everything still owed on {longDay(answer.asOf)}, whenever it was billed.</li>
+                <li>When one invoice covers several services, its payments are shared by each service&apos;s part of it.</li>
+                <li>Work not yet billed is on Work vs Billing.</li>
+              </ul>
+            </details>
+          </div>
         </>
       )}
 
       {answer === null ? (
         <p className="muted">{loading ? "Loading…" : ""}</p>
-      ) : answer.clients.length === 0 ? (
+      ) : shown.length === 0 ? (
         <Card>
           <Empty title="Nothing billed or owed" icon="invoices">
             {filtered ? "No client matches these filters in this period." : "No invoice was issued or paid in this period, and nothing is owed."}
           </Empty>
         </Card>
       ) : (
-        <TableWrap>
-          <Table aria-busy={loading}>
-            <thead>
-              <tr>
-                <Th>Client and service</Th>
-                <Th>Key Manager</Th>
-                <Th>SPOC</Th>
-                <Th align="right">Billed</Th>
-                <Th align="right">Received</Th>
-                <Th align="right">Pending</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {answer.clients.map((c) => (
-                <Fragment key={c.partyId}>
-                  <tr data-client={c.partyId}>
-                    <Td>
-                      <span className="cell-text" data-size="narrow">
-                        <strong>
-                          <Link href={`/clients/${c.partyId}` as Route}>{c.name}</Link>
-                        </strong>
-                      </span>
-                      <Sub>
-                        <Link href={`/invoices?tab=work&client=${c.partyId}` as Route}>Month by month</Link>
-                      </Sub>
-                    </Td>
-                    <Td>
-                      <span className="cell-text" data-size="narrow">
-                        {c.keyManager === null ? <NotSet>No Key Manager</NotSet> : c.keyManager.name}
-                      </span>
-                    </Td>
-                    <Td />
-                    <Figures rows={c.totals} strong />
-                  </tr>
-                  {c.lines.map((l) => (
-                    <tr key={`${l.kind}:${l.key}:${l.currency}`} data-line={l.kind}>
-                      <Td style={{ paddingLeft: "var(--s-6)" }}>
-                        <span className="cell-text" data-size="narrow">
-                          {lineName(l)}
-                        </span>
-                        {lineNote(l) !== null && (
-                          <span className="cell-text sub" data-size="narrow">
-                            {lineNote(l)}
+        <Stack>
+          <Row className="cs-toolbar">
+            <span className="muted">
+              {plural(shown.length, "client")}, {plural(services, "service")}
+            </span>
+            <div className="cluster">
+              <label className="cs-sort">
+                <span>Sort</span>
+                <Select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                  <option value="overdue">Most overdue first</option>
+                  <option value="pending">Most pending first</option>
+                  <option value="billed">Most billed first</option>
+                  <option value="name">Name, A to Z</option>
+                </Select>
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-controls={tableId}
+                onClick={() => setOpened(Object.fromEntries(shown.map((c) => [c.partyId, !allOpen])))}
+              >
+                {allOpen ? "Fold all" : "Show all services"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="download" size={16} />}
+                disabled={loading}
+                onClick={() => downloadCsv(`client-summary-${answer.from}-to-${answer.to}.csv`, csvRows(answer))}
+              >
+                Download CSV
+              </Button>
+            </div>
+          </Row>
+          <TableWrap>
+            <Table id={tableId} aria-busy={loading} className="cs-table">
+              <thead>
+                <tr>
+                  <Th>Client and service</Th>
+                  <Th>Key Manager / SPOC</Th>
+                  <Th align="right">Billed</Th>
+                  <Th align="right">Received</Th>
+                  <Th align="right">Pending</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => {
+                  const open = isOpen(c.partyId);
+                  return (
+                    <Fragment key={c.partyId}>
+                      <tr data-client={c.partyId}>
+                        <Td>
+                          <div className="cs-client">
+                            <button
+                              type="button"
+                              className="cs-toggle"
+                              aria-expanded={open}
+                              aria-label={`${open ? "Fold" : "Show"} the services of ${c.name}`}
+                              onClick={() => setOpened((o) => ({ ...o, [c.partyId]: !open }))}
+                            >
+                              <Icon name="chevronDown" size={18} />
+                            </button>
+                            <span className="cell-text" data-size="narrow">
+                              <Link href={`/clients/${c.partyId}` as Route}>{c.name}</Link>
+                            </span>
+                            <ClientState client={c} />
+                          </div>
+                          <span className="sub">
+                            {plural(c.lines.length, "service")} ·{" "}
+                            <Link href={`/invoices?tab=work&client=${c.partyId}` as Route}>Month by month</Link>
                           </span>
-                        )}
-                      </Td>
-                      <Td />
-                      <Td>
-                        <div className="cell-text" data-size="narrow">
-                          <Spocs line={l} />
-                        </div>
-                      </Td>
-                      <Figures rows={[l]} />
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </Table>
-        </TableWrap>
+                          <span className="sub cs-narrow">
+                            {c.keyManager === null ? "No Key Manager" : `KM ${c.keyManager.name}`} · {owedWords(c.totals)}
+                          </span>
+                        </Td>
+                        <Td>
+                          <span className="cell-text" data-size="narrow">
+                            {c.keyManager === null ? <NotSet>No Key Manager</NotSet> : c.keyManager.name}
+                          </span>
+                          <span className="sub">Key Manager</span>
+                        </Td>
+                        <Figures rows={c.totals} strong />
+                      </tr>
+                      {open &&
+                        c.lines.map((l) => (
+                          <tr key={`${l.kind}:${l.key}:${l.currency}`} data-line={l.kind} className="cs-line">
+                            <Td>
+                              <span className="cell-text" data-size="narrow">
+                                {lineName(l)}
+                              </span>
+                              {lineNote(l) !== null && (
+                                <span className="cell-text sub" data-size="narrow">
+                                  {lineNote(l)}
+                                </span>
+                              )}
+                              <span className="sub cs-narrow">
+                                {[spocWords(l), owedWords([l])].filter((x) => x !== null).join(" · ")}
+                              </span>
+                            </Td>
+                            <Td>
+                              <Spocs line={l} axes={axes} />
+                            </Td>
+                            <Figures rows={[l]} />
+                          </tr>
+                        ))}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </Stack>
       )}
     </Stack>
   );
 }
 
-/** The three money cells, one line per currency. */
-function Figures({ rows, strong = false }: { rows: readonly SummaryFigures[]; strong?: boolean }) {
-  const cell = (pick: (f: SummaryFigures) => string, sub?: (f: SummaryFigures) => string | null) => (
-    <Td align="right" className="nowrap">
-      {rows.map((f) => (
-        <div key={f.currency}>
-          {strong ? <strong>{money(pick(f), f.currency)}</strong> : money(pick(f), f.currency)}
-          {sub !== undefined && sub(f) !== null && <Sub>{sub(f)}</Sub>}
-        </div>
-      ))}
-    </Td>
+/** Where the client stands, in a word and a colour: never the colour alone. */
+function ClientState({ client: c }: { client: ClientSummaryClient }) {
+  if (c.totals.some((t) => !isZero(t.overdue))) {
+    return (
+      <Pill dot tone="danger">
+        Overdue
+      </Pill>
+    );
+  }
+  if (c.totals.some((t) => !isZero(t.pending))) {
+    return (
+      <Pill dot tone="warn">
+        Pending
+      </Pill>
+    );
+  }
+  return (
+    <Pill dot tone="ok">
+      Paid up
+    </Pill>
   );
+}
+
+/** The three money cells, one line per currency; nothing owed reads quiet. */
+function Figures({ rows, strong = false }: { rows: readonly SummaryFigures[]; strong?: boolean }) {
+  const amount = (value: string, currency: string) => {
+    const text = money(value, currency);
+    if (isZero(value)) return <span className="muted">{text}</span>;
+    return strong ? <strong>{text}</strong> : text;
+  };
   return (
     <>
-      {cell((f) => f.billed)}
-      {cell(
-        (f) => f.received,
-        (f) => (isZero(f.tds) ? null : `TDS ${money(f.tds, f.currency)}`),
-      )}
-      {cell(
-        (f) => f.pending,
-        (f) => (isZero(f.overdue) ? null : `${money(f.overdue, f.currency)} overdue`),
-      )}
+      <Td align="right" className="nowrap">
+        {rows.map((f) => (
+          <div key={f.currency}>{amount(f.billed, f.currency)}</div>
+        ))}
+      </Td>
+      <Td align="right" className="nowrap">
+        {rows.map((f) => (
+          <div key={f.currency}>
+            {amount(f.received, f.currency)}
+            {!isZero(f.tds) && <span className="sub">TDS {money(f.tds, f.currency)}</span>}
+          </div>
+        ))}
+      </Td>
+      <Td align="right" className="nowrap">
+        {rows.map((f) => (
+          <div key={f.currency}>
+            {amount(f.pending, f.currency)}
+            {!isZero(f.overdue) && (
+              <span className="sub tone-danger">
+                <Icon name="alert" size={14} /> {money(f.overdue, f.currency)} overdue
+              </span>
+            )}
+          </div>
+        ))}
+      </Td>
     </>
   );
 }
 
-function Spocs({ line: l }: { line: ClientSummaryLine }) {
-  if (l.depts.length === 0) return null;
-  const missing = l.depts.filter((d) => !l.spocs.some((s) => s.deptCode === d.code));
+/** Each Dept of the work as its tinted chip (the Catalogue's), with its SPOCs. */
+function Spocs({ line: l, axes }: { line: ClientSummaryLine; axes: readonly ServiceAxis[] }) {
+  if (l.depts.length === 0) return <span className="muted">No Dept</span>;
   return (
-    <>
-      {l.spocs.map((s) => (
-        <span key={`${s.userId}:${s.deptCode}`} className="cell-text" data-size="narrow">
-          {s.name} <span className="muted">({s.deptCode})</span>
-        </span>
-      ))}
-      {missing.map((d) => (
-        <span key={d.code} className="cell-text" data-size="narrow">
-          <NotSet>No SPOC for {d.code}</NotSet>
-        </span>
-      ))}
-    </>
+    <div className="cs-spocs">
+      {l.depts.map((d) => {
+        const people = l.spocs.filter((s) => s.deptCode === d.code);
+        return (
+          <span key={d.code} className="cs-spoc">
+            {axes.length === 0 ? <Pill tone="code">{d.code}</Pill> : <DeptChip axes={axes} code={d.code} />}
+            {people.length === 0 ? <NotSet>No SPOC</NotSet> : <span>{people.map((p) => p.name).join(", ")}</span>}
+          </span>
+        );
+      })}
+    </div>
   );
+}
+
+/** On a phone the figure columns fold away; this line carries what is owed. */
+function owedWords(rows: readonly SummaryFigures[]): string {
+  const owed = rows.filter((f) => !isZero(f.pending));
+  if (owed.length === 0) return "Nothing pending";
+  return owed
+    .map((f) => `Pending ${money(f.pending, f.currency)}${isZero(f.overdue) ? "" : `, ${money(f.overdue, f.currency)} overdue`}`)
+    .join("; ");
+}
+
+function spocWords(l: ClientSummaryLine): string | null {
+  if (l.depts.length === 0) return null;
+  return l.depts
+    .map((d) => {
+      const people = l.spocs.filter((s) => s.deptCode === d.code).map((s) => s.name);
+      return `${d.code} ${people.length === 0 ? "no SPOC" : people.join(", ")}`;
+    })
+    .join(", ");
 }
 
 function lineName(l: ClientSummaryLine): string {
@@ -312,6 +464,39 @@ function lineNote(l: ClientSummaryLine): string | null {
   }
 }
 
+// ── Order ───────────────────────────────────────────────────────────────────
+
+/** The currencies by how many clients use them, so the order follows the main one. */
+function currencyOrder(answer: ClientSummary): string[] {
+  const uses = new Map<string, number>();
+  for (const c of answer.clients) for (const t of c.totals) uses.set(t.currency, (uses.get(t.currency) ?? 0) + 1);
+  return [...uses.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([cur]) => cur);
+}
+
+function sortClients(answer: ClientSummary, sort: SortKey): ClientSummaryClient[] {
+  const byName = (a: ClientSummaryClient, b: ClientSummaryClient) =>
+    a.name.localeCompare(b.name, "en", { sensitivity: "base" });
+  if (sort === "name") return [...answer.clients].sort(byName);
+  const order = currencyOrder(answer);
+  const figure = (c: ClientSummaryClient, cur: string, key: "overdue" | "pending" | "billed"): string =>
+    c.totals.find((x) => x.currency === cur)?.[key] ?? "0";
+  // Ties on overdue go to what is pending, then to the name.
+  const keys: ("overdue" | "pending" | "billed")[] = sort === "overdue" ? ["overdue", "pending"] : [sort];
+  return [...answer.clients].sort((a, b) => {
+    for (const key of keys) {
+      for (const cur of order) {
+        const cmp = compareSigned(figure(b, cur, key), figure(a, cur, key)) ?? 0;
+        if (cmp !== 0) return cmp;
+      }
+    }
+    return byName(a, b);
+  });
+}
+
+function clientsWith(answer: ClientSummary, currency: string, pick: (f: SummaryFigures) => string): number {
+  return answer.clients.filter((c) => c.totals.some((t) => t.currency === currency && !isZero(pick(t)))).length;
+}
+
 function money(amount: string, currency: string): string {
   return formatMoney(amount, currency);
 }
@@ -320,8 +505,8 @@ function isZero(amount: string): boolean {
   return /^-?0*(\.0*)?$/.test(amount.trim());
 }
 
-function invoicesNote(n: number): string {
-  return n === 1 ? "1 invoice" : `${String(n)} invoices`;
+function plural(n: number, word: string): string {
+  return `${String(n)} ${word}${n === 1 ? "" : "s"}`;
 }
 
 // ── The period ──────────────────────────────────────────────────────────────
@@ -330,7 +515,12 @@ function invoicesNote(n: number): string {
 function periodOptions(fyStart: number | null): { key: PeriodKey; label: string }[] {
   return [
     { key: "default", label: fyStart === null ? "Last 12 months" : "This financial year" },
-    ...(fyStart === null ? [] : [{ key: "last_fy" as const, label: "Last financial year" }, { key: "last_12" as const, label: "Last 12 months" }]),
+    ...(fyStart === null
+      ? []
+      : [
+          { key: "last_fy" as const, label: "Last financial year" },
+          { key: "last_12" as const, label: "Last 12 months" },
+        ]),
     { key: "this_month", label: "This month" },
     { key: "last_month", label: "Last month" },
   ];
@@ -363,8 +553,7 @@ function monthStart(year: number, month: number): string {
 
 function dayBefore(day: string): string {
   const [y = 2026, m = 1, d = 1] = day.split("-").map(Number);
-  const prev = new Date(Date.UTC(y, m - 1, d - 1));
-  return prev.toISOString().slice(0, 10);
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 }
 
 // ── The CSV ─────────────────────────────────────────────────────────────────
