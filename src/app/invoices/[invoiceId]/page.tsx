@@ -61,6 +61,8 @@ import { cleanAmount, compareSigned } from "@/lib/money";
 import { MissingMoney, Money, useSeesFees } from "@/components/fees";
 import { keepTyped } from "@/lib/ui/keep-typed";
 import { PART_LABEL, TaxCard, taxParts, treatmentWords } from "./tax";
+import { SendInvoice } from "./send";
+import { EInvoiceForm } from "./einvoice";
 
 /**
  * One invoice: what it says, what has been paid against it, and what is left.
@@ -436,6 +438,18 @@ export default function InvoicePage() {
           <p className="mt-3 text-sm text-muted">Cancelled, so nothing is owed.</p>
         )}
       </Card>
+
+      {/* Email, WhatsApp (coming) and the PDF (0395). Keyed on the status so
+          Issue loads the form for the issued copy. */}
+      <SendInvoice
+        key={`send-${invoice.status}`}
+        invoiceId={invoiceId}
+        number={invoice.number}
+        status={invoice.status}
+        seesFees={seesFees}
+        canSend={permissions.includes("party:write")}
+        onChanged={() => void load()}
+      />
 
       {/* ── What it says about tax (Q056, Q057) ───────────────────────── */}
       {(draft || invoice.tax.treatment !== null || invoice.tax.tds !== null) && (
@@ -919,69 +933,43 @@ export default function InvoicePage() {
           </p>
         )}
 
-        {/* The government registry's identifier. Nothing in this product talks
-            to the IRP: this records an answer obtained elsewhere, exactly as the
-            advance-fee gate records an attestation. */}
+        {/* The government registry's identifier and what came with it (0395).
+            Nothing in this product talks to the IRP: this records an answer
+            obtained elsewhere, exactly as the advance-fee gate records an
+            attestation. */}
         <div>
           <Meta>
             <MetaItem label="IRN">
               {invoice.irn === null ? (
                 <NotSet>Not registered</NotSet>
               ) : (
-                <span className="mono">{invoice.irn}</span>
+                <span className="mono" style={{ wordBreak: "break-all" }}>{invoice.irn}</span>
               )}
             </MetaItem>
+            {invoice.irn !== null && (
+              <>
+                <MetaItem label="Ack No.">{invoice.irnAckNumber ?? <NotSet />}</MetaItem>
+                <MetaItem label="Ack Date">{invoice.irnAckDate ?? <NotSet />}</MetaItem>
+                <MetaItem label="QR code">
+                  {invoice.irnQrRecorded ? "On the invoice" : <NotSet>Not recorded</NotSet>}
+                </MetaItem>
+              </>
+            )}
           </Meta>
-          {invoice.irn === null && (
-            /* Behind a disclosure (Wave 4): recorded once per invoice. */
-            <details style={{ marginTop: "var(--s-3)" }}>
-              <summary>Record the e-invoice reference</summary>
-            <form
-              style={{ marginTop: "var(--s-3)" }}
-              onSubmit={(event) => keepTyped(event, (form) => {
-                return act(() =>
+          {invoice.irn === null && permissions.includes("party:write") && (
+            <EInvoiceForm
+              invoiceNumber={invoice.number}
+              issued={issued}
+              busy={busy}
+              onRecord={(body) =>
+                act(() =>
                   api.POST("/api/v1/invoices/{invoiceId}/irn", {
                     params: { path: { invoiceId } },
-                    body: { irn: String(form.get("irn")) },
+                    body,
                   }),
-                );
-              })}
-            >
-              {/* The button was a CELL of the grid, held down with
-                  `alignSelf: end` so it lined up with an input that has a hint
-                  under it — which it did not, because the hint made the first
-                  cell taller. Out of the grid and into a cluster, it lines up
-                  with itself. */}
-              <FieldStack>
-                <FieldRow>
-                  <Field
-                    label="Record the e-invoice reference"
-                    hint="The IRN from the e-invoice portal. It cannot change later."
-                  >
-                    <Input name="irn" required placeholder="e.g. 7d3c1f0a9b8e…" />
-                  </Field>
-                </FieldRow>
-                <div className="cluster">
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    disabled={busy}
-                    /* SAYS WHAT IT RECORDS. This button sits in the same card
-                       as "Cancel", which VOIDS the invoice and keeps its number
-                       forever, and its own visible word is "Record" — record
-                       what? Somebody moving between buttons by name heard
-                       "Cancel invoice INV/2026-27/0004" and then one bare verb.
-                       The field beside it already carries the full sentence;
-                       the button did not use it. The visible word is
-                       unchanged. */
-                    aria-label={`Record the e-invoice reference for ${invoice.number}`}
-                  >
-                    Record
-                  </Button>
-                </div>
-              </FieldStack>
-            </form>
-            </details>
+                )
+              }
+            />
           )}
         </div>
       </Card>

@@ -1273,6 +1273,7 @@ const IDENTIFIER_TYPES = [
   "email",
   "phone",
   "other",
+  "udyam",
 ] as const satisfies readonly IdentifierType[];
 
 /**
@@ -1296,6 +1297,7 @@ const IDENTIFIER_BOX: Readonly<Record<IdentifierType, { placeholder: string; max
   email: { placeholder: "e.g. accounts@kaverifoods.in", type: "email" },
   phone: { placeholder: "e.g. 98200 12345", type: "tel" },
   other: { placeholder: "e.g. the reference as issued" },
+  udyam: { placeholder: "e.g. UDYAM-DL-06-0004366", maxLength: 19, autoCapitalize: "characters" },
 };
 
 /** A phone as a person reads it ("+91 98200 12345"); anything else as stored. */
@@ -1305,6 +1307,7 @@ function shownValue(i: { type: string; value: string }): string {
 
 /** An identifier type in words: the acronyms in capitals, the rest as words. */
 function identifierWord(type: string): string {
+  if (type === "udyam") return "Udyam (MSME)";
   return type === "email" || type === "phone" || type === "passport" || type === "other"
     ? codeLabel(type)
     : type.toUpperCase();

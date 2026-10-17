@@ -84,8 +84,8 @@ export function TdsCard({ partyId, canWrite }: { partyId: string; canWrite: bool
             }}
           >
             <FieldRow>
-              <Field label="Section" hint="As the Act writes it, e.g. 194J.">
-                <Input name="section" required maxLength={12} defaultValue={tds?.section ?? ""} placeholder="e.g. 194J" />
+              <Field label="Section" hint="As the Act writes it: 194J, or 393(1) Sl6(iii)D(b)-Fees under the 2025 Act.">
+                <Input name="section" required maxLength={40} defaultValue={tds?.section ?? ""} placeholder="e.g. 393(1) Sl6(iii)D(b)-Fees" />
               </Field>
               <Field label="Rate %" hint="e.g. 10.">
                 <AmountInput name="percent" decimals={2} required defaultValue={tds === null ? "" : String(Number(tds.percent))} placeholder="e.g. 10" />

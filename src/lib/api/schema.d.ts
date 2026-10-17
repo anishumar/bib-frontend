@@ -19048,7 +19048,7 @@ export interface paths {
         put?: never;
         /**
          * Record the e-invoice registry's identifier
-         * @description Nothing here talks to the IRP. This records an answer obtained elsewhere — the same shape as the advance-fee attestation. The real connector is T7.1.
+         * @description Nothing here talks to the IRP. This records an answer obtained elsewhere — the same shape as the advance-fee attestation. The real connector is T7.1. Since 0395 the acknowledgement number and time and the signed QR text come with it, in the one write, and an ISSUED invoice's copy is drawn again as a new version carrying them.
          */
         post: {
             parameters: {
@@ -19061,9 +19061,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        irn: string;
-                    };
+                    "application/json": components["schemas"]["RegisterIrnRequest"];
                 };
             };
             responses: {
@@ -19074,6 +19072,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+                /** @description An acknowledgement or QR the IRP could not have returned */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
                     };
                 };
                 /** @description Not signed in */
@@ -19105,6 +19112,166 @@ export interface paths {
                 };
                 /** @description Already registered — the registry's identifier cannot be replaced */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoiceId}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the email form starts with, and the emails sent before
+         * @description To starts with the client's own email, else its first portal contact; `suggestions` are the rest to add. The subject and message are a starting point the person edits. `attachment` is the issued copy that will go; null until one is filed (Send files it). Needs fees: the message names the amount.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The form */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InvoiceEmailCompose"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or the login cannot see fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Email an issued invoice to the client, its issued copy attached
+         * @description From the client's Key Manager by name, replies to them (Q059); else from the issuing company. Recorded only once the mail server has taken it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    invoiceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SendInvoiceEmailRequest"];
+                };
+            };
+            responses: {
+                /** @description Sent */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InvoiceEmail"];
+                    };
+                };
+                /** @description An address, the subject or the message cannot go */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No org selected, the role does not permit it, or the login cannot see fees */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description No such invoice at this firm */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description A draft or a cancelled invoice is not sent */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description This server has no mail transport */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description The mail server did not take it */
+                502: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -27739,7 +27906,7 @@ export interface components {
         };
         AddIdentifierRequest: {
             /** @enum {string} */
-            type: "pan" | "gstin" | "cin" | "llpin" | "tan" | "din" | "uen" | "trn" | "ein" | "crn" | "vat" | "passport" | "email" | "phone" | "other";
+            type: "pan" | "gstin" | "cin" | "llpin" | "tan" | "din" | "uen" | "trn" | "ein" | "crn" | "vat" | "passport" | "email" | "phone" | "other" | "udyam";
             value: string;
             jurisdiction?: string;
             isPrimary?: boolean;
@@ -27967,7 +28134,7 @@ export interface components {
             /** @description How to reach them. At least one email, phone or PAN. */
             identifiers: {
                 /** @enum {string} */
-                type: "pan" | "gstin" | "cin" | "llpin" | "tan" | "din" | "uen" | "trn" | "ein" | "crn" | "vat" | "passport" | "email" | "phone" | "other";
+                type: "pan" | "gstin" | "cin" | "llpin" | "tan" | "din" | "uen" | "trn" | "ein" | "crn" | "vat" | "passport" | "email" | "phone" | "other" | "udyam";
                 value: string;
             }[];
             tradeName?: string;
@@ -29438,6 +29605,8 @@ export interface components {
             pan: string | null;
             phone: string | null;
             email: string | null;
+            companyNumber: components["schemas"]["FirmEntityNumber"];
+            udyam: string | null;
             defaultCurrency: string;
             timeZone: string | null;
             fiscalYearStartMonth: number | null;
@@ -29458,6 +29627,10 @@ export interface components {
             /** @description Stored in E.164; a number without a country code takes the company's. */
             phone?: string | null;
             email?: string | null;
+            /** @description Its company number: the CIN in India, the UEN in Singapore. Printed "Company ID" on its invoices (0395). */
+            companyNumber?: string | null;
+            /** @description Its Udyam (MSME) number, India only, like UDYAM-DL-06-0004366 (0395). */
+            udyam?: string | null;
             /** @description An IANA zone (Asia/Dubai, America/New_York), never an offset. Dates this company's documents. Null = the firm's. Needs the company registered in a country first (COMPANY_NOT_REGISTERED). */
             timeZone?: string | null;
             /** @description 1-12, the month its financial year starts. Null = the firm's. A change applies to invoice numbers drawn after it: a series already started keeps its year (0337). */
@@ -29475,6 +29648,10 @@ export interface components {
             /** @description Stored in E.164; a number without a country code takes the company's. */
             phone?: string | null;
             email?: string | null;
+            /** @description Its company number: the CIN in India, the UEN in Singapore. Printed "Company ID" on its invoices (0395). */
+            companyNumber?: string | null;
+            /** @description Its Udyam (MSME) number, India only, like UDYAM-DL-06-0004366 (0395). */
+            udyam?: string | null;
             /** @description An IANA zone (Asia/Dubai, America/New_York), never an offset. Dates this company's documents. Null = the firm's. Needs the company registered in a country first (COMPANY_NOT_REGISTERED). */
             timeZone?: string | null;
             /** @description 1-12, the month its financial year starts. Null = the firm's. A change applies to invoice numbers drawn after it: a series already started keeps its year (0337). */
@@ -29626,6 +29803,12 @@ export interface components {
             /** @description India's e-invoice reference, as returned by the registry. Null until registered, and unchangeable afterwards — it is the registry's identifier for this document, not ours. */
             irn: string | null;
             irnRegisteredAt: string | null;
+            /** @description The e-invoice acknowledgement number the IRP returned (0395), recorded with the IRN. */
+            irnAckNumber: string | null;
+            /** @description The acknowledgement's time as the IRP prints it, like 2026-09-30 18:16:00 (0395). */
+            irnAckDate: string | null;
+            /** @description Whether the IRP's signed QR is recorded, and so printed on the issued copy (0395). */
+            irnQrRecorded: boolean;
             notes: string | null;
             /**
              * Format: uuid
@@ -29794,6 +29977,60 @@ export interface components {
         };
         SetInvoiceDueDateRequest: {
             dueOn: string | null;
+        };
+        RegisterIrnRequest: {
+            irn: string;
+            ackNumber?: string | null;
+            /** @description As the IRP prints it: 2026-09-30 18:16:00. */
+            ackDate?: string | null;
+            /** @description The IRP's SignedQRCode, drawn as the QR on the invoice. */
+            signedQr?: string | null;
+        };
+        InvoiceEmail: {
+            /** Format: uuid */
+            id: string;
+            to: string[];
+            cc: string[];
+            subject: string;
+            sentBy: {
+                /** Format: uuid */
+                userId: string;
+                displayName: string | null;
+            } | null;
+            sentAt: string;
+        };
+        InvoiceEmailCompose: {
+            sendable: boolean;
+            /** @description Why it cannot be sent yet, in words. */
+            notSendable: string | null;
+            to: string[];
+            subject: string;
+            message: string;
+            suggestions: {
+                email: string;
+                name: string | null;
+                /** @enum {string} */
+                source: "client" | "portal_contact";
+            }[];
+            from: {
+                name: string;
+                email: string | null;
+            };
+            attachment: {
+                /** Format: uuid */
+                documentId: string;
+                /** Format: uuid */
+                versionId: string;
+                filename: string;
+            } | null;
+            sent: components["schemas"]["InvoiceEmail"][];
+        };
+        SendInvoiceEmailRequest: {
+            to: string[];
+            /** @default [] */
+            cc: string[];
+            subject: string;
+            message: string;
         };
         InvoiceSeries: {
             /** Format: uuid */

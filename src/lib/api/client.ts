@@ -1017,6 +1017,11 @@ export type InvoiceRecord =
 export type InvoiceLine = InvoiceRecord["lines"][number];
 export type InvoiceStatus = InvoiceRecord["invoice"]["status"];
 
+/** An issued invoice's email form (0395): its defaults and what was sent. */
+export type InvoiceEmailCompose =
+  paths["/api/v1/invoices/{invoiceId}/email"]["get"]["responses"][200]["content"]["application/json"];
+export type InvoiceEmail = InvoiceEmailCompose["sent"][number];
+
 /**
  * What an invoice still owes: invoiced − paid − credited.
  *

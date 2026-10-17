@@ -615,6 +615,9 @@ interface CompanyNumbers {
   pan?: string | null;
   phone?: string | null;
   email?: string | null;
+  /** Printed "Company ID" and "MSME/Udyam No" on its invoices (0395). */
+  companyNumber?: string | null;
+  udyam?: string | null;
 }
 
 interface NewCompany extends CompanyNumbers {
@@ -707,6 +710,34 @@ function CompanyIdentityFields({
           <Input name="email" type="email" maxLength={254} disabled={disabled} defaultValue={entity?.email ?? ""} placeholder="e.g. office@yourfirm.in" />
         </Field>
       </FieldRow>
+      <FieldRow>
+        <Field
+          label={india ? "Company ID (CIN)" : "Company number"}
+          optional
+          hint="Printed as Company ID on its invoices."
+        >
+          <Input
+            name="companyNumber"
+            maxLength={40}
+            disabled={disabled}
+            autoComplete="off"
+            defaultValue={entity?.companyNumber?.value ?? ""}
+            placeholder={india ? "e.g. U74999DL2016PTC304680" : "e.g. 201912345K"}
+          />
+        </Field>
+        {india && (
+          <Field label="Udyam number" optional hint="The MSME registration, printed on its invoices.">
+            <Input
+              name="udyam"
+              maxLength={40}
+              disabled={disabled}
+              autoComplete="off"
+              defaultValue={entity?.udyam ?? ""}
+              placeholder="e.g. UDYAM-DL-06-0004366"
+            />
+          </Field>
+        )}
+      </FieldRow>
     </>
   );
 }
@@ -743,6 +774,8 @@ function identityChanges(
   if (country === "IN") number("pan", entity?.pan ?? null);
   number("phone", entity?.phone ?? null);
   number("email", entity?.email ?? null);
+  number("companyNumber", entity?.companyNumber?.value ?? null);
+  if (country === "IN") number("udyam", entity?.udyam ?? null);
   return out;
 }
 
